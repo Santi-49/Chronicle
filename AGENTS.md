@@ -90,17 +90,21 @@ Every other decision — architecture, features, UI — should trace back to the
 
 ### Contract-First Development
 
-This is the most important rule. Before implementing any feature that crosses a service boundary:
+Before implementing a feature across a real component boundary:
 
-1. Read `docs/contracts.md`
-2. Define or update the Python Protocol in `packages/contracts/module/interface.py`
-3. Add the corresponding OpenAPI types to `packages/contracts/api/`
-4. Run `make generate-types` to export TypeScript types for the frontend
-5. Only then implement in `services/module/app/implementation.py`
-6. Only then build the frontend against the generated types
+1. Read `docs/contracts.md`.
+2. Define the operation's functionality and input/output/error formats using the
+   boundary's native mechanism: TypeScript for IPC, OpenAPI/Pydantic for HTTP,
+   JSON Schema for portable structured data, or a Python `Protocol` only for an
+   actual in-process module boundary.
+3. Generate derived types where applicable (`make generate-types`).
+4. Implement each side independently against the agreed behavior.
 
-This lets backend and frontend work in parallel from the moment the interface is agreed.
-Never implement a cross-service feature without a contract first.
+Contracts do not define prompts, algorithms, tools, orchestration, retries,
+storage layout, provider choices, defaults, or internal classes. Prefer existing
+library interfaces and schemas; add custom abstractions only after research shows
+they are needed. All repository prompt assets live in `packages/prompts/` as
+Markdown with YAML front matter and are loaded from there.
 
 ### The Backend Is Pre-Built — Don't Reimplement It
 
@@ -220,11 +224,11 @@ in that domain. Do not load all skills at once — load only what the current ta
 
 - **Challenge:** AI Builders Challenge with IBM Bob (BeMyApp / IBM SkillsBuild) — July 2026 theme: *Reimagine Creative Industries with AI*. Submission due **July 31, 2026, 11:59 PM ET** (public GitHub repo + ≤3 min video + SkillsBuild learning activity).
 - **Product:** **Chronicle** — a local-first Electron + React desktop app that watches folders, auto-versions creative files on save, and uses AI to explain what changed between versions, with a hybrid keyword + embeddings search over the history.
-- **Selling point:** the plain-English AI diff of binary creative files ("background navy → teal; tagline removed") + search by meaning — git-grade history with zero designer friction, files never leave the machine.
+- **Selling point:** the plain-English AI diff of binary creative files ("background navy → teal; tagline removed") + search by meaning — git-grade local version storage with zero designer friction. AI inference is API-based through LangChain; BYOK sends required inputs directly to the configured provider.
 - **MVP:** folder watcher (debounced, temp-file-aware) → hash-based version detection → local Asset/Version storage (SQLite, dedup by hash) → AI change summary + tags per version → timeline UI → hybrid search. File types: **PNG/JPG** (design-industry formats like **CAD** are the future roadmap — Word/PDF versioning already exists). UI structure: `docs/desktop/overview.md`.
-- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, and search are all on-device (React → SQLite → local file store), and the app **must run with no Docker and no API connection** (startup offers "Continue local" or login; AI provider/model/key set locally in Settings, encrypted). The template's **FastAPI backend is the control plane — lowest priority, non-essential**: login/auth (pre-built JWT stack), logs, stats, and an optional **AI-inference gateway** (hybrid: bring-your-own-key locally, or route through our service). Module-contract flow applies to gateway/stats endpoints. `apps/landing/` optional if time allows; the template's web/mobile apps and 3D/mobile skills were removed on 2026-07-16 (recoverable from git history).
+- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, cached history, restore, and keyword search are on-device (React → SQLite → local file store). It must run with no Docker or Chronicle backend (startup offers "Continue local" or login). AI summaries and semantic embeddings are API-based through LangChain and require provider connectivity; BYOK credentials are encrypted locally, while the optional gateway routes inference through our service. The FastAPI control plane remains lowest priority and non-essential. Module-contract flow applies to gateway/stats endpoints. `apps/landing/` is optional.
 - **Key constraints:** IBM Bob is the mandatory dev tool and its usage is judged — document it as you go. AI layer via **LangChain, model-agnostic, default classes/methods only**. Code bar: minimal, clear, documented, well structured. AI calls are async, never block the UI; app works offline except AI calls.
 - **Team:** all enrolled students (eligibility confirmed); roster/ownership TBD (open risk).
-- **Deadline milestones:** interfaces (DB schema, AI prompt contract, watcher rules) by Jul 18 · MVP complete Jul 27 · video + README + SkillsBuild by Jul 30 · submit Jul 31.
+- **Deadline milestones:** boundary contracts + initial implementation specifications by Jul 18 · MVP complete Jul 27 · video + README + SkillsBuild by Jul 30 · submit Jul 31.
 
 Full detail: `docs/challenge/CHALLENGE.md`, `VISION.md`, `CONSTRAINTS.md`, `RESEARCH.md`.

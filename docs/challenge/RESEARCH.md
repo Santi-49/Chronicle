@@ -68,7 +68,9 @@ Framing is education + portfolio: "build real-world AI solutions, develop in-dem
 
 ### Relevant Research or Industry Context
 
-Vision-language models now reliably describe differences between two images; local embedding models make on-device semantic search practical. Both are commodity via LangChain — feasibility risk is low, which suits the Feasibility criterion.
+Vision-language models can describe differences between two images, and embedding APIs
+support semantic search through LangChain. Exact provider quality, cost, structured-output
+support, privacy behavior, and orchestration still require testing on the demo asset pack.
 
 ### Past Hackathon Winners (if available)
 
@@ -100,7 +102,7 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 
 ### What to Avoid
 
-- Don't build a cloud/collab product — out of scope, and local-first is a differentiator, not a limitation. Say "your files never leave your machine."
+- Don't build a cloud/collab storage product — out of scope. Say that versions remain local and Chronicle does not upload the library; disclose that configured AI inference sends required inputs to an API provider or the optional gateway.
 - Don't skip or defer the **SkillsBuild learning activity** — a missing certificate invalidates the submission regardless of product quality.
 - Don't under-document IBM Bob usage — a great product with an undocumented Bob workflow loses the criterion that's easiest to score.
 - Don't over-engineer: no custom AI abstractions, no delta storage, no branching.
@@ -123,6 +125,9 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - 2026-07-16 — Hub page read via playwright: official July brief ("help creators work smarter…"); SkillsBuild activity is **per team member**; hub lists a 5th criterion, Real-World Impact; Wildcard is once-only; GitHub Learning Labs exist per theme — hub page
 - 2026-07-16 — OPEN: full July challenge page + FAQ gated behind registration (`#/forbidden`) — register on the hub, then re-check for July-specific requirements, resources, and the exact SkillsBuild activity list — hub page
 - 2026-07-16 — SUPERSEDED (partially): earlier note that Bob research was pending — closed by the two entries above; only the gated July page remains open
-- 2026-07-16 — Team decision: control plane demoted to **lowest priority (non-essential)** — startup offers "Log in / Register" or "Continue local" (default); the whole product must run with no Docker setup and no API connection; AI provider/model/API key configured locally in Settings (encrypted, never sent to backend) — team
+- 2026-07-16 — SUPERSEDED (partially): control plane demoted to **lowest priority (non-essential)** and startup offers "Log in / Register" or "Continue local"; the earlier “no API connection” wording applies to Chronicle's API, not the external provider required for AI — team; clarified 2026-07-17 below
 - 2026-07-16 — Team decision: file-format roadmap after images = **architecture/design-software formats (CAD, e.g. DWG/DXF)**, not PDF/PPTX — Word/PDF versioning already exists (Office/Adobe/cloud drives), while design industries lack a unified VCS; supersedes the Docling/PDF recommendation above — team
 - 2026-07-16 — UI structure defined conceptually (pages, layout, startup flow, feature coverage) in docs/desktop/overview.md — team + session
+- 2026-07-17 — Contract policy clarified: contracts define operation functionality and input/output/error formats, not prompts, algorithms, tools, orchestration, storage layout, provider choices, or internal classes. Prompt assets are centralized under `packages/prompts/` as Markdown with YAML front matter — team
+- 2026-07-17 — AI scope clarified: MVP inference is API-based through LangChain only; “local” means local version storage and desktop-side orchestration, not a local model. BYOK sends required inputs directly to the configured provider; gateway routing remains stretch scope — team
+- 2026-07-17 — OPEN RESEARCH: before implementing AI, test LangChain-native structured output/runnables/tools, a shared Markdown/YAML-front-matter loader, deterministic image/OCR assistance, provider image handling, privacy, cost, and result quality. Prefer library-native facilities; add no custom AI classes unless the tested implementation requires them — team architecture review

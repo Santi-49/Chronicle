@@ -10,9 +10,9 @@
 > `apps/web/` (Next.js SPA), the stale `apps/damm-mobile/` and `thought_process/` leftovers
 > from a previous project, `TODO.md`, and the `.skills/3d/` + `.skills/mobile/` skill groups.
 
-> **Architecture (clarified 2026-07-16):** Chronicle is a **local-first Electron app** — file watching, version storage, and search all happen on-device (Electron → React UI → SQLite → local file storage). The template's **FastAPI backend is used as a control plane**: login/auth (pre-built JWT stack), usage logs, stats, and — hybrid model — an optional **gateway for AI inference** (bring-your-own-key runs the AI call locally from the app; otherwise the call routes through our service). Files themselves never leave the machine; only auth, telemetry, and AI requests cross the wire. The module-contract flow applies to the AI-gateway and stats endpoints.
+> **Architecture (clarified 2026-07-17):** Chronicle is a **local-first storage Electron app** — file watching, version storage, and non-AI history operations happen on-device (Electron → React UI → SQLite → local file storage). AI inference is API-based through LangChain; no local model is planned for the MVP. BYOK calls the configured provider directly from the app, while the optional gateway routes the required AI inputs through our service. Chronicle does not upload the version library as cloud storage, but image content used for inference leaves the device under the selected AI path. The module-contract flow applies to gateway/stats endpoints.
 >
-> **Priority (2026-07-16):** the control plane is **lowest priority — non-essential**. On startup the app offers "Log in / Register" **or "Continue local"** (default); the entire product must work with no Docker setup and no API connection. AI provider, model, and API key are configured locally in Settings (encrypted, never sent to the backend). UI structure: [docs/desktop/overview.md](../desktop/overview.md).
+> **Priority (clarified 2026-07-17):** the control plane is **lowest priority — non-essential**. On startup the app offers "Log in / Register" or "Continue local" (default); capture, cached history, restore, and keyword search work with no Docker or Chronicle API. AI summaries and semantic embeddings require the configured external API through LangChain and queue while offline. Provider, model, and BYOK credentials are configured locally; credentials are encrypted and never sent to Chronicle's backend.
 
 ## 3D / Immersive Elements
 
@@ -69,7 +69,7 @@
 |-----------|-------------|
 | Hackathon starts | July 1, 2026 (contest period opened) |
 | Context defined (this doc) | July 16, 2026 |
-| Contract interfaces defined (DB schema, AI prompt contract, watcher rules) | July 18, 2026 |
+| Boundary contracts + initial implementation specifications defined | July 18, 2026 |
 | MVP feature-complete (watcher, versions, AI diff, timeline, search) | July 27, 2026 |
 | Demo video + README + SkillsBuild activity done | July 30, 2026 |
 | **Submission deadline** | **July 31, 2026, 11:59 PM ET** |

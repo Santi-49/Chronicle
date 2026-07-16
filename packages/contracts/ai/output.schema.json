@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VersionAnnotation",
+  "description": "C3 - input/output contract for one version annotation (spec F4). How an implementation produces this output is intentionally unspecified.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "changes", "tags"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "One plain-English sentence. Diff for v2+, description for v1."
+    },
+    "changes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 },
+      "description": "Specific visual changes, most important first. For a first version: the key visual elements."
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 8,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "maxLength": 30 },
+      "description": "Lowercase keywords (single words or hyphenated) describing content and change."
+    }
+  }
+}

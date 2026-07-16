@@ -9,11 +9,11 @@
 
 ## Hard Rule: Local-First, Backend-Optional
 
-The desktop app **must run with no Docker setup and no API connection**. Everything a user
-(or a judge cloning the repo) needs works with `npm run dev` alone: capture, timeline,
-restore, search, and AI summaries (with their own API key). The control plane only *adds*
-accounts, telemetry, and (stretch) hosted inference — it is the **lowest-priority** part of
-the build and nothing in the UI may depend on it.
+The desktop app **must run with no Docker setup and no Chronicle API connection**.
+`npm run dev` alone provides capture, cached timeline, restore, and keyword search.
+AI summaries and semantic embeddings are API-based through LangChain and require the
+configured provider to be reachable. The control plane only adds accounts, telemetry,
+and stretch hosted inference; no core local-storage workflow depends on it.
 
 ---
 
@@ -22,7 +22,7 @@ the build and nothing in the UI may depend on it.
 ```
 Launch
   │
-  ├─ First run ──→ Welcome screen:  [ Continue local ]   ← default, no account, no network
+  ├─ First run ──→ Welcome screen:  [ Continue local ]   ← default, no account/backend
   │                                 [ Log in / Register ] ← optional (control plane, F1)
   │
   └─ Later runs ─→ straight to Assets (restores previous session state,

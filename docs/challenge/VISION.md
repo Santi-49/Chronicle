@@ -13,7 +13,7 @@ Chronicle's insight: **AI can read binary creative files the way git reads text.
 The unfair advantages:
 - **Zero-friction capture** — no commits, no uploads. Watch a folder; every save becomes a version automatically.
 - **Semantic search over history** — "the version with the blue background", "the pricing slide" — search by meaning, not filename.
-- **Local-first** — versions live on-device and files never leave the machine; the app runs fully without an account or any backend ("Continue local"), and works with any tool the designer already uses (Photoshop, Illustrator, Figma exports…). AI is hybrid: bring your own key (configured in Settings), or — optionally — route inference through our gateway.
+- **Local-first storage** — versions remain on-device; Chronicle never uploads the library to its backend. The app runs without an account and works with any tool the designer already uses. AI inference is API-based through LangChain: BYOK sends the required inputs directly to the configured provider, or the user may optionally route inference through Chronicle's gateway.
 
 ## Target Users
 

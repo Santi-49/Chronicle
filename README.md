@@ -2,8 +2,8 @@
 
 > **Version control for creative files — explained by AI.**
 > Point Chronicle at your working folders; every save becomes a version, and AI writes the
-> "commit message": *"background navy → teal; tagline removed."* Local-first: your files
-> never leave your machine.
+> "commit message": *"background navy → teal; tagline removed."* Local-first: versions
+> stay on your machine; AI inputs go only to the API provider you configure.
 
 Built for the **AI Builders Challenge with IBM Bob** (BeMyApp · IBM SkillsBuild) —
 July 2026 theme: *Reimagine Creative Industries with AI*.
@@ -31,8 +31,10 @@ saves PNG/JPG) and:
 4. **Restores any version without rewriting history** — like `git revert`, a restore is
    just a new version.
 
-Everything runs on-device with no account, no backend, and no Docker — an optional control
-plane adds accounts and usage stats. Roadmap: images first (MVP), then design-industry
+Capture, history, restore, and search run on-device with no account, backend, or Docker.
+AI inference is API-based through LangChain: BYOK calls the configured provider directly,
+while an optional gateway is stretch scope. The control plane adds accounts and usage
+stats. Roadmap: images first (MVP), then design-industry
 formats like **CAD** — Word and PDF already have version history; architecture and product
 design don't.
 
@@ -42,8 +44,9 @@ design don't.
   IBM watsonx/Granite, OpenAI…) is swappable behind one interface, mirroring IBM Bob's own
   multi-model philosophy.
 - Vision-based change summaries + text embeddings for semantic search, both defined by a
-  single shared **prompt contract** used by the app (bring-your-own-key) and the optional
-  backend gateway.
+  shared functional input/output contract used by the app (bring-your-own-key) and the
+  optional backend gateway. Versioned prompt assets live in `packages/prompts/` and may
+  evolve independently for each researched implementation.
 - AI is **always async** — the UI never blocks on a model call; jobs queue offline and run
   when connectivity returns.
 

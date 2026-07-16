@@ -145,7 +145,10 @@ At a hackathon, the team splits up: some people work on infrastructure and API w
 
 ### The solution: agree on the interface, then work in parallel
 
-A **contract** is a Python file that says: *"this is what the backend expects the module to provide."* No implementation — just method names, inputs, and outputs. Once that file exists, both sides can work independently.
+A **contract** states what operation a boundary exposes, what it does, and the
+formats of its inputs, outputs, and errors. It does not choose the algorithm,
+prompt, tools, storage, provider, orchestration, or internal classes. Use the
+native mechanism for the boundary rather than inventing a wrapper.
 
 ### A concrete example
 
@@ -154,25 +157,21 @@ Let's say the hackathon challenge is: **given a recipe ingredient list, suggest 
 **Step 1 — Define the contract** (`packages/contracts/module/interface.py`)
 
 ```python
-from typing import Protocol
-from dataclasses import dataclass
+from typing import Protocol, TypedDict
 
-@dataclass
-class PairingInput:
+class PairingInput(TypedDict):
     user_id: str
     ingredients: list[str]
 
-@dataclass
-class PairingOutput:
+class PairingOutput(TypedDict):
     wines: list[str]
     explanation: str
 
 class ModuleContract(Protocol):
     async def suggest_pairing(self, input: PairingInput) -> PairingOutput: ...
-    async def health(self) -> bool: ...
 ```
 
-This file is written in the first 30 minutes, agreed on by the whole team, and then everyone goes their separate way.
+The team agrees on the operation and I/O, then independently researches and implements each side.
 
 **Step 2 — Module team implements the logic** (`services/module/app/implementation.py`)
 
@@ -182,11 +181,8 @@ from packages.contracts.module.interface import ModuleContract, PairingInput, Pa
 class WinePairingModule:
     async def suggest_pairing(self, input: PairingInput) -> PairingOutput:
         # Call an LLM, run a model, query a database — whatever the challenge needs
-        wines = await call_llm(input.ingredients)
-        return PairingOutput(wines=wines, explanation="Because garlic.")
-
-    async def health(self) -> bool:
-        return True
+        wines = await call_llm(input["ingredients"])
+        return {"wines": wines, "explanation": "Because garlic."}
 ```
 
 The module team can test this in total isolation. They don't need the API to exist.
@@ -197,7 +193,7 @@ The module team can test this in total isolation. They don't need the API to exi
 from packages.contracts.module.interface import ModuleContract, PairingInput
 
 async def get_pairing(module: ModuleContract, user_id: str, ingredients: list[str]):
-    return await module.suggest_pairing(PairingInput(user_id=user_id, ingredients=ingredients))
+    return await module.suggest_pairing({"user_id": user_id, "ingredients": ingredients})
 ```
 
 The API team codes against the Protocol type — they don't care how the module works, just that it satisfies the interface. Python checks this at runtime automatically (no inheritance needed).

@@ -1,8 +1,37 @@
-# Module Contracts
+# Contracts and Implementation Specifications
 
 > See also: [ADR 001 — Module Contract](architecture/adr/001-module-contract.md) · [System Overview](architecture/overview.md) · [Backend Overview](backend/overview.md)
 
 This page explains how challenge-specific logic is wired into the backend without coupling the two teams together.
+
+---
+
+## Chronicle Contract Map (Jul 18 milestone — agree here before implementing)
+
+Chronicle is local-first, so the UI's "backend" is the **Electron main process** (watcher, SQLite, AI jobs) — the renderer talks to it over IPC. That makes C1 the highest-value contract; the FastAPI boundary (C5/C6) is deliberately minimal because the control plane is lowest priority.
+
+A contract defines an operation's functionality and the format of its inputs,
+outputs, errors, and externally observable guarantees. It does **not** define the
+implementation: prompts, algorithms, tools, agents, retries, storage layout,
+provider choices, internal classes, or orchestration remain implementation-owned.
+
+Contract changes require coordinated updates to generated types, compatibility
+tests, migrations, and documentation where relevant. They are not artificially
+restricted to a one-file PR.
+
+| ID | Boundary | Fixes what | Single source of truth | Priority |
+|----|----------|-----------|------------------------|----------|
+| **C1** | Renderer (React) ↔ Main process | IPC channel names + request/response/event types for every feature: folders, assets, timeline, version details, restore, search, AI status/retry, settings, account | `apps/desktop/src/shared/ipc.ts` (one TS file imported by main, preload, and renderer) | **Highest** |
+| **C2** | Persistence behavior | Repository operations and domain data returned to callers. The SQLite DDL is an implementation specification, not a public contract. | Contract to be defined with the versioning implementation; implementation at `apps/desktop/src/main/db/schema.sql` | High |
+| **C3** | App ↔ AI functionality | Annotation and embedding operation functionality plus typed inputs/outputs. Prompts and pipelines may differ between implementations. | `packages/contracts/ai/` (`interface.ts` + `output.schema.json`) | High |
+| **C4** | Filesystem ↔ watcher | Candidate-evaluation input/output, rejection reasons, supported formats, settle guarantee, and size cap. Globs, regexes, event handling, and debounce algorithms are implementation details. | `apps/desktop/src/main/watcher/rules.ts` | High |
+| **C5** | Everything ↔ settings | Typed settings read/write data and the security guarantee that secrets never enter the renderer-visible settings object. Defaults and supported-provider discovery are implementation policy. | `apps/desktop/src/shared/settings.ts` | High |
+| **C6** | App ↔ control-plane API | **Minimal:** only `POST /telemetry/events` (batch) + `GET/PUT /account/config` on top of the pre-built auth endpoints → `make generate-types` when implemented | `packages/contracts/api/` (planned shapes in `PLANNED.md` → OpenAPI → generated TS) | Low |
+| **C7** | Backend ↔ module | Optional gateway operations and Python input/output formats. Its implementation need not mirror the desktop-side AI pipeline. | `packages/contracts/module/interface.py` | Stretch |
+
+Prompt assets live only in `packages/prompts/` as Markdown with YAML front matter.
+Every process that uses a repository prompt loads it from there. Prompt revisions are
+implementation experiments unless they change a contract's input or output format.
 
 ---
 
@@ -12,7 +41,10 @@ A hackathon starts with unknown requirements. The infrastructure team (auth, RBA
 
 ## The Solution
 
-A **contract** is a Python `Protocol` class that lives in `packages/contracts/module/interface.py`. It defines exactly what the backend expects from the module — method names, argument types, return types. The backend imports the Protocol; the module implements it. The two teams converge only at this interface.
+Use the native contract mechanism for each real boundary: TypeScript types for IPC,
+JSON Schema for portable structured data, OpenAPI/Pydantic for HTTP, and a Python
+`Protocol` only when the backend actually needs an in-process callable boundary.
+Prefer schemas and library-native interfaces over custom wrapper classes.
 
 ---
 
@@ -23,25 +55,22 @@ A **contract** is a Python `Protocol` class that lives in `packages/contracts/mo
 Fill in `packages/contracts/module/interface.py`:
 
 ```python
-from typing import Protocol
-from dataclasses import dataclass
+from typing import Protocol, TypedDict
 
-@dataclass
-class ProcessInput:
+class ProcessInput(TypedDict):
     user_id: str
     payload: dict
 
-@dataclass
-class ProcessOutput:
+class ProcessOutput(TypedDict):
     result: dict
     confidence: float
 
 class ModuleContract(Protocol):
     async def process(self, input: ProcessInput) -> ProcessOutput: ...
-    async def health(self) -> bool: ...
 ```
 
-Both teams agree on this file. It is the single source of truth.
+Both teams agree on the operation's functionality and I/O. The module team remains
+free to research and change how the result is produced.
 
 ### Step 2 — Module team implements
 
@@ -52,10 +81,7 @@ from packages.contracts.module.interface import ModuleContract, ProcessInput, Pr
 class ChallengeModule:
     async def process(self, input: ProcessInput) -> ProcessOutput:
         # challenge-specific logic here
-        return ProcessOutput(result={}, confidence=1.0)
-
-    async def health(self) -> bool:
-        return True
+        return {"result": {}, "confidence": 1.0}
 ```
 
 ### Step 3 — Backend team consumes
@@ -65,7 +91,7 @@ class ChallengeModule:
 from packages.contracts.module.interface import ModuleContract, ProcessInput
 
 async def run(module: ModuleContract, user_id: str, payload: dict):
-    result = await module.process(ProcessInput(user_id=user_id, payload=payload))
+    result = await module.process({"user_id": user_id, "payload": payload})
     return result
 ```
 

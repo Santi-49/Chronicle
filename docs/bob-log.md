@@ -12,5 +12,5 @@ Format: `date · member · what Bob did · feature/PR`.
 
 - BobShell recipes checked into the repo (self-documenting workflows: scaffold, test, release).
 - Bobalytics screenshots showing contribution tracking across the SDLC.
-- Literate Coding sessions for the watcher rules and AI prompt contract.
+- Literate Coding sessions for watcher behavior, AI I/O contracts, and prompt experiments.
 - Bob's built-in vulnerability/secrets scan before submission.

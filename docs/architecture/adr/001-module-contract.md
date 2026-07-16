@@ -1,6 +1,6 @@
 # ADR 001 — Module Contract
 
-**Status:** Accepted  
+**Status:** Amended 2026-07-17
 **Context:** [System Overview](../overview.md) · [Module Contracts](../../contracts.md)
 
 ---
@@ -11,16 +11,21 @@ In a hackathon, the challenge is unknown until it is presented. The team needs t
 
 ## Decision
 
-Isolate all challenge-specific logic inside `services/module/`. The backend (`services/api/`) communicates with this module exclusively through a Python `Protocol` class defined in `packages/contracts/module/interface.py`.
+If the optional gateway requires an in-process module boundary, the backend
+communicates with it through the Python `Protocol` in
+`packages/contracts/module/interface.py`. The contract defines operation
+functionality and input/output formats only. Prompts, models, tools, algorithms,
+orchestration, storage, and implementation classes remain module-owned.
 
-The contract is established before the challenge is known (it is a placeholder at template creation time) and filled in once the challenge is announced.
+Do not introduce or expand the Protocol speculatively. Prefer OpenAPI/Pydantic for
+the HTTP boundary and library-native interfaces inside the implementation.
 
 ## Consequences
 
 **Good:**
 - Backend team and module team can work in parallel from Day 1.
-- The API surface exposed to the frontend never changes shape when module logic changes.
-- The module can be swapped or extended without touching auth, RBAC, or routing code.
+- The API surface exposed to the frontend need not change when module logic changes.
+- The module implementation can change without changing agreed operation formats.
 - The contract file (`interface.py`) doubles as a communication tool — it makes the expected interface explicit and reviewable.
 
 **Neutral:**

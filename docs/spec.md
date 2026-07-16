@@ -2,13 +2,13 @@
 
 > **Status:** agreed 2026-07-16. This is the "same direction" document — read it before building anything.
 > It defines **what** we build and **with which tools**, not **how** (no implementation here).
-> Next step after this doc: contracts (DB schema, AI prompt contract, API types) → task board → self-assignment.
+> Next step after this doc: boundary contracts and implementation research → task board → self-assignment.
 
 ---
 
 ## 1. What We're Building (one paragraph)
 
-**Chronicle** is a desktop app for designers. You point it at the folders where you work; every time you save an image (PNG/JPG in the MVP), Chronicle silently records that save as a **version** — like git commits, but automatic. An AI then writes the "commit message" for you: a plain-English summary of what changed ("background navy → teal; tagline removed") plus tags. The app shows each file's full version timeline, lets you **restore** any old version, and lets you **search your history by meaning** ("the one with the blue background"). Files never leave your machine, and the app **runs fully without Docker and without any API connection** — an optional backend adds accounts, usage stats, and (stretch) hosted AI calls, but nothing depends on it. Roadmap after images: design-industry formats like **CAD** — Word/PDF versioning already exists; architecture and product design have no unified version control.
+**Chronicle** is a desktop app for designers. You point it at the folders where you work; every time you save an image (PNG/JPG in the MVP), Chronicle silently records that save as a **version** — like git commits, but automatic. An AI then writes the "commit message" for you: a plain-English summary of what changed ("background navy → teal; tagline removed") plus tags. The app shows each file's full version timeline, lets you **restore** any old version, and lets you **search your history by meaning** ("the one with the blue background"). Version storage stays on-device, and capture/history/restore work without Docker or an API connection. AI inference is API-based through LangChain: the BYOK path sends the required inputs directly to the provider configured by the user, while an optional backend gateway is stretch scope. Roadmap after images: design-industry formats like **CAD** — Word/PDF versioning already exists; architecture and product design have no unified version control.
 
 ---
 
@@ -49,7 +49,7 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 
 | Concern | Choice |
 |---|---|
-| Contracts | Python `Protocol` (`packages/contracts/module/`) + OpenAPI → generated TS types (`make generate-types`). **Never hand-write API types.** |
+| Contracts | Boundary operations and data formats mapped in [contracts.md](contracts.md): IPC · persistence behavior · AI I/O · watcher decisions · settings · control-plane OpenAPI · optional module `Protocol`. SQLite DDL, prompts, algorithms, provider choices, and orchestration are implementation specifications, not contracts. |
 | Testing | **Vitest** for desktop logic (hashing, version rules, search ranking) · **pytest** for backend (already 32 tests) |
 | Lint/format | **ESLint + Prettier** (TS) · **Ruff** (Python) |
 | Dev tool | **IBM Bob** — mandatory, judged. Every member logs usage in [bob-log.md](bob-log.md) |
@@ -62,7 +62,12 @@ LangChain has a JavaScript version and a Python version. We use **both**, one pe
 - **In the app (MVP):** LangChain.js makes the AI call directly with the user's own API key ("bring your own key" / BYOK). The key is stored encrypted on the user's machine and **never sent to our backend**.
 - **In the backend (stretch):** LangChain Python behind a gateway endpoint, for users without a key.
 
-Both sides implement the **same prompt contract** (one shared spec file in `packages/contracts/` — defined at the contracts milestone), so the AI behaves identically regardless of path.
+There is no local-model path in the MVP. “Local” refers to local storage and local
+orchestration; inference uses an external API through LangChain.
+
+Both sides satisfy the **same functional input/output contract**. They may use different
+prompts, tools, or orchestration. Repository prompt assets live in `packages/prompts/`
+as Markdown with YAML front matter and are loaded from there rather than embedded in code.
 
 ---
 
@@ -93,11 +98,11 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
 
 ### F1 — Accounts & sign-in `Low` (control plane — optional)
 
-- On first launch the app offers two paths: **"Continue local"** (default — no account, no network, fully functional forever) or **"Log in / Register"** (against our backend).
+- On first launch the app offers two paths: **"Continue local"** (default — no account or Chronicle backend) or **"Log in / Register"** (against our backend). The configured AI provider still requires network connectivity.
 - An account can be linked later from Settings; signing in never gates a local feature — it only enables telemetry (F8) and the gateway option (F9).
 - If signed in: the session persists across restarts; token refresh is automatic (pre-built stack). Signing in requires internet **once**; after that everything except AI calls and telemetry works offline (those queue — see F4/F8).
-- **Hard rule:** the app runs with **no Docker setup and no API connection** — the whole MVP is developable and demoable without ever starting the backend.
-- **Done when:** fresh install → "Continue local" → capture, timeline, restore, and search all work with no network and no backend running; register later from Settings → telemetry starts flowing; close and reopen → state (local or signed-in) is remembered.
+- **Hard rule:** the app runs with **no Docker setup and no Chronicle API connection**. Capture, cached timeline, restore, and keyword search remain usable offline; AI summaries and semantic indexing queue until their configured API is reachable.
+- **Done when:** fresh install → "Continue local" → capture, timeline, restore, and keyword search work with no backend; configure an AI provider → queued summaries and embeddings run through its API; register later from Settings → telemetry starts flowing.
 
 ### F2 — Tracked folders `MVP`
 
@@ -129,7 +134,7 @@ The heart of the product. Exact rules:
 - The version's AI status is visible in the UI: *pending → done* or *failed (retry button)*.
 - **The UI never waits for AI.** Versions appear instantly; the summary fills in when ready.
 - **Offline rule:** jobs queue and run automatically when connectivity returns.
-- The exact prompt wording and output schema are fixed in the **AI prompt contract** (contracts milestone, Jul 18) — one shared spec used by both the app (BYOK) and the gateway.
+- The AI input/output format is fixed by C3. Prompt wording and orchestration are versioned implementation assets in `packages/prompts/` and evolve through research and testing.
 - **Done when:** save a change → summary appears within seconds, correctly describing an obvious edit (color change, removed text); airplane-mode save → version shows "pending", summary arrives after reconnect.
 
 ### F5 — Timeline & version details `MVP`
@@ -137,7 +142,7 @@ The heart of the product. Exact rules:
 - **Assets screen:** every tracked image with thumbnail, name, version count, last-change summary.
 - **Timeline screen:** one asset's versions newest-first, each with thumbnail, version number, date, AI summary.
 - **Details screen:** full preview, complete AI output (summary, changes, tags), metadata, and the **Restore** button.
-- Keyboard-navigable; works fully offline.
+- Keyboard-navigable; cached history and metadata work offline.
 - **Done when:** a teammate who has never seen the app finds "what changed between v3 and v4" without help.
 
 ### F6 — Restore (rollback) `MVP`
@@ -166,7 +171,7 @@ The heart of the product. Exact rules:
 
 ### F9 — AI-inference gateway `Stretch`
 
-- Backend endpoint that proxies the F4/F7 AI calls for users without their own key, implemented in `services/module/` behind the module contract, using the **same prompt contract** as the app.
+- Backend endpoint that proxies the F4/F7 AI calls for users without their own key, implemented in `services/module/` behind the same functional input/output contract as the app. Its prompts and orchestration may differ.
 - The app gets a provider setting: *"my own key"* (default, MVP) or *"Chronicle service"*.
 - **Done when:** deleting the local API key and switching the setting still produces summaries.
 
@@ -182,7 +187,8 @@ Non-image formats (CAD is the *next* target, not the MVP; Word/PDF are permanent
 
 ## 5. Data at a Glance (entities, not schema)
 
-The exact SQLite schema is a contracts-milestone deliverable (Jul 18). The entities and their meaning are fixed now:
+The persistence behavior and domain data are contract-milestone deliverables. The exact
+SQLite schema remains implementation-owned and evolves through migrations:
 
 | Entity | Means | Key facts it holds |
 |---|---|---|
@@ -201,7 +207,7 @@ Backend keeps only: **User** (pre-built), **Account config** (JSON blob per user
 
 Rules for everyone, regardless of experience level:
 
-1. **Contract-first.** Anything that crosses a boundary (app ↔ backend, backend ↔ module, prompt ↔ model) gets its contract agreed **before** implementation. Contracts live in `packages/contracts/`; API types are generated (`make generate-types`), never hand-written.
+1. **Contract-first at real boundaries.** Agree on operation functionality and input/output/error formats before independent components integrate. Prompts, databases, algorithms, and internal module structure are not contracts. API types are generated (`make generate-types`), never hand-written.
 2. **Everything through PRs.** Branch from `main` (`feat/…`, `fix/…`, `docs/…`), keep PRs small (one feature slice, ideally < ~300 lines), at least **one review** before merge. Nobody pushes to `main` directly.
 3. **Definition of done** for any PR: typecheck + tests pass · generated types regenerated if the API changed · relevant doc updated if behavior changed · a line added to [bob-log.md](bob-log.md) describing how IBM Bob was used.
 4. **Minimal code, library defaults.** No custom wrappers around LangChain, no clever abstractions. If a library does it, use the library's way. Under time pressure, boring beats elegant.
@@ -228,7 +234,7 @@ Rules for everyone, regardless of experience level:
 
 | # | Risk | Impact | Mitigation |
 |---|---|---|---|
-| 1 | **AI diff quality** — the demo's core beat produces a vague or wrong summary | Kills the wow moment | Lock the prompt contract early; test on the exact demo images from day 1; structured output with validation; pick the strongest vision model as default |
+| 1 | **AI diff quality** — the demo's core beat produces a vague or wrong summary | Kills the wow moment | Keep the output contract stable while iterating on prompts, tools, deterministic analysis, and models against the exact demo images from day 1 |
 | 2 | **Native module pain** — better-sqlite3 must be compiled for Electron; Windows needs build tools | Team members stuck on setup | Pin all versions; one person owns the scaffold and documents setup; fallback exists (WASM SQLite) if rebuilds fight us |
 | 3 | **Watcher edge cases** — real editors (Photoshop et al.) write temp files, partial writes, atomic renames | Duplicate/missed versions in the live demo | The 2-second settle rule + ignore patterns; test with the actual editor used in the video, early |
 | 4 | **Cloud-synced folders** (OneDrive/Dropbox) behave oddly with watchers | Flaky demo | Demo on a plain local folder; note the limitation |
