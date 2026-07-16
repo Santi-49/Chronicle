@@ -3,7 +3,7 @@
 ## Apps in Scope
 
 - [x] `apps/desktop/` — **Electron + React desktop app — this is the product.**
-- [x] `services/api/` + `services/module/` — **backend as control plane** (see below)
+- [x] `services/api/` + `services/module/` — **backend as control plane** — *lowest priority, non-essential* (see below)
 - [ ] `apps/landing/` — Landing page (Astro → Cloudflare Pages) — *kept in repo; build only if time allows for a marketing page*
 
 > Removed 2026-07-16 to cut distractions (recoverable from git history): the template's
@@ -11,6 +11,8 @@
 > from a previous project, `TODO.md`, and the `.skills/3d/` + `.skills/mobile/` skill groups.
 
 > **Architecture (clarified 2026-07-16):** Chronicle is a **local-first Electron app** — file watching, version storage, and search all happen on-device (Electron → React UI → SQLite → local file storage). The template's **FastAPI backend is used as a control plane**: login/auth (pre-built JWT stack), usage logs, stats, and — hybrid model — an optional **gateway for AI inference** (bring-your-own-key runs the AI call locally from the app; otherwise the call routes through our service). Files themselves never leave the machine; only auth, telemetry, and AI requests cross the wire. The module-contract flow applies to the AI-gateway and stats endpoints.
+>
+> **Priority (2026-07-16):** the control plane is **lowest priority — non-essential**. On startup the app offers "Log in / Register" **or "Continue local"** (default); the entire product must work with no Docker setup and no API connection. AI provider, model, and API key are configured locally in Settings (encrypted, never sent to the backend). UI structure: [docs/desktop/overview.md](../desktop/overview.md).
 
 ## 3D / Immersive Elements
 
@@ -23,7 +25,7 @@
 - Version capture must feel instant: debounce ~2s after last write, hash + store < 1s for typical files.
 - AI summaries are generated async — the UI never blocks on the AI API.
 - Core capture/timeline/search fully functional offline; AI summaries, embeddings, and control-plane sync (auth, logs, stats) queue and backfill when online.
-- Handle files up to ~50 MB (PPTX/PDF) without freezing the UI (hashing/IO off the main process).
+- Handle files up to ~50 MB without freezing the UI (hashing/IO off the main process) — headroom for future large design files (CAD).
 
 ## Device & Platform Targets
 
@@ -41,7 +43,7 @@
 | IBM SkillsBuild | Required learning activity for submission | Free |
 | **LangChain (model-agnostic)** | AI layer for version comparison, summaries, tags, embeddings. Use LangChain's **default classes and methods** — no unnecessary custom wrappers. Provider is swappable (watsonx/Granite, Claude, etc. behind the same interface) | Library free; API cost per provider |
 | Embeddings + keyword index | **Hybrid search** — keyword over AI summaries/tags + local vector index for meaning-based queries | Via LangChain defaults |
-| IBM Docling (library, local) | Future: parse PDF/PPTX when those formats are added | Open source, free |
+| CAD preview tooling (future) | Render design-software formats (e.g. DWG/DXF) to comparable previews when CAD support is added — the roadmap step after images | TBD (open-source converters exist) |
 
 > **Code quality bar (team decision, 2026-07-16):** easy to maintain, minimal code, clear, documented, well structured. Prefer library defaults over new abstractions.
 

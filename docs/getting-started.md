@@ -25,7 +25,7 @@ The backend and the frontend never talk to each other's internals. They communic
 
 > This is the one thing an AI cannot do for you. Do it before writing any code.
 
-The `docs/challenge/` folder has four files. They start empty. They need to describe *your* specific hackathon:
+The `docs/challenge/` folder has four files. For this project they are **already filled in** for the AI Builders Challenge (Chronicle) — keep them updated as things change:
 
 | File | What goes in it |
 |---|---|
@@ -36,7 +36,7 @@ The `docs/challenge/` folder has four files. They start empty. They need to desc
 
 **Why this matters:** every team using AI will have a basic solution. What makes your solution different lives entirely in these files. Claude reads them at the start of every session — if they're empty, it doesn't know what problem you're solving.
 
-Fill them in together as a team during the kickoff, then update as you learn more. The files themselves explain what to write in each section.
+They were filled in at kickoff (2026-07-16) — update them as you learn more, especially `RESEARCH.md` before major design decisions.
 
 ---
 
@@ -46,7 +46,7 @@ Fill them in together as a team during the kickoff, then update as you learn mor
 
 ```bash
 # 1. Clone
-git clone <repo-url> && cd hackathon-template
+git clone <repo-url> && cd AI-Builders-Bob
 
 # 2. Configure
 cp .env.example .env
@@ -109,9 +109,7 @@ This project has skills for:
 | Domain | When it's used |
 |---|---|
 | `design/ui-ux-pro-max` | Any visual design decision — color, typography, component patterns |
-| `animation/gsap-*` | GSAP animations in the landing page or web app |
-| `3d/*` | Three.js, React Three Fiber, or Spline work |
-| `mobile/*` | Expo navigation, data fetching, native modules, Three.js in Expo |
+| `animation/gsap-*` | GSAP animations in the landing page or the desktop app's renderer |
 
 You don't invoke them manually for the most part. The main exception is when you want to steer a design decision — you can ask Claude to search the design database explicitly:
 
@@ -229,7 +227,7 @@ When you need a new resource (say, a `/pairings` endpoint):
 4. **Backend** — add one line to `infra/opa/policies/roles.rego` for authorization
 5. **Backend** — run `make makemigration MSG="add pairings table"` if you need a new table
 6. **Everyone** — run `make generate-types` so the frontend gets updated types
-7. **Frontend/Mobile** — import the new types and build
+7. **Desktop app** — import the new types and build
 
 ---
 
@@ -250,9 +248,10 @@ make test                            # run the test suite
 
 | You're working on | Read |
 |---|---|
-| Backend routes and auth | [docs/backend/overview.md](docs/backend/overview.md) |
-| Challenge module logic | [docs/contracts.md](docs/contracts.md) |
+| The team spec (stack, rules, MVP scope) | [spec.md](spec.md) — **read before building anything** |
+| Backend routes and auth | [backend/overview.md](backend/overview.md) |
+| Challenge module logic | [contracts.md](contracts.md) |
 | Desktop app | `apps/desktop/` — run `npm install && npm run dev` |
-| Authorization / roles | [docs/backend/rbac.md](docs/backend/rbac.md) |
-| Database / migrations | [docs/backend/database.md](docs/backend/database.md) |
-| System architecture | [docs/architecture/overview.md](docs/architecture/overview.md) |
+| Authorization / roles | [backend/rbac.md](backend/rbac.md) |
+| Database / migrations | [backend/database.md](backend/database.md) |
+| System architecture | [architecture/overview.md](architecture/overview.md) |

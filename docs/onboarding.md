@@ -22,7 +22,7 @@ Get the full stack running locally in under 10 minutes.
 
 ```bash
 git clone <repo-url>
-cd hackathon-template
+cd AI-Builders-Bob
 cp .env.example .env
 ```
 

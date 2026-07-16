@@ -1,7 +1,8 @@
-# Hackathon Template — Agent Guide
+# Chronicle — Agent Guide
 
-This is a production-grade monorepo hackathon starter. The backend (auth, RBAC, JWT, DB) is
-fully implemented. Your job is to build the challenge-specific logic and the frontend apps.
+This repo builds **Chronicle** on a production-grade monorepo hackathon starter. The backend
+(auth, RBAC, JWT, DB) is fully implemented. The work is the desktop app, the challenge-specific
+logic, and the control-plane endpoints.
 
 ---
 
@@ -66,18 +67,22 @@ After researching, update `docs/challenge/RESEARCH.md` with:
 
 ```
 docs/
+  spec.md              ← TEAM SPEC: tech stack, best practices, MVP functionality — read before building
+  bob-log.md           ← IBM Bob usage log — every PR adds a line (judged artifact)
   challenge/           ← START HERE before touching any code
     CHALLENGE.md       ← problem statement, rules, data, judging criteria
     VISION.md          ← solution concept, philosophy, key features, demo script
     CONSTRAINTS.md     ← scope, team, timeline, external services, design language
   architecture/        ← system design, service map, request flow
   backend/             ← API reference, auth, RBAC, database schema
+  desktop/             ← desktop app: UI pages, layout, startup flow, feature coverage
   contracts.md         ← module contract system (read before touching services/)
   index.md             ← docs entry point
 ```
 
-The `docs/challenge/` folder is the source of truth for what is being built and why.
-Every other decision — architecture, features, UI — should trace back to it.
+The `docs/challenge/` folder is the source of truth for what is being built and why;
+`docs/spec.md` is the source of truth for stack, working rules, and MVP feature scope.
+Every other decision — architecture, features, UI — should trace back to them.
 
 ---
 
@@ -103,7 +108,7 @@ Auth (JWT + Redis whitelist), RBAC (OPA), user CRUD, token refresh, and logout a
 See `docs/backend/` for full reference. Extend the system by:
 - Adding challenge logic to `services/module/`
 - Adding new OPA policies to `infra/opa/policies/` for new resources
-- Adding new routes to `services/api/app/routes/`
+- Adding new routes to `services/api/app/api/v1/endpoints/`
 
 ### Monorepo Layout
 
@@ -131,7 +136,7 @@ make dev                  # docker compose up --build (all services)
 make stop                 # docker compose down
 make migrate              # alembic upgrade head
 make makemigration MSG="" # generate a new Alembic migration
-make test                 # pytest — no Docker needed
+make test                 # pytest with coverage (in Docker); make test-local runs it directly
 make generate-types       # OpenAPI spec → TypeScript types
 ```
 
@@ -179,7 +184,7 @@ Full browser automation. Use for:
 
 Runs commands inside a running Docker Compose service.
 **Always pass the `service` parameter** — the default (`laravel_app_dev`) does not exist in this project.
-Valid service names come from `docker-compose.yml` (e.g. `api`, `module`, `postgres`, `redis`).
+Valid service names come from `docker-compose.yml`: `api`, `postgres`, `redis`, `opa` (there is no `module` container — the module is imported in-process by `api`).
 
 ```
 # example
@@ -216,8 +221,8 @@ in that domain. Do not load all skills at once — load only what the current ta
 - **Challenge:** AI Builders Challenge with IBM Bob (BeMyApp / IBM SkillsBuild) — July 2026 theme: *Reimagine Creative Industries with AI*. Submission due **July 31, 2026, 11:59 PM ET** (public GitHub repo + ≤3 min video + SkillsBuild learning activity).
 - **Product:** **Chronicle** — a local-first Electron + React desktop app that watches folders, auto-versions creative files on save, and uses AI to explain what changed between versions, with a hybrid keyword + embeddings search over the history.
 - **Selling point:** the plain-English AI diff of binary creative files ("background navy → teal; tagline removed") + search by meaning — git-grade history with zero designer friction, files never leave the machine.
-- **MVP:** folder watcher (debounced, temp-file-aware) → hash-based version detection → local Asset/Version storage (SQLite, dedup by hash) → AI change summary + tags per version → timeline UI → hybrid search. File types: **PNG/JPG** (PDF/PPTX are future).
-- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, and search are all on-device (React → SQLite → local file store). The template's **FastAPI backend serves as the control plane**: login/auth (pre-built JWT stack), logs, stats, and an optional **AI-inference gateway** (hybrid: bring-your-own-key locally, or route through our service). Module-contract flow applies to gateway/stats endpoints. `apps/landing/` optional if time allows; the template's web/mobile apps and 3D/mobile skills were removed on 2026-07-16 (recoverable from git history).
+- **MVP:** folder watcher (debounced, temp-file-aware) → hash-based version detection → local Asset/Version storage (SQLite, dedup by hash) → AI change summary + tags per version → timeline UI → hybrid search. File types: **PNG/JPG** (design-industry formats like **CAD** are the future roadmap — Word/PDF versioning already exists). UI structure: `docs/desktop/overview.md`.
+- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, and search are all on-device (React → SQLite → local file store), and the app **must run with no Docker and no API connection** (startup offers "Continue local" or login; AI provider/model/key set locally in Settings, encrypted). The template's **FastAPI backend is the control plane — lowest priority, non-essential**: login/auth (pre-built JWT stack), logs, stats, and an optional **AI-inference gateway** (hybrid: bring-your-own-key locally, or route through our service). Module-contract flow applies to gateway/stats endpoints. `apps/landing/` optional if time allows; the template's web/mobile apps and 3D/mobile skills were removed on 2026-07-16 (recoverable from git history).
 - **Key constraints:** IBM Bob is the mandatory dev tool and its usage is judged — document it as you go. AI layer via **LangChain, model-agnostic, default classes/methods only**. Code bar: minimal, clear, documented, well structured. AI calls are async, never block the UI; app works offline except AI calls.
 - **Team:** all enrolled students (eligibility confirmed); roster/ownership TBD (open risk).
 - **Deadline milestones:** interfaces (DB schema, AI prompt contract, watcher rules) by Jul 18 · MVP complete Jul 27 · video + README + SkillsBuild by Jul 30 · submit Jul 31.

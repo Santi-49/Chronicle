@@ -317,7 +317,7 @@ postgresql://hackathon:changeme@localhost:5432/hackathon
 Exposes tools for running queries, inspecting schema, and exploring table structure. Useful for verifying migrations, seeding data, and debugging ORM issues.
 
 ### `@playwright/mcp`
-Launches a Chromium browser (headless by default). To run headed (visible window) during development, add `"--headed"` to the args array. Useful for testing the React and Astro frontends and verifying auth flows end-to-end.
+Launches a Chromium browser (headless by default). To run headed (visible window) during development, add `"--headed"` to the args array. Useful for testing the Astro landing page, the desktop renderer's dev-server URL, and auth flows against the API end-to-end.
 
 ### `mcp-server-docker`
 Reads the Docker socket. Docker Desktop must be running. The server exposes tools to list containers, stream logs, exec commands, and inspect service state. No extra permissions needed on macOS/Windows (Docker Desktop handles socket access). On Linux you may need to add your user to the `docker` group: `sudo usermod -aG docker $USER` then log out and back in.

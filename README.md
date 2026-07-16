@@ -1,145 +1,143 @@
-# Hackathon Template
+# Chronicle
 
-> A production-grade monorepo starter for hackathons.  
-> Bring your challenge-specific logic — not the scaffolding.
+> **Version control for creative files — explained by AI.**
+> Point Chronicle at your working folders; every save becomes a version, and AI writes the
+> "commit message": *"background navy → teal; tagline removed."* Local-first: your files
+> never leave your machine.
 
----
-
-## What's This?
-
-Every hackathon wastes the first hours on the same boilerplate: auth, roles, a database, a running API, a frontend that can talk to it. This template eliminates that.
-
-It ships with a fully working single-tenant backend (register, login, RBAC, JWT revocation) and a clean boundary — the **module contract** — where your challenge-specific logic plugs in. The rest of the team can build frontend and infra from minute one without waiting.
+Built for the **AI Builders Challenge with IBM Bob** (BeMyApp · IBM SkillsBuild) —
+July 2026 theme: *Reimagine Creative Industries with AI*.
 
 ---
 
-## Stack at a Glance
+## The Problem
 
-| Layer | Technology |
-|---|---|
-| Landing page | Astro → Cloudflare Pages |
-| Web app | Vite + React + TypeScript |
-| Mobile app | Expo (React Native) |
-| REST API | FastAPI + SQLAlchemy 2 (async) |
-| Auth | JWT (python-jose) + Redis whitelist |
-| Authorization | Open Policy Agent (RBAC) |
-| Database | PostgreSQL 16 + Alembic migrations |
-| Orchestration | Docker Compose |
+Git solved version history for code because code is text and diffs are readable. Creative
+files are binary — designers get no history, no diff, no "why". They fake it with filename
+suffixes: `logo_final_v8_FINAL_approved.png`. Versions get lost, changes go unexplained,
+and finding "that older version with the blue background" is manual archaeology.
+
+## The Solution
+
+Chronicle watches the folders you already work in (Photoshop, Figma exports, anything that
+saves PNG/JPG) and:
+
+1. **Captures every save automatically** — no commits, no uploads; a changed content hash
+   becomes a new version (deduplicated, stored locally).
+2. **Explains each change in plain English** — a vision model compares the previous and new
+   version and writes a one-line summary, a change list, and searchable tags.
+3. **Lets you search history by meaning** — hybrid keyword + embeddings search: *"the
+   version with the tagline"* finds it, even if no filename ever said so.
+4. **Restores any version without rewriting history** — like `git revert`, a restore is
+   just a new version.
+
+Everything runs on-device with no account, no backend, and no Docker — an optional control
+plane adds accounts and usage stats. Roadmap: images first (MVP), then design-industry
+formats like **CAD** — Word and PDF already have version history; architecture and product
+design don't.
+
+## AI Approach
+
+- **LangChain, model-agnostic, default classes/methods only** — the provider (Anthropic,
+  IBM watsonx/Granite, OpenAI…) is swappable behind one interface, mirroring IBM Bob's own
+  multi-model philosophy.
+- Vision-based change summaries + text embeddings for semantic search, both defined by a
+  single shared **prompt contract** used by the app (bring-your-own-key) and the optional
+  backend gateway.
+- AI is **always async** — the UI never blocks on a model call; jobs queue offline and run
+  when connectivity returns.
+
+## How We Use IBM Bob
+
+IBM Bob is our primary development tool. Every PR logs how Bob was used in
+[docs/bob-log.md](docs/bob-log.md) — that log feeds this section as the project progresses
+(agentic workflows, Literate Coding sessions, BobShell recipes, Bobalytics evidence).
 
 ---
 
 ## Monorepo Layout
 
 ```
-hackathon-template/
+AI-Builders-Bob/
 │
 ├── apps/
-│   ├── landing/          Cloudflare Pages static site (Astro)
-│   ├── web/              Main SPA (Vite + React)
-│   └── mobile/           Mobile app (Expo)
+│   ├── desktop/          Chronicle — Electron + React + TS (the product)
+│   └── landing/          Astro static page (optional, stretch)
 │
 ├── services/
-│   ├── api/              REST backend (FastAPI) ← fully implemented
-│   └── module/           Challenge-specific logic (plug in here)
+│   ├── api/              FastAPI control plane ← pre-built (auth, RBAC, JWT)
+│   └── module/           Challenge logic — AI gateway (stretch)
 │
 ├── packages/
 │   └── contracts/
 │       ├── api/          OpenAPI spec + generated TypeScript types
-│       └── module/       Python Protocol for backend ↔ module boundary
+│       └── module/       Python Protocol (backend ↔ module boundary)
 │
-├── infra/
-│   ├── opa/policies/     Rego authorization policies
-│   ├── postgres/         DB init SQL
-│   └── redis/            Redis config
-│
-├── docs/                 Full documentation (start at docs/index.md)
+├── infra/                OPA policies, Postgres init, Redis config
+├── docs/                 Start at docs/index.md — team spec at docs/spec.md
 ├── docker-compose.yml
-├── docker-compose.override.yml   Dev: hot reload + exposed ports
-├── .env.example
 └── Makefile
 ```
+
+## Stack at a Glance
+
+| Layer | Technology |
+|---|---|
+| Desktop app (the product) | Electron 38 + electron-vite + React 19 + TypeScript + Tailwind CSS 4 |
+| Local storage | SQLite (better-sqlite3) + content-addressed file library |
+| File watching | chokidar (debounced, temp-file-aware) |
+| AI layer | LangChain.js in-app (BYOK) · LangChain Python behind the gateway (stretch) |
+| Control plane API (optional, lowest priority) | FastAPI + SQLAlchemy 2 (async), JWT + Redis whitelist, OPA RBAC |
+| Database (backend) | PostgreSQL 16 + Alembic migrations |
+| Orchestration (backend only) | Docker Compose |
+
+Full detail and the reasoning behind each choice: [docs/spec.md](docs/spec.md).
 
 ---
 
 ## Quick Start
 
-**Requires:** Docker Desktop, Git
+### Desktop app (the product)
+
+**Requires:** Node.js 20+
 
 ```bash
-# 1. Clone and configure
-git clone <repo-url> && cd hackathon-template
+cd apps/desktop
+npm install
+npm run dev        # opens the Electron window with hot reload
+```
+
+### Backend control plane (login, telemetry, stats) — optional
+
+Not needed to run or demo the app — it's the lowest-priority piece. **Requires:** Docker Desktop
+
+```bash
 cp .env.example .env          # set JWT_SECRET_KEY and admin credentials
-
-# 2. Start all services
-docker compose up --build
-
-# 3. Run migrations + seed data
-make migrate
-
-# 4. Verify
-curl http://localhost:8000/api/v1/hello
-# → {"message":"Hello, world!"}
+docker compose up --build     # postgres, redis, opa, api
+make migrate                  # tables + seed roles + first admin user
+curl http://localhost:8000/api/v1/hello   # → {"message":"Hello, world!"}
 ```
 
-Open `http://localhost:8000/docs` for the interactive Swagger UI.
-
-> First-time build takes ~2 min. Subsequent starts are fast.
-
----
-
-## What the Backend Gives You Out of the Box
-
-| Feature | Endpoint(s) |
-|---|---|
-| Register | `POST /api/v1/auth/register` |
-| Login (JWT) | `POST /api/v1/auth/login` |
-| Logout (token revocation) | `POST /api/v1/auth/logout` |
-| Token refresh | `POST /api/v1/auth/refresh` |
-| Current user | `GET /api/v1/auth/me` |
-| User CRUD + role assignment | `GET/PATCH/DELETE /api/v1/users/{id}` |
-| Role CRUD + permission assignment | `GET/POST/PATCH/DELETE /api/v1/roles/{id}` |
-| Permission CRUD | `GET/POST/DELETE /api/v1/permissions/{id}` |
-| Protected demo endpoint | `GET /api/v1/hello/protected` |
-
-All protected routes check **OPA** for authorization. Adding a new resource takes one Rego entry and one route — no auth code changes needed.
-
----
-
-## Plugging In Your Challenge Logic
-
-1. Read [Module Contracts](docs/contracts.md)
-2. Fill in `packages/contracts/module/interface.py` with your Protocol
-3. Implement it in `services/module/app/implementation.py`
-4. Call it from `services/api/app/services/`
-
-The backend and module teams can work in parallel from the moment the interface is defined.
-
----
-
-## Common Commands
-
-```bash
-make dev                # docker compose up --build
-make stop               # docker compose down
-make migrate            # alembic upgrade head (+ seed data on first run)
-make makemigration MSG="add payments table"   # generate a new Alembic migration
-make test               # pytest (SQLite + mocked Redis/OPA, no Docker needed)
-make generate-types     # export OpenAPI → TypeScript types for the frontend
-```
+Swagger UI at `http://localhost:8000/docs` — admin stats are read here (no extra UI).
 
 ---
 
 ## Documentation
 
-Full docs live in [`docs/`](docs/index.md).
+Start at [docs/index.md](docs/index.md).
 
-| Section | What's covered |
+| Read | For |
 |---|---|
-| [System Overview](docs/architecture/overview.md) | Service map, request flow, contract boundaries |
-| [Backend Overview](docs/backend/overview.md) | Stack, folder structure, how to run |
-| [Authentication](docs/backend/auth.md) | JWT flow, Redis whitelist, token lifecycle |
-| [RBAC](docs/backend/rbac.md) | OPA policies, roles, permissions, how to extend |
-| [API Reference](docs/backend/api-reference.md) | Every endpoint with request/response examples |
-| [Database](docs/backend/database.md) | Schema, models, Alembic migrations |
-| [Module Contracts](docs/contracts.md) | How to wire in challenge-specific logic |
-| [Onboarding](docs/onboarding.md) | Day-0 setup guide |
+| [docs/spec.md](docs/spec.md) | **Team spec** — stack, ways of working, MVP feature scope (read first) |
+| [docs/challenge/](docs/challenge/CHALLENGE.md) | Challenge rules, vision, constraints, research |
+| [docs/bob-log.md](docs/bob-log.md) | IBM Bob usage log (judged artifact) |
+| [docs/getting-started.md](docs/getting-started.md) | Setup and repo orientation for humans |
+| [docs/contracts.md](docs/contracts.md) | The contract system that lets teams work in parallel |
+| [docs/backend/](docs/backend/overview.md) | API reference, auth, RBAC, database |
+
+## Status
+
+MVP in progress — submission due **July 31, 2026, 11:59 PM ET**.
+Milestones: contracts (Jul 18) → MVP feature-complete (Jul 27) → video + README +
+SkillsBuild (Jul 30) → submit (Jul 31). Scope labels in [docs/spec.md](docs/spec.md) §4
+are binding: `MVP` first, `Stretch` only after everything works.

@@ -44,10 +44,9 @@ test:
 	docker compose run --rm -e TESTING=true api \
 		pytest --cov=app --cov-report=term-missing -v
 
-# Runs pytest directly (no Docker). Requires: pip install -e ".[dev]"
+# Runs pytest directly (no Docker). Requires: cd services/api && pip install -e ".[dev]"
 test-local:
-	docker compose run --rm -e TESTING=true api \
-		pytest --cov=app --cov-report=term-missing -v --no-header
+	cd services/api && TESTING=true pytest --cov=app --cov-report=term-missing -v --no-header
 
 # ── Lint ──────────────────────────────────────────────────────────────
 lint:

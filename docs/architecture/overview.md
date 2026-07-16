@@ -6,11 +6,10 @@
 
 | Surface | Technology | Deployment |
 |---|---|---|
-| Landing page | Astro (static) | Cloudflare Pages |
-| Web app | Vite + React + TypeScript | Cloudflare Pages |
-| Mobile app | Expo (React Native) | Expo Go / EAS Build |
-| REST API | FastAPI (Python 3.12) | Docker |
-| Challenge module | Python (pluggable) | Docker (same or separate) |
+| Desktop app (the product) | Electron + React + TypeScript, local-first — runs with no backend/Docker ([UI structure](../desktop/overview.md)) | electron-builder installers (stretch) |
+| Landing page (optional) | Astro (static) | Cloudflare Pages |
+| REST API (control plane — optional, lowest priority) | FastAPI (Python 3.12) | Docker |
+| Challenge module (AI gateway, stretch) | Python (pluggable) | Docker (same or separate) |
 
 ---
 

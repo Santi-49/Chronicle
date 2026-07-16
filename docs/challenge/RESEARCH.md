@@ -88,7 +88,7 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 ### Technical Choices That Align
 
 - **LangChain, model-agnostic** (team decision): default classes/methods only. Model-agnosticism is itself a good judging story — "swap in Granite/watsonx without code changes."
-- Keep Docling on the roadmap slide for PDF/PPTX — mentioning the IBM path forward costs nothing and aligns with "Best Use of Technology."
+- ~~Keep Docling on the roadmap slide for PDF/PPTX~~ — **superseded 2026-07-16**: the roadmap after images is now CAD/design-software formats, not documents (see log). The IBM alignment story stays via watsonx/Granite as the model-agnostic swap.
 - Minimal, clear, documented code — judges are told to reward "well-structured"; the README is a judged artifact, treat it as a feature.
 
 ### What to Emphasize in the Demo
@@ -117,9 +117,12 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - 2026-07-16 — Submission: public GitHub repo + README (problem, solution, AI approach, theme, Bob usage) + ≤3 min video + SkillsBuild learning activity; 1 submission/person; teams 1–5 — Official Rules + event page
 - 2026-07-16 — Eligibility: enrolled higher-ed students 18+; void in embargoed countries + Brazil, Italy, Quebec, China. Team confirmed eligible (all students) — Official Rules + team
 - 2026-07-16 — Optional IBM tech encouraged: watsonx, Granite, LangFlow, Docling — Official Rules doc
-- 2026-07-16 — Team decisions: LangChain model-agnostic AI layer (library defaults, minimal code); MVP file types PNG/JPG (PDF/PPTX future); hybrid keyword + embeddings search — team via clarification protocol
+- 2026-07-16 — Team decisions: LangChain model-agnostic AI layer (library defaults, minimal code); MVP file types PNG/JPG (PDF/PPTX future — *format roadmap superseded below: CAD, not documents*); hybrid keyword + embeddings search — team via clarification protocol
 - 2026-07-16 — Architecture clarified by team: FastAPI backend used as control plane (login, logs, stats) + optional AI-inference gateway (hybrid: bring-your-own-key or route through our service); files stay on-device — team
 - 2026-07-16 — IBM Bob researched: AI-first IDE with agentic workflows, Literate Coding, BobShell CLI, Bobalytics, built-in security scanning; orchestrates Claude/Mistral/Llama/Granite with full repo context — [IBM announcement](https://www.ibm.com/new/announcements/ibm-project-bob), [VentureBeat](https://venturebeat.com/ai/ibm-claims-45-productivity-gains-with-project-bob-its-multi-model-ide-that), https://bob.ibm.com/
 - 2026-07-16 — Hub page read via playwright: official July brief ("help creators work smarter…"); SkillsBuild activity is **per team member**; hub lists a 5th criterion, Real-World Impact; Wildcard is once-only; GitHub Learning Labs exist per theme — hub page
 - 2026-07-16 — OPEN: full July challenge page + FAQ gated behind registration (`#/forbidden`) — register on the hub, then re-check for July-specific requirements, resources, and the exact SkillsBuild activity list — hub page
 - 2026-07-16 — SUPERSEDED (partially): earlier note that Bob research was pending — closed by the two entries above; only the gated July page remains open
+- 2026-07-16 — Team decision: control plane demoted to **lowest priority (non-essential)** — startup offers "Log in / Register" or "Continue local" (default); the whole product must run with no Docker setup and no API connection; AI provider/model/API key configured locally in Settings (encrypted, never sent to backend) — team
+- 2026-07-16 — Team decision: file-format roadmap after images = **architecture/design-software formats (CAD, e.g. DWG/DXF)**, not PDF/PPTX — Word/PDF versioning already exists (Office/Adobe/cloud drives), while design industries lack a unified VCS; supersedes the Docling/PDF recommendation above — team
+- 2026-07-16 — UI structure defined conceptually (pages, layout, startup flow, feature coverage) in docs/desktop/overview.md — team + session

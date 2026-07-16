@@ -1,5 +1,10 @@
 # Documentation
 
+## Team Direction
+- [Team Spec](spec.md) — **read first**: tech stack, best practices, MVP functionality, risks
+- [Desktop App Overview](desktop/overview.md) — UI pages, layout, startup flow, feature → page coverage
+- [IBM Bob Usage Log](bob-log.md) — every PR adds a line; feeds the judged README section
+
 ## Architecture
 - [System Overview](architecture/overview.md) — services, request flow, component map
 - [ADR 001 — Module Contract](architecture/adr/001-module-contract.md) — why the module boundary exists
