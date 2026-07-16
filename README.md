@@ -131,7 +131,10 @@ Start at [docs/index.md](docs/index.md).
 
 | Read | For |
 |---|---|
-| [docs/spec.md](docs/spec.md) | **Team spec** — stack, ways of working, MVP feature scope (read first) |
+| [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) | **New team members** — plain-language overview, diagrams, glossary, contracts, and branch workflow |
+| [PROJECT_STATUS.md](PROJECT_STATUS.md) | **Current position** — readiness, blockers, decisions, milestones, and next actions |
+| [TODO.md](TODO.md) | **Claim work** — scoped MVP tasks, file boundaries, dependencies, and acceptance checks |
+| [docs/spec.md](docs/spec.md) | **Technical source of truth** — stack, ways of working, and MVP feature scope |
 | [docs/challenge/](docs/challenge/CHALLENGE.md) | Challenge rules, vision, constraints, research |
 | [docs/bob-log.md](docs/bob-log.md) | IBM Bob usage log (judged artifact) |
 | [docs/getting-started.md](docs/getting-started.md) | Setup and repo orientation for humans |
@@ -140,7 +143,9 @@ Start at [docs/index.md](docs/index.md).
 
 ## Status
 
-MVP in progress — submission due **July 31, 2026, 11:59 PM ET**.
+Planning, documentation, and boundary contracts are ready; MVP implementation is next.
+See the live [project status](PROJECT_STATUS.md). Submission is due
+**July 31, 2026, 11:59 PM ET**.
 Milestones: contracts (Jul 18) → MVP feature-complete (Jul 27) → video + README +
 SkillsBuild (Jul 30) → submit (Jul 31). Scope labels in [docs/spec.md](docs/spec.md) §4
 are binding: `MVP` first, `Stretch` only after everything works.

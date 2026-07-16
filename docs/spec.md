@@ -208,7 +208,7 @@ Backend keeps only: **User** (pre-built), **Account config** (JSON blob per user
 Rules for everyone, regardless of experience level:
 
 1. **Contract-first at real boundaries.** Agree on operation functionality and input/output/error formats before independent components integrate. Prompts, databases, algorithms, and internal module structure are not contracts. API types are generated (`make generate-types`), never hand-written.
-2. **Everything through PRs.** Branch from `main` (`feat/…`, `fix/…`, `docs/…`), keep PRs small (one feature slice, ideally < ~300 lines), at least **one review** before merge. Nobody pushes to `main` directly.
+2. **Everything through PRs.** `main` is stable/releasable; `dev` is the shared integration branch; work happens on `feat/…`, `fix/…`, or `docs/…` branches created from `dev` and merged back by reviewed PR. Nobody pushes directly to `dev` or `main`. Keep PRs focused (one task/feature slice, ideally < ~300 lines).
 3. **Definition of done** for any PR: typecheck + tests pass · generated types regenerated if the API changed · relevant doc updated if behavior changed · a line added to [bob-log.md](bob-log.md) describing how IBM Bob was used.
 4. **Minimal code, library defaults.** No custom wrappers around LangChain, no clever abstractions. If a library does it, use the library's way. Under time pressure, boring beats elegant.
 5. **AI is always async.** No UI action ever waits on a model response. If you find yourself blocking on AI, the design is wrong.

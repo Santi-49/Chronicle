@@ -67,6 +67,7 @@ After researching, update `docs/challenge/RESEARCH.md` with:
 
 ```
 docs/
+  PROJECT_OVERVIEW.md  ← PLAIN-LANGUAGE MAP: product, architecture, branches, glossary
   spec.md              ← TEAM SPEC: tech stack, best practices, MVP functionality — read before building
   bob-log.md           ← IBM Bob usage log — every PR adds a line (judged artifact)
   challenge/           ← START HERE before touching any code
@@ -76,11 +77,14 @@ docs/
   architecture/        ← system design, service map, request flow
   backend/             ← API reference, auth, RBAC, database schema
   desktop/             ← desktop app: UI pages, layout, startup flow, feature coverage
-  contracts.md         ← module contract system (read before touching services/)
+  contracts.md         ← operation boundaries and implementation specifications
   index.md             ← docs entry point
+PROJECT_STATUS.md      ← CURRENT STAGE: readiness, blockers, decisions, milestones
+TODO.md                ← EXECUTION PLAN: file boundaries, contracts, acceptance checks
 ```
 
-The `docs/challenge/` folder is the source of truth for what is being built and why;
+New team members start with `docs/PROJECT_OVERVIEW.md`, then read `PROJECT_STATUS.md`
+and claim work from `TODO.md`. The `docs/challenge/` folder is the source of truth for what is being built and why;
 `docs/spec.md` is the source of truth for stack, working rules, and MVP feature scope.
 Every other decision — architecture, features, UI — should trace back to them.
 

@@ -13,6 +13,7 @@
 
 ```
 docs/
+  PROJECT_OVERVIEW.md  ← plain-language product/architecture/team workflow map
   spec.md              ← imported above — TEAM SPEC: stack, best practices, MVP functionality
   bob-log.md           ← IBM Bob usage log — every PR adds a line (judged artifact)
   challenge/           ← imported above — read before every session
@@ -22,9 +23,14 @@ docs/
   architecture/        ← system design, service map, request flow
   backend/             ← API reference, auth, RBAC, database schema
   desktop/             ← desktop app: UI pages, layout, startup flow, feature coverage
-  contracts.md         ← module contract system (imported above)
+  contracts.md         ← operation boundaries and implementation specifications
   index.md             ← docs entry point
+PROJECT_STATUS.md      ← current stage, blockers, decisions, and milestones
+TODO.md                ← scoped task board with file boundaries and acceptance checks
 ```
+
+New team members start with `docs/PROJECT_OVERVIEW.md`, then read
+`PROJECT_STATUS.md` and claim work from `TODO.md`.
 
 ---
 

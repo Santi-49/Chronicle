@@ -8,7 +8,9 @@
 
 > Removed 2026-07-16 to cut distractions (recoverable from git history): the template's
 > `apps/web/` (Next.js SPA), the stale `apps/damm-mobile/` and `thought_process/` leftovers
-> from a previous project, `TODO.md`, and the `.skills/3d/` + `.skills/mobile/` skill groups.
+> from a previous project, the **old unrelated** `TODO.md`, and the `.skills/3d/` +
+> `.skills/mobile/` skill groups. A new Chronicle-specific root `TODO.md` was created on
+> 2026-07-17 from the approved MVP specification and contracts.
 
 > **Architecture (clarified 2026-07-17):** Chronicle is a **local-first storage Electron app** — file watching, version storage, and non-AI history operations happen on-device (Electron → React UI → SQLite → local file storage). AI inference is API-based through LangChain; no local model is planned for the MVP. BYOK calls the configured provider directly from the app, while the optional gateway routes the required AI inputs through our service. Chronicle does not upload the version library as cloud storage, but image content used for inference leaves the device under the selected AI path. The module-contract flow applies to gateway/stats endpoints.
 >

@@ -1,5 +1,14 @@
 # Documentation
 
+## Start Here
+
+- [Whole-Project Overview](PROJECT_OVERVIEW.md) — plain-language product, architecture,
+  contracts, branch workflow, glossary, and reading guide for every team member
+- [Project Status](../PROJECT_STATUS.md) — current stage, component readiness, blockers,
+  decisions, milestones, and immediate next actions
+- [MVP Task Board](../TODO.md) — claimable tasks with dependencies, file boundaries,
+  contracts, acceptance checks, and human decisions
+
 ## Team Direction
 - [Team Spec](spec.md) — **read first**: tech stack, best practices, MVP functionality, risks
 - [Desktop App Overview](desktop/overview.md) — UI pages, layout, startup flow, feature → page coverage
@@ -24,6 +33,6 @@
 
 ## Hackathon Workflow
 - [Getting Started](getting-started.md) — setup, repo orientation, and contracts explained for humans
-- [Module Contracts](contracts.md) — how to wire challenge-specific logic into the backend
+- [Contracts](contracts.md) — operation behavior, input/output boundaries, and implementation specifications
 - [Onboarding](onboarding.md) — Day-0 setup for new teammates
 - [MCP Servers](mcp-servers.md) — AI agent tooling: Postgres, Playwright, Docker, Fetch, MarkItDown
