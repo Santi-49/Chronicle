@@ -2,11 +2,13 @@
 
 ## Apps in Scope
 
-- [ ] `apps/landing/` — Landing page (Astro → Cloudflare Pages) — *optional, only if time allows for a marketing page*
-- [ ] `apps/web/` — Web app (Vite + React + TypeScript) — **not in scope as a hosted SPA**
-- [ ] `apps/mobile/` — Mobile app (Expo) — **out of scope**
-- [x] `apps/desktop/` — **NEW: Electron + React desktop app — this is the product.**
+- [x] `apps/desktop/` — **Electron + React desktop app — this is the product.**
 - [x] `services/api/` + `services/module/` — **backend as control plane** (see below)
+- [ ] `apps/landing/` — Landing page (Astro → Cloudflare Pages) — *kept in repo; build only if time allows for a marketing page*
+
+> Removed 2026-07-16 to cut distractions (recoverable from git history): the template's
+> `apps/web/` (Next.js SPA), the stale `apps/damm-mobile/` and `thought_process/` leftovers
+> from a previous project, `TODO.md`, and the `.skills/3d/` + `.skills/mobile/` skill groups.
 
 > **Architecture (clarified 2026-07-16):** Chronicle is a **local-first Electron app** — file watching, version storage, and search all happen on-device (Electron → React UI → SQLite → local file storage). The template's **FastAPI backend is used as a control plane**: login/auth (pre-built JWT stack), usage logs, stats, and — hybrid model — an optional **gateway for AI inference** (bring-your-own-key runs the AI call locally from the app; otherwise the call routes through our service). Files themselves never leave the machine; only auth, telemetry, and AI requests cross the wire. The module-contract flow applies to the AI-gateway and stats endpoints.
 

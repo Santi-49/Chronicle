@@ -20,8 +20,8 @@
 ┌─────────────────────────────────────────────────────────┐
 │  Client tier                                            │
 │                                                         │
-│   apps/landing    apps/web       apps/mobile            │
-│   (Cloudflare)    (Cloudflare)   (Expo)                 │
+│   apps/desktop            apps/landing                  │
+│   (Electron, local-first) (Cloudflare, optional)        │
 └──────────────────────┬──────────────────────────────────┘
                        │  HTTPS / REST
                        ▼

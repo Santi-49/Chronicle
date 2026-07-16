@@ -118,7 +118,6 @@ make generate-types   # regenerate TypeScript types from OpenAPI spec
 | You are... | Start here |
 |---|---|
 | **Backend** | [Backend Overview](backend/overview.md) → pick up a route in `services/api/app/api/v1/endpoints/` |
-| **Frontend (web)** | `apps/web/` — run `npm install && npm run dev`, import types from `packages/contracts/api/generated/` |
-| **Mobile** | `apps/mobile/` — install Expo Go on your phone, run `npx expo start`, scan the QR code |
+| **Desktop app** | `apps/desktop/` — run `npm install && npm run dev`, import types from `packages/contracts/api/generated/` |
 | **Challenge module** | [Module Contracts](contracts.md) — implement `services/module/app/implementation.py` |
 | **Infra / DevOps** | `docker-compose.yml`, `infra/`, `Makefile` |

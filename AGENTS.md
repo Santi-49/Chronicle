@@ -109,9 +109,8 @@ See `docs/backend/` for full reference. Extend the system by:
 
 ```
 apps/
-  landing/      Astro → Cloudflare Pages (marketing, demo landing)
-  web/          Vite + React + TypeScript (main SPA)
-  mobile/       Expo (React Native)
+  desktop/      Chronicle — Electron + React + TS (the product)
+  landing/      Astro → Cloudflare Pages (optional marketing page)
 services/
   api/          FastAPI backend — fully implemented, extend via module contract
   module/       Challenge-specific logic — implement here
@@ -203,31 +202,6 @@ in that domain. Do not load all skills at once — load only what the current ta
 | Scroll-linked animation, pinning, scrub | `animation/gsap-scrolltrigger/SKILL.md` |
 | Sequenced / timeline animations | `animation/gsap-timeline/SKILL.md` |
 
-### `.skills/3d/` — Three.js & WebGL
-
-| When | Skill |
-|------|-------|
-| Choosing stack (Spline / R3F / vanilla) | `3d/3d-web-experience/SKILL.md` — read first |
-| Scene, camera, renderer setup | `3d/threejs-fundamentals/SKILL.md` |
-| Animating 3D objects | `3d/threejs-animation/SKILL.md` |
-| Geometry and shapes | `3d/threejs-geometry/SKILL.md` |
-| Click / hover / raycast interactions | `3d/threejs-interaction/SKILL.md` |
-| Lights and shadows | `3d/threejs-lighting/SKILL.md` |
-| Loading GLB / GLTF models | `3d/threejs-loaders/SKILL.md` |
-| PBR materials | `3d/threejs-materials/SKILL.md` |
-| Bloom and post-processing | `3d/threejs-postprocessing/SKILL.md` |
-| Custom GLSL shaders | `3d/threejs-shaders/SKILL.md` |
-| Textures and UV mapping | `3d/threejs-textures/SKILL.md` |
-
-### `.skills/mobile/` — Expo / React Native
-
-| When | Skill |
-|------|-------|
-| Navigation, tabs, native UI patterns | `mobile/building-native-ui/SKILL.md` |
-| API calls, caching, offline support | `mobile/native-data-fetching/SKILL.md` |
-| Running Three.js / web libs in Expo | `mobile/use-dom/SKILL.md` — key for 3D on mobile |
-| Custom dev builds, expo-gl, native modules | `mobile/expo-dev-client/SKILL.md` |
-
 ### `.skills/design/` — UI/UX
 
 | When | Skill |
@@ -243,7 +217,7 @@ in that domain. Do not load all skills at once — load only what the current ta
 - **Product:** **Chronicle** — a local-first Electron + React desktop app that watches folders, auto-versions creative files on save, and uses AI to explain what changed between versions, with a hybrid keyword + embeddings search over the history.
 - **Selling point:** the plain-English AI diff of binary creative files ("background navy → teal; tagline removed") + search by meaning — git-grade history with zero designer friction, files never leave the machine.
 - **MVP:** folder watcher (debounced, temp-file-aware) → hash-based version detection → local Asset/Version storage (SQLite, dedup by hash) → AI change summary + tags per version → timeline UI → hybrid search. File types: **PNG/JPG** (PDF/PPTX are future).
-- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, and search are all on-device (React → SQLite → local file store). The template's **FastAPI backend serves as the control plane**: login/auth (pre-built JWT stack), logs, stats, and an optional **AI-inference gateway** (hybrid: bring-your-own-key locally, or route through our service). Module-contract flow applies to gateway/stats endpoints. `apps/landing/` optional if time allows; `apps/web/` and `apps/mobile/` out of scope.
+- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, and search are all on-device (React → SQLite → local file store). The template's **FastAPI backend serves as the control plane**: login/auth (pre-built JWT stack), logs, stats, and an optional **AI-inference gateway** (hybrid: bring-your-own-key locally, or route through our service). Module-contract flow applies to gateway/stats endpoints. `apps/landing/` optional if time allows; the template's web/mobile apps and 3D/mobile skills were removed on 2026-07-16 (recoverable from git history).
 - **Key constraints:** IBM Bob is the mandatory dev tool and its usage is judged — document it as you go. AI layer via **LangChain, model-agnostic, default classes/methods only**. Code bar: minimal, clear, documented, well structured. AI calls are async, never block the UI; app works offline except AI calls.
 - **Team:** all enrolled students (eligibility confirmed); roster/ownership TBD (open risk).
 - **Deadline milestones:** interfaces (DB schema, AI prompt contract, watcher rules) by Jul 18 · MVP complete Jul 27 · video + README + SkillsBuild by Jul 30 · submit Jul 31.

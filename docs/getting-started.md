@@ -8,13 +8,12 @@
 
 This repo eliminates the usual hackathon dead-time. Auth, roles, a database, a running API — all done. Your job is to plug in the challenge-specific logic and build the frontend on top of it.
 
-There are three apps and one backend:
+There are two apps and one backend:
 
 ```
-apps/landing/     Static landing page (Astro)
-apps/web/         Web app (React + Vite)
-apps/mobile/      Mobile app (Expo)
-services/api/     REST API (FastAPI) — already implemented
+apps/desktop/     Chronicle desktop app (Electron + React) — the product
+apps/landing/     Static landing page (Astro) — optional
+services/api/     REST API (FastAPI) — already implemented, used as control plane
 services/module/  Your challenge logic lives here
 ```
 
@@ -253,8 +252,7 @@ make test                            # run the test suite
 |---|---|
 | Backend routes and auth | [docs/backend/overview.md](docs/backend/overview.md) |
 | Challenge module logic | [docs/contracts.md](docs/contracts.md) |
-| Web app | `apps/web/` — run `npm install && npm run dev` |
-| Mobile app | `apps/mobile/` — run `npx expo start`, scan QR with Expo Go |
+| Desktop app | `apps/desktop/` — run `npm install && npm run dev` |
 | Authorization / roles | [docs/backend/rbac.md](docs/backend/rbac.md) |
 | Database / migrations | [docs/backend/database.md](docs/backend/database.md) |
 | System architecture | [docs/architecture/overview.md](docs/architecture/overview.md) |
