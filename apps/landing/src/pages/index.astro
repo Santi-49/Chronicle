@@ -1,0 +1,322 @@
+---
+import { landingContent } from "../content";
+import "../styles/global.css";
+
+const content = landingContent;
+const useExportedMockup = true;
+const showMockupTuner = false;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A dark landing page template for optimization software with a tilted app dashboard and demo CTA."
+    />
+    <title>{content.productName} | Optimization Landing Template</title>
+  </head>
+  <body>
+    <header class="site-header" aria-label="Site header">
+      <a class="brand" href="#top" aria-label={`${content.productName} home`}>
+        <span class="brand__icon" aria-hidden="true">⌁</span>
+        {content.productName}
+      </a>
+      <nav class="nav" aria-label="Primary navigation">
+        {content.nav.map((item) => (
+          <a href={item.href}>{item.label}</a>
+        ))}
+      </nav>
+      <div class="nav-actions">
+        <a class="login" href={content.appUrl}>Log in</a>
+        <a class="book" href={content.appUrl}>Try the app</a>
+      </div>
+    </header>
+
+    <main id="top">
+      <div class="hero-stage">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <h1 id="hero-title">{content.headline}</h1>
+            <p>{content.subheadline}</p>
+            <div class="hero-actions">
+              <a class="button button--primary" href={content.appUrl}>{content.primaryCta}</a>
+              <a class="button button--secondary" href="#why">{content.secondaryCta}</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="mockup-section" aria-label="Tilted app dashboard preview">
+          <div class="hero-mockup hero-mockup--exported" hidden={!useExportedMockup}>
+            <img class="mockup-export" src="/exports/tilted-app-mockup.png" alt="Optima app dashboard preview" />
+          </div>
+
+          <div class="hero-mockup hero-mockup--live" hidden={useExportedMockup}>
+            <div class="mockup-plane">
+              <img src="/app.png" alt="Optima app dashboard preview" />
+            </div>
+          </div>
+
+          {showMockupTuner && (
+            <aside class="debug-panel debug-panel--hero" aria-labelledby="debug-title">
+              <h2 id="debug-title">3D Tuner</h2>
+              <p>Adjust the mockup live and copy the printed values.</p>
+              <div class="debug-grid">
+                <label>Width vw <input data-var="--mockup-width-vw" type="range" min="40" max="100" step="1" value="85" /></label>
+                <label>Max width px <input data-var="--mockup-max-width" type="range" min="700" max="1600" step="10" value="1260" /></label>
+                <label>Bottom px <input data-var="--mockup-bottom" type="range" min="-80" max="260" step="1" value="131" /></label>
+                <label>Perspective <input data-var="--mockup-perspective" type="range" min="600" max="2400" step="10" value="1200" /></label>
+                <label>Rotate X <input data-var="--mockup-rotate-x" type="range" min="-45" max="45" step="0.5" value="37" /></label>
+                <label>Rotate Y <input data-var="--mockup-rotate-y" type="range" min="-45" max="45" step="0.5" value="12" /></label>
+                <label>Rotate Z <input data-var="--mockup-rotate-z" type="range" min="-18" max="18" step="0.1" value="-2.7" /></label>
+                <label>Shadow Y <input data-var="--mockup-shadow-y" type="range" min="0" max="90" step="1" value="34" /></label>
+                <label>Shadow blur <input data-var="--mockup-shadow-blur" type="range" min="0" max="160" step="1" value="106" /></label>
+                <label>Shadow opacity <input data-var="--mockup-shadow-opacity" type="range" min="0" max="1" step="0.01" value="0.56" /></label>
+                <label>Border width <input data-var="--mockup-border-width" type="range" min="0" max="6" step="0.05" value="0.05" /></label>
+                <label>Lighting <input data-var="--mockup-lighting-intensity" type="range" min="0" max="0.35" step="0.01" value="0" /></label>
+                <label>Hero height <input data-var="--hero-height" type="range" min="700" max="1800" step="10" value="1500" /></label>
+              </div>
+              <pre class="debug-output" aria-live="polite"></pre>
+            </aside>
+          )}
+        </section>
+      </div>
+
+      <section class="why section-reveal" id="why" aria-labelledby="why-title">
+        <p class="pill">Why choose us</p>
+        <h2 id="why-title">{content.whyTitle}</h2>
+        <p class="section-copy">{content.whySubtitle}</p>
+        <div class="why-grid">
+          {content.cards.map((card) => (
+            <article class="why-card">
+              <span class="card-icon" aria-hidden="true">⌁</span>
+              <h3>{card.title}</h3>
+              <p>{card.text}</p>
+              <div class="card-meter">
+                <span>Performance</span>
+                <strong>100%</strong>
+                <i></i>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="power section-reveal" id="features" aria-labelledby="power-title">
+        <h2 id="power-title">{content.featuresTitle}</h2>
+        <p class="section-copy">{content.featuresSubtitle}</p>
+        <div class="bento">
+          <article class="panel panel--large">
+            <div class="panel-heading">
+              <span aria-hidden="true">▧</span>
+              <h3>{content.featurePanels[0]}</h3>
+            </div>
+            <div class="metrics-panel">
+              <div class="mini-site">
+                <div class="dashboard dashboard--compact">
+                  <div class="dash-main">
+                    <div class="dash-top">
+                      <h3>Overview</h3>
+                      <div class="search">Search scenarios...</div>
+                    </div>
+                    <h4>Recent Optimizations</h4>
+                    <div class="stat-grid">
+                      <div><span>Total Runs</span><strong>6</strong></div>
+                      <div><span>Successful Plans</span><strong>3</strong></div>
+                      <div><span>Failed Plans</span><strong>1</strong></div>
+                      <div><span>Avg Solve Time</span><strong>5m 32s</strong></div>
+                    </div>
+                    <div class="table">
+                      <span>Name</span><span>Status</span><span>Updated</span><span>Version</span>
+                      <b>capacity-review</b><i>Process</i><em>26/01/2026</em><small>v1.2.3</small>
+                      <b>demand-shift</b><i>Ready</i><em>06/05/2026</em><small>v1.2.0</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="score-panel">
+                <div class="tabs">
+                  <span>Performance</span>
+                  <span>Accessibility</span>
+                  <span>Best Practices</span>
+                  <span>SEO</span>
+                </div>
+                <div class="score-row">
+                  <b>100</b><b>100</b><b>100</b><b>100</b>
+                </div>
+                <ul class="audit-list">
+                  <li><span>First Contentful Paint</span><strong>0.8s</strong></li>
+                  <li><span>Largest Contentful Paint</span><strong>1.2s</strong></li>
+                  <li><span>Total Blocking Time</span><strong>0ms</strong></li>
+                  <li><span>Decision Index</span><strong>Fast</strong></li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel panel--deploy">
+            <div class="panel-heading">
+              <span aria-hidden="true">▧</span>
+              <h3>{content.featurePanels[1]}</h3>
+            </div>
+            <div class="terminal">
+              <span></span><span></span><span></span>
+              <pre>&gt; optimize run demo</pre>
+            </div>
+            <div class="pipeline">
+              <b>✓</b><b>✓</b><b>3</b><b>4</b>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <span aria-hidden="true">▧</span>
+              <h3>{content.featurePanels[2]}</h3>
+            </div>
+            <div class="tree">
+              <p>src</p>
+              <p>├ components</p>
+              <p>├ scenarios</p>
+              <p>├ constraints</p>
+              <p>└ demo.tsx</p>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <span aria-hidden="true">▧</span>
+              <h3>{content.featurePanels[3]}</h3>
+            </div>
+            <div class="usage-chart">
+              <span style="--h: 28%"></span>
+              <span style="--h: 45%"></span>
+              <span style="--h: 66%"></span>
+              <span style="--h: 53%"></span>
+              <span style="--h: 38%"></span>
+            </div>
+          </article>
+
+          <article class="panel panel--wide">
+            <div class="panel-heading">
+              <span aria-hidden="true">▧</span>
+              <h3>{content.featurePanels[4]}</h3>
+            </div>
+            <div class="globe">
+              <span></span>
+              <span></span>
+              <span></span>
+              <div class="globe-stat globe-stat--one">1094<br /><small>runs</small></div>
+              <div class="globe-stat globe-stat--two">99.8%<br /><small>uptime</small></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="templates section-reveal" id="demo" aria-labelledby="templates-title">
+        <h2 id="templates-title">Built to become your final demo shell.</h2>
+        <p>
+          Keep the visual system. Replace the product name, dashboard labels, and app link when the hackathon direction is clear.
+        </p>
+        <a class="button button--primary" href={content.appUrl}>Open app frontend</a>
+      </section>
+
+    </main>
+
+    <script>
+      import gsap from "gsap";
+      import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      const mm = gsap.matchMedia();
+      mm.add(
+        {
+          reduceMotion: "(prefers-reduced-motion: reduce)",
+          animate: "(prefers-reduced-motion: no-preference)",
+        },
+        (context) => {
+          if (context.conditions.reduceMotion) return;
+
+          gsap.from(".site-header", {
+            autoAlpha: 0,
+            y: -16,
+            duration: 0.7,
+            ease: "power3.out",
+          });
+
+          gsap.from(".hero-copy > *, .hero-mockup", {
+            autoAlpha: 0,
+            y: 28,
+            duration: 0.8,
+            ease: "power3.out",
+            stagger: 0.08,
+          });
+
+          gsap.utils.toArray(".section-reveal").forEach((section) => {
+            gsap.from(section.querySelectorAll("h2, .pill, .section-copy, .why-card, .panel, .button"), {
+              autoAlpha: 0,
+              y: 26,
+              duration: 0.62,
+              ease: "power3.out",
+              stagger: 0.05,
+              scrollTrigger: {
+                trigger: section,
+                start: "top 74%",
+              },
+            });
+          });
+        },
+      );
+
+      const unitMap = {
+        "--mockup-width-vw": "vw",
+        "--mockup-max-width": "px",
+        "--mockup-bottom": "px",
+        "--mockup-perspective": "px",
+        "--mockup-rotate-x": "deg",
+        "--mockup-rotate-y": "deg",
+        "--mockup-rotate-z": "deg",
+        "--mockup-shadow-y": "px",
+        "--mockup-shadow-blur": "px",
+        "--mockup-shadow-opacity": "",
+        "--mockup-border-width": "px",
+        "--mockup-lighting-intensity": "",
+        "--hero-height": "px",
+      };
+
+      const controls = Array.from(document.querySelectorAll(".debug-panel input"));
+      const output = document.querySelector(".debug-output");
+      const mockupDashboard = document.querySelector(".hero-mockup > .mockup-plane");
+
+      function updateDebugOutput() {
+        if (!output || !mockupDashboard || controls.length === 0) return;
+
+        const values = controls.map((control) => {
+          const name = control.dataset.var;
+          const unit = unitMap[name] ?? "";
+          document.documentElement.style.setProperty(name, `${control.value}${unit}`);
+          return `${name}: ${control.value}${unit};`;
+        });
+
+        const current = Object.fromEntries(
+          controls.map((control) => [control.dataset.var, Number(control.value)]),
+        );
+
+        gsap.set(mockupDashboard, {
+          rotationX: current["--mockup-rotate-x"],
+          rotationY: current["--mockup-rotate-y"],
+          rotationZ: current["--mockup-rotate-z"],
+          y: 0,
+          transformPerspective: current["--mockup-perspective"],
+        });
+
+        output.textContent = `:root {\n  ${values.join("\n  ")}\n}`;
+      }
+
+      controls.forEach((control) => control.addEventListener("input", updateDebugOutput));
+      updateDebugOutput();
+    </script>
+  </body>
+</html>
