@@ -8,19 +8,6 @@
 
 ---
 
-## Step 0 — Before Writing Any Code
-
-> **Self-removing:** Once `docs/challenge/` has no `TODO` banners and `## Challenge Context`
-> at the bottom of this file is filled in, delete this entire Step 0 section from both
-> `AGENTS.md` and `CLAUDE.md`. It has served its purpose.
-
-The files imported above are the source of truth for what is being built and why.
-If any still contain a `TODO` banner, run the **Context Clarification Protocol** in `AGENTS.md`
-before touching any code. After clarifying, update the docs and the `## Challenge Context`
-section at the bottom of this file.
-
----
-
 ## How Documentation Works
 
 ```
@@ -165,7 +152,13 @@ python .skills/design/ui-ux-pro-max/scripts/search.py "<query>" --domain typogra
 
 ## Challenge Context
 
-> **TODO** — Run the Context Clarification Protocol in `AGENTS.md` and replace this section.
->
-> Include: challenge name, core concept, selling point, MVP features, scope (which apps),
-> key constraints, team ownership, and demo deadline.
+- **Challenge:** AI Builders Challenge with IBM Bob (BeMyApp / IBM SkillsBuild) — July 2026 theme: *Reimagine Creative Industries with AI*. Submission due **July 31, 2026, 11:59 PM ET** (public GitHub repo + ≤3 min video + SkillsBuild learning activity).
+- **Product:** **Chronicle** — a local-first Electron + React desktop app that watches folders, auto-versions creative files on save, and uses AI to explain what changed between versions, with a hybrid keyword + embeddings search over the history.
+- **Selling point:** the plain-English AI diff of binary creative files ("background navy → teal; tagline removed") + search by meaning — git-grade history with zero designer friction, files never leave the machine.
+- **MVP:** folder watcher (debounced, temp-file-aware) → hash-based version detection → local Asset/Version storage (SQLite, dedup by hash) → AI change summary + tags per version → timeline UI → hybrid search. File types: **PNG/JPG** (PDF/PPTX are future).
+- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, and search are all on-device (React → SQLite → local file store). The template's **FastAPI backend serves as the control plane**: login/auth (pre-built JWT stack), logs, stats, and an optional **AI-inference gateway** (hybrid: bring-your-own-key locally, or route through our service). Module-contract flow applies to gateway/stats endpoints. `apps/landing/` optional if time allows; `apps/web/` and `apps/mobile/` out of scope.
+- **Key constraints:** IBM Bob is the mandatory dev tool and its usage is judged — document it as you go. AI layer via **LangChain, model-agnostic, default classes/methods only**. Code bar: minimal, clear, documented, well structured. AI calls are async, never block the UI; app works offline except AI calls.
+- **Team:** all enrolled students (eligibility confirmed); roster/ownership TBD (open risk).
+- **Deadline milestones:** interfaces (DB schema, AI prompt contract, watcher rules) by Jul 18 · MVP complete Jul 27 · video + README + SkillsBuild by Jul 30 · submit Jul 31.
+
+Full detail: `docs/challenge/CHALLENGE.md`, `VISION.md`, `CONSTRAINTS.md`, `RESEARCH.md`.

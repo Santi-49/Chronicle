@@ -5,71 +5,6 @@ fully implemented. Your job is to build the challenge-specific logic and the fro
 
 ---
 
-## Step 0 — Before Writing Any Code
-
-> **Self-removing:** Once `docs/challenge/` has no `TODO` banners and `## Challenge Context`
-> at the bottom of this file is filled in, delete this entire Step 0 section from both
-> `AGENTS.md` and `CLAUDE.md`. It has served its purpose.
-
-Read `docs/challenge/` completely. If any file still contains a `TODO` banner, the team has not
-fully defined the challenge context. **Do not start building until this is resolved.**
-
-Run the **Context Clarification Protocol** below, then update the docs and the
-`## Challenge Context` section at the bottom of this file and of `CLAUDE.md`.
-
-### Context Clarification Protocol
-
-Work through every question. Do not skip. If the user cannot answer one, mark it as unknown and
-proceed — but flag it as a risk.
-
-#### 1 — Challenge
-
-1. What is the hackathon name and organizer?
-2. What is the exact problem statement from the challenge brief?
-3. What domain or industry does the challenge address? (healthcare, sustainability, fintech, etc.)
-4. What are the judging criteria and their relative weights?
-5. Are there mandatory technologies or APIs every team must use?
-6. What data, datasets, or APIs are provided to participants?
-7. What is forbidden or restricted?
-8. What is the submission format and hard deadline?
-
-#### 2 — Solution Vision
-
-9. What is your solution in one sentence?
-10. What is the core insight or philosophy — the reason your approach is better than the obvious one?
-11. What is the "wow factor"? What will make judges say they hadn't thought of this?
-12. Who is the primary user and what is their specific pain point?
-13. What are the 3–5 features that must work for the demo?
-14. What is the absolute minimum viable demo — the smallest thing that proves the concept?
-15. What would the full product look like with 3 more months?
-16. Walk through the main user journey from first contact to delivered value.
-17. What is the demo script? What will you show judges, step by step?
-
-#### 3 — Technical
-
-18. Which apps are in scope? (landing page, web app, mobile app — which ones?)
-19. Are there 3D or immersive elements? If so, where and what approach? (Spline / R3F / Three.js)
-20. Are there real-time features? (WebSockets, live data, collaborative)
-21. What external APIs or services are needed beyond the base stack?
-22. What are the performance requirements? (load time, FPS targets, offline support)
-23. Are there accessibility requirements?
-24. Mobile: iOS only, Android only, or both?
-25. Is there a design language, color scheme, or brand direction already decided?
-
-#### 4 — Team & Timeline
-
-26. Who is on the team and what is each person's primary focus?
-27. Which person owns which part of the monorepo?
-28. When is the demo or presentation?
-29. What are the key milestones leading up to the demo?
-
-After running the protocol:
-1. Update `docs/challenge/CHALLENGE.md`, `VISION.md`, and `CONSTRAINTS.md`
-2. Replace the `## Challenge Context` section at the bottom of this file with a summary
-3. Do the same in `CLAUDE.md`
-
----
-
 ## Research Protocol — Ongoing
 
 Unlike Step 0 (which runs once and is deleted), this protocol is **iterative**.
@@ -304,7 +239,13 @@ in that domain. Do not load all skills at once — load only what the current ta
 
 ## Challenge Context
 
-> **TODO** — Run the Context Clarification Protocol and replace this section.
->
-> Include: challenge name, core concept, selling point, MVP features, scope (which apps),
-> key constraints, team ownership, and demo deadline.
+- **Challenge:** AI Builders Challenge with IBM Bob (BeMyApp / IBM SkillsBuild) — July 2026 theme: *Reimagine Creative Industries with AI*. Submission due **July 31, 2026, 11:59 PM ET** (public GitHub repo + ≤3 min video + SkillsBuild learning activity).
+- **Product:** **Chronicle** — a local-first Electron + React desktop app that watches folders, auto-versions creative files on save, and uses AI to explain what changed between versions, with a hybrid keyword + embeddings search over the history.
+- **Selling point:** the plain-English AI diff of binary creative files ("background navy → teal; tagline removed") + search by meaning — git-grade history with zero designer friction, files never leave the machine.
+- **MVP:** folder watcher (debounced, temp-file-aware) → hash-based version detection → local Asset/Version storage (SQLite, dedup by hash) → AI change summary + tags per version → timeline UI → hybrid search. File types: **PNG/JPG** (PDF/PPTX are future).
+- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, and search are all on-device (React → SQLite → local file store). The template's **FastAPI backend serves as the control plane**: login/auth (pre-built JWT stack), logs, stats, and an optional **AI-inference gateway** (hybrid: bring-your-own-key locally, or route through our service). Module-contract flow applies to gateway/stats endpoints. `apps/landing/` optional if time allows; `apps/web/` and `apps/mobile/` out of scope.
+- **Key constraints:** IBM Bob is the mandatory dev tool and its usage is judged — document it as you go. AI layer via **LangChain, model-agnostic, default classes/methods only**. Code bar: minimal, clear, documented, well structured. AI calls are async, never block the UI; app works offline except AI calls.
+- **Team:** all enrolled students (eligibility confirmed); roster/ownership TBD (open risk).
+- **Deadline milestones:** interfaces (DB schema, AI prompt contract, watcher rules) by Jul 18 · MVP complete Jul 27 · video + README + SkillsBuild by Jul 30 · submit Jul 31.
+
+Full detail: `docs/challenge/CHALLENGE.md`, `VISION.md`, `CONSTRAINTS.md`, `RESEARCH.md`.

@@ -9,7 +9,10 @@
       "mcp__fetch__fetch",
       "mcp__docker__run_command",
       "mcp__markitdown__convert_to_markdown",
-      "mcp__playwright__browser_navigate"
+      "mcp__playwright__browser_navigate",
+      "WebFetch(domain:aibuilderschallenge-bob.bemyapp.com)",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:aibuilderschallenge-bobhub.bemyapp.com)"
     ]
   },
   "enabledMcpjsonServers": [

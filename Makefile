@@ -29,7 +29,7 @@ makemigration:
 	docker compose exec api alembic revision --autogenerate -m "$(MSG)"
 
 seed:
-	docker compose run --rm api python scripts/seed.py
+	docker compose run --rm api alembic upgrade head
 
 # ── Contracts ─────────────────────────────────────────────────────────
 generate-types:
@@ -61,7 +61,7 @@ help:
 	@echo "  build            Build Docker images"
 	@echo "  migrate          Apply database migrations"
 	@echo "  makemigration    Create a new database migration (set MSG=\"description\")"
-	@echo "  seed             Seed the database with initial data"
+	@echo "  seed             Apply migrations that include initial seed data"
 	@echo "  generate-types   Generate TypeScript types from OpenAPI spec"
 	@echo "  test             Run tests with coverage (Docker)"
 	@echo "  test-local       Run tests with coverage (local environment)"
