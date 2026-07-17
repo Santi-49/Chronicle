@@ -61,7 +61,7 @@ IBM Bob is our primary development tool. Every PR logs how Bob was used in
 ## Monorepo Layout
 
 ```
-AI-Builders-Bob/
+Chronicle/
 │
 ├── apps/
 │   ├── desktop/          Chronicle — Electron + React + TS (the product)
@@ -100,27 +100,71 @@ Full detail and the reasoning behind each choice: [docs/spec.md](docs/spec.md).
 
 ## Quick Start
 
-### Desktop app (the product)
+### Default: desktop app, no Docker
 
-**Requires:** Node.js 20+
+This is the MVP path and the one to use for normal Chronicle development. It does not
+require Docker, a backend, or an account.
 
-```bash
-npm --prefix apps/desktop install  # once
-make app                         # opens Electron with hot reload
-```
-
-### Backend control plane (login, telemetry, stats) — optional
-
-Not needed to run or demo the app — it's the lowest-priority piece. **Requires:** Docker Desktop
+**Requires:** Node.js 20+ and GNU make. On Windows, run make from Git Bash or WSL.
 
 ```bash
-cp .env.example .env          # set JWT_SECRET_KEY and admin credentials
-docker compose up --build     # postgres, redis, opa, api
-make migrate                  # tables + seed roles + first admin user
-curl http://localhost:8000/api/v1/hello   # → {"message":"Hello, world!"}
+make setup      # install desktop dependencies
+make run        # open Electron with hot reload
+make build      # build the desktop app
+make package    # create a Windows installer .exe in apps/desktop/dist/
 ```
 
-Swagger UI at `http://localhost:8000/docs` — admin stats are read here (no extra UI).
+Useful check:
+
+```bash
+make typecheck  # TypeScript check for the desktop app
+```
+
+If `make run` reports `Error: Electron uninstall`, repair the downloaded Electron
+binary and run again:
+
+```bash
+make ensure-electron
+make run
+```
+
+No make available? Use the underlying npm commands:
+
+```bash
+npm --prefix apps/desktop ci
+npm --prefix apps/desktop run ensure-electron
+npm --prefix apps/desktop run dev
+npm --prefix apps/desktop run build
+npm --prefix apps/desktop run package
+```
+
+### Optional: Docker backend control plane
+
+Only use this when you are working on login, telemetry, admin stats, generated API
+types, or the stretch AI gateway. It is not needed to run or demo Chronicle locally.
+
+**Requires:** Docker Desktop.
+
+```bash
+make setup-backend   # create .env if missing, start services, run migrations
+make backend         # run Postgres, Redis, OPA, and FastAPI in the foreground
+make stop            # stop backend services
+```
+
+Swagger UI is available at `http://localhost:8000/docs`. Smoke test:
+
+```bash
+curl http://localhost:8000/api/v1/hello
+# {"message":"Hello, world!"}
+```
+
+All-in commands exist for people touching every surface:
+
+```bash
+make setup-all   # desktop + landing + backend + migrations
+make run-all     # backend in the background, then desktop
+make build-all   # desktop + landing + backend image build
+```
 
 ---
 

@@ -1,115 +1,153 @@
-# Onboarding — Day 0 Setup
+# Onboarding - Day 0 Setup
 
 > See also: [System Overview](architecture/overview.md) · [Backend Overview](backend/overview.md) · [Module Contracts](contracts.md) · [MCP Servers](mcp-servers.md)
 
-Get the full stack running locally in under 10 minutes.
+Chronicle's default setup is the desktop app only. You do **not** need Docker, the
+backend, or an account to run the product, capture files, browse cached history,
+restore versions, or do keyword search. Docker is only for the optional backend
+control plane: login, telemetry, admin stats, generated API types, and the stretch AI
+gateway.
 
 ---
 
 ## Prerequisites
 
-| Tool | Minimum version | Notes |
+| Tool | Required for | Notes |
 |---|---|---|
-| Docker Desktop | 4.x | Includes Docker Compose v2 |
-| Node.js | 20 LTS | Required for `make generate-types` |
-| Python | 3.12 | Required for local tests only (`make test` runs inside Docker) |
-| Git | any | |
-| GNU make | any | **macOS/Linux:** pre-installed. **Windows:** run from **Git Bash** (bundled with Git for Windows) or WSL — do _not_ use PowerShell or CMD |
+| Git | everything | Clone the repo and work with branches |
+| Node.js 20+ | desktop app | Used by Electron, React, and type generation |
+| GNU make | simple commands | On Windows, run from Git Bash or WSL, not PowerShell/CMD |
+| Docker Desktop 4.x | optional backend only | Postgres, Redis, OPA, and FastAPI |
+| Python 3.12 | optional local backend tests | `make test` runs tests in Docker instead |
 
 ---
 
-## 1 — Clone & configure
+## 1 - Clone
 
 ```bash
 git clone <repo-url>
-cd AI-Builders-Bob
-cp .env.example .env
+cd Chronicle
 ```
 
-Open `.env` and set:
-- `JWT_SECRET_KEY` — any string ≥ 32 characters
-- `FIRST_ADMIN_EMAIL` / `FIRST_ADMIN_PASSWORD` — your local admin credentials
-- Leave everything else as-is for local development
+If your local folder has a different name, use that folder instead of `Chronicle`.
 
 ---
 
-## 2 — Start Docker services
+## 2 - Run Chronicle Without Docker
 
 ```bash
-docker compose up --build
+make setup
+make run
 ```
 
-This starts Postgres, Redis, OPA, and the API. The first build takes ~2 minutes; subsequent starts are fast.
+What this does:
 
----
+- `make setup` installs `apps/desktop` dependencies from its lockfile.
+- `make run` opens the Electron app with hot reload.
+- No `.env`, Docker services, backend account, or database server is required.
 
-## 3 — Run migrations & seed data
+No make available? Run the underlying npm commands:
 
 ```bash
-make migrate
+npm --prefix apps/desktop ci
+npm --prefix apps/desktop run ensure-electron
+npm --prefix apps/desktop run dev
 ```
-
-This runs `alembic upgrade head`, which:
-- Creates all five database tables
-- Seeds the `admin` and `user` roles
-- Seeds the full permissions matrix
-- Creates the first admin user from your `.env` values
 
 ---
 
-## 4 — Verify
+## 3 - Build and Check the Desktop App
+
+```bash
+make typecheck
+make build
+make package
+```
+
+These are also Docker-free. `make build` creates the desktop production bundle in
+`apps/desktop/out/`. `make package` creates a Windows installer `.exe` in
+`apps/desktop/dist/`.
+
+---
+
+## 4 - Optional Docker Backend Control Plane
+
+Use this only when you are working on backend features: auth/account linking,
+telemetry, admin stats, generated OpenAPI types, or the stretch hosted AI gateway.
+
+```bash
+make setup-env
+# Optional: edit .env to set JWT_SECRET_KEY and local admin credentials.
+make setup-backend
+```
+
+`make setup-backend` starts Postgres, Redis, OPA, and the FastAPI service, then runs
+Alembic migrations and seed data.
+
+Verify the backend:
 
 ```bash
 curl http://localhost:8000/api/v1/hello
-# → {"message":"Hello, world!"}
-
-curl http://localhost:8000/docs
-# → Open in browser for Swagger UI
+# {"message":"Hello, world!"}
 ```
 
-Log in with your admin credentials:
+Swagger UI is at `http://localhost:8000/docs`.
+
+For daily backend work:
+
 ```bash
-curl -s -X POST http://localhost:8000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"changeme"}' | python -m json.tool
+make backend   # run backend services in the foreground
+make stop      # stop backend services
 ```
 
 ---
 
-## 5 — Run tests (no Docker needed)
+## All-In Commands
+
+For teammates touching every surface:
 
 ```bash
-cd services/api
-pip install -e ".[dev]"
-pytest
+make setup-all   # desktop + landing + backend + migrations
+make run-all     # backend in the background, then desktop
+make build-all   # desktop + landing + backend image build
 ```
 
-Tests use SQLite in-memory and mock both Redis and OPA. All 32 tests should pass.
-
----
-
-## What's Running
-
-| URL | What |
-|---|---|
-| `http://localhost:8000/docs` | Swagger UI (interactive API docs) |
-| `http://localhost:8000/api/v1/hello` | Public smoke test |
-| `http://localhost:5432` | Postgres (user: hackathon, db: hackathon) |
-| `http://localhost:6379` | Redis |
-| `http://localhost:8181` | OPA policy engine |
+Most contributors should start with `make setup` and `make run` instead.
 
 ---
 
 ## Common Commands
 
 ```bash
-make dev              # docker compose up --build
-make stop             # docker compose down
-make migrate          # alembic upgrade head
-make makemigration MSG="add payments table"   # create a new migration
-make test             # pytest in Docker
-make generate-types   # regenerate TypeScript types from OpenAPI spec
+make setup                         # desktop dependencies only; no Docker
+make ensure-electron               # repair missing Electron binary
+make run                           # desktop app
+make build                         # desktop build
+make package                       # Windows installer .exe
+make typecheck                     # desktop TypeScript check
+make setup-backend                 # optional Docker backend + migrations
+make backend                       # optional Docker backend foreground run
+make stop                          # stop Docker backend services
+make migrate                       # apply backend migrations
+make makemigration MSG="add table" # create a backend migration
+make generate-types                # OpenAPI -> TypeScript types
+make test                          # backend pytest in Docker
+make test-local                    # backend pytest in local Python env
 ```
+
+---
+
+## Optional Backend URLs
+
+These exist only when the Docker backend is running.
+
+| URL | What |
+|---|---|
+| `http://localhost:8000/docs` | Swagger UI |
+| `http://localhost:8000/api/v1/hello` | Public smoke test |
+| `localhost:5432` | Postgres, user/db from `.env` |
+| `localhost:6379` | Redis |
+| `http://localhost:8181` | OPA policy engine |
 
 ---
 
@@ -117,7 +155,7 @@ make generate-types   # regenerate TypeScript types from OpenAPI spec
 
 | You are... | Start here |
 |---|---|
-| **Backend** | [Backend Overview](backend/overview.md) → pick up a route in `services/api/app/api/v1/endpoints/` |
-| **Desktop app** | `apps/desktop/` — run `npm install && npm run dev`, import types from `packages/contracts/api/generated/` |
-| **Challenge module** | [Module Contracts](contracts.md) — implement `services/module/app/implementation.py` |
+| **Desktop app** | `apps/desktop/` and [desktop/overview.md](desktop/overview.md) |
+| **Backend control plane** | [Backend Overview](backend/overview.md) |
+| **Challenge module / gateway** | [Module Contracts](contracts.md) |
 | **Infra / DevOps** | `docker-compose.yml`, `infra/`, `Makefile` |

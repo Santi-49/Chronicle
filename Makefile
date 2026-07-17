@@ -1,72 +1,151 @@
-# ─────────────────────────────────────────────────────────────────────
-# Windows users: GNU make must be run from Git Bash or WSL.
-#   Git Bash:  comes with Git for Windows — open "Git Bash" terminal
-#   WSL:       wsl make <target>
-#   Chocolatey install: choco install make  (then use Git Bash shell)
-# ─────────────────────────────────────────────────────────────────────
+# Chronicle command map
+#
+# Windows users: run make from Git Bash or WSL. PowerShell/CMD do not provide
+# the POSIX shell features used by recipes such as `test` and `cp`.
 
-.PHONY: app dev stop build migrate makemigration seed generate-types test test-local lint help
+.DEFAULT_GOAL := help
 
-# ── Desktop app ───────────────────────────────────────────────────────
-app:
-	npm --prefix apps/desktop run dev
+DOCKER_COMPOSE ?= docker compose
+NPM ?= npm
 
-# ── Docker ────────────────────────────────────────────────────────────
-dev:
-	docker compose up --build -d
+DESKTOP_DIR := apps/desktop
+LANDING_DIR := apps/landing
+ENV_FILE := .env
+
+.PHONY: help \
+	setup setup-all setup-env setup-desktop setup-landing setup-backend ensure-electron \
+	run run-desktop run-all app \
+	backend run-backend dev stop restart \
+	build build-desktop build-all build-landing build-backend package package-desktop installer \
+	typecheck test test-local lint \
+	migrate makemigration seed generate-types clean
+
+# --- Setup -----------------------------------------------------------------
+setup: setup-desktop
+
+setup-all: setup setup-landing setup-backend
+
+setup-env:
+	@test -f "$(ENV_FILE)" || cp .env.example "$(ENV_FILE)"
+	@echo "Environment ready: $(ENV_FILE)"
+
+setup-desktop:
+	$(NPM) --prefix $(DESKTOP_DIR) ci
+	$(NPM) --prefix $(DESKTOP_DIR) run ensure-electron
+
+ensure-electron:
+	$(NPM) --prefix $(DESKTOP_DIR) run ensure-electron
+
+setup-landing:
+	$(NPM) --prefix $(LANDING_DIR) ci
+
+setup-backend: setup-env
+	$(DOCKER_COMPOSE) up --build -d
+	$(DOCKER_COMPOSE) run --rm api alembic upgrade head
+
+# --- Run -------------------------------------------------------------------
+run: run-desktop
+
+run-desktop: ensure-electron
+	$(NPM) --prefix $(DESKTOP_DIR) run dev
+
+run-all: setup-env ensure-electron
+	$(DOCKER_COMPOSE) up --build -d
+	$(NPM) --prefix $(DESKTOP_DIR) run dev
+
+app: run-desktop
+
+backend run-backend dev: setup-env
+	$(DOCKER_COMPOSE) up --build
 
 stop:
-	docker compose down
+	$(DOCKER_COMPOSE) down
 
-build:
-	docker compose build
+restart: stop backend
 
-# ── Database ──────────────────────────────────────────────────────────
-migrate:
-	docker compose run --rm api alembic upgrade head
+# --- Build -----------------------------------------------------------------
+build: build-desktop
 
-# Usage: make makemigration MSG="add payments table"
-# Requires: dev stack running (make dev), because exec needs a live container
-# and the volume mount (docker-compose.override.yml) is what writes the file locally.
-MSG ?= migration
-makemigration:
-	docker compose exec api alembic revision --autogenerate -m "$(MSG)"
+build-desktop:
+	$(NPM) --prefix $(DESKTOP_DIR) run build
 
-seed:
-	docker compose run --rm api alembic upgrade head
+build-all: build-desktop build-landing build-backend
 
-# ── Contracts ─────────────────────────────────────────────────────────
-generate-types:
-	docker compose run --rm api python -c \
-		"import json; from app.main import app; print(json.dumps(app.openapi()))" \
-		> packages/contracts/api/openapi.yaml
-	npx openapi-typescript packages/contracts/api/openapi.yaml \
-		-o packages/contracts/api/generated/index.ts
+build-landing:
+	$(NPM) --prefix $(LANDING_DIR) run build
 
-# ── Tests ─────────────────────────────────────────────────────────────
+build-backend:
+	$(DOCKER_COMPOSE) build
+
+package: package-desktop
+
+package-desktop: ensure-electron
+	$(NPM) --prefix $(DESKTOP_DIR) run package
+	echo "Desktop app packaged in $(DESKTOP_DIR)/dist"
+
+installer: package-desktop
+
+# --- Quality ---------------------------------------------------------------
+typecheck:
+	$(NPM) --prefix $(DESKTOP_DIR) run typecheck
+
 test:
-	docker compose run --rm -e TESTING=true api \
+	$(DOCKER_COMPOSE) run --rm -e TESTING=true api \
 		pytest --cov=app --cov-report=term-missing -v
 
-# Runs pytest directly (no Docker). Requires: cd services/api && pip install -e ".[dev]"
 test-local:
 	cd services/api && TESTING=true pytest --cov=app --cov-report=term-missing -v --no-header
 
-# ── Lint ──────────────────────────────────────────────────────────────
 lint:
-	docker compose run --rm api ruff check app tests
+	$(DOCKER_COMPOSE) run --rm api ruff check app tests
 
-# ── Help ──────────────────────────────────────────────────────────────
+# --- Database --------------------------------------------------------------
+migrate:
+	$(DOCKER_COMPOSE) run --rm api alembic upgrade head
+
+MSG ?= migration
+makemigration:
+	$(DOCKER_COMPOSE) exec api alembic revision --autogenerate -m "$(MSG)"
+
+seed: migrate
+
+# --- Contracts -------------------------------------------------------------
+generate-types:
+	$(DOCKER_COMPOSE) run --rm api python -c \
+		"import json; from app.main import app; print(json.dumps(app.openapi()))" \
+		> packages/contracts/api/openapi.yaml
+	npx --yes openapi-typescript packages/contracts/api/openapi.yaml \
+		-o packages/contracts/api/generated/index.ts
+
+# --- Cleanup ---------------------------------------------------------------
+clean:
+	$(DOCKER_COMPOSE) down --remove-orphans
+
+# --- Help ------------------------------------------------------------------
 help:
-	@echo "Available targets:"
-	@echo "  app              Launch Chronicle Desktop with hot reload"
-	@echo "  dev              Start the development environment (Docker)"
-	@echo "  stop             Stop the development environment (Docker)"
-	@echo "  build            Build Docker images"
-	@echo "  migrate          Apply database migrations"
-	@echo "  makemigration    Create a new database migration (set MSG=\"description\")"
-	@echo "  seed             Apply migrations that include initial seed data"
-	@echo "  generate-types   Generate TypeScript types from OpenAPI spec"
-	@echo "  test             Run tests with coverage (Docker)"
-	@echo "  test-local       Run tests with coverage (local environment)"
-	@echo "  lint             Run code linting (Docker)"
+	$(info Chronicle commands)
+	$(info )
+	$(info Desktop MVP:)
+	$(info   make setup          Install desktop deps; no Docker required)
+	$(info   make run            Run the Chronicle desktop app with hot reload)
+	$(info   make build          Build the desktop app)
+	$(info   make package        Build a Windows installer .exe)
+	$(info   make typecheck      Type-check the desktop app)
+	$(info   make ensure-electron Download/repair the Electron binary)
+	$(info )
+	$(info Everything / optional surfaces:)
+	$(info   make setup-all      Setup desktop, landing page, backend, and migrations)
+	$(info   make run-all        Run backend in the background, then launch desktop)
+	$(info   make build-all      Build desktop, landing page, and backend images)
+	$(info )
+	$(info Backend control plane:)
+	$(info   make setup-backend  Start Docker services and run migrations)
+	$(info   make backend        Run Postgres, Redis, OPA, and FastAPI)
+	$(info   make dev            Alias for make backend)
+	$(info   make stop           Stop Docker services)
+	$(info   make migrate        Apply Alembic migrations)
+	$(info   make makemigration MSG="...")
+	$(info   make generate-types Generate API TypeScript types)
+	$(info   make test           Run backend tests in Docker)
+	$(info   make lint           Run backend Ruff checks)
+	@:

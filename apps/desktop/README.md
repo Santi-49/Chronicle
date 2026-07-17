@@ -20,7 +20,9 @@ src/renderer/   React UI — Assets, Timeline, Version details, Search
 
 ```bash
 npm install        # once
+npm run ensure-electron # repairs/downloads the Electron binary if needed
 npm run dev        # start Electron with hot reload
 npm run build      # production bundle to out/
+npm run package    # Windows installer to dist/
 npm run typecheck  # tsc over main+preload and renderer
 ```

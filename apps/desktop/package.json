@@ -5,10 +5,37 @@
   "private": true,
   "main": "out/main/index.js",
   "scripts": {
+    "postinstall": "install-electron",
+    "ensure-electron": "install-electron",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "package": "npm run build && electron-builder --win nsis --x64",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "build": {
+    "appId": "app.chronicle.desktop",
+    "productName": "Chronicle",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   },
   "devDependencies": {
     "@material-symbols/svg-400": "^0.45.8",
@@ -17,6 +44,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
     "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
