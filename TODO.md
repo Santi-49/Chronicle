@@ -94,11 +94,17 @@ owned by MVP-09 after its research step.
 **Done when:** Clean install, `npm run dev`, `npm run typecheck`, `npm test`, and
 `npm run build` work on the primary Windows machine. Native SQLite loading is verified.
 
+> Partial progress via `feat/mvp-02-sqlite-repositories`: `better-sqlite3` + Vitest are
+> installed (exact versions), `npm test` exists (runs under Electron's Node via
+> `ELECTRON_RUN_AS_NODE` after `electron-rebuild` in postinstall), and native SQLite
+> loading in Electron 43 is verified. Still open: Chokidar, Tailwind, secure
+> BrowserWindow defaults, and app data/library path setup.
+
 ## Phase 2 — Local capture core
 
-### [ ] MVP-02 — Implement SQLite initialization and repositories
+### [~] MVP-02 — Implement SQLite initialization and repositories
 
-**Owner:** Unassigned  
+**Owner:** Santi R (implemented on `feat/mvp-02-sqlite-repositories`, PR into `dev` pending)  
 **Depends on:** MVP-01  
 **Goal:** Persist folders, assets, versions, annotations, embeddings, jobs, and settings.
 
