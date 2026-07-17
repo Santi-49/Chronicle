@@ -92,6 +92,7 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - **LangChain, model-agnostic** (team decision): default classes/methods only. Model-agnosticism is itself a good judging story — "swap in Granite/watsonx without code changes."
 - ~~Keep Docling on the roadmap slide for PDF/PPTX~~ — **superseded 2026-07-16**: the roadmap after images is now CAD/design-software formats, not documents (see log). The IBM alignment story stays via watsonx/Granite as the model-agnostic swap.
 - Minimal, clear, documented code — judges are told to reward "well-structured"; the README is a judged artifact, treat it as a feature.
+- For the desktop UI, use a neutral-gray, dark-first palette with IBM blue reserved for primary actions and focus. IBM's public design language recommends gray-dominant product interfaces, blue as the primary action color, paired dark/light themes, and WCAG contrast checks.
 
 ### What to Emphasize in the Demo
 
@@ -131,3 +132,4 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - 2026-07-17 — Contract policy clarified: contracts define operation functionality and input/output/error formats, not prompts, algorithms, tools, orchestration, storage layout, provider choices, or internal classes. Prompt assets are centralized under `packages/prompts/` as Markdown with YAML front matter — team
 - 2026-07-17 — AI scope clarified: MVP inference is API-based through LangChain only; “local” means local version storage and desktop-side orchestration, not a local model. BYOK sends required inputs directly to the configured provider; gateway routing remains stretch scope — team
 - 2026-07-17 — OPEN RESEARCH: before implementing AI, test LangChain-native structured output/runnables/tools, a shared Markdown/YAML-front-matter loader, deterministic image/OCR assistance, provider image handling, privacy, cost, and result quality. Prefer library-native facilities; add no custom AI classes unless the tested implementation requires them — team architecture review
+- 2026-07-17 — Visual direction validated before first UI implementation: IBM Design Language uses gray-dominant UI surfaces, core blue for primary actions, paired dark/light themes, and 4.5:1 contrast for small text. Chronicle adopts a minimal dark-first system with a light toggle and semantic color tokens — [IBM Design Language: Color](https://www.ibm.com/design/language/color/)

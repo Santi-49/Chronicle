@@ -51,10 +51,10 @@
 
 ## Design Language
 
-- **Style direction:** *Unknown — risk.* Working assumption: clean, dark-friendly "pro tool" aesthetic (Linear/Figma-like), timeline as hero element.
-- **Primary colors:** TBD
-- **Fonts:** TBD
-- **Assets / inspiration:** TBD — run the design-skill search before UI work.
+- **Style direction:** clean, minimal professional tool; dark-first with a user-controlled light theme. The timeline remains the future hero element.
+- **Primary colors:** neutral gray surfaces with IBM blue reserved for primary actions and focus states; semantic theme tokens pair dark and light values.
+- **Fonts:** native system sans-serif for the MVP (fast, offline, platform-appropriate).
+- **Assets / inspiration:** IBM Design Language color guidance and the repository UI/UX design-system search; crisp inline SVG icons, restrained effects, accessible contrast.
 
 ## Team
 

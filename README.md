@@ -105,9 +105,8 @@ Full detail and the reasoning behind each choice: [docs/spec.md](docs/spec.md).
 **Requires:** Node.js 20+
 
 ```bash
-cd apps/desktop
-npm install
-npm run dev        # opens the Electron window with hot reload
+npm --prefix apps/desktop install  # once
+make app                         # opens Electron with hot reload
 ```
 
 ### Backend control plane (login, telemetry, stats) — optional

@@ -5,7 +5,11 @@
 #   Chocolatey install: choco install make  (then use Git Bash shell)
 # ─────────────────────────────────────────────────────────────────────
 
-.PHONY: dev stop build migrate makemigration seed generate-types test test-local lint
+.PHONY: app dev stop build migrate makemigration seed generate-types test test-local lint help
+
+# ── Desktop app ───────────────────────────────────────────────────────
+app:
+	npm --prefix apps/desktop run dev
 
 # ── Docker ────────────────────────────────────────────────────────────
 dev:
@@ -55,6 +59,7 @@ lint:
 # ── Help ──────────────────────────────────────────────────────────────
 help:
 	@echo "Available targets:"
+	@echo "  app              Launch Chronicle Desktop with hot reload"
 	@echo "  dev              Start the development environment (Docker)"
 	@echo "  stop             Stop the development environment (Docker)"
 	@echo "  build            Build Docker images"

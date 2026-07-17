@@ -10,13 +10,12 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "electron": "^38.0.0",
+    "electron": "^43.1.1",
     "electron-vite": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
