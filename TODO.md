@@ -166,9 +166,9 @@ decision) and one line in `docs/bob-log.md`.
 **Done when:** Tests cover first startup, repeat startup, uniqueness, append-only version
 numbers, foreign keys, transaction rollback, and JSON/vector round trips.
 
-### [~] MVP-03 — Implement and test folder watching
+### [x] MVP-03 — Implement and test folder watching
 
-**Owner:** Santi R (implemented on `feat/mvp-03-folder-watcher`; manual demo-editor test pending)  
+**Owner:** Santi R (merged into `dev` via `feat/mvp-03-folder-watcher`)  
 **Depends on:** MVP-01  
 **Goal:** Produce one settled capture candidate for each real PNG/JPG save.
 
@@ -194,8 +194,9 @@ candidate per save, including temp-write/atomic-rename behavior.
 > per-folder watch/unwatch/close, 2 s settle via `awaitWriteFinish`, atomic-rename
 > handling, hidden-dir exclusion, initial-scan capture) + 14 tests incl. real-filesystem
 > integration; `require()` of ESM chokidar verified under Electron 43/Node 24. See
-> `apps/desktop/src/main/watcher/README.md`. Remaining: manual save test in the actual
-> demo editor once MVP-04 makes candidates visible.
+> `apps/desktop/src/main/watcher/README.md`. Still open (tracked in RESEARCH.md, folds
+> into MVP-04/MVP-12 verification): manual save test in the actual demo editor once
+> capture makes candidates visible.
 
 ### [ ] MVP-04 — Implement content-addressed version capture
 
