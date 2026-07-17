@@ -1,5 +1,10 @@
 import { app, BrowserWindow, Menu } from 'electron'
 import path from 'node:path'
+import { openAppDatabase, type ChronicleDb } from './db'
+import { ensureAppDirs } from './paths'
+
+/** Single app-lifetime database handle; IPC handlers (MVP-05) receive this. */
+let db: ChronicleDb
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -18,7 +23,13 @@ function createWindow(): void {
           trafficLightPosition: { x: 16, y: 16 }
         }),
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js')
+      preload: path.join(__dirname, '../preload/index.js'),
+      // C1 security boundary: the renderer gets no Node access — only the
+      // typed bridge the preload exposes. These are Electron's defaults,
+      // stated explicitly so a future edit can't silently weaken them.
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
     }
   })
 
@@ -31,6 +42,9 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  ensureAppDirs()
+  db = openAppDatabase()
+
   // Windows and Linux otherwise add Electron's default File/Edit/View/Window row.
   // macOS keeps its platform-standard application menu at the top of the screen.
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null)
