@@ -14,8 +14,9 @@ Research       Documentation       Contracts        MVP build         Demo/submi
    ✓                 ✓                 ✓          ← WE ARE HERE            ○
 ```
 
-The repository has a working Electron/React shell and a pre-built optional backend.
-The desktop features described in the specification have not yet been implemented.
+The repository has a working Electron/React shell, complete renderer screen skeletons, and a
+pre-built optional backend. The screens currently use typed demo data; watcher, storage, AI,
+restore, and search-engine integrations have not yet been implemented.
 
 ## Status at a glance
 
@@ -24,11 +25,11 @@ The desktop features described in the specification have not yet been implemente
 | Challenge research and product vision | Ready | The problem, audience, judging criteria, scope, and demo story are documented. |
 | MVP specification | Ready | Required behavior and acceptance examples are in `docs/spec.md`. |
 | Boundary contracts | Ready for implementation | IPC, AI I/O, watcher decisions, settings, and planned API/module formats are baselined. |
-| Desktop scaffold | Scaffold only | Electron opens a basic React screen; feature dependencies and production structure are still missing. |
+| Desktop scaffold | Renderer skeleton ready | Electron opens the full welcome/workspace shell with dark/light themes and typed screen navigation; native feature dependencies are still missing. |
 | Folder watcher | Contract only | Rules are defined; Chokidar integration and real-editor testing are not implemented. |
 | Version storage | Schema draft only | SQLite schema exists; database initialization, repositories, hashing, and file storage are not implemented. |
 | AI summaries | Contract and prompt asset only | No LangChain provider integration, job runner, or encrypted-key handling exists yet. |
-| Timeline, restore, and search | Not started | UI and main-process implementations remain to be built. |
+| Timeline, restore, and search | UI skeleton ready | Assets, Timeline, Version Details, Search, and Settings flows render with demo data; IPC/database/search-engine behavior remains to be connected. |
 | Backend control plane | Base auth/RBAC ready | Chronicle telemetry/config/gateway additions are low priority or stretch and must not delay the MVP. |
 | Landing page | Existing optional page | Not part of the MVP; do not spend time here before the desktop app works. |
 | Demo and submission | Not started | Demo assets, video, final README evidence, and SkillsBuild completion remain outstanding. |
@@ -56,7 +57,7 @@ not a public contract. Change it carefully through migrations once released.
 2. Team fills in names and task ownership in [TODO.md](TODO.md).
 3. Complete `MVP-01` desktop foundation before feature branches depend on missing packages.
 4. Run `MVP-02`, `MVP-03`, and UI preparation in parallel after the foundation is merged.
-5. Decide the demo AI provider, visual direction, and demo asset owner this week.
+5. Decide the demo AI provider and demo asset owner this week; the visual direction is now recorded in `docs/challenge/CONSTRAINTS.md`.
 6. Every team member completes the required IBM SkillsBuild activity before July 25.
 
 ## Open decisions and risks
@@ -66,7 +67,7 @@ not a public contract. Change it carefully through migrations once released.
 | Team roster and task ownership | Team lead | Now | Fill `docs/challenge/CONSTRAINTS.md` and TODO owners. |
 | `dev` branch and repository protection | Team lead | Before implementation PRs | Create `dev`; require review for `dev` and `main`. |
 | Demo AI provider/model and budget | Unassigned | Before `MVP-07` | Test API quality, cost, privacy, and LangChain structured output. |
-| Design colors, typography, and visual references | Unassigned | Before final UI styling | Use the design research skill and record the human choice. |
+| Visual QA against real data | UI owner | During renderer integration | The dark-first flat direction is recorded; replace demo content with real IPC data without changing the shell hierarchy. |
 | Demo asset pack and scripted edits | Unassigned | By July 20 | Create controlled logo/banner/product image versions. |
 | Watcher behavior in the real demo editor | Watcher owner | During `MVP-03` | Test actual save, temp-file, and rename behavior early. |
 | Native `better-sqlite3` setup on Windows | Foundation/database owners | During `MVP-01` | Verify Electron rebuild and document any required tools. |
@@ -88,4 +89,3 @@ not a public contract. Change it carefully through migrations once released.
 - Link evidence such as tests, screenshots, or the relevant PR in the status note when possible.
 - Do not report percentages without measurable acceptance criteria.
 - Move completed implementation details out of this dashboard and into the relevant technical docs.
-

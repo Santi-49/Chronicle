@@ -1,10 +1,22 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import path from 'node:path'
 
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    titleBarStyle: 'hidden',
+    ...(process.platform !== 'darwin'
+      ? {
+          titleBarOverlay: {
+            color: '#161616',
+            symbolColor: '#f4f4f4',
+            height: 48
+          }
+        }
+      : {
+          trafficLightPosition: { x: 16, y: 16 }
+        }),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js')
     }
@@ -19,6 +31,10 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Windows and Linux otherwise add Electron's default File/Edit/View/Window row.
+  // macOS keeps its platform-standard application menu at the top of the screen.
+  if (process.platform !== 'darwin') Menu.setApplicationMenu(null)
+
   createWindow()
 
   app.on('activate', () => {

@@ -54,7 +54,7 @@
 - **Style direction:** clean, minimal professional tool; dark-first with a user-controlled light theme. The timeline remains the future hero element.
 - **Primary colors:** neutral gray surfaces with IBM blue reserved for primary actions and focus states; semantic theme tokens pair dark and light values.
 - **Fonts:** native system sans-serif for the MVP (fast, offline, platform-appropriate).
-- **Assets / inspiration:** IBM Design Language color guidance and the repository UI/UX design-system search; crisp inline SVG icons, restrained effects, accessible contrast.
+- **Assets / inspiration:** IBM Design Language and Carbon UI shell/motion guidance; locally bundled Google Material Symbols SVGs for interface icons; the standard-color Google “G” for the future sign-in control; restrained effects and accessible contrast.
 
 ## Team
 

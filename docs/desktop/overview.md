@@ -39,10 +39,12 @@ Launch
 
 ## Window Layout
 
-One window, three persistent regions:
+One window, four persistent regions:
 
 ```
-┌────────┬──────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────┐
+│ Chronicle                         native window controls │
+├────────┬──────────────────────────────────────────────┤
 │        │                                              │
 │  Side  │              Content area                    │
 │  bar   │   (one page at a time, see below)            │
@@ -53,6 +55,9 @@ One window, three persistent regions:
 └───────────────────────────────────────────────────────┘
 ```
 
+- **Title bar** — a 48 px draggable region with Chronicle identity and native window
+  controls. Its center stays open instead of carrying decorative filler; it can host a
+  centered global search/command field once that control is functional across the app.
 - **Sidebar** — navigation: **Assets · Search · Settings** (+ **Admin**, stretch, visible
   only to the `admin` role). Small and fixed; the product is the content area.
 - **Content area** — exactly one page at a time; pages below.

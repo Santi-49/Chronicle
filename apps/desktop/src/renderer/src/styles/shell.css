@@ -1,0 +1,99 @@
+.workspace-shell {
+  display: grid;
+  height: 100%;
+  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  color: var(--text-primary);
+  background: var(--background);
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 8px;
+  left: 236px;
+  padding: 9px 12px;
+  color: var(--button-text);
+  background: var(--accent-strong);
+  border-radius: 4px;
+  transform: translateY(-150%);
+  transition: transform var(--motion-fast) ease;
+}
+
+.skip-link:focus { transform: translateY(0); }
+
+.workspace-sidebar {
+  display: flex;
+  min-height: 0;
+  padding: 20px 16px 18px;
+  flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.workspace-sidebar nav { margin-top: 0; }
+.workspace-sidebar ul { display: grid; padding: 0; margin: 0; gap: 4px; list-style: none; }
+
+.sidebar-link {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  align-items: center;
+  gap: 11px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease;
+}
+
+.sidebar-link::before {
+  position: absolute;
+  width: 3px;
+  height: 20px;
+  left: 0;
+  content: '';
+  background: transparent;
+}
+
+.sidebar-link:hover { color: var(--text-primary); background: var(--surface-hover); }
+.sidebar-link-active { color: var(--text-primary); background: var(--surface-hover); }
+.sidebar-link-active::before { background: var(--accent); }
+.sidebar-link-active .icon { color: var(--accent); }
+
+.sidebar-version {
+  margin: 12px 10px 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.workspace-sidebar nav.sidebar-footer { margin-top: auto; }
+
+.workspace-main {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-content {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scroll-behavior: smooth;
+}
+
+@media (max-width: 760px) {
+  .workspace-shell { grid-template-columns: 72px minmax(0, 1fr); }
+  .workspace-sidebar { padding: 24px 12px 16px; align-items: center; }
+  .sidebar-link span,
+  .sidebar-version { display: none; }
+  .sidebar-link { width: 48px; padding: 0; justify-content: center; }
+  .skip-link { left: 84px; }
+}

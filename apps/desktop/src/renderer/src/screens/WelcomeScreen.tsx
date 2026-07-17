@@ -1,4 +1,6 @@
 import { BrandLockup } from '../components/ChronicleMark'
+import { GoogleMark } from '../components/GoogleMark'
+import { Icon } from '../components/Icon'
 
 interface WelcomeScreenProps {
   onContinue: () => void
@@ -52,9 +54,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
           <div className="access-actions">
             <button className="primary-button" onClick={onContinue} type="button">
               Continue local
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
-                <path d="m9 18 6-6-6-6" />
-              </svg>
+              <Icon name="chevron-right" />
             </button>
 
             <div className="divider" aria-hidden="true">
@@ -62,7 +62,7 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
             </div>
 
             <button className="google-button" disabled type="button">
-              <span>Continue with Google</span>
+              <span className="google-button-label"><GoogleMark />Continue with Google</span>
               <span className="soon-badge">Coming soon</span>
             </button>
           </div>
