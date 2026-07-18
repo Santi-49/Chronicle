@@ -198,9 +198,9 @@ candidate per save, including temp-write/atomic-rename behavior.
 > into MVP-04/MVP-12 verification): manual save test in the actual demo editor once
 > capture makes candidates visible.
 
-### [ ] MVP-04 — Implement content-addressed version capture
+### [x] MVP-04 — Implement content-addressed version capture
 
-**Owner:** Unassigned  
+**Owner:** Santi R (merged into `dev` via `feat/mvp-04-version-capture`)  
 **Depends on:** MVP-02, MVP-03  
 **Goal:** Turn accepted files into deduplicated, append-only asset versions.
 
@@ -221,6 +221,14 @@ and append-only history guarantees.
 
 **Done when:** Three changed saves create exactly three versions; identical bytes create no
 new version; duplicate content is stored once; 50 MB and missing-file cases are handled.
+
+> Done: `capture.ts` (F3 pipeline: snapshot+hash in one streamed pass → dedup vs. latest
+> version → append version + enqueue `ai_annotation` job in one transaction) + `library.ts`
+> (content-addressed store, temp-write + rename) + `dimensions.ts` (PNG/JPEG header parse,
+> no new dependency) + 15 real-filesystem tests covering all acceptance checks. No DB
+> repository changes were needed — MVP-02's functions sufficed. See
+> `apps/desktop/src/main/versioning/README.md`. The MVP-03 manual demo-editor test remains
+> open until watcher→capture wiring lands (MVP-05/MVP-12).
 
 ### [ ] MVP-05 — Implement the secure IPC bridge and handlers
 
