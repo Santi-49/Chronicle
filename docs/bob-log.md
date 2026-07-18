@@ -8,6 +8,7 @@ Format: `date · member · what Bob did · feature/PR`.
 |------|--------|------------------|--------------|
 | 2026-07-17 | Santi R | *Pending — this task was implemented with another AI assistant (Claude Code); log the real Bob usage for this PR (e.g. review/regenerate with Bob) before submission* | MVP-02 — SQLite init + repositories (`feat/mvp-02-sqlite-repositories`) |
 | 2026-07-18 | Santi R | *Pending — implemented with Claude Code; log real Bob usage for this PR (e.g. Bob review of the settle/ignore rules) before submission* | MVP-03 — folder watching (`feat/mvp-03-folder-watcher`) |
+| 2026-07-18 | Santi R | *Pending — implemented with Claude Code; log real Bob usage for this PR (e.g. Bob review of the hash/dedup pipeline) before submission* | MVP-04 — version capture (`feat/mvp-04-version-capture`) |
 
 ## Ideas for judge-visible Bob usage
 

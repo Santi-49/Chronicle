@@ -1,13 +1,14 @@
 # Chronicle Project Status
 
-> Team dashboard · Updated 2026-07-17 · Submission deadline: **2026-07-31, 11:59 PM ET**
+> Team dashboard · Updated 2026-07-18 · Submission deadline: **2026-07-31, 11:59 PM ET**
 
 Start here at the beginning of a work session. Use [TODO.md](TODO.md) to claim work and
 [Project Overview](docs/PROJECT_OVERVIEW.md) if you are new to Chronicle.
 
 ## Current stage
 
-**Planning and contracts are complete. MVP implementation is the next stage.**
+**MVP build in progress: the local capture core (foundation, database, watcher, version
+capture) is merged into `dev`. Next: the IPC bridge (MVP-05), then AI and search.**
 
 ```text
 Research       Documentation       Contracts        MVP build         Demo/submission
@@ -15,8 +16,9 @@ Research       Documentation       Contracts        MVP build         Demo/submi
 ```
 
 The repository has a working Electron/React shell, complete renderer screen skeletons, and a
-pre-built optional backend. The screens currently use typed demo data; watcher, storage, AI,
-restore, and search-engine integrations have not yet been implemented.
+pre-built optional backend. On `dev`, the main process can watch folders, hash saves, and
+store deduplicated versions locally (MVP-01…04); the screens still use typed demo data until
+the IPC bridge (MVP-05) connects them. AI, restore, and search remain unimplemented.
 
 ## Status at a glance
 
@@ -25,9 +27,9 @@ restore, and search-engine integrations have not yet been implemented.
 | Challenge research and product vision | Ready | The problem, audience, judging criteria, scope, and demo story are documented. |
 | MVP specification | Ready | Required behavior and acceptance examples are in `docs/spec.md`. |
 | Boundary contracts | Ready for implementation | IPC, AI I/O, watcher decisions, settings, and planned API/module formats are baselined. |
-| Desktop scaffold | Renderer skeleton ready | Electron opens the full welcome/workspace shell with dark/light themes and typed screen navigation; native feature dependencies are still missing. |
-| Folder watcher | Contract only | Rules are defined; Chokidar integration and real-editor testing are not implemented. |
-| Version storage | Schema draft only | SQLite schema exists; database initialization, repositories, hashing, and file storage are not implemented. |
+| Desktop scaffold | Merged (MVP-01) | Foundation dependencies installed and verified; native SQLite loads in Electron; tests run under Electron's Node. |
+| Folder watcher | Merged (MVP-03) | Chokidar watching with the 2 s settle and C4 ignore rules, 14 tests. Manual demo-editor test pending until capture is wired to the UI. |
+| Version storage | Merged (MVP-02 + MVP-04) | SQLite init + repositories, and content-addressed capture: stream hash, dedup by content, append-only versions, dimensions metadata, AI job enqueue. 38 tests. |
 | AI summaries | Contract and prompt asset only | No LangChain provider integration, job runner, or encrypted-key handling exists yet. |
 | Timeline, restore, and search | UI skeleton ready | Assets, Timeline, Version Details, Search, and Settings flows render with demo data; IPC/database/search-engine behavior remains to be connected. |
 | Backend control plane | Base auth/RBAC ready | Chronicle telemetry/config/gateway additions are low priority or stretch and must not delay the MVP. |
@@ -55,8 +57,10 @@ not a public contract. Change it carefully through migrations once released.
 
 1. Team lead creates and protects the `dev` integration branch.
 2. Team fills in names and task ownership in [TODO.md](TODO.md).
-3. Complete `MVP-01` desktop foundation before feature branches depend on missing packages.
-4. Run `MVP-02`, `MVP-03`, and UI preparation in parallel after the foundation is merged.
+3. Implement the `MVP-05` IPC bridge — it unblocks wiring every existing screen to real data
+   and the watcher→capture startup wiring.
+4. Start `MVP-09` AI research (provider decision below) in parallel; capture is already
+   enqueueing `ai_annotation` jobs for it to consume.
 5. Decide the demo AI provider and demo asset owner this week; the visual direction is now recorded in `docs/challenge/CONSTRAINTS.md`.
 6. Every team member completes the required IBM SkillsBuild activity before July 25.
 
