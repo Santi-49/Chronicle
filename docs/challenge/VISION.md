@@ -2,7 +2,10 @@
 
 ## Core Concept
 
-**Chronicle** — a local desktop app that automatically tracks the evolution of creative files (images first; design-industry formats like CAD next) and uses AI to explain *what changed* between versions, replacing `logo_final_v8.png` chaos with a searchable, AI-annotated version timeline.
+**Chronicle** — a local desktop app that automatically tracks the evolution of creative files
+(PNG/JPG first; SVG, BLEND, OBJ, STEP/STP, PSD, and PSB in the future) and uses AI to explain
+*what changed* between versions, replacing `logo_final_v8.png` chaos with a searchable,
+AI-annotated version timeline.
 
 ## Philosophy & Selling Point
 
@@ -23,7 +26,7 @@ The unfair advantages:
 
 ## Key Features — MVP
 
-1. **Folder watcher** — user selects folders; file saves are detected (debounced, temp files ignored) and hashed; a changed hash creates a new version. MVP file types: **PNG/JPG** (design-industry formats such as CAD are listed for future support).
+1. **Folder watcher** — user selects folders; file saves are detected (debounced, temp files ignored) and hashed; a changed hash creates a new version. MVP file types: **PNG/JPG**. Selected future formats: **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB**.
 2. **Version storage** — Asset → Versions model; original file, metadata, timestamps, version number stored locally; identical content deduplicated by hash.
 3. **AI version comparison** — for each new version, generate: what changed vs. the previous version, a short summary, and searchable tags. Built on **LangChain, model-agnostic** (default classes/methods — no unnecessary custom abstractions).
 4. **Timeline UI** — assets list → per-asset version timeline → version details with AI summary.
@@ -31,7 +34,13 @@ The unfair advantages:
 
 ## Full Vision
 
-With 3 more months: **CAD and other design-software formats** (architecture/product design — rendered previews diffed the same way), *why* it changed (linking feedback from Slack/Figma comments to versions), impact analysis, embedded Chronicle metadata for identity across renames/moves, side-by-side visual diff, team collaboration and cloud sync, branching for creative exploration.
+With 3 more months: support **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB** through safe
+structure extraction and normalized previews; **image embeddings** for visual-similarity
+search ("versions that look like this"); a **history chat assistant** that answers questions
+like "when did we drop the tagline?" by retrieving over the annotated timeline; explain *why*
+a file changed by linking feedback to versions; add impact analysis, identity across
+renames/moves, side-by-side visual diff, team collaboration, cloud sync, and branching for
+creative exploration.
 
 ## Main User Journey
 

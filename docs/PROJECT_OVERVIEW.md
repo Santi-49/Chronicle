@@ -50,9 +50,11 @@ The important experience is: **save normally → see a new version → understan
 Chronicle keeps the version library and database on the user's computer. It does not upload
 the whole library to Chronicle's backend.
 
-AI is different: the MVP uses external APIs through LangChain. If the user enables AI,
-the images required for a comparison are sent either directly to their configured provider
-(BYOK) or, later, through Chronicle's optional gateway. There is no local AI model in the MVP.
+AI is different: the MVP uses external APIs through LangChain. The AI code itself runs in
+a small **local Python AI service** on the user's computer (`services/ai/` — not the
+optional backend); if the user enables AI, that service sends the images required for a
+comparison either directly to their configured provider (BYOK) or, later, through
+Chronicle's optional gateway. There is no local AI model in the MVP.
 
 Without a network connection, Chronicle can still capture versions, show cached history,
 restore files, and perform keyword search. AI summaries and semantic embeddings wait in a
@@ -68,16 +70,19 @@ flowchart TB
         DB[(SQLite metadata)]
         LIB[(Local version library)]
 
+        AI[Local AI service<br/>Python FastAPI + LangChain]
+
         UI <-->|Typed IPC contract| MAIN
         MAIN --> DB
         MAIN --> LIB
+        MAIN -->|Local HTTP 127.0.0.1| AI
     end
 
-    PROVIDER[Configured AI API<br/>through LangChain]
+    PROVIDER[Configured AI API]
     CONTROL[Optional FastAPI control plane<br/>accounts, telemetry, future gateway]
     LANDING[Optional Astro landing page]
 
-    MAIN -->|Only when AI is configured| PROVIDER
+    AI -->|Only when AI is configured| PROVIDER
     MAIN -.->|Optional / low priority| CONTROL
     LANDING -.->|Explains the product| PEOPLE[Visitors]
 ```
@@ -102,7 +107,10 @@ The renderer must never directly access the filesystem, database, API key, or No
 
 ### AI layer
 
-LangChain connects Chronicle to a selected API provider. The contract requires a structured
+AI features are developed in Python in `services/ai/` — a small FastAPI service that runs
+locally next to the app (it is not the optional backend, and it needs no Docker). The
+Electron main process sends it annotation/embedding requests over `127.0.0.1`; inside,
+LangChain connects to the selected API provider. The contract requires a structured
 annotation—summary, change list, and tags—but does not dictate whether the implementation
 uses one prompt, several steps, tools, OCR, or deterministic assistance.
 
@@ -234,7 +242,8 @@ cross-cutting change and leave the other owner to discover it during merge.
 | Electron | Technology that packages a web-style interface as a desktop application. |
 | React | The library used to build Chronicle's visible interface. |
 | IPC | The controlled message bridge between the visible interface and trusted desktop code. |
-| LangChain | The library used to call AI APIs without tying Chronicle to one provider. |
+| LangChain | The Python library used to call AI APIs without tying Chronicle to one provider. |
+| AI service | A small Python program (`services/ai/`) running on the user's computer that the desktop app asks for AI results. Not the optional backend. |
 | BYOK | “Bring your own key”: the user supplies an AI provider credential stored encrypted locally. |
 | Embedding | A list of numbers representing meaning, used for semantic search. |
 | Semantic search | Search by meaning rather than only exact words. |

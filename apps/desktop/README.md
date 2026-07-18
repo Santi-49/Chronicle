@@ -11,7 +11,7 @@ src/main/       Electron main process (Node)
   watcher/        folder watching, debounce, ignore rules
   versioning/     hashing, content-addressed library, capture pipeline
   ipc/            C1 bridge: handlers, events, chronicle:// protocol, secrets
-  ai/             LangChain comparison/summaries/tags (BYOK path)
+  ai/             job worker + typed client for the local Python AI service (services/ai/)
   gateway-client/ control-plane client (auth, logs, stats, hosted inference)
 src/preload/    typed IPC bridge (contextBridge)
 src/renderer/   React UI — Assets, Timeline, Version details, Search

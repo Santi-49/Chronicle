@@ -34,19 +34,22 @@ saves PNG/JPG) and:
 Capture, history, restore, and search run on-device with no account, backend, or Docker.
 AI inference is API-based through LangChain: BYOK calls the configured provider directly,
 while an optional gateway is stretch scope. The control plane adds accounts and usage
-stats. Roadmap: images first (MVP), then design-industry
-formats like **CAD** — Word and PDF already have version history; architecture and product
-design don't.
+stats. Roadmap: PNG/JPG first (MVP), then the selected future formats **SVG, BLEND, OBJ,
+STEP/STP, PSD, and PSB**. These cover vector design, layered image work, 3D creation, and
+product-design interchange without expanding the MVP.
 
 ## AI Approach
 
-- **LangChain, model-agnostic, default classes/methods only** — the provider (Anthropic,
-  IBM watsonx/Granite, OpenAI…) is swappable behind one interface, mirroring IBM Bob's own
-  multi-model philosophy.
+- **LangChain (Python), model-agnostic, default classes/methods only** — the provider
+  (Anthropic, IBM watsonx/Granite, OpenAI…) is swappable behind one interface, mirroring
+  IBM Bob's own multi-model philosophy.
+- AI features live in a **local Python AI service** (`services/ai/`: FastAPI + LangChain)
+  that runs on the user's machine and is called by the Electron app over `127.0.0.1` —
+  one AI codebase for the BYOK path and the optional backend gateway. It is not the
+  control-plane backend.
 - Vision-based change summaries + text embeddings for semantic search, both defined by a
-  shared functional input/output contract used by the app (bring-your-own-key) and the
-  optional backend gateway. Versioned prompt assets live in `packages/prompts/` and may
-  evolve independently for each researched implementation.
+  shared functional input/output contract. Versioned prompt assets live in
+  `packages/prompts/` and may evolve independently for each researched implementation.
 - AI is **always async** — the UI never blocks on a model call; jobs queue offline and run
   when connectivity returns.
 
@@ -89,7 +92,7 @@ Chronicle/
 | Desktop app (the product) | Electron 38 + electron-vite + React 19 + TypeScript + Tailwind CSS 4 |
 | Local storage | SQLite (better-sqlite3) + content-addressed file library |
 | File watching | chokidar (debounced, temp-file-aware) |
-| AI layer | LangChain.js in-app (BYOK) · LangChain Python behind the gateway (stretch) |
+| AI layer | Local Python AI service — FastAPI + LangChain (BYOK), called by the Electron app on `127.0.0.1` · same code behind the gateway (stretch) |
 | Control plane API (optional, lowest priority) | FastAPI + SQLAlchemy 2 (async), JWT + Redis whitelist, OPA RBAC |
 | Database (backend) | PostgreSQL 16 + Alembic migrations |
 | Orchestration (backend only) | Docker Compose |

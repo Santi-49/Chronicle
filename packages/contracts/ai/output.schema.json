@@ -25,6 +25,13 @@
       "maxItems": 8,
       "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "maxLength": 30 },
       "description": "Lowercase keywords (single words or hyphenated) describing content and change."
+    },
+    "confidence": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "default": null,
+      "description": "Optional self-assessed confidence/coverage (0-1). null when the implementation does not estimate it. Added 2026-07-19 so future formats with partial extraction need no contract change."
     }
   }
 }

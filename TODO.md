@@ -46,12 +46,18 @@ via `CLAUDE.md`; other tools such as IBM Bob must be pointed at them explicitly.
 5. If a contract must change, stop and propose that change separately before continuing.
 6. Add tests, update relevant documentation, and add one line to `docs/bob-log.md`.
 7. Open a PR into `dev`; never push feature work directly to `dev` or `main`.
+8. **AI agents: STOP before merging.** Implement, test, and commit on the feature branch,
+   then hand back and wait. Never merge into `dev` or `main`, push, or open/merge a PR
+   unless a human explicitly instructs it in the current session — a past "merge it"
+   never carries over to the next task.
 
 ## Shared rules every task must uphold
 
 - Chronicle's version library and SQLite data stay on-device.
-- AI inference is API-based through LangChain. BYOK credentials are encrypted locally and
-  never exposed to the renderer or sent to Chronicle's backend.
+- AI inference is API-based through LangChain (Python). AI features are implemented in the
+  **local AI service** (`services/ai/`, FastAPI, loopback-only — not the control plane),
+  called by the Electron main process. BYOK credentials are encrypted locally and never
+  exposed to the renderer or sent to Chronicle's backend.
 - AI and network work is asynchronous; the UI must never wait on it.
 - Prefer library-native classes and functions. Do not add a custom abstraction until a
   concrete limitation has been researched and documented.
@@ -347,31 +353,51 @@ AI states are clear, and a new teammate can answer what changed between versions
 
 ## Phase 4 — AI and search
 
-### [ ] MVP-09 — Research and implement API-based AI annotation
+### [ ] MVP-09 — Research and implement API-based AI annotation (Python AI service)
 
 **Owner:** Unassigned  
-**Depends on:** MVP-01, MVP-02, MVP-04  
-**Goal:** Produce structured summaries, changes, and tags asynchronously through LangChain.
+**Depends on:** MVP-01, MVP-02, MVP-04; MVP-05 for the status/events surface  
+**Goal:** Produce structured summaries, changes, and tags asynchronously through LangChain (Python).
 
-**May edit:** `apps/desktop/src/main/ai/**`, a narrowly scoped credential module under
-`apps/desktop/src/main/security/**`, AI tests/fixtures, prompt files under `packages/prompts/`
-when recording an intentional experiment, and `apps/desktop/package.json`/lockfile only for
-the researched LangChain/provider dependencies.  
-**Must not edit:** C3 input/output contract or schema without a separate approved change.
+> Architecture decision (2026-07-19): AI features are developed **in Python** in a new
+> **local AI service** — `services/ai/`, FastAPI + LangChain, listening only on `127.0.0.1`,
+> started next to the app (no Docker; distinct from the `services/api/` control plane).
+> The Electron main process keeps the queue worker and calls the service over local HTTP;
+> C3's source of truth becomes the service's OpenAPI schema + `output.schema.json`, with
+> generated TS client types.
+>
+> AI feature scope (decided 2026-07-19): the MVP service surface is exactly
+> `POST /annotate` (two-image diff; `previous: null` → first-version description),
+> `POST /embed-text` (version summaries+tags and search queries), and `GET /health`.
+> The annotation output includes an optional nullable `confidence` (0–1). **Image
+> embeddings and a history chatbot are roadmap, not MVP** — do not build `/embed-image`
+> or `/chat` before every MVP task is done.
 
-**Required functionality:** Use LangChain-native structured output where supported, load the
-Markdown/YAML prompt asset, call the configured API provider, validate against the schema,
-persist status/output/provider/model/latency, retry safely, and resume queued jobs after outages.
-Use Electron `safeStorage` for the BYOK credential.
+**May edit:** new `services/ai/**` (FastAPI app, LangChain pipeline, pytest tests),
+`apps/desktop/src/main/ai/**` (queue worker + generated-typed HTTP client),
+AI tests/fixtures, prompt files under `packages/prompts/` when recording an intentional
+experiment, and `packages/contracts/ai/**` only through the agreed C3 redefinition
+(OpenAPI + schema).  
+**Must not edit:** C3 operation functionality or output schema beyond that redefinition
+without a separate approved change; the C1 contract; the control plane.
+
+**Required functionality:** LangChain-native structured output where supported, prompt
+loaded from the Markdown/YAML asset, provider called with the per-request BYOK key
+(taken from Electron `safeStorage`, sent only over loopback, never persisted by the
+service), output validated against the schema, status/output/provider/model/latency
+persisted, safe retries, queued jobs resumed after outages, and a health check the app
+surfaces in the status bar. A documented start script for the service.
 
 **Contracts upheld:** C3 operation functionality and schema; C5 secret boundary; all AI work async.
 
-**Docs to update:** `apps/desktop/src/main/ai/README.md` (pipeline as built); provider
+**Docs to update:** a README in `services/ai/` (endpoints, run instructions) and
+`apps/desktop/src/main/ai/README.md` (worker/client as built); provider
 quality/cost/privacy findings in the `docs/challenge/RESEARCH.md` log; front-matter notes on
 prompt experiments in `packages/prompts/`; one line in `docs/bob-log.md`.
 
-**Done when:** First-version description and two-image diff work on demo fixtures; invalid output,
-missing key, provider error, retry, and offline queue behavior are tested. No local model is added.
+**Done when:** First-version description and two-image diff work on demo fixtures through the
+running service; invalid output, missing key, provider error, retry, offline queue, and
+service-down behavior are tested. No local model is added.
 
 ### [ ] MVP-10 — Implement hybrid keyword and semantic search
 
@@ -425,7 +451,7 @@ semantic indexing is still pending.
 **Goal:** Prove the complete demo journey works repeatedly on a clean machine.
 
 **May edit:** Integration wiring, tests, fixtures, and bug fixes in coordination with file owners.  
-**Must not do:** Add new features, gateway work, admin UI, CAD support, or broad refactors.
+**Must not do:** Add new features, gateway work, admin UI, future-format support, or broad refactors.
 
 **Checks:** Clean install; add folder; three saves; AI diff; timeline; search; restore; restart;
 offline queue; failed/retry state; 50 MB skip; deleted source; keyboard navigation; no backend running.
@@ -476,7 +502,8 @@ Do not claim these while any MVP task above is incomplete:
 - Control-plane telemetry and account configuration (F8/C6)
 - Hosted AI gateway and Python implementation (F9/C7)
 - Admin UI, installer/signing, or landing-page polish
-- CAD/non-image formats, rename tracking, cloud sync, collaboration, branching, or visual diff
+- Future formats (SVG, BLEND, OBJ, STEP/STP, PSD, PSB), rename tracking, cloud sync,
+  collaboration, branching, or visual diff
 
 ## Decisions humans must make—not delegate blindly to an AI assistant
 

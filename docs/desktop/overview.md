@@ -118,7 +118,8 @@ Grid of all projects (tracked folders) with the same card treatment. Header acti
 Creates a tracked folder: display name, **folder picker** (*Browse… planned — needs the
 native dialog over IPC*), icon picker (bundled Material Symbols + custom glyph), color
 picker (palette + custom), **Include subfolders** toggle, and file-type chips — PNG and
-JPG/JPEG active, **CAD (DWG/DXF) "Coming soon"**. Breadcrumb back to Projects.
+JPG/JPEG active; **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB** marked "Coming soon".
+Breadcrumb back to Projects.
 
 ### 5. Project — F2, F5
 
