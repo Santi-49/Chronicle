@@ -10,7 +10,7 @@ output_schema: ../contracts/ai/output.schema.json
 research_required:
   - Compare direct multimodal prompting with deterministic image diff and OCR tools.
   - Test LangChain-native structured output, runnable, tool, and agent approaches before adding abstractions.
-  - Select a library-native Markdown and YAML-front-matter loading approach shared by the JS and Python paths.
+  - Select a library-native Markdown and YAML-front-matter loading approach for the Python AI service (services/ai/).
   - Verify provider-specific image handling and privacy behavior.
 ---
 

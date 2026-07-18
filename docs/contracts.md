@@ -8,7 +8,7 @@ This page explains how challenge-specific logic is wired into the backend withou
 
 ## Chronicle Contract Map (Jul 18 milestone — agree here before implementing)
 
-Chronicle is local-first, so the UI's "backend" is the **Electron main process** (watcher, SQLite, AI jobs) — the renderer talks to it over IPC. That makes C1 the highest-value contract; the FastAPI boundary (C5/C6) is deliberately minimal because the control plane is lowest priority.
+Chronicle is local-first, so the UI's "backend" is the **Electron main process** (watcher, SQLite, job queue) — the renderer talks to it over IPC. AI operations themselves run in a **local Python AI service** (`services/ai/`, decided 2026-07-19) that the main process calls over `127.0.0.1` (C3) — not to be confused with the optional control plane (C6), which stays deliberately minimal because it is lowest priority. C1 remains the highest-value contract.
 
 A contract defines an operation's functionality and the format of its inputs,
 outputs, errors, and externally observable guarantees. It does **not** define the
@@ -23,11 +23,11 @@ restricted to a one-file PR.
 |----|----------|-----------|------------------------|----------|
 | **C1** | Renderer (React) ↔ Main process | IPC channel names + request/response/event types for every feature: folders, assets, timeline, version details, restore, search, AI status/retry, settings, account | `apps/desktop/src/shared/ipc.ts` (one TS file imported by main, preload, and renderer) | **Highest** |
 | **C2** | Persistence behavior | Repository operations and domain data returned to callers. The SQLite DDL is an implementation specification, not a public contract. | Contract to be defined with the versioning implementation; implementation at `apps/desktop/src/main/db/schema.sql` | High |
-| **C3** | App ↔ AI functionality | Annotation and embedding operation functionality plus typed inputs/outputs. Prompts and pipelines may differ between implementations. | `packages/contracts/ai/` (`interface.ts` + `output.schema.json`) | High |
+| **C3** | Electron main ↔ local AI service (`services/ai/`, HTTP on `127.0.0.1`) | Annotation and embedding operation functionality plus typed inputs/outputs and error/status behavior. Prompts, models, and pipelines stay implementation-owned. | The AI service's OpenAPI schema + `packages/contracts/ai/output.schema.json` → generated TS client types (never hand-written). `packages/contracts/ai/interface.ts` documents the operation shapes until the service exists. | High |
 | **C4** | Filesystem ↔ watcher | Candidate-evaluation input/output, rejection reasons, supported formats, settle guarantee, and size cap. Globs, regexes, event handling, and debounce algorithms are implementation details. | `apps/desktop/src/main/watcher/rules.ts` | High |
 | **C5** | Everything ↔ settings | Typed settings read/write data and the security guarantee that secrets never enter the renderer-visible settings object. Defaults and supported-provider discovery are implementation policy. | `apps/desktop/src/shared/settings.ts` | High |
 | **C6** | App ↔ control-plane API | **Minimal:** only `POST /telemetry/events` (batch) + `GET/PUT /account/config` on top of the pre-built auth endpoints → `make generate-types` when implemented | `packages/contracts/api/` (planned shapes in `PLANNED.md` → OpenAPI → generated TS) | Low |
-| **C7** | Backend ↔ module | Optional gateway operations and Python input/output formats. Its implementation need not mirror the desktop-side AI pipeline. | `packages/contracts/module/interface.py` | Stretch |
+| **C7** | Backend ↔ module | Optional gateway operations and Python input/output formats. The gateway reuses the `services/ai/` Python implementation rather than maintaining a second AI pipeline. | `packages/contracts/module/interface.py` | Stretch |
 
 Prompt assets live only in `packages/prompts/` as Markdown with YAML front matter.
 Every process that uses a repository prompt loads it from there. Prompt revisions are

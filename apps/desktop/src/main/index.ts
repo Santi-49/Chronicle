@@ -1,5 +1,15 @@
 import { app, BrowserWindow, Menu } from 'electron'
 import path from 'node:path'
+import { openAppDatabase, type ChronicleDb } from './db'
+import { registerChronicleScheme, startChronicleIpc, type ChronicleIpc } from './ipc/register'
+import { ensureAppDirs, libraryDir } from './paths'
+
+/** Single app-lifetime database handle; the IPC services receive this. */
+let db: ChronicleDb
+let ipc: ChronicleIpc | undefined
+
+// Scheme privileges must be declared before the app is ready.
+registerChronicleScheme()
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -18,7 +28,13 @@ function createWindow(): void {
           trafficLightPosition: { x: 16, y: 16 }
         }),
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js')
+      preload: path.join(__dirname, '../preload/index.js'),
+      // C1 security boundary: the renderer gets no Node access — only the
+      // typed bridge the preload exposes. These are Electron's defaults,
+      // stated explicitly so a future edit can't silently weaken them.
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
     }
   })
 
@@ -31,6 +47,13 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  ensureAppDirs()
+  db = openAppDatabase()
+
+  // C1 bridge: chronicle:// protocol, ipcMain handlers, and the watcher →
+  // capture pipeline for every tracked folder.
+  ipc = startChronicleIpc(db, libraryDir())
+
   // Windows and Linux otherwise add Electron's default File/Edit/View/Window row.
   // macOS keeps its platform-standard application menu at the top of the screen.
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null)
@@ -44,4 +67,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('will-quit', () => {
+  // Best-effort: stop the folder watchers so shutdown doesn't leak handles.
+  void ipc?.dispose()
 })

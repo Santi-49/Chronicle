@@ -12,7 +12,7 @@
 > `.skills/mobile/` skill groups. A new Chronicle-specific root `TODO.md` was created on
 > 2026-07-17 from the approved MVP specification and contracts.
 
-> **Architecture (clarified 2026-07-17):** Chronicle is a **local-first storage Electron app** — file watching, version storage, and non-AI history operations happen on-device (Electron → React UI → SQLite → local file storage). AI inference is API-based through LangChain; no local model is planned for the MVP. BYOK calls the configured provider directly from the app, while the optional gateway routes the required AI inputs through our service. Chronicle does not upload the version library as cloud storage, but image content used for inference leaves the device under the selected AI path. The module-contract flow applies to gateway/stats endpoints.
+> **Architecture (clarified 2026-07-17; AI layer revised 2026-07-19):** Chronicle is a **local-first storage Electron app** — file watching, version storage, and non-AI history operations happen on-device (Electron → React UI → SQLite → local file storage). AI features are implemented **in Python** in a **local AI service** (`services/ai/`: FastAPI + LangChain, loopback-only) that the Electron main process calls — distinct from the FastAPI control plane, which stays optional. AI inference is API-based through LangChain; no local model is planned for the MVP. BYOK keys are passed per-request to the local service, which forwards them only to the configured provider; the optional gateway routes the required AI inputs through our backend instead. Chronicle does not upload the version library as cloud storage, but image content used for inference leaves the device under the selected AI path. The module-contract flow applies to gateway/stats endpoints.
 >
 > **Priority (clarified 2026-07-17):** the control plane is **lowest priority — non-essential**. On startup the app offers "Log in / Register" or "Continue local" (default); capture, cached history, restore, and keyword search work with no Docker or Chronicle API. AI summaries and semantic embeddings require the configured external API through LangChain and queue while offline. Provider, model, and BYOK credentials are configured locally; credentials are encrypted and never sent to Chronicle's backend.
 
@@ -27,7 +27,7 @@
 - Version capture must feel instant: debounce ~2s after last write, hash + store < 1s for typical files.
 - AI summaries are generated async — the UI never blocks on the AI API.
 - Core capture/timeline/search fully functional offline; AI summaries, embeddings, and control-plane sync (auth, logs, stats) queue and backfill when online.
-- Handle files up to ~50 MB without freezing the UI (hashing/IO off the main process) — headroom for future large design files (CAD).
+- Handle files up to ~50 MB without freezing the UI (hashing/IO off the main process) — headroom for future SVG, BLEND, OBJ, STEP/STP, PSD, and PSB files.
 
 ## Device & Platform Targets
 
@@ -43,9 +43,9 @@
 |---------|---------|-------------|
 | IBM Bob | Mandatory development tool (judged on "effective use") | Trial — "40 Bobcoins for 30 days" |
 | IBM SkillsBuild | Required learning activity for submission | Free |
-| **LangChain (model-agnostic)** | AI layer for version comparison, summaries, tags, embeddings. Use LangChain's **default classes and methods** — no unnecessary custom wrappers. Provider is swappable (watsonx/Granite, Claude, etc. behind the same interface) | Library free; API cost per provider |
+| **LangChain (Python, model-agnostic)** | AI layer for version comparison, summaries, tags, embeddings — implemented in the local `services/ai/` FastAPI service the desktop app calls. Use LangChain's **default classes and methods** — no unnecessary custom wrappers. Provider is swappable (watsonx/Granite, Claude, etc. behind the same interface) | Library free; API cost per provider |
 | Embeddings + keyword index | **Hybrid search** — keyword over AI summaries/tags + local vector index for meaning-based queries | Via LangChain defaults |
-| CAD preview tooling (future) | Render design-software formats (e.g. DWG/DXF) to comparable previews when CAD support is added — the roadmap step after images | TBD (open-source converters exist) |
+| Future-format extraction | Safely extract structure and comparable previews for SVG, BLEND, OBJ, STEP/STP, PSD, and PSB after the image MVP | TBD per format; prefer documented parsers and sandboxed Blender/conversion tooling |
 
 > **Code quality bar (team decision, 2026-07-16):** easy to maintain, minimal code, clear, documented, well structured. Prefer library defaults over new abstractions.
 

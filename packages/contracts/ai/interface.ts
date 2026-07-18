@@ -23,6 +23,11 @@ export interface VersionAnnotation {
   changes: string[]
   /** 3–8 lowercase keywords for search. */
   tags: string[]
+  /**
+   * Optional self-assessed confidence/coverage (0–1); null when not estimated.
+   * Present so future formats with partial extraction need no contract change.
+   */
+  confidence?: number | null
 }
 
 export interface AnnotateVersionInput {

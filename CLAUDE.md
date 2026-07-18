@@ -62,8 +62,11 @@ Full reference at `docs/backend/`. To extend:
 ```
 apps/desktop/     Chronicle — Electron + React + TS (the product)
 apps/landing/     Astro → Cloudflare Pages (optional marketing page)
+services/ai/      Local Python AI service — FastAPI + LangChain, called by the
+                  Electron main over 127.0.0.1; part of the desktop product,
+                  NOT the control plane (planned 2026-07-19)
 services/api/     FastAPI control plane — extend, don't rewrite
-services/module/  Challenge logic (AI gateway) — implement here
+services/module/  Challenge logic (AI gateway) — reuses services/ai
 packages/contracts/api/     OpenAPI + TypeScript types
 packages/contracts/module/  Python Protocol
 infra/            OPA, Postgres, Redis config
@@ -132,8 +135,8 @@ python .skills/design/ui-ux-pro-max/scripts/search.py "<query>" --domain typogra
 - **Product:** **Chronicle** — a local-first Electron + React desktop app that watches folders, auto-versions creative files on save, and uses AI to explain what changed between versions, with a hybrid keyword + embeddings search over the history.
 - **Selling point:** the plain-English AI diff of binary creative files ("background navy → teal; tagline removed") + search by meaning — git-grade local version storage with zero designer friction. AI inference is API-based through LangChain; BYOK sends required inputs directly to the configured provider.
 - **MVP:** folder watcher (debounced, temp-file-aware) → hash-based version detection → local Asset/Version storage (SQLite, dedup by hash) → AI change summary + tags per version → timeline UI → hybrid search. File types: **PNG/JPG** (design-industry formats like **CAD** are the future roadmap — Word/PDF versioning already exists). UI structure: `docs/desktop/overview.md`.
-- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, cached history, restore, and keyword search are on-device (React → SQLite → local file store). It must run with no Docker or Chronicle backend (startup offers "Continue local" or login). AI summaries and semantic embeddings are API-based through LangChain and require provider connectivity; BYOK credentials are encrypted locally, while the optional gateway routes inference through our service. The FastAPI control plane remains lowest priority and non-essential. Module-contract flow applies to gateway/stats endpoints. `apps/landing/` is optional.
-- **Key constraints:** IBM Bob is the mandatory dev tool and its usage is judged — document it as you go. AI layer via **LangChain, model-agnostic, default classes/methods only**. Code bar: minimal, clear, documented, well structured. AI calls are async, never block the UI; app works offline except AI calls.
+- **Scope:** new `apps/desktop/` (Electron) is the product — file watching, version storage, cached history, restore, and keyword search are on-device (React → SQLite → local file store). It must run with no Docker or Chronicle backend (startup offers "Continue local" or login). AI features are implemented **in Python** in a **local FastAPI AI service** (`services/ai/`, LangChain, loopback-only) called by the Electron main process — distinct from the control plane. AI summaries and semantic embeddings require provider connectivity; BYOK credentials are encrypted locally, while the optional gateway routes inference through our service. The FastAPI control plane remains lowest priority and non-essential. Module-contract flow applies to gateway/stats endpoints. `apps/landing/` is optional.
+- **Key constraints:** IBM Bob is the mandatory dev tool and its usage is judged — document it as you go. AI layer in the local Python AI service via **LangChain, model-agnostic, default classes/methods only**. Code bar: minimal, clear, documented, well structured. AI calls are async, never block the UI; app works offline except AI calls.
 - **Team:** all enrolled students (eligibility confirmed); roster/ownership TBD (open risk).
 - **Deadline milestones:** boundary contracts + initial implementation specifications by Jul 18 · MVP complete Jul 27 · video + README + SkillsBuild by Jul 30 · submit Jul 31.
 

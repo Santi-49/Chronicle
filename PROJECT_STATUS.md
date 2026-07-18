@@ -1,13 +1,14 @@
 # Chronicle Project Status
 
-> Team dashboard · Updated 2026-07-17 · Submission deadline: **2026-07-31, 11:59 PM ET**
+> Team dashboard · Updated 2026-07-18 · Submission deadline: **2026-07-31, 11:59 PM ET**
 
 Start here at the beginning of a work session. Use [TODO.md](TODO.md) to claim work and
 [Project Overview](docs/PROJECT_OVERVIEW.md) if you are new to Chronicle.
 
 ## Current stage
 
-**Planning and contracts are complete. MVP implementation is the next stage.**
+**MVP build in progress: the local capture core (foundation, database, watcher, version
+capture) is merged into `dev`. Next: the IPC bridge (MVP-05), then AI and search.**
 
 ```text
 Research       Documentation       Contracts        MVP build         Demo/submission
@@ -15,8 +16,9 @@ Research       Documentation       Contracts        MVP build         Demo/submi
 ```
 
 The repository has a working Electron/React shell, complete renderer screen skeletons, and a
-pre-built optional backend. The screens currently use typed demo data; watcher, storage, AI,
-restore, and search-engine integrations have not yet been implemented.
+pre-built optional backend. On `dev`, the main process can watch folders, hash saves, and
+store deduplicated versions locally (MVP-01…04); the screens still use typed demo data until
+the IPC bridge (MVP-05) connects them. AI, restore, and search remain unimplemented.
 
 ## Status at a glance
 
@@ -25,10 +27,10 @@ restore, and search-engine integrations have not yet been implemented.
 | Challenge research and product vision | Ready | The problem, audience, judging criteria, scope, and demo story are documented. |
 | MVP specification | Ready | Required behavior and acceptance examples are in `docs/spec.md`. |
 | Boundary contracts | Ready for implementation | IPC, AI I/O, watcher decisions, settings, and planned API/module formats are baselined. |
-| Desktop scaffold | Renderer skeleton ready | Electron opens the full welcome/workspace shell with dark/light themes and typed screen navigation; native feature dependencies are still missing. |
-| Folder watcher | Contract only | Rules are defined; Chokidar integration and real-editor testing are not implemented. |
-| Version storage | Schema draft only | SQLite schema exists; database initialization, repositories, hashing, and file storage are not implemented. |
-| AI summaries | Contract and prompt asset only | No LangChain provider integration, job runner, or encrypted-key handling exists yet. |
+| Desktop scaffold | Merged (MVP-01) | Foundation dependencies installed and verified; native SQLite loads in Electron; tests run under Electron's Node. |
+| Folder watcher | Merged (MVP-03) | Chokidar watching with the 2 s settle and C4 ignore rules, 14 tests. Manual demo-editor test pending until capture is wired to the UI. |
+| Version storage | Merged (MVP-02 + MVP-04) | SQLite init + repositories, and content-addressed capture: stream hash, dedup by content, append-only versions, dimensions metadata, AI job enqueue. 38 tests. |
+| AI summaries | Contract and prompt asset only | Direction decided 2026-07-19: AI features are built in Python in a local FastAPI AI service (`services/ai/`) called by the Electron main — distinct from the control plane. No implementation, job runner, or provider integration exists yet. |
 | Timeline, restore, and search | UI skeleton ready | Assets, Timeline, Version Details, Search, and Settings flows render with demo data; IPC/database/search-engine behavior remains to be connected. |
 | Backend control plane | Base auth/RBAC ready | Chronicle telemetry/config/gateway additions are low priority or stretch and must not delay the MVP. |
 | Landing page | Existing optional page | Not part of the MVP; do not spend time here before the desktop app works. |
@@ -42,7 +44,7 @@ decide the prompt, algorithm, provider, storage layout, tools, or internal class
 | Boundary | Source of truth | Change rule |
 |---|---|---|
 | React renderer ↔ Electron main process | `apps/desktop/src/shared/ipc.ts` | Treat as stable. Propose contract changes separately before changing handlers or UI assumptions. |
-| App ↔ AI functionality | `packages/contracts/ai/interface.ts` and `output.schema.json` | Keep operation behavior and output shape stable; prompts and orchestration remain implementation-owned. |
+| App ↔ AI functionality | Moving to the local AI service's OpenAPI + `packages/contracts/ai/output.schema.json` (decision 2026-07-19); `interface.ts` documents the shapes until then | Keep operation behavior and output shape stable; prompts and orchestration remain implementation-owned. |
 | Filesystem candidate ↔ watcher | `apps/desktop/src/main/watcher/rules.ts` | Preserve supported formats, size cap, settle guarantee, inputs, outputs, and rejection reasons. |
 | Shared settings | `apps/desktop/src/shared/settings.ts` | Never expose API keys or auth tokens through renderer-readable settings. |
 | App ↔ control-plane API | `packages/contracts/api/PLANNED.md` | Low priority. Replace planned documentation with generated OpenAPI types when implemented. |
@@ -55,8 +57,11 @@ not a public contract. Change it carefully through migrations once released.
 
 1. Team lead creates and protects the `dev` integration branch.
 2. Team fills in names and task ownership in [TODO.md](TODO.md).
-3. Complete `MVP-01` desktop foundation before feature branches depend on missing packages.
-4. Run `MVP-02`, `MVP-03`, and UI preparation in parallel after the foundation is merged.
+3. Implement the `MVP-05` IPC bridge — it unblocks wiring every existing screen to real data
+   and the watcher→capture startup wiring.
+4. Start `MVP-09` AI research (provider decision below) in parallel — now as the Python
+   `services/ai/` FastAPI service; capture is already enqueueing `ai_annotation` jobs for
+   its Electron-side worker to consume.
 5. Decide the demo AI provider and demo asset owner this week; the visual direction is now recorded in `docs/challenge/CONSTRAINTS.md`.
 6. Every team member completes the required IBM SkillsBuild activity before July 25.
 

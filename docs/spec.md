@@ -8,7 +8,7 @@
 
 ## 1. What We're Building (one paragraph)
 
-**Chronicle** is a desktop app for designers. You point it at the folders where you work; every time you save an image (PNG/JPG in the MVP), Chronicle silently records that save as a **version** — like git commits, but automatic. An AI then writes the "commit message" for you: a plain-English summary of what changed ("background navy → teal; tagline removed") plus tags. The app shows each file's full version timeline, lets you **restore** any old version, and lets you **search your history by meaning** ("the one with the blue background"). Version storage stays on-device, and capture/history/restore work without Docker or an API connection. AI inference is API-based through LangChain: the BYOK path sends the required inputs directly to the provider configured by the user, while an optional backend gateway is stretch scope. Roadmap after images: design-industry formats like **CAD** — Word/PDF versioning already exists; architecture and product design have no unified version control.
+**Chronicle** is a desktop app for designers. You point it at the folders where you work; every time you save an image (PNG/JPG in the MVP), Chronicle silently records that save as a **version** — like git commits, but automatic. An AI then writes the "commit message" for you: a plain-English summary of what changed ("background navy → teal; tagline removed") plus tags. The app shows each file's full version timeline, lets you **restore** any old version, and lets you **search your history by meaning** ("the one with the blue background"). Version storage stays on-device, and capture/history/restore work without Docker or an API connection. AI inference is API-based through LangChain: the BYOK path sends the required inputs directly to the provider configured by the user, while an optional backend gateway is stretch scope. Selected future formats after the PNG/JPG MVP: **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB**.
 
 ---
 
@@ -26,7 +26,7 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 | Local database | **SQLite** via **better-sqlite3** (runs inside the app, single file) | Zero-setup embedded DB; metadata, AI summaries, search index all in one file |
 | File watching | **chokidar** | Battle-tested cross-platform watcher; same code on Windows and macOS |
 | Hashing | Node.js built-in `crypto` (**SHA-256**) | Detects "did the content actually change"; no dependency |
-| AI calls (local/BYOK path) | **LangChain.js**, model-agnostic, **default classes/methods only** | Team decision; provider swappable (Anthropic, watsonx/Granite, OpenAI…) |
+| AI engine | **Local Python AI service** (`services/ai/`): **FastAPI** + **LangChain (Python)**, model-agnostic, **default classes/methods only** — the Electron main process calls it on `127.0.0.1` | AI features are developed in Python (team decision 2026-07-19, replaces LangChain.js in-app); provider swappable (Anthropic, watsonx/Granite, OpenAI…); one AI codebase shared with the stretch gateway |
 | Embeddings storage | Vectors stored **in SQLite**, similarity computed in-process | Hundreds of versions ≠ vector DB territory; simplest thing that works |
 | Packaging (stretch) | **electron-builder** | Produces a Windows installer for the demo if we want one; dev mode is fine for the video |
 
@@ -36,7 +36,7 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 |---|---|---|
 | API | **FastAPI (Python 3.12)** + Postgres 16 + Redis 7 + OPA | Already built: register/login/JWT/refresh/logout, RBAC, user CRUD |
 | New endpoints we add | telemetry/stats, account config, *(stretch)* AI-inference gateway | See §4 F8/F9 |
-| AI calls (gateway path, stretch) | **LangChain (Python)**, same model-agnostic rule | Mirrors the app's AI layer behind the service |
+| AI calls (gateway path, stretch) | Reuses the **same `services/ai/` Python implementation** behind the control plane | One AI codebase — no JS/Python twin to keep in sync |
 | Migrations | Alembic (`make makemigration`) | Template standard |
 
 ### Landing page (`apps/landing/`) — optional
@@ -50,24 +50,37 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 | Concern | Choice |
 |---|---|
 | Contracts | Boundary operations and data formats mapped in [contracts.md](contracts.md): IPC · persistence behavior · AI I/O · watcher decisions · settings · control-plane OpenAPI · optional module `Protocol`. SQLite DDL, prompts, algorithms, provider choices, and orchestration are implementation specifications, not contracts. |
-| Testing | **Vitest** for desktop logic (hashing, version rules, search ranking) · **pytest** for backend (already 32 tests) |
+| Testing | **Vitest** for desktop logic (hashing, version rules, search ranking) · **pytest** for the AI service and backend (backend already has 32 tests) |
 | Lint/format | **ESLint + Prettier** (TS) · **Ruff** (Python) |
 | Dev tool | **IBM Bob** — mandatory, judged. Every member logs usage in [bob-log.md](bob-log.md) |
-| Runtimes | Node 20+, Python 3.12, Docker Desktop (backend only) |
+| Runtimes | Node 20+, Python 3.12 (AI service + backend), Docker Desktop (control plane only — never needed for the AI service) |
 
-### One important subtlety: LangChain exists twice
+### One important subtlety: where the AI code runs (decided 2026-07-19)
 
-LangChain has a JavaScript version and a Python version. We use **both**, one per side of the wire:
+AI features are written **once, in Python**, in a **local AI service** (`services/ai/`):
+a small FastAPI app using LangChain (Python) that runs on the user's machine and listens
+only on `127.0.0.1`. The Electron **main process** starts/health-checks it and calls it
+over local HTTP; the React renderer still talks only to the main process (C1). This is
+**not** the control-plane backend (`services/api/`) — the AI service is part of the
+desktop product: no Docker, no Postgres, no account.
 
-- **In the app (MVP):** LangChain.js makes the AI call directly with the user's own API key ("bring your own key" / BYOK). The key is stored encrypted on the user's machine and **never sent to our backend**.
-- **In the backend (stretch):** LangChain Python behind a gateway endpoint, for users without a key.
+- **BYOK (MVP):** the key is stored encrypted by the app (Electron `safeStorage`) and
+  passed per-request to the local AI service, which forwards it only to the configured
+  provider. The service never persists it, and it is **never sent to Chronicle's backend**.
+- **Gateway (stretch, F9):** the control plane exposes the same operations for users
+  without a key, reusing the same `services/ai/` implementation.
 
-There is no local-model path in the MVP. “Local” refers to local storage and local
-orchestration; inference uses an external API through LangChain.
+Why a Python service instead of LangChain.js inside Electron: the team develops AI
+features in Python, LangChain's Python ecosystem is the reference implementation, and
+the stretch gateway reuses the code instead of maintaining a JS twin. Accepted
+trade-off: dev/demo needs a Python 3.12 runtime next to the app (a start script covers
+it); bundling the service into the installer is stretch scope.
 
-Both sides satisfy the **same functional input/output contract**. They may use different
-prompts, tools, or orchestration. Repository prompt assets live in `packages/prompts/`
-as Markdown with YAML front matter and are loaded from there rather than embedded in code.
+There is no local-model path in the MVP. “Local” refers to local storage, local
+orchestration, and the locally running AI service; inference uses an external API
+through LangChain. The desktop app and the service share one functional input/output
+contract (C3). Prompt assets live in `packages/prompts/` as Markdown with YAML front
+matter and are loaded from there rather than embedded in code.
 
 ---
 
@@ -78,6 +91,7 @@ as Markdown with YAML front matter and are loaded from there rather than embedde
 - **The user's own folders** — untouched. Chronicle only *reads* them (and writes on restore).
 - **Chronicle's library** — a folder in the app's data directory holding a copy of every version's file bytes, stored under its content hash. Identical content is stored **once**, even across different files (free deduplication). Originals, no compression, no deltas.
 - **Chronicle's database** — one SQLite file next to the library: assets, versions, AI summaries, tags, embeddings, settings, and the offline queue.
+- **Chronicle's AI service** — a local Python process (`services/ai/`, FastAPI + LangChain) the main process calls for annotations and embeddings. Stateless and loopback-only: it sees only the images/text the app sends per request and forwards them to the configured provider.
 
 **On our backend (never any file content) — optional, lowest priority.** The app is fully usable account-less ("Continue local" at startup); an account only adds telemetry/stats and (stretch) hosted inference:
 
@@ -108,7 +122,7 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
 
 - The user adds/removes folders to track from a Settings screen; the list persists locally.
 - Watching is recursive (subfolders included).
-- Only `.png`, `.jpg`, `.jpeg` files count (case-insensitive). Other formats are ignored — the UI lists design-industry formats (e.g. **CAD**: DWG/DXF) as "coming soon". **Roadmap rationale:** images first, then architecture/design-software files — Word/PDF versioning already exists, while the creative/design industries have no unified version control system.
+- Only `.png`, `.jpg`, `.jpeg` files count (case-insensitive). Other formats are ignored. The UI lists `.svg`, `.blend`, `.obj`, `.step`/`.stp`, `.psd`, and `.psb` as "coming soon". These future labels are roadmap communication, not supported MVP behavior.
 - Hidden files/folders and temp files (e.g. `~$…`, `.tmp`, editor autosave/swap files) are ignored.
 - **Done when:** add a folder, save a PNG in a subfolder → version appears; save a `.txt` → nothing happens.
 
@@ -128,7 +142,7 @@ The heart of the product. Exact rules:
 
 ### F4 — AI change summary (the "commit message") `MVP`
 
-- When a new version is captured, an **async job** sends the *previous* image + *new* image (plus filename) to a vision-capable model via LangChain and receives structured output: **summary** (1 sentence), **changes** (bullet list), **tags** (3–8 lowercase keywords).
+- When a new version is captured, an **async job** sends the *previous* image + *new* image (plus filename) to the **local AI service**, which calls a vision-capable model via LangChain (Python) and returns structured output: **summary** (1 sentence), **changes** (bullet list), **tags** (3–8 lowercase keywords), and an optional **confidence** (0–1, nullable — reserved for future partial-extraction formats).
 - The AI connection is configured in **Settings → AI**: provider, model, and API key (BYOK — stored encrypted on-device via Electron `safeStorage`, never sent to our backend). No key configured → versions still capture; summaries show *pending — configure AI in Settings*.
 - Version 1 of an asset has no predecessor → the AI writes a **description** instead of a diff.
 - The version's AI status is visible in the UI: *pending → done* or *failed (retry button)*.
@@ -156,7 +170,7 @@ The heart of the product. Exact rules:
 
 - One search box over **all** assets' history. Two engines run together:
   - **Keyword:** matches AI summaries, tags, and file names.
-  - **Semantic:** the *text* of each version's summary+tags is embedded (via LangChain embeddings, provider-agnostic); the query is embedded and compared by similarity — so "remove logo" finds "deleted the brand mark".
+  - **Semantic:** the *text* of each version's summary+tags is embedded (through the local AI service's LangChain embeddings, provider-agnostic); the query is embedded and compared by similarity — so "remove logo" finds "deleted the brand mark".
 - Results are a single ranked list of **versions** (not just files); clicking opens the version's details.
 - **Offline rule:** keyword search always works; semantic search needs embeddings that are computed asynchronously (queued like F4).
 - **Done when:** demo script queries work — "version with the tagline" and "blue background" both land on the right version.
@@ -181,7 +195,9 @@ Only after everything above works. Landing page = marketing only, no product fun
 
 ### Explicitly out of scope (MVP)
 
-Non-image formats (CAD is the *next* target, not the MVP; Word/PDF are permanently out — that problem is already solved) · rename/move tracking · side-by-side visual diff · branching · cloud sync/collaboration · delta storage/compression · auto-updates · code signing · mobile/web clients.
+Future formats (`.svg`, `.blend`, `.obj`, `.step`/`.stp`, `.psd`, `.psb`) are not part of the
+MVP · Word/PDF remain out · rename/move tracking · side-by-side visual diff · branching · cloud
+sync/collaboration · delta storage/compression · auto-updates · code signing · mobile/web clients.
 
 ---
 
@@ -238,15 +254,17 @@ Rules for everyone, regardless of experience level:
 | 2 | **Native module pain** — better-sqlite3 must be compiled for Electron; Windows needs build tools | Team members stuck on setup | Pin all versions; one person owns the scaffold and documents setup; fallback exists (WASM SQLite) if rebuilds fight us |
 | 3 | **Watcher edge cases** — real editors (Photoshop et al.) write temp files, partial writes, atomic renames | Duplicate/missed versions in the live demo | The 2-second settle rule + ignore patterns; test with the actual editor used in the video, early |
 | 4 | **Cloud-synced folders** (OneDrive/Dropbox) behave oddly with watchers | Flaky demo | Demo on a plain local folder; note the limitation |
-| 5 | **Scope creep** — gateway, CAD, admin UI, landing | MVP slips past Jul 27 | Stretch labels in §4 are binding; MVP first, always |
+| 5 | **Scope creep** — gateway, future formats, admin UI, landing | MVP slips past Jul 27 | Stretch labels in §4 are binding; MVP first, always |
 | 6 | **Compliance misses** — SkillsBuild per member, Bob usage undocumented, video > 3 min | Submission invalid or loses the easiest points | Deadlines in §7; bob-log.md filled continuously; script the video from VISION.md |
 | 7 | **API keys & cost** for demo/testing | Blocked AI testing | Decide provider(s) Jul 18; small shared test budget; BYOK design means any member's key works |
+| 8 | **Python AI-service friction** — the demo machine needs Python 3.12 and the local service running for AI features | AI demo beat fails; teammates stuck on setup | App degrades gracefully by design (versions capture, jobs queue, UI shows *pending*); one documented start script; health check surfaced in the status bar; bundling the service into the installer is stretch |
 
 ---
 
 ## 9. Frequently Asked (answers for the team)
 
-- **Do we use Docker?** Only for the backend, and the backend is optional: `docker compose up` runs Postgres, Redis, OPA, and the API in identical containers on every machine. The desktop app never uses Docker — Electron runs natively and SQLite is embedded. The **entire MVP is developable and demoable without Docker** — you only need it when working on the lowest-priority control-plane features (accounts, telemetry, gateway).
+- **Do we use Docker?** Only for the backend, and the backend is optional: `docker compose up` runs Postgres, Redis, OPA, and the API in identical containers on every machine. The desktop app never uses Docker — Electron runs natively and SQLite is embedded. The **local AI service is also Docker-free**: a plain Python process (uvicorn) on `127.0.0.1`. The **entire MVP is developable and demoable without Docker** — you only need it when working on the lowest-priority control-plane features (accounts, telemetry, gateway).
+- **Is the AI service the same as the FastAPI backend?** No. Both use FastAPI, which is the only thing they share. `services/ai/` is a **local, stateless sidecar of the desktop app** (annotations + embeddings, loopback-only, no database, no auth, required for AI features). `services/api/` is the **optional control plane** (accounts, telemetry, gateway) that runs in Docker with Postgres/Redis/OPA and is never required for the MVP.
 - **Why not build on git instead of our own versioning?** We copy git's *design* (content-addressed storage, append-only history, revert-not-rewrite) but not the tool. Git gives no storage advantage for compressed images (they're full blobs either way), we need a queryable DB for AI summaries/tags/embeddings anyway, embedding git adds heavy dependencies and edge cases (`.git` folders in users' design folders, locking, users' own repos), and our whole versioning core is a few dozen lines — smaller than the git plumbing that would replace it.
 - **How is the desktop app developed — in the browser?** No, but it feels like web dev. Electron = Chrome + Node.js bundled into one program: a **main process** (Node — watching, hashing, SQLite) and a **renderer** (the React UI inside a Chromium window), talking over a safe internal bridge (IPC). `npm run dev` in `apps/desktop/` opens a real desktop window with hot reload and Chrome DevTools; edits appear instantly. Production = `npm run build` + electron-builder → a normal `.exe`/`.dmg` installer (~100 MB, contains Chromium + Node + our code).
 - **Where are past versions stored?** File bytes in Chronicle's library folder (content-addressed copies); everything else (metadata, AI text, vectors) in one local SQLite file. Not in Postgres — the backend never sees files.
