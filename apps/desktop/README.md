@@ -9,7 +9,8 @@ full product definition.
 ```
 src/main/       Electron main process (Node)
   watcher/        folder watching, debounce, ignore rules
-  versioning/     hashing, SQLite, local file store
+  versioning/     hashing, content-addressed library, capture pipeline
+  ipc/            C1 bridge: handlers, events, chronicle:// protocol, secrets
   ai/             LangChain comparison/summaries/tags (BYOK path)
   gateway-client/ control-plane client (auth, logs, stats, hosted inference)
 src/preload/    typed IPC bridge (contextBridge)
@@ -37,6 +38,30 @@ falls back to compiling). Because of this, `npm test` runs Vitest through
 Electron's own Node runtime (`ELECTRON_RUN_AS_NODE`) so tests exercise the same
 binary the app ships. If you ever see `NODE_MODULE_VERSION` errors, run
 `npx electron-rebuild -f`.
+
+## IPC bridge (C1) — implemented vs. pending
+
+The preload exposes exactly `ChronicleBridge` (`src/shared/ipc.ts`) as
+`window.chronicle`; behavior lives in `src/main/ipc/services.ts` (Electron-free,
+tested), Electron glue in `src/main/ipc/register.ts`. Images reach the renderer
+only as `chronicle://image/<hash>` URLs served from the library — never bytes or
+filesystem paths. The BYOK API key is written via `safeStorage`, is never
+readable back over IPC, and never appears in `getSettings()`.
+
+| C1 surface | Status |
+|---|---|
+| `listFolders` / `addFolder` / `removeFolder` (F2) | ✅ incl. native picker + live watching |
+| `listAssets` / `getTimeline` / `getVersionDetails` (F5) | ✅ |
+| `retryAnnotation` (F4) | ✅ re-queues; the AI worker itself is MVP-09 |
+| `getSettings` / `updateSettings` / `setApiKey` / `hasApiKey` / `clearApiKey` (C5) | ✅ |
+| `getAppStatus` + all four events (`versionCaptured`, `annotationUpdated`, `statusChanged`, `fileSkipped`) | ✅ |
+| `getAccountState` / `logout` | ✅ always local mode for now |
+| `restoreVersion` / `saveVersionCopy` (F6) | ⏳ MVP-07 — rejects "not implemented yet" |
+| `search` (F7) | ⏳ MVP-10 — rejects "not implemented yet" |
+| `register` / `login` (F1) | ⏳ low priority — rejects "not implemented yet" |
+
+Unparseable image dimensions surface as `0×0` in `VersionDetails` (C1 declares
+them non-nullable; capture stores `null` internally).
 
 ## Where app data lives
 

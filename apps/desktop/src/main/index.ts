@@ -1,10 +1,15 @@
 import { app, BrowserWindow, Menu } from 'electron'
 import path from 'node:path'
 import { openAppDatabase, type ChronicleDb } from './db'
-import { ensureAppDirs } from './paths'
+import { registerChronicleScheme, startChronicleIpc, type ChronicleIpc } from './ipc/register'
+import { ensureAppDirs, libraryDir } from './paths'
 
-/** Single app-lifetime database handle; IPC handlers (MVP-05) receive this. */
+/** Single app-lifetime database handle; the IPC services receive this. */
 let db: ChronicleDb
+let ipc: ChronicleIpc | undefined
+
+// Scheme privileges must be declared before the app is ready.
+registerChronicleScheme()
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -45,6 +50,10 @@ app.whenReady().then(() => {
   ensureAppDirs()
   db = openAppDatabase()
 
+  // C1 bridge: chronicle:// protocol, ipcMain handlers, and the watcher →
+  // capture pipeline for every tracked folder.
+  ipc = startChronicleIpc(db, libraryDir())
+
   // Windows and Linux otherwise add Electron's default File/Edit/View/Window row.
   // macOS keeps its platform-standard application menu at the top of the screen.
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null)
@@ -58,4 +67,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('will-quit', () => {
+  // Best-effort: stop the folder watchers so shutdown doesn't leak handles.
+  void ipc?.dispose()
 })

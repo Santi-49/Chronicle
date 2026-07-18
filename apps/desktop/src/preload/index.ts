@@ -1,7 +1,35 @@
-import { contextBridge } from 'electron'
+/**
+ * Preload — exposes exactly the C1 `ChronicleBridge` as `window.chronicle`
+ * and nothing else. The renderer never sees Node, Electron, filesystem
+ * paths, or secrets; every call crosses to main over a channel derived
+ * from the shared method list (channels.ts keeps main and preload in sync
+ * at compile time).
+ */
+import { contextBridge, ipcRenderer } from 'electron'
+import type { ChronicleBridge, ChronicleEventName, ChronicleEvents } from '../shared/ipc'
+import { API_METHOD_NAMES, EVENT_NAMES, apiChannel, eventChannel } from '../main/ipc/channels'
 
-// IPC surface is defined at the interfaces milestone (docs/challenge/CONSTRAINTS.md).
-// Until then the bridge only exposes the app version so the wiring is testable.
-contextBridge.exposeInMainWorld('chronicle', {
-  version: process.env['npm_package_version'] ?? 'dev'
-})
+const bridge: Record<string, unknown> = {}
+
+for (const method of API_METHOD_NAMES) {
+  bridge[method] = (...args: unknown[]): Promise<unknown> =>
+    ipcRenderer.invoke(apiChannel(method), ...args)
+}
+
+bridge['on'] = <E extends ChronicleEventName>(
+  event: E,
+  listener: (payload: ChronicleEvents[E]) => void,
+): (() => void) => {
+  // Renderer input is untrusted: only C1 event names may be subscribed —
+  // never arbitrary ipcRenderer channels.
+  if (!EVENT_NAMES.includes(event)) {
+    throw new TypeError(`Unknown Chronicle event: ${String(event)}`)
+  }
+  const channel = eventChannel(event)
+  const wrapped = (_e: Electron.IpcRendererEvent, payload: ChronicleEvents[E]): void =>
+    listener(payload)
+  ipcRenderer.on(channel, wrapped)
+  return () => ipcRenderer.removeListener(channel, wrapped)
+}
+
+contextBridge.exposeInMainWorld('chronicle', bridge as unknown as ChronicleBridge)

@@ -230,16 +230,20 @@ new version; duplicate content is stored once; 50 MB and missing-file cases are 
 > `apps/desktop/src/main/versioning/README.md`. The MVP-03 manual demo-editor test remains
 > open until watcher→capture wiring lands (MVP-05/MVP-12).
 
-### [ ] MVP-05 — Implement the secure IPC bridge and handlers
+### [~] MVP-05 — Implement the secure IPC bridge and handlers
 
-**Owner:** Unassigned  
+**Owner:** Santi R (implemented on `feat/mvp-05-ipc-bridge`; awaiting review + merge)  
 **Depends on:** MVP-02; coordinate with MVP-03/MVP-04  
 **Goal:** Let React use desktop functionality without direct Node/filesystem access.
 
-> Current state: `src/preload/index.ts` is a stub exposing only the app version — no C1
-> methods are implemented yet. The database handle is already opened at startup in
-> `src/main/index.ts` and waiting for handlers. This task unblocks wiring the existing
-> UI (MVP-06/08/11) to real data.
+> Implemented on the branch (75/75 tests, typecheck + build + boot verified):
+> `src/main/ipc/` — `services.ts` (every C1 method + validation, Electron-free, tested),
+> `register.ts` (ipcMain handlers with sender check, `chronicle://image/<hash>` protocol,
+> native folder picker, event broadcast), `secrets.ts` (safeStorage BYOK key, write-only),
+> `channels.ts` (compile-time-exhaustive channel map shared with preload), plus the
+> watcher → capture → events wiring MVP-03/04 left open. Preload now exposes exactly
+> `ChronicleBridge`. Pending inside C1 (handlers reject clearly, see
+> `apps/desktop/README.md`): restore/save-copy (MVP-07), search (MVP-10), register/login (F1).
 
 **May edit:** `apps/desktop/src/preload/index.ts`, new `apps/desktop/src/main/ipc/**`, and
 IPC-focused tests.  
