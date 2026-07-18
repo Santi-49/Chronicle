@@ -24,10 +24,16 @@ Not the control plane: `services/api/` is unrelated to this path.
 `tags[]`, optional nullable `confidence`. Image embeddings and a history chatbot
 are roadmap — `/embed-image` and `/chat` must not be built before the MVP is done.
 
-## Transitional note — Python files currently in this folder
+## ⚠️ NEW 2026-07-19 — Course correction: Python files currently in this folder
 
 The first MVP-09 spike (branch `feat/mvp-09-python-ai`) started the Python
-pipeline here before the `services/ai/` decision landed. Status and destination:
+pipeline here before the `services/ai/` decision landed, and it deviates from
+the agreed direction in ways that must be corrected before further AI work —
+**read the matching "COURSE CORRECTION" block in TODO.md MVP-09 first**.
+Notably, `gemini_engine.py` is provider-pinned, which violates the
+model-agnostic rule (spec §2/§6.4): it must use LangChain's neutral
+`init_chat_model`, with provider/model/key as per-request inputs and Gemini
+kept only as default configuration. Status and destination of each file:
 
 | File | Status | Destination |
 |---|---|---|

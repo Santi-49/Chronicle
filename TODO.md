@@ -373,6 +373,31 @@ AI states are clear, and a new teammate can answer what changed between versions
 > embeddings and a history chatbot are roadmap, not MVP** — do not build `/embed-image`
 > or `/chat` before every MVP task is done.
 
+> ⚠️ **NEW 2026-07-19 — COURSE CORRECTION for the `feat/mvp-09-python-ai` spike.**
+> Read this before writing any MVP-09 code. The spike predates the decisions above and
+> deviates from them; the merge on this branch kept its files but they must change:
+>
+> 1. **Provider-pinned engine** — `gemini_engine.py` hardcodes `ChatGoogleGenerativeAI`.
+>    The spec (§2/§6.4) requires **model-agnostic LangChain defaults**: use the neutral
+>    `init_chat_model` factory; provider, model, and key are per-request inputs. Gemini
+>    may still be the *default demo provider* — as configuration, never as code.
+> 2. **Key handling** — no `GEMINI_API_KEY` env var. The BYOK key arrives per request
+>    from Electron `safeStorage` over `127.0.0.1` and is never persisted by the service.
+> 3. **Transport** — the stdin/stdout CLI bridge described in the spike README is
+>    **superseded** by the FastAPI service (`POST /annotate`). `cli.py` is an empty stub;
+>    do not fill it in.
+> 4. **Location** — the Python package moves from `apps/desktop/src/main/ai/` to
+>    `services/ai/`; only the TS queue worker + generated HTTP client stay in Electron.
+> 5. **Pydantic v1 idioms** — `@validator`, `min_items`/`max_items` break under
+>    Pydantic v2, which FastAPI requires. Port to `field_validator`/`min_length` and add
+>    the optional nullable `confidence` field from C3.
+> 6. **Input shape** — the spike passes file paths; C3 `ImageInput` is base64+mediaType.
+>    Confirm base64 when defining the OpenAPI schema (paths break gateway reuse, F9).
+>
+> Keep from the spike: `with_structured_output(VersionAnnotation)`, previous-then-current
+> image ordering, the first-version mode, `schemas.py` validation intent, `image_loader.py`.
+> The same table lives in `apps/desktop/src/main/ai/README.md` ("Transitional note").
+
 **May edit:** new `services/ai/**` (FastAPI app, LangChain pipeline, pytest tests),
 `apps/desktop/src/main/ai/**` (queue worker + generated-typed HTTP client),
 AI tests/fixtures, prompt files under `packages/prompts/` when recording an intentional

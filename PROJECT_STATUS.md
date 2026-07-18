@@ -69,6 +69,7 @@ not a public contract. Change it carefully through migrations once released.
 
 | Decision or risk | Owner | Needed by | Current action |
 |---|---|---|---|
+| ⚠️ NEW 2026-07-19: MVP-09 spike course correction | MVP-09 owner | Before more AI code | The `feat/mvp-09-python-ai` spike is Gemini-pinned, env-var-keyed, CLI-oriented, and in the wrong folder. Apply the "COURSE CORRECTION" block in TODO.md MVP-09 (model-agnostic `init_chat_model`, per-request key, FastAPI in `services/ai/`, Pydantic v2 + `confidence`). |
 | Team roster and task ownership | Team lead | Now | Fill `docs/challenge/CONSTRAINTS.md` and TODO owners. |
 | `dev` branch and repository protection | Team lead | Before implementation PRs | Create `dev`; require review for `dev` and `main`. |
 | Demo AI provider/model and budget | Unassigned | Before `MVP-07` | Test API quality, cost, privacy, and LangChain structured output. |

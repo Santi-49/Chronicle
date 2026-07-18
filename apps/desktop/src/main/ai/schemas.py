@@ -1,3 +1,7 @@
+# ⚠️ COURSE CORRECTION (2026-07-19): this file moves to services/ai/ and must be
+# ported to Pydantic v2 (field_validator, min_length/max_length) — FastAPI needs
+# v2 — and gain the optional nullable `confidence` field from C3
+# (packages/contracts/ai/output.schema.json). See ./README.md and TODO.md MVP-09.
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, validator
