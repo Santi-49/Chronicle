@@ -1,44 +1,134 @@
-# ⚠️ COURSE CORRECTION (2026-07-19): this file moves to services/ai/ and must be
-# ported to Pydantic v2 (field_validator, min_length/max_length) — FastAPI needs
-# v2 — and gain the optional nullable `confidence` field from C3
-# (packages/contracts/ai/output.schema.json). See ./README.md and TODO.md MVP-09.
-from typing import List, Optional
+"""HTTP input and output models for Chronicle's local AI service."""
 
-from pydantic import BaseModel, Field, validator
+import base64
+import binascii
+import re
+from typing import Annotated, Literal
 
-
-class CompareImagesInput(BaseModel):
-    file_name: str
-    previous_image_path: Optional[str] = None
-    current_image_path: str
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 
-class VersionAnnotation(BaseModel):
-    summary: str = Field(..., min_length=1)
-    changes: List[str] = Field(..., min_items=1, max_items=6)
-    tags: List[str] = Field(..., min_items=3, max_items=8)
+NonEmptyText = Annotated[str, Field(min_length=1)]
+ProviderName = Annotated[str, Field(min_length=1, max_length=50)]
+ModelName = Annotated[str, Field(min_length=1, max_length=200)]
 
-    @validator("summary")
-    def summary_must_not_be_empty(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("summary must not be empty")
+
+class StrictModel(BaseModel):
+    """Reject unknown fields so API mistakes are visible immediately."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class ImageInput(StrictModel):
+    """One PNG or JPEG transported across the local HTTP boundary."""
+
+    base64: NonEmptyText
+    media_type: Literal["image/png", "image/jpeg"] = Field(alias="mediaType")
+
+    @field_validator("base64")
+    @classmethod
+    def base64_must_be_valid(cls, value: str) -> str:
+        try:
+            base64.b64decode(value, validate=True)
+        except (binascii.Error, ValueError) as error:
+            raise ValueError("base64 must contain a valid encoded image") from error
         return value
 
-    @validator("changes", each_item=True)
-    def validate_change(cls, change: str) -> str:
-        change = change.strip()
 
-        if not change:
-            raise ValueError("changes must not contain empty strings")
+class ProviderConfig(StrictModel):
+    """Model selection and the short-lived BYOK credential for one request."""
 
-        return change
+    provider: ProviderName
+    model: ModelName
+    # SecretStr keeps the key out of repr(), tracebacks and accidental logs.
+    api_key: SecretStr = Field(alias="apiKey")
 
-    @validator("tags", each_item=True)
-    def tags_must_be_lowercase(cls, value: str) -> str:
+    @field_validator("provider", "model")
+    @classmethod
+    def value_must_not_be_blank(cls, value: str) -> str:
         value = value.strip()
         if not value:
-            raise ValueError("tags must not contain empty strings")
-        if value != value.lower():
-            raise ValueError("tags must be lowercase")
+            raise ValueError("value must not be blank")
         return value
+
+    @field_validator("api_key")
+    @classmethod
+    def key_must_not_be_empty(cls, value: SecretStr) -> SecretStr:
+        if not value.get_secret_value().strip():
+            raise ValueError("apiKey must not be empty")
+        return value
+
+
+class AnnotateRequest(ProviderConfig):
+    file_name: Annotated[str, Field(alias="fileName", min_length=1, max_length=255)]
+    previous: ImageInput | None = None
+    current: ImageInput
+
+    @field_validator("file_name")
+    @classmethod
+    def file_name_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("fileName must not be blank")
+        return value
+
+
+class EmbedTextRequest(ProviderConfig):
+    text: Annotated[str, Field(min_length=1, max_length=10_000)]
+
+    @field_validator("text")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("text must not be blank")
+        return value
+
+
+class VersionAnnotation(StrictModel):
+    """Exact C3 annotation output shared with the Electron app."""
+
+    summary: Annotated[str, Field(min_length=1, max_length=200)]
+    changes: Annotated[list[str], Field(min_length=1, max_length=6)]
+    tags: Annotated[list[str], Field(min_length=3, max_length=8)]
+    confidence: Annotated[float, Field(ge=0, le=1)] | None = None
+
+    @field_validator("summary")
+    @classmethod
+    def summary_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("summary must not be blank")
+        return value
+
+    @field_validator("changes")
+    @classmethod
+    def changes_must_be_valid(cls, values: list[str]) -> list[str]:
+        cleaned = [value.strip() for value in values]
+        if any(not value or len(value) > 200 for value in cleaned):
+            raise ValueError("each change must contain 1 to 200 characters")
+        return cleaned
+
+    @field_validator("tags")
+    @classmethod
+    def tags_must_be_searchable(cls, values: list[str]) -> list[str]:
+        cleaned = [value.strip() for value in values]
+        if any(
+            len(value) > 30 or re.fullmatch(r"[a-z0-9][a-z0-9-]*", value) is None
+            for value in cleaned
+        ):
+            raise ValueError("tags must be lowercase words or hyphenated words")
+        return cleaned
+
+
+class EmbedTextResponse(StrictModel):
+    embedding: Annotated[list[float], Field(min_length=1)]
+    provider: str
+    model: str
+    dimensions: Annotated[int, Field(gt=0)]
+
+
+class HealthResponse(StrictModel):
+    status: Literal["ok"] = "ok"
+    service: Literal["chronicle-ai"] = "chronicle-ai"
+    version: str = "0.1.0"

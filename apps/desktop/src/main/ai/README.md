@@ -1,48 +1,57 @@
-# ai
+# AI service spike
 
-Desktop side of the AI layer (MVP-09). The AI features themselves are implemented
-in Python in the **local AI service** (`services/ai/` — FastAPI + LangChain,
-loopback-only; decision 2026-07-19). This module holds what stays in the Electron
-main process:
+Temporary home of Chronicle's Python AI service for MVP-09. The code already follows
+the final FastAPI + LangChain boundary, but remains here briefly so the team can iterate
+before moving the package to `services/ai/`.
 
-- the **job worker** that drains `queue_items` (`ai_annotation`, `embedding`)
-  asynchronously — the UI never waits on it (spec §6.5);
-- the **typed HTTP client** for the service (types generated from its OpenAPI
-  schema, C3 — never hand-written);
-- passing the BYOK credential per request: the key lives in Electron
-  `safeStorage` (see `../ipc/secrets.ts`) and is sent only to `127.0.0.1`,
-  never persisted by the service, never sent to Chronicle's backend;
-- persisting results (`saveAnnotation`, `saveEmbedding`), retries, and the
-  `annotationUpdated` events.
+This is not the control plane in `services/api/`. It is a stateless, loopback-only
+process that receives one request at a time and never persists API keys or image data.
 
-Not the control plane: `services/api/` is unrelated to this path.
+## MVP HTTP surface
 
-## MVP service surface (C3, decided 2026-07-19)
+- `GET /health` — confirms that the local process is running without calling a provider.
+- `POST /annotate` — describes a first version or compares previous and current images.
+- `POST /embed-text` — creates a vector for semantic search.
 
-`POST /annotate` (two-image diff; `previous: null` → first-version description) ·
-`POST /embed-text` · `GET /health`. Annotation output: `summary`, `changes[]`,
-`tags[]`, optional nullable `confidence`. Image embeddings and a history chatbot
-are roadmap — `/embed-image` and `/chat` must not be built before the MVP is done.
+Images cross the HTTP boundary as base64 plus `image/png` or `image/jpeg`. Provider,
+model and BYOK key arrive per request. Annotation output is the C3 shape: `summary`,
+`changes`, `tags` and nullable `confidence`.
 
-## ⚠️ NEW 2026-07-19 — Course correction: Python files currently in this folder
+## Run it temporarily
 
-The first MVP-09 spike (branch `feat/mvp-09-python-ai`) started the Python
-pipeline here before the `services/ai/` decision landed, and it deviates from
-the agreed direction in ways that must be corrected before further AI work —
-**read the matching "COURSE CORRECTION" block in TODO.md MVP-09 first**.
-Notably, `gemini_engine.py` is provider-pinned, which violates the
-model-agnostic rule (spec §2/§6.4): it must use LangChain's neutral
-`init_chat_model`, with provider/model/key as per-request inputs and Gemini
-kept only as default configuration. Status and destination of each file:
+Python 3.12 is required. From the repository root:
 
-| File | Status | Destination |
-|---|---|---|
-| `schemas.py` | Implemented (Pydantic models) | Move to `services/ai/`; port to Pydantic v2 (`field_validator`, `min_length`) and add optional `confidence` per C3 |
-| `image_loader.py` | Implemented | Move to `services/ai/` (internal helper) |
-| `gemini_engine.py` | Implemented, Gemini-pinned | Move and generalize: model-agnostic via LangChain defaults (`init_chat_model`); provider/model/key arrive per request |
-| `cli.py` | Empty stub | **Superseded** — the Electron↔Python bridge is the FastAPI HTTP endpoint, not a stdin/stdout CLI |
-| `compare_images.py` | Empty stub | Becomes the `/annotate` route/orchestration in `services/ai/` |
-| `tests/` | Empty stubs | pytest suite in `services/ai/` (engine mocked; no paid calls in CI) |
+```bash
+python -m pip install -e "apps/desktop/src/main/ai[dev]"
+python -m uvicorn apps.desktop.src.main.ai.main:app --host 127.0.0.1 --port 8765
+python -m pytest apps/desktop/src/main/ai/tests
+```
 
-Once the move is complete this folder contains only TypeScript (worker + client)
-and this README's transitional section should be deleted.
+Install only the provider packages used for manual tests, for example
+`langchain-google-genai` for the current demo configuration. Automated tests mock
+LangChain and never contact a paid provider.
+
+Do not place provider keys in environment variables, source files, fixtures, URLs or
+logs. Electron will eventually decrypt the key from `safeStorage` only while creating
+one local request.
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `main.py` | Creates the FastAPI application. |
+| `compare_images.py` | Defines the three small HTTP routes. |
+| `schemas.py` | Strict Pydantic v2 request and response validation. |
+| `model_engine.py` | Model-agnostic `init_chat_model` and `init_embeddings` calls. |
+| `prompts.py` | Loads the versioned prompt from `packages/prompts/`. |
+| `tests/` | Provider-mocked contract and behavior tests. |
+
+`image_loader.py` remains a local helper from the first spike, but HTTP requests use
+the portable base64 contract rather than filesystem paths. `cli.py` is intentionally
+empty and superseded by FastAPI.
+
+## Still pending on the Electron side
+
+The TypeScript queue worker, generated HTTP client, safe retries, result persistence,
+service-process lifecycle and status events remain MVP-09 work. Once this Python package
+moves to `services/ai/`, this folder will contain only those Electron components.

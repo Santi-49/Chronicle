@@ -1,10 +1,14 @@
-"""Chronicle AI image-comparison module."""
+"""Temporary home of Chronicle's Python AI service spike."""
 
-from .compare_images import compare_images
-from .schemas import CompareImagesInput, VersionAnnotation
+from .main import app
+from .model_engine import annotate_version, embed_text
+from .schemas import AnnotateRequest, EmbedTextRequest, VersionAnnotation
 
 __all__ = [
-    "CompareImagesInput",
+    "AnnotateRequest",
+    "EmbedTextRequest",
     "VersionAnnotation",
-    "compare_images",
+    "annotate_version",
+    "app",
+    "embed_text",
 ]
