@@ -62,8 +62,8 @@ body {
 }
 
 .window-titlebar-brand .brand-mark {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   stroke: #78a9ff;
 }
 
@@ -249,8 +249,8 @@ button:disabled {
 }
 
 .brand-mark {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   stroke: var(--accent);
   stroke-width: 1.7;
   stroke-linecap: round;
