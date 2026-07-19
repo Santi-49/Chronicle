@@ -236,9 +236,9 @@ new version; duplicate content is stored once; 50 MB and missing-file cases are 
 > `apps/desktop/src/main/versioning/README.md`. The MVP-03 manual demo-editor test remains
 > open until watcher→capture wiring lands (MVP-05/MVP-12).
 
-### [~] MVP-05 — Implement the secure IPC bridge and handlers
+### [x] MVP-05 — Implement the secure IPC bridge and handlers
 
-**Owner:** Santi R (implemented on `feat/mvp-05-ipc-bridge`; awaiting review + merge)  
+**Owner:** Santi R (implemented on `feat/mvp-05-ipc-bridge`; merged into `dev` as `aa1f136`)  
 **Depends on:** MVP-02; coordinate with MVP-03/MVP-04  
 **Goal:** Let React use desktop functionality without direct Node/filesystem access.
 
