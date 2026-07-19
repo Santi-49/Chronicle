@@ -14,13 +14,9 @@ research_required:
   - Verify provider-specific image handling and privacy behavior.
 experiment_notes:
   - 2026-07-19 Gemini live acceptance returned multi-word tags with spaces; require lowercase hyphenated slugs to satisfy C3.
+notes:
+  - Only the `### System` and `### User` bodies below are sent to the model. First-version mode reuses the Version-diff system prompt (see services/ai/chronicle_ai/prompts.py).
 ---
-
-# Version annotation
-
-This is a versioned implementation asset, not a contract. Implementations may use it,
-compose it with tools, or replace its orchestration while continuing to satisfy the
-referenced input and output contracts.
 
 ## Version diff
 
@@ -44,10 +40,6 @@ the visible changes with a concise summary, a list of distinct changes, and sear
 tags.
 
 ## First-version description
-
-### System
-
-Use the same system guidance as the version diff.
 
 ### User
 

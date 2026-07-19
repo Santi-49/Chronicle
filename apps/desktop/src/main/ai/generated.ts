@@ -65,30 +65,58 @@ export interface components {
         /** AnnotateRequest */
         AnnotateRequest: {
             /** Provider */
-            provider: string;
+            provider?: string | null;
             /** Model */
-            model: string;
-            /**
-             * Apikey
-             * Format: password
-             */
-            apiKey: string;
+            model?: string | null;
+            /** Apikey */
+            apiKey?: string | null;
             /** Filename */
             fileName: string;
             previous?: components["schemas"]["ImageInput"] | null;
             current: components["schemas"]["ImageInput"];
         };
+        /**
+         * AnnotateResponse
+         * @description C3 annotation plus token usage and the estimated cost of the call.
+         */
+        AnnotateResponse: {
+            /** Summary */
+            summary: string;
+            /** Changes */
+            changes: string[];
+            /** Tags */
+            tags: string[];
+            /** Confidence */
+            confidence?: number | null;
+            usage?: components["schemas"]["TokenUsage"] | null;
+            cost?: components["schemas"]["CostEstimate"] | null;
+        };
+        /**
+         * CostEstimate
+         * @description Estimated USD cost of one call from token usage × configured prices.
+         */
+        CostEstimate: {
+            /** Input Usd */
+            input_usd?: number | null;
+            /** Output Usd */
+            output_usd?: number | null;
+            /** Total Usd */
+            total_usd?: number | null;
+            /**
+             * Currency
+             * @default USD
+             * @constant
+             */
+            currency: "USD";
+        };
         /** EmbedTextRequest */
         EmbedTextRequest: {
             /** Provider */
-            provider: string;
+            provider?: string | null;
             /** Model */
-            model: string;
-            /**
-             * Apikey
-             * Format: password
-             */
-            apiKey: string;
+            model?: string | null;
+            /** Apikey */
+            apiKey?: string | null;
             /** Text */
             text: string;
         };
@@ -102,6 +130,8 @@ export interface components {
             model: string;
             /** Dimensions */
             dimensions: number;
+            usage?: components["schemas"]["TokenUsage"] | null;
+            cost?: components["schemas"]["CostEstimate"] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -147,13 +177,25 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "invalid_model_output" | "provider_unavailable" | "provider_timeout" | "provider_error";
+            code: "configuration_error" | "invalid_model_output" | "provider_unavailable" | "provider_timeout" | "provider_error";
             /** Message */
             message: string;
         };
         /** ServiceErrorResponse */
         ServiceErrorResponse: {
             detail: components["schemas"]["ServiceErrorDetail"];
+        };
+        /**
+         * TokenUsage
+         * @description Token counts reported by the provider for one call (null when absent).
+         */
+        TokenUsage: {
+            /** Input Tokens */
+            input_tokens?: number | null;
+            /** Output Tokens */
+            output_tokens?: number | null;
+            /** Total Tokens */
+            total_tokens?: number | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -163,24 +205,6 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
-        };
-        /**
-         * VersionAnnotation
-         * @description Exact C3 annotation output shared with the Electron app.
-         */
-        VersionAnnotation: {
-            /** Summary */
-            summary: string;
-            /** Changes */
-            changes: string[];
-            /** Tags */
-            tags: string[];
-            /** Confidence */
-            confidence?: number | null;
         };
     };
     responses: never;
@@ -230,7 +254,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VersionAnnotation"];
+                    "application/json": components["schemas"]["AnnotateResponse"];
+                };
+            };
+            /** @description No provider/model/key configured */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -291,6 +324,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmbedTextResponse"];
+                };
+            };
+            /** @description No provider/model/key configured */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
                 };
             };
             /** @description Validation Error */

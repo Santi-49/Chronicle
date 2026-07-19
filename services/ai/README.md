@@ -18,8 +18,30 @@ to the configured provider.
 | `POST` | `/embed-text` | One embedding vector for a version's summary+tags or a search query. |
 
 Images cross the boundary as base64 plus `image/png` / `image/jpeg`. Provider,
-model and the BYOK key arrive per request. Annotation output is the C3 shape:
-`summary`, `changes`, `tags`, and nullable `confidence`.
+model and the BYOK key arrive per request (or fall back to the env defaults
+below). Annotation output is the C3 shape — `summary`, `changes`, `tags`,
+nullable `confidence` — plus `usage` (token counts) and `cost` (estimated USD
+from the configured per-task prices). Embedding responses carry the same
+`usage`/`cost` fields, though the standard embedding interface rarely reports
+token usage, so they are usually null.
+
+## Configuration (`.env`)
+
+The desktop app sends provider/model/key per request. For standalone runs, the
+smoke script, and the live test, defaults come from the repo-root `.env`
+(`main.py` loads it best-effort; shell env always wins). See `.env.example`:
+
+| Variable | Purpose |
+|---|---|
+| `CHRONICLE_AI_PROVIDER` | Default LangChain provider id (e.g. `google_genai`). |
+| `CHRONICLE_AI_API_KEY` | Default BYOK key (generic, provider-agnostic). |
+| `CHRONICLE_AI_ANNOTATE_MODEL` | Model for `/annotate`. |
+| `CHRONICLE_AI_EMBED_MODEL` | Model for `/embed-text` (separate per task). |
+| `CHRONICLE_AI_ANNOTATE_INPUT_PRICE_PER_M` / `_OUTPUT_PRICE_PER_M` | Annotate pricing, USD per 1M tokens. |
+| `CHRONICLE_AI_EMBED_INPUT_PRICE_PER_M` | Embedding pricing, USD per 1M tokens. |
+
+When a request omits provider/model/key and no default is set, the service
+returns `400 configuration_error` without contacting a provider.
 
 ## Layout
 
@@ -30,6 +52,7 @@ services/ai/
     main.py                 # FastAPI app factory
     routes.py               # the three HTTP routes + error mapping
     engine.py               # model-agnostic LangChain calls (init_chat_model / init_embeddings)
+    config.py               # env-driven defaults: provider, key, per-task models + prices
     schemas.py              # strict Pydantic v2 request/response models
     prompts.py              # loads the versioned prompt from packages/prompts/
     image_loader.py         # local-file helper for fixtures / smoke tests

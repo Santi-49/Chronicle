@@ -1,13 +1,22 @@
 /** Typed client for the loopback-only Python AI service (C3). */
 import type { components } from './generated'
 
-export type ProviderRequest = Pick<
-  components['schemas']['AnnotateRequest'],
-  'provider' | 'model' | 'apiKey'
->
+/**
+ * Provider credentials the app always supplies per request. Kept strict
+ * (non-null) even though the wire schema makes them optional, because the
+ * worker only builds this after confirming provider, model, and key exist.
+ */
+export interface ProviderRequest {
+  provider: string
+  model: string
+  apiKey: string
+}
 export type AnnotateRequest = components['schemas']['AnnotateRequest']
-export type VersionAnnotation = components['schemas']['VersionAnnotation']
+/** Annotation plus token usage and estimated cost (C3). */
+export type AnnotateResponse = components['schemas']['AnnotateResponse']
 export type EmbedTextResponse = components['schemas']['EmbedTextResponse']
+export type TokenUsage = components['schemas']['TokenUsage']
+export type CostEstimate = components['schemas']['CostEstimate']
 
 export class AiServiceError extends Error {
   constructor(
@@ -25,7 +34,7 @@ export class AiServiceError extends Error {
 
 export interface AiClient {
   health(): Promise<boolean>
-  annotate(request: AnnotateRequest): Promise<VersionAnnotation>
+  annotate(request: AnnotateRequest): Promise<AnnotateResponse>
   embedText(request: ProviderRequest & { text: string }): Promise<EmbedTextResponse>
 }
 
@@ -68,7 +77,7 @@ export function createAiClient(baseUrl = 'http://127.0.0.1:8765'): AiClient {
         return false
       }
     },
-    annotate: (request) => post<VersionAnnotation>(baseUrl, '/annotate', request),
+    annotate: (request) => post<AnnotateResponse>(baseUrl, '/annotate', request),
     embedText: (request) => post<EmbedTextResponse>(baseUrl, '/embed-text', request),
   }
 }

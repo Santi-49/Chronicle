@@ -45,7 +45,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/VersionAnnotation"
+                  "$ref": "#/components/schemas/AnnotateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No provider/model/key configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceErrorResponse"
                 }
               }
             }
@@ -118,6 +128,16 @@
               }
             }
           },
+          "400": {
+            "description": "No provider/model/key configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceErrorResponse"
+                }
+              }
+            }
+          },
           "502": {
             "description": "Provider or model output error",
             "content": {
@@ -167,22 +187,43 @@
       "AnnotateRequest": {
         "properties": {
           "provider": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Provider"
           },
           "model": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Model"
           },
           "apiKey": {
-            "type": "string",
-            "format": "password",
-            "title": "Apikey",
-            "writeOnly": true
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apikey"
           },
           "fileName": {
             "type": "string",
@@ -207,33 +248,168 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "provider",
-          "model",
-          "apiKey",
           "fileName",
           "current"
         ],
         "title": "AnnotateRequest"
       },
-      "EmbedTextRequest": {
+      "AnnotateResponse": {
         "properties": {
-          "provider": {
-            "type": "string",
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Provider"
-          },
-          "model": {
+          "summary": {
             "type": "string",
             "maxLength": 200,
             "minLength": 1,
+            "title": "Summary"
+          },
+          "changes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Changes"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 3,
+            "title": "Tags"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "summary",
+          "changes",
+          "tags"
+        ],
+        "title": "AnnotateResponse",
+        "description": "C3 annotation plus token usage and the estimated cost of the call."
+      },
+      "CostEstimate": {
+        "properties": {
+          "input_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Usd"
+          },
+          "output_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Usd"
+          },
+          "total_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Usd"
+          },
+          "currency": {
+            "type": "string",
+            "const": "USD",
+            "title": "Currency",
+            "default": "USD"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CostEstimate",
+        "description": "Estimated USD cost of one call from token usage × configured prices."
+      },
+      "EmbedTextRequest": {
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Model"
           },
           "apiKey": {
-            "type": "string",
-            "format": "password",
-            "title": "Apikey",
-            "writeOnly": true
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apikey"
           },
           "text": {
             "type": "string",
@@ -245,9 +421,6 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "provider",
-          "model",
-          "apiKey",
           "text"
         ],
         "title": "EmbedTextRequest"
@@ -274,6 +447,26 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Dimensions"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -353,6 +546,7 @@
           "code": {
             "type": "string",
             "enum": [
+              "configuration_error",
               "invalid_model_output",
               "provider_unavailable",
               "provider_timeout",
@@ -386,6 +580,47 @@
         ],
         "title": "ServiceErrorResponse"
       },
+      "TokenUsage": {
+        "properties": {
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "total_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Tokens"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TokenUsage",
+        "description": "Token counts reported by the provider for one call (null when absent)."
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -409,13 +644,6 @@
           "type": {
             "type": "string",
             "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
           }
         },
         "type": "object",
@@ -425,56 +653,6 @@
           "type"
         ],
         "title": "ValidationError"
-      },
-      "VersionAnnotation": {
-        "properties": {
-          "summary": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Summary"
-          },
-          "changes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 6,
-            "minItems": 1,
-            "title": "Changes"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 8,
-            "minItems": 3,
-            "title": "Tags"
-          },
-          "confidence": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confidence"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "summary",
-          "changes",
-          "tags"
-        ],
-        "title": "VersionAnnotation",
-        "description": "Exact C3 annotation output shared with the Electron app."
       }
     }
   }

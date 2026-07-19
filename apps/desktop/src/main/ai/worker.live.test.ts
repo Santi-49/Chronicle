@@ -10,8 +10,15 @@ import { createAiClient } from './client'
 import { createAiServiceProcess, type AiServiceProcess } from './service-process'
 import { createAiWorker } from './worker'
 
-const apiKey = process.env['GOOGLE_API_KEY']?.trim() ?? ''
-const live = describe.runIf(apiKey.length > 0)
+// Configured entirely from CHRONICLE_AI_* env (see .env.example) — no provider
+// is hardcoded here. The test runs only when all four values are present.
+const apiKey = process.env['CHRONICLE_AI_API_KEY']?.trim() ?? ''
+const provider = process.env['CHRONICLE_AI_PROVIDER']?.trim() ?? ''
+const annotateModel = process.env['CHRONICLE_AI_ANNOTATE_MODEL']?.trim() ?? ''
+const embedModel = process.env['CHRONICLE_AI_EMBED_MODEL']?.trim() ?? ''
+const live = describe.runIf(
+  apiKey.length > 0 && provider.length > 0 && annotateModel.length > 0 && embedModel.length > 0,
+)
 
 live('MVP-09 live provider acceptance', () => {
   let root: string
@@ -41,7 +48,7 @@ live('MVP-09 live provider acceptance', () => {
   })
 
   it(
-    'persists a real Gemini annotation and comparable embedding through the worker',
+    'persists a real annotation and comparable embedding through the worker',
     async () => {
       const workingImage = path.join(root, 'acceptance.jpg')
       fs.copyFileSync(
@@ -55,8 +62,8 @@ live('MVP-09 live provider acceptance', () => {
       const settings: AppSettings = {
         ai: {
           mode: 'local',
-          chat: { provider: 'google_genai', model: 'gemini-flash-latest' },
-          embeddings: { provider: 'google_genai', model: 'gemini-embedding-001' },
+          chat: { provider, model: annotateModel },
+          embeddings: { provider, model: embedModel },
         },
         controlPlane: { baseUrl: 'http://localhost:8000', telemetryOptIn: false },
       }
@@ -80,7 +87,7 @@ live('MVP-09 live provider acceptance', () => {
 
       await worker.runOnce()
       const embedding = getEmbedding(db, captured.version.id)
-      expect(embedding?.model).toBe('google_genai:gemini-embedding-001')
+      expect(embedding?.model).toBe(`${provider}:${embedModel}`)
       expect(embedding?.vector.length).toBeGreaterThan(0)
       expect(listJobs(db)).toHaveLength(0)
       worker.stop()

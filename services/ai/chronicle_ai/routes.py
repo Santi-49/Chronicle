@@ -3,14 +3,14 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
-from .engine import annotate_version, embed_text
+from .engine import ConfigurationError, annotate_version, embed_text
 from .schemas import (
     AnnotateRequest,
+    AnnotateResponse,
     EmbedTextRequest,
     EmbedTextResponse,
     HealthResponse,
     ServiceErrorResponse,
-    VersionAnnotation,
 )
 
 
@@ -25,16 +25,22 @@ async def health() -> HealthResponse:
 
 
 ERROR_RESPONSES = {
+    400: {"model": ServiceErrorResponse, "description": "No provider/model/key configured"},
     502: {"model": ServiceErrorResponse, "description": "Provider or model output error"},
     503: {"model": ServiceErrorResponse, "description": "Provider integration unavailable"},
     504: {"model": ServiceErrorResponse, "description": "Provider timeout"},
 }
 
 
-@router.post("/annotate", response_model=VersionAnnotation, responses=ERROR_RESPONSES)
-async def annotate(request: AnnotateRequest) -> VersionAnnotation:
+@router.post("/annotate", response_model=AnnotateResponse, responses=ERROR_RESPONSES)
+async def annotate(request: AnnotateRequest) -> AnnotateResponse:
     try:
         return await annotate_version(request)
+    except ConfigurationError as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "configuration_error", "message": str(error)},
+        ) from error
     except ValidationError as error:
         raise HTTPException(
             status_code=502,
@@ -62,6 +68,11 @@ async def annotate(request: AnnotateRequest) -> VersionAnnotation:
 async def create_text_embedding(request: EmbedTextRequest) -> EmbedTextResponse:
     try:
         return await embed_text(request)
+    except ConfigurationError as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "configuration_error", "message": str(error)},
+        ) from error
     except ImportError as error:
         raise HTTPException(
             status_code=503,

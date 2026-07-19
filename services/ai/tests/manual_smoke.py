@@ -1,5 +1,5 @@
 """
-Chronicle — manual smoke test for the Gemini vision diff.
+Chronicle — manual smoke test for the vision diff (provider-agnostic).
 
 This script exercises the real Chronicle annotation pipeline end-to-end:
   image_loader  →  AnnotateRequest  →  annotate_version()  →  VersionAnnotation
@@ -7,17 +7,18 @@ This script exercises the real Chronicle annotation pipeline end-to-end:
 Run from the repository root with the committed demo fixtures or explicit
 PNG/JPG paths:
 
-    python services/ai/tests/manual_gemini_smoke.py
-    python services/ai/tests/manual_gemini_smoke.py --first
+    python services/ai/tests/manual_smoke.py
+    python services/ai/tests/manual_smoke.py --first
 
 Prerequisites:
-    pip install langchain langchain-google-genai python-dotenv pydantic
+    pip install -e "services/ai[dev,<provider>]"   # e.g. [dev,google]
 
-The GOOGLE_API_KEY is read from the .env file at the repo root.
+Provider, model, and key are read from the repo-root .env via the CHRONICLE_AI_*
+variables (see .env.example).
 Images default to fixtures/before.jpg and fixtures/after.jpg; pass any PNG or
 JPG paths as positional arguments to override:
 
-    python services/ai/tests/manual_gemini_smoke.py path/to/before.jpg path/to/after.jpg
+    python services/ai/tests/manual_smoke.py path/to/before.jpg path/to/after.jpg
 """
 
 import argparse
@@ -33,11 +34,12 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()          # reads .env at cwd if present
+    # Load the repository-root .env (three levels up from this file).
+    load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 except ModuleNotFoundError:
-    pass  # python-dotenv is optional; key may already be in the environment
+    pass  # python-dotenv is optional; values may already be in the environment
 
-API_KEY = os.environ.get("GOOGLE_API_KEY", "").strip()
+API_KEY = os.environ.get("CHRONICLE_AI_API_KEY", "").strip()
 
 # ---------------------------------------------------------------------------
 # 2. Import the real Chronicle pipeline modules
@@ -56,8 +58,8 @@ from chronicle_ai.schemas import AnnotateRequest        # noqa: E402
 # 3. Helpers
 # ---------------------------------------------------------------------------
 
-PROVIDER   = "google_genai"
-MODEL      = "gemini-flash-latest"
+PROVIDER = os.environ.get("CHRONICLE_AI_PROVIDER", "").strip()
+MODEL = os.environ.get("CHRONICLE_AI_ANNOTATE_MODEL", "").strip()
 
 
 def load_as_image_input(file_path: Path) -> dict:
@@ -86,6 +88,24 @@ def print_result(annotation) -> None:
 
     if annotation.confidence is not None:
         print(f"\nCONFIDENCE:  {annotation.confidence:.0%}")
+
+    usage = getattr(annotation, "usage", None)
+    if usage is not None:
+        print("\nTOKENS")
+        print("-" * 60)
+        print(
+            f"  input: {usage.input_tokens}  ·  output: {usage.output_tokens}"
+            f"  ·  total: {usage.total_tokens}"
+        )
+
+    cost = getattr(annotation, "cost", None)
+    if cost is not None and cost.total_usd is not None:
+        print("\nESTIMATED COST")
+        print("-" * 60)
+        print(
+            f"  ${cost.total_usd:.6f} {cost.currency}"
+            f"  (in ${cost.input_usd:.6f} + out ${cost.output_usd:.6f})"
+        )
     print("=" * 60 + "\n")
 
 
@@ -114,14 +134,14 @@ async def run(image1: Path, image2: Path | None) -> None:
     print(f"Previous  : {label_prev}")
     print(f"Current   : {image1}")
     print(f"Provider  : {PROVIDER}  /  {MODEL}")
-    print("\nSending to Gemini …")
+    print("\nSending to provider …")
 
     annotation = await annotate_version(request)
     print_result(annotation)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Chronicle Gemini smoke test")
+    parser = argparse.ArgumentParser(description="Chronicle AI smoke test")
     # --help must work before the key check
     parser.add_argument(
         "images",
@@ -147,16 +167,24 @@ def main() -> None:
         paths = [FIXTURE_ROOT / "before.jpg", FIXTURE_ROOT / "after.jpg"]
         if not all(path.exists() for path in paths):
             sys.exit(
-                "\n[ERROR] Default Gemini fixtures were not found.\n"
+                "\n[ERROR] Default fixtures were not found.\n"
                 "  Pass one or two explicit PNG/JPG paths instead.\n"
             )
 
-    # Key guard runs here, after --help has had a chance to print and exit
-    if not API_KEY:
+    # Config guard runs here, after --help has had a chance to print and exit
+    missing = [
+        name
+        for name, value in (
+            ("CHRONICLE_AI_API_KEY", API_KEY),
+            ("CHRONICLE_AI_PROVIDER", PROVIDER),
+            ("CHRONICLE_AI_ANNOTATE_MODEL", MODEL),
+        )
+        if not value
+    ]
+    if missing:
         sys.exit(
-            "\n[ERROR] GOOGLE_API_KEY is not set.\n"
-            "  Add it to a .env file at the repo root:\n"
-            "    GOOGLE_API_KEY=your_real_key_here\n"
+            "\n[ERROR] Missing config: " + ", ".join(missing) + ".\n"
+            "  Set them in a .env file at the repo root (see .env.example).\n"
         )
 
     # Validate that specified files exist

@@ -36,7 +36,7 @@ class FakeChatModel:
     def __init__(self, structured_model: FakeStructuredModel) -> None:
         self.structured_model = structured_model
 
-    def with_structured_output(self, _schema: type[Any]) -> FakeStructuredModel:
+    def with_structured_output(self, _schema: type[Any], **_kwargs: Any) -> FakeStructuredModel:
         return self.structured_model
 
 
@@ -71,8 +71,8 @@ async def test_first_version_uses_description_prompt() -> None:
     result = await annotate_version(
         AnnotateRequest.model_validate(
             {
-                "provider": "google_genai",
-                "model": "gemini-2.5-flash",
+                "provider": "test-provider",
+                "model": "test-chat-model",
                 "apiKey": "secret",
                 "fileName": "logo.png",
                 "previous": None,
@@ -87,8 +87,8 @@ async def test_first_version_uses_description_prompt() -> None:
 
     # Provider credentials are forwarded verbatim
     assert factory_arguments == {
-        "model": "gemini-2.5-flash",
-        "model_provider": "google_genai",
+        "model": "test-chat-model",
+        "model_provider": "test-provider",
         "api_key": "secret",
         "temperature": 0,
     }
@@ -125,8 +125,8 @@ async def test_diff_sends_previous_image_before_current_image() -> None:
     await annotate_version(
         AnnotateRequest.model_validate(
             {
-                "provider": "google_genai",
-                "model": "gemini-2.5-flash",
+                "provider": "test-provider",
+                "model": "test-chat-model",
                 "apiKey": "secret",
                 "fileName": "logo.png",
                 "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png"},
@@ -165,8 +165,8 @@ async def test_diff_prompt_instructs_change_description() -> None:
     await annotate_version(
         AnnotateRequest.model_validate(
             {
-                "provider": "google_genai",
-                "model": "gemini-2.5-flash",
+                "provider": "test-provider",
+                "model": "test-chat-model",
                 "apiKey": "secret",
                 "fileName": "banner.png",
                 "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png"},
@@ -204,14 +204,14 @@ async def test_annotate_accepts_version_annotation_instance_from_model() -> None
             return expected
 
     class FakeChatModelInstance:
-        def with_structured_output(self, _: type[Any]) -> FakeStructuredModelInstance:
+        def with_structured_output(self, _: type[Any], **__: Any) -> FakeStructuredModelInstance:
             return FakeStructuredModelInstance()
 
     result = await annotate_version(
         AnnotateRequest.model_validate(
             {
-                "provider": "google_genai",
-                "model": "gemini-2.5-flash",
+                "provider": "test-provider",
+                "model": "test-chat-model",
                 "apiKey": "secret",
                 "fileName": "logo.png",
                 "previous": None,
@@ -221,7 +221,13 @@ async def test_annotate_accepts_version_annotation_instance_from_model() -> None
         model_factory=lambda **_: FakeChatModelInstance(),
     )
 
-    assert result is expected
+    # The engine now wraps the annotation in an AnnotateResponse (adding usage/
+    # cost), so compare the annotation fields rather than object identity.
+    assert result.summary == expected.summary
+    assert result.changes == expected.changes
+    assert result.tags == expected.tags
+    assert result.confidence == expected.confidence
+    assert result.usage is None
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +241,7 @@ async def test_embed_text_returns_model_identity_and_dimensions() -> None:
         EmbedTextRequest.model_validate(
             {
                 "provider": "openai",
-                "model": "text-embedding-3-small",
+                "model": "test-embed-model",
                 "apiKey": "secret",
                 "text": "navy background",
             }
@@ -245,5 +251,92 @@ async def test_embed_text_returns_model_identity_and_dimensions() -> None:
 
     assert result.embedding == [0.1, 0.2, 0.3]
     assert result.provider == "openai"
-    assert result.model == "text-embedding-3-small"
+    assert result.model == "test-embed-model"
     assert result.dimensions == 3
+    # The standard embedding interface exposes no token usage.
+    assert result.usage is None
+    assert result.cost is None
+
+
+# ---------------------------------------------------------------------------
+# Environment defaults + token usage / cost estimate
+# ---------------------------------------------------------------------------
+
+
+class _FakeMessage:
+    """Stand-in AIMessage carrying LangChain-style usage_metadata."""
+
+    def __init__(self, usage: dict[str, int]) -> None:
+        self.usage_metadata = usage
+
+
+class _FakeStructuredWithUsage:
+    """Mimics with_structured_output(..., include_raw=True)."""
+
+    def __init__(self, annotation: dict[str, Any], usage: dict[str, int]) -> None:
+        self._annotation = annotation
+        self._usage = usage
+
+    async def ainvoke(self, _messages: Any) -> dict[str, Any]:
+        return {"raw": _FakeMessage(self._usage), "parsed": self._annotation}
+
+
+class _FakeChatWithUsage:
+    def __init__(self, structured: _FakeStructuredWithUsage) -> None:
+        self._structured = structured
+
+    def with_structured_output(self, _schema: type[Any], **_kwargs: Any) -> _FakeStructuredWithUsage:
+        return self._structured
+
+
+@pytest.mark.asyncio
+async def test_annotate_falls_back_to_env_and_reports_tokens_and_cost(monkeypatch) -> None:
+    # Configure defaults so the request can omit provider/model/key entirely.
+    monkeypatch.setenv("CHRONICLE_AI_PROVIDER", "test-provider")
+    monkeypatch.setenv("CHRONICLE_AI_API_KEY", "env-secret")
+    monkeypatch.setenv("CHRONICLE_AI_ANNOTATE_MODEL", "env-chat-model")
+    monkeypatch.setenv("CHRONICLE_AI_ANNOTATE_INPUT_PRICE_PER_M", "1.0")
+    monkeypatch.setenv("CHRONICLE_AI_ANNOTATE_OUTPUT_PRICE_PER_M", "2.0")
+
+    structured = _FakeStructuredWithUsage(
+        {
+            "summary": "A navy logo.",
+            "changes": ["Navy background"],
+            "tags": ["navy", "logo", "brand"],
+            "confidence": None,
+        },
+        {"input_tokens": 1_000_000, "output_tokens": 500_000, "total_tokens": 1_500_000},
+    )
+    factory_arguments: dict[str, Any] = {}
+
+    def factory(**kwargs: Any) -> _FakeChatWithUsage:
+        factory_arguments.update(kwargs)
+        return _FakeChatWithUsage(structured)
+
+    result = await annotate_version(
+        AnnotateRequest.model_validate({"fileName": "logo.png", "current": IMAGE}),
+        model_factory=factory,
+    )
+
+    # Env defaults were used because the request omitted them.
+    assert factory_arguments["model"] == "env-chat-model"
+    assert factory_arguments["model_provider"] == "test-provider"
+    assert factory_arguments["api_key"] == "env-secret"
+
+    # Token usage is surfaced and cost = 1M/1M*1.0 + 0.5M/1M*2.0 = 1.0 + 1.0.
+    assert result.usage.input_tokens == 1_000_000
+    assert result.usage.output_tokens == 500_000
+    assert result.cost.input_usd == 1.0
+    assert result.cost.output_usd == 1.0
+    assert result.cost.total_usd == 2.0
+
+
+@pytest.mark.asyncio
+async def test_annotate_without_provider_or_env_raises_configuration_error() -> None:
+    from chronicle_ai.engine import ConfigurationError
+
+    with pytest.raises(ConfigurationError):
+        await annotate_version(
+            AnnotateRequest.model_validate({"fileName": "logo.png", "current": IMAGE}),
+            model_factory=lambda **_: None,
+        )

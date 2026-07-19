@@ -36,26 +36,30 @@ class ImageInput(StrictModel):
 
 
 class ProviderConfig(StrictModel):
-    """Model selection and the short-lived BYOK credential for one request."""
+    """Model selection and the short-lived BYOK credential for one request.
 
-    provider: ProviderName
-    model: ModelName
+    Every field is optional: when omitted (or blank) it falls back to the
+    environment default (see chronicle_ai.config). The desktop app always sends
+    them; standalone/dev callers may rely on the configured defaults instead.
+    """
+
+    provider: ProviderName | None = None
+    model: ModelName | None = None
     # SecretStr keeps the key out of repr(), tracebacks and accidental logs.
-    api_key: SecretStr = Field(alias="apiKey")
+    api_key: SecretStr | None = Field(default=None, alias="apiKey")
 
     @field_validator("provider", "model")
     @classmethod
-    def value_must_not_be_blank(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("value must not be blank")
-        return value
+    def blank_becomes_none(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
 
     @field_validator("api_key")
     @classmethod
-    def key_must_not_be_empty(cls, value: SecretStr) -> SecretStr:
-        if not value.get_secret_value().strip():
-            raise ValueError("apiKey must not be empty")
+    def empty_key_becomes_none(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None or not value.get_secret_value().strip():
+            return None
         return value
 
 
@@ -121,11 +125,39 @@ class VersionAnnotation(StrictModel):
         return cleaned
 
 
+class TokenUsage(StrictModel):
+    """Token counts reported by the provider for one call (null when absent)."""
+
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+
+
+class CostEstimate(StrictModel):
+    """Estimated USD cost of one call from token usage × configured prices."""
+
+    input_usd: float | None = None
+    output_usd: float | None = None
+    total_usd: float | None = None
+    currency: Literal["USD"] = "USD"
+
+
+class AnnotateResponse(VersionAnnotation):
+    """C3 annotation plus token usage and the estimated cost of the call."""
+
+    usage: TokenUsage | None = None
+    cost: CostEstimate | None = None
+
+
 class EmbedTextResponse(StrictModel):
     embedding: Annotated[list[float], Field(min_length=1)]
     provider: str
     model: str
     dimensions: Annotated[int, Field(gt=0)]
+    # Embedding token usage is only present when the provider exposes it; the
+    # standard LangChain embedding interface does not, so this is usually null.
+    usage: TokenUsage | None = None
+    cost: CostEstimate | None = None
 
 
 class HealthResponse(StrictModel):
@@ -136,6 +168,7 @@ class HealthResponse(StrictModel):
 
 class ServiceErrorDetail(StrictModel):
     code: Literal[
+        "configuration_error",
         "invalid_model_output",
         "provider_unavailable",
         "provider_timeout",

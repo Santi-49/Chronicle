@@ -14,6 +14,25 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolate_ai_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Clear CHRONICLE_AI_* defaults so unit tests are hermetic.
+
+    Without this, a developer's real `.env` (loaded by main.py) could leak
+    provider/model/key/prices into tests and change their behaviour.
+    """
+    for name in (
+        "CHRONICLE_AI_PROVIDER",
+        "CHRONICLE_AI_API_KEY",
+        "CHRONICLE_AI_ANNOTATE_MODEL",
+        "CHRONICLE_AI_EMBED_MODEL",
+        "CHRONICLE_AI_ANNOTATE_INPUT_PRICE_PER_M",
+        "CHRONICLE_AI_ANNOTATE_OUTPUT_PRICE_PER_M",
+        "CHRONICLE_AI_EMBED_INPUT_PRICE_PER_M",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 # ---------------------------------------------------------------------------
 # Minimal PNG builder (stdlib only)
 # ---------------------------------------------------------------------------

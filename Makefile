@@ -19,7 +19,7 @@ ENV_FILE := .env
 	run run-desktop run-all run-ai app ai \
 	backend run-backend dev stop restart \
 	build build-desktop build-all build-landing build-backend package package-desktop installer \
-	typecheck test test-local test-ai lint \
+	typecheck test test-local test-ai smoke-ai lint \
 	migrate makemigration seed generate-types generate-ai-types clean
 
 # --- Setup -----------------------------------------------------------------
@@ -114,6 +114,12 @@ test-local:
 test-ai:
 	cd $(AI_DIR) && $(PYTHON) -m pytest
 
+# Live manual smoke test of the annotation pipeline. Needs a real key + provider
+# in .env (see .env.example) and the provider package installed (make setup-ai).
+# Override images with ARGS, e.g. make smoke-ai ARGS="before.png after.png".
+smoke-ai:
+	$(PYTHON) $(AI_DIR)/tests/manual_smoke.py $(ARGS)
+
 lint:
 	$(DOCKER_COMPOSE) run --rm api ruff check app tests
 
@@ -159,6 +165,7 @@ help:
 	$(info   make setup-ai       Install the AI service + Gemini demo provider)
 	$(info   make run-ai         Run the loopback AI service on 127.0.0.1:8765)
 	$(info   make test-ai        Run provider-mocked AI service tests)
+	$(info   make smoke-ai       Live smoke test the annotation pipeline (needs a real key))
 	$(info   make generate-ai-types Regenerate the C3 AI client types)
 	$(info )
 	$(info Everything / optional surfaces:)

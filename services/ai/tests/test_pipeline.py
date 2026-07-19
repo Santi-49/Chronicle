@@ -48,7 +48,7 @@ class FakeChatModel:
     def __init__(self, structured: FakeStructuredModel) -> None:
         self.structured = structured
 
-    def with_structured_output(self, _schema: type[Any]) -> FakeStructuredModel:
+    def with_structured_output(self, _schema: type[Any], **_kwargs: Any) -> FakeStructuredModel:
         return self.structured
 
 
@@ -95,8 +95,8 @@ def _first_version_request(image_path: Path) -> AnnotateRequest:
     b64, media_type = _load_as_b64(image_path)
     return AnnotateRequest.model_validate(
         {
-            "provider": "google_genai",
-            "model": "gemini-2.5-flash",
+            "provider": "test-provider",
+            "model": "test-chat-model",
             "apiKey": "test-key",
             "fileName": image_path.name,
             "previous": None,
@@ -110,8 +110,8 @@ def _diff_request(previous_path: Path, current_path: Path) -> AnnotateRequest:
     curr_b64, curr_media = _load_as_b64(current_path)
     return AnnotateRequest.model_validate(
         {
-            "provider": "google_genai",
-            "model": "gemini-2.5-flash",
+            "provider": "test-provider",
+            "model": "test-chat-model",
             "apiKey": "test-key",
             "fileName": current_path.name,
             "previous": {"base64": prev_b64, "mediaType": prev_media},
@@ -360,7 +360,7 @@ async def test_c3_output_schema_enforced_on_pipeline_result(png_file: Path) -> N
             return bad_result
 
     class BadChatModel:
-        def with_structured_output(self, _: type[Any]) -> BadStructuredModel:
+        def with_structured_output(self, _: type[Any], **__: Any) -> BadStructuredModel:
             return BadStructuredModel()
 
     with pytest.raises(ValidationError):

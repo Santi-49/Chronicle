@@ -13,7 +13,13 @@ from fastapi.testclient import TestClient
 
 from chronicle_ai import routes
 from chronicle_ai.main import app
-from chronicle_ai.schemas import EmbedTextResponse, VersionAnnotation
+from chronicle_ai.schemas import (
+    AnnotateResponse,
+    CostEstimate,
+    EmbedTextResponse,
+    TokenUsage,
+    VersionAnnotation,
+)
 
 
 client = TestClient(app)
@@ -26,8 +32,8 @@ client = TestClient(app)
 VALID_IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png"}
 
 ANNOTATE_PAYLOAD = {
-    "provider": "google_genai",
-    "model": "gemini-2.5-flash",
+    "provider": "test-provider",
+    "model": "test-chat-model",
     "apiKey": "secret",
     "fileName": "logo.png",
     "previous": None,
@@ -40,11 +46,13 @@ ANNOTATE_DIFF_PAYLOAD = {
     "current": {"base64": "Y3VycmVudA==", "mediaType": "image/png"},
 }
 
-ANNOTATION_RESULT = VersionAnnotation(
+ANNOTATION_RESULT = AnnotateResponse(
     summary="Background changed from navy to teal.",
     changes=["Background changed from navy to teal"],
     tags=["navy", "teal", "background"],
     confidence=0.9,
+    usage=TokenUsage(input_tokens=1200, output_tokens=80, total_tokens=1280),
+    cost=CostEstimate(input_usd=0.00009, output_usd=0.000024, total_usd=0.000114),
 )
 
 
@@ -90,13 +98,17 @@ def test_annotate_rejects_unknown_fields() -> None:
     assert response.status_code == 422
 
 
-def test_annotate_rejects_blank_api_key() -> None:
+def test_annotate_blank_api_key_without_env_default_is_configuration_error() -> None:
+    # A blank key is treated as "unset"; with no CHRONICLE_AI_* default (cleared
+    # by the autouse fixture) the engine reports a 400 configuration error and
+    # never contacts a provider.
     response = client.post(
         "/annotate",
         json={**ANNOTATE_PAYLOAD, "apiKey": "   "},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "configuration_error"
 
 
 def test_annotate_rejects_unsupported_media_type() -> None:
@@ -119,8 +131,8 @@ def test_provider_errors_are_sanitized(monkeypatch) -> None:
     response = client.post(
         "/annotate",
         json={
-            "provider": "google_genai",
-            "model": "gemini-2.5-flash",
+            "provider": "test-provider",
+            "model": "test-chat-model",
             "apiKey": "secret-key",
             "fileName": "logo.png",
             "previous": None,
@@ -159,6 +171,10 @@ def test_annotate_first_version_returns_c3_annotation(mock_annotate: AsyncMock) 
     assert body["changes"] == ["Background changed from navy to teal"]
     assert body["tags"] == ["navy", "teal", "background"]
     assert body["confidence"] == 0.9
+    # Token usage and estimated cost travel with the annotation (C3).
+    assert body["usage"] == {"input_tokens": 1200, "output_tokens": 80, "total_tokens": 1280}
+    assert body["cost"]["total_usd"] == 0.000114
+    assert body["cost"]["currency"] == "USD"
     mock_annotate.assert_awaited_once()
 
 
@@ -201,7 +217,7 @@ def test_embed_text_returns_vector_and_metadata(mock_embed: AsyncMock) -> None:
     mock_embed.return_value = EmbedTextResponse(
         embedding=[0.1, 0.2, 0.3],
         provider="openai",
-        model="text-embedding-3-small",
+        model="test-embed-model",
         dimensions=3,
     )
 
@@ -209,7 +225,7 @@ def test_embed_text_returns_vector_and_metadata(mock_embed: AsyncMock) -> None:
         "/embed-text",
         json={
             "provider": "openai",
-            "model": "text-embedding-3-small",
+            "model": "test-embed-model",
             "apiKey": "secret",
             "text": "navy background",
         },
