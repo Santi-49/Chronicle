@@ -7,23 +7,25 @@
 
 DOCKER_COMPOSE ?= docker compose
 NPM ?= npm
+PYTHON ?= python
 
 DESKTOP_DIR := apps/desktop
 LANDING_DIR := apps/landing
+AI_DIR := services/ai
 ENV_FILE := .env
 
 .PHONY: help \
-	setup setup-all setup-env setup-desktop setup-landing setup-backend ensure-electron \
-	run run-desktop run-all app \
+	setup setup-all setup-env setup-desktop setup-landing setup-backend setup-ai ensure-electron \
+	run run-desktop run-all run-ai app ai \
 	backend run-backend dev stop restart \
 	build build-desktop build-all build-landing build-backend package package-desktop installer \
-	typecheck test test-local lint \
-	migrate makemigration seed generate-types clean
+	typecheck test test-local test-ai smoke-ai lint \
+	migrate makemigration seed generate-types generate-ai-types clean
 
 # --- Setup -----------------------------------------------------------------
 setup: setup-desktop
 
-setup-all: setup setup-landing setup-backend
+setup-all: setup setup-landing setup-backend setup-ai
 
 setup-env:
 	@test -f "$(ENV_FILE)" || cp .env.example "$(ENV_FILE)"
@@ -38,6 +40,11 @@ ensure-electron:
 
 setup-landing:
 	$(NPM) --prefix $(LANDING_DIR) ci
+
+# Local AI service (services/ai): dev tools + the default demo provider (Gemini).
+# Add other providers with, e.g., pip install -e "services/ai[anthropic]".
+setup-ai:
+	$(PYTHON) -m pip install -e "$(AI_DIR)[dev,google]"
 
 setup-backend: setup-env
 	$(DOCKER_COMPOSE) up --build -d
@@ -54,6 +61,13 @@ run-all: setup-env ensure-electron
 	$(NPM) --prefix $(DESKTOP_DIR) run dev
 
 app: run-desktop
+
+# Run the local AI service (loopback-only FastAPI sidecar). Electron also starts
+# it automatically; this target is for developing the service on its own.
+run-ai:
+	cd $(AI_DIR) && $(PYTHON) -m uvicorn chronicle_ai.main:app --host 127.0.0.1 --port 8765
+
+ai: run-ai
 
 backend run-backend dev: setup-env
 	$(DOCKER_COMPOSE) up --build
@@ -96,6 +110,16 @@ test:
 test-local:
 	cd services/api && TESTING=true pytest --cov=app --cov-report=term-missing -v --no-header
 
+# Provider-mocked AI service tests (no network, no API key required).
+test-ai:
+	cd $(AI_DIR) && $(PYTHON) -m pytest
+
+# Live manual smoke test of the annotation pipeline. Needs a real key + provider
+# in .env (see .env.example) and the provider package installed (make setup-ai).
+# Override images with ARGS, e.g. make smoke-ai ARGS="before.png after.png".
+smoke-ai:
+	$(PYTHON) $(AI_DIR)/tests/manual_smoke.py $(ARGS)
+
 lint:
 	$(DOCKER_COMPOSE) run --rm api ruff check app tests
 
@@ -117,6 +141,10 @@ generate-types:
 	npx --yes openapi-typescript packages/contracts/api/openapi.yaml \
 		-o packages/contracts/api/generated/index.ts
 
+# Regenerate the C3 AI client types from the AI service's OpenAPI schema.
+generate-ai-types:
+	$(NPM) --prefix $(DESKTOP_DIR) run generate-ai-types
+
 # --- Cleanup ---------------------------------------------------------------
 clean:
 	$(DOCKER_COMPOSE) down --remove-orphans
@@ -132,6 +160,13 @@ help:
 	$(info   make package        Build a Windows installer .exe)
 	$(info   make typecheck      Type-check the desktop app)
 	$(info   make ensure-electron Download/repair the Electron binary)
+	$(info )
+	$(info Local AI service (services/ai, required for AI features):)
+	$(info   make setup-ai       Install the AI service + Gemini demo provider)
+	$(info   make run-ai         Run the loopback AI service on 127.0.0.1:8765)
+	$(info   make test-ai        Run provider-mocked AI service tests)
+	$(info   make smoke-ai       Live smoke test the annotation pipeline (needs a real key))
+	$(info   make generate-ai-types Regenerate the C3 AI client types)
 	$(info )
 	$(info Everything / optional surfaces:)
 	$(info   make setup-all      Setup desktop, landing page, backend, and migrations)

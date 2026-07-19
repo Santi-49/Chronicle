@@ -353,9 +353,9 @@ AI states are clear, and a new teammate can answer what changed between versions
 
 ## Phase 4 — AI and search
 
-### [ ] MVP-09 — Research and implement API-based AI annotation (Python AI service)
+### [x] MVP-09 — Research and implement API-based AI annotation (Python AI service)
 
-**Owner:** Unassigned  
+**Owner:** Joel / team · implementation and live-provider acceptance complete
 **Depends on:** MVP-01, MVP-02, MVP-04; MVP-05 for the status/events surface  
 **Goal:** Produce structured summaries, changes, and tags asynchronously through LangChain (Python).
 
@@ -372,6 +372,37 @@ AI states are clear, and a new teammate can answer what changed between versions
 > The annotation output includes an optional nullable `confidence` (0–1). **Image
 > embeddings and a history chatbot are roadmap, not MVP** — do not build `/embed-image`
 > or `/chat` before every MVP task is done.
+
+> ✅ **RESOLVED 2026-07-19** — the corrections below are applied: model-agnostic
+> `init_chat_model`/`init_embeddings` engine, per-request BYOK key, FastAPI transport,
+> Pydantic v2 with nullable `confidence`, and base64 `ImageInput`. The Python package
+> now lives in `services/ai/` (package `chronicle_ai`); only the TS worker/client remain
+> in `apps/desktop/src/main/ai/`. Kept here as the historical record.
+>
+> ⚠️ **NEW 2026-07-19 — COURSE CORRECTION for the `feat/mvp-09-python-ai` spike.**
+> Read this before writing any MVP-09 code. The spike predates the decisions above and
+> deviates from them; the merge on this branch kept its files but they must change:
+>
+> 1. **Provider-pinned engine** — `gemini_engine.py` hardcodes `ChatGoogleGenerativeAI`.
+>    The spec (§2/§6.4) requires **model-agnostic LangChain defaults**: use the neutral
+>    `init_chat_model` factory; provider, model, and key are per-request inputs. Gemini
+>    may still be the *default demo provider* — as configuration, never as code.
+> 2. **Key handling** — no `GEMINI_API_KEY` env var. The BYOK key arrives per request
+>    from Electron `safeStorage` over `127.0.0.1` and is never persisted by the service.
+> 3. **Transport** — the stdin/stdout CLI bridge described in the spike README is
+>    **superseded** by the FastAPI service (`POST /annotate`). `cli.py` is an empty stub;
+>    do not fill it in.
+> 4. **Location** — the Python package moves from `apps/desktop/src/main/ai/` to
+>    `services/ai/`; only the TS queue worker + generated HTTP client stay in Electron.
+> 5. **Pydantic v1 idioms** — `@validator`, `min_items`/`max_items` break under
+>    Pydantic v2, which FastAPI requires. Port to `field_validator`/`min_length` and add
+>    the optional nullable `confidence` field from C3.
+> 6. **Input shape** — the spike passes file paths; C3 `ImageInput` is base64+mediaType.
+>    Confirm base64 when defining the OpenAPI schema (paths break gateway reuse, F9).
+>
+> Keep from the spike: `with_structured_output(VersionAnnotation)`, previous-then-current
+> image ordering, the first-version mode, `schemas.py` validation intent, `image_loader.py`.
+> The same table lives in `apps/desktop/src/main/ai/README.md` ("Transitional note").
 
 **May edit:** new `services/ai/**` (FastAPI app, LangChain pipeline, pytest tests),
 `apps/desktop/src/main/ai/**` (queue worker + generated-typed HTTP client),
@@ -398,6 +429,13 @@ prompt experiments in `packages/prompts/`; one line in `docs/bob-log.md`.
 **Done when:** First-version description and two-image diff work on demo fixtures through the
 running service; invalid output, missing key, provider error, retry, offline queue, and
 service-down behavior are tested. No local model is added.
+
+> Accepted 2026-07-19 with Gemini: controlled first-version and two-image diff returned
+> valid C3 annotations; `gemini-embedding-001` returned a 3,072-dimension vector; the
+> opt-in live worker test verified sidecar health, annotation/embedding queues, generated
+> C3 client calls, SQLite persistence, model identity, and an empty final queue. Provider-
+> mocked tests retain coverage for invalid output, missing key, retry, offline, and
+> service-down behavior.
 
 ### [ ] MVP-10 — Implement hybrid keyword and semantic search
 

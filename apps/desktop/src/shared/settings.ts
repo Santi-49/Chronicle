@@ -20,7 +20,7 @@ export type AiProvider = string
 
 export interface AppSettings {
   ai: {
-    /** 'local' = BYOK LangChain.js in-app (MVP default) · 'gateway' = Chronicle service (stretch F9). */
+    /** 'local' = BYOK through the loopback Python service · 'gateway' = Chronicle service (stretch F9). */
     mode: 'local' | 'gateway'
     chat: { provider: AiProvider; model: string }
     embeddings: { provider: AiProvider; model: string }

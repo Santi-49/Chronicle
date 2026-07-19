@@ -1,18 +1,40 @@
-# ai
+# AI integration (Electron main)
 
-Desktop side of the AI layer (MVP-09). The AI features themselves are implemented
-in Python in the **local AI service** (`services/ai/` — FastAPI + LangChain,
-loopback-only; decision 2026-07-19). This module holds what stays in the Electron
-main process:
+The TypeScript half of Chronicle's AI feature (MVP-09). It runs in the Electron
+**main process** and drives the local Python AI service in
+[`services/ai`](../../../../../services/ai/README.md) over `127.0.0.1`.
 
-- the **job worker** that drains `queue_items` (`ai_annotation`, `embedding`)
-  asynchronously — the UI never waits on it (spec §6.5);
-- the **typed HTTP client** for the service (types generated from its OpenAPI
-  schema, C3 — never hand-written);
-- passing the BYOK credential per request: the key lives in Electron
-  `safeStorage` (see `../ipc/secrets.ts`) and is sent only to `127.0.0.1`,
-  never persisted by the service, never sent to Chronicle's backend;
-- persisting results (`saveAnnotation`, `saveEmbedding`), retries, and the
-  `annotationUpdated` events.
+The Python service (FastAPI + LangChain) lives in `services/ai/`; only the queue
+worker, the typed HTTP client, and the process lifecycle stay here.
 
-Not the control plane: `services/api/` is unrelated to this path.
+## Files
+
+| File | Purpose |
+|---|---|
+| `client.ts` | Typed loopback HTTP client for the AI service (C3), generated types + `AiServiceError`. |
+| `generated.ts` | HTTP types generated from the service's OpenAPI schema. Do not hand-edit. |
+| `service-process.ts` | Starts/stops `uvicorn chronicle_ai.main:app` (cwd `services/ai`) with the app lifecycle. |
+| `worker.ts` | FIFO worker: drains annotation/embedding jobs and persists their results. |
+| `worker.test.ts` | Provider-mocked worker behaviour tests. |
+| `worker.live.test.ts` | Opt-in live acceptance test (skipped without `GOOGLE_API_KEY`). |
+
+## Behaviour
+
+Electron starts the service at startup, health-checks it, and processes one
+queued job at a time. Annotation output is stored before an embedding job is
+created. Offline and service-down states leave jobs untouched. Failure handling:
+
+- **Non-retryable errors** (4xx: bad key, invalid request, invalid model output)
+  fail the annotation immediately — retrying would fail identically.
+- **Retryable errors** (5xx, network) retry up to three times, then mark the
+  annotation failed so the existing Retry AI action can requeue it.
+
+## Regenerate C3 client types
+
+```bash
+npm run generate-ai-types
+```
+
+Runs `python -m chronicle_ai.export_openapi` in `services/ai` then
+`openapi-typescript`. See [`services/ai/README.md`](../../../../../services/ai/README.md)
+for running and testing the Python service itself.
