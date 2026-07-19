@@ -95,7 +95,10 @@ async def test_first_version_uses_description_prompt() -> None:
 
     # First-version prompt must contain "first captured version"
     assert structured.messages is not None
+    system_text = structured.messages[0]["content"]
     user_content = structured.messages[1]["content"]
+    assert "lowercase slug" in system_text
+    assert "geometric-shapes" in system_text
     assert "first captured version" in user_content[0]["text"]
 
     # One text block + one image block

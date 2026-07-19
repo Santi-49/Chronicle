@@ -353,9 +353,9 @@ AI states are clear, and a new teammate can answer what changed between versions
 
 ## Phase 4 — AI and search
 
-### [~] MVP-09 — Research and implement API-based AI annotation (Python AI service)
+### [x] MVP-09 — Research and implement API-based AI annotation (Python AI service)
 
-**Owner:** Unassigned · implementation complete; live provider acceptance pending
+**Owner:** Joel / team · implementation and live-provider acceptance complete
 **Depends on:** MVP-01, MVP-02, MVP-04; MVP-05 for the status/events surface  
 **Goal:** Produce structured summaries, changes, and tags asynchronously through LangChain (Python).
 
@@ -423,6 +423,13 @@ prompt experiments in `packages/prompts/`; one line in `docs/bob-log.md`.
 **Done when:** First-version description and two-image diff work on demo fixtures through the
 running service; invalid output, missing key, provider error, retry, offline queue, and
 service-down behavior are tested. No local model is added.
+
+> Accepted 2026-07-19 with Gemini: controlled first-version and two-image diff returned
+> valid C3 annotations; `gemini-embedding-001` returned a 3,072-dimension vector; the
+> opt-in live worker test verified sidecar health, annotation/embedding queues, generated
+> C3 client calls, SQLite persistence, model identity, and an empty final queue. Provider-
+> mocked tests retain coverage for invalid output, missing key, retry, offline, and
+> service-down behavior.
 
 ### [ ] MVP-10 — Implement hybrid keyword and semantic search
 

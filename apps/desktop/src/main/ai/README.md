@@ -31,8 +31,19 @@ Install only the provider packages used for manual tests, for example
 `langchain-google-genai` for the current demo configuration. Automated tests mock
 LangChain and never contact a paid provider.
 
-Do not place provider keys in environment variables, source files, fixtures, URLs or
-logs. Electron decrypts the key from `safeStorage` only while creating one local request.
+The opt-in live acceptance test uses the same generated client, sidecar, worker, queue,
+and SQLite repositories as the app. Set `GOOGLE_API_KEY` only for that process, then run:
+
+```bash
+npm --prefix apps/desktop test -- src/main/ai/worker.live.test.ts --run
+```
+
+Without the environment variable the live test is skipped. Production never reads this
+variable: Electron supplies its `safeStorage` credential per loopback request.
+
+Do not place provider keys in source files, fixtures, URLs or logs. Electron decrypts the
+key from `safeStorage` only while creating one local request; the environment variable
+above is restricted to the explicit developer acceptance test.
 
 ## Files
 
