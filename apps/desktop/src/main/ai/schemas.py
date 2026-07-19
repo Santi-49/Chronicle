@@ -132,3 +132,17 @@ class HealthResponse(StrictModel):
     status: Literal["ok"] = "ok"
     service: Literal["chronicle-ai"] = "chronicle-ai"
     version: str = "0.1.0"
+
+
+class ServiceErrorDetail(StrictModel):
+    code: Literal[
+        "invalid_model_output",
+        "provider_unavailable",
+        "provider_timeout",
+        "provider_error",
+    ]
+    message: str
+
+
+class ServiceErrorResponse(StrictModel):
+    detail: ServiceErrorDetail

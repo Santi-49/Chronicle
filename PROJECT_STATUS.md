@@ -30,7 +30,7 @@ the IPC bridge (MVP-05) connects them. AI, restore, and search remain unimplemen
 | Desktop scaffold | Merged (MVP-01) | Foundation dependencies installed and verified; native SQLite loads in Electron; tests run under Electron's Node. |
 | Folder watcher | Merged (MVP-03) | Chokidar watching with the 2 s settle and C4 ignore rules, 14 tests. Manual demo-editor test pending until capture is wired to the UI. |
 | Version storage | Merged (MVP-02 + MVP-04) | SQLite init + repositories, and content-addressed capture: stream hash, dedup by content, append-only versions, dimensions metadata, AI job enqueue. 38 tests. |
-| AI summaries | Contract and prompt asset only | Direction decided 2026-07-19: AI features are built in Python in a local FastAPI AI service (`services/ai/`) called by the Electron main — distinct from the control plane. No implementation, job runner, or provider integration exists yet. |
+| AI summaries | Implemented; live-provider acceptance pending | The temporary local FastAPI service, generated client, Electron process lifecycle, FIFO worker, persistence, retries, events, and embedding jobs are implemented under `apps/desktop/src/main/ai/`. Automated provider-mocked tests pass; a configured provider/key and controlled demo fixtures are still required for the paid live-quality check before MVP-09 is marked merged. |
 | Timeline, restore, and search | UI skeleton ready | Assets, Timeline, Version Details, Search, and Settings flows render with demo data; IPC/database/search-engine behavior remains to be connected. |
 | Backend control plane | Base auth/RBAC ready | Chronicle telemetry/config/gateway additions are low priority or stretch and must not delay the MVP. |
 | Landing page | Existing optional page | Not part of the MVP; do not spend time here before the desktop app works. |
@@ -59,9 +59,8 @@ not a public contract. Change it carefully through migrations once released.
 2. Team fills in names and task ownership in [TODO.md](TODO.md).
 3. Implement the `MVP-05` IPC bridge — it unblocks wiring every existing screen to real data
    and the watcher→capture startup wiring.
-4. Start `MVP-09` AI research (provider decision below) in parallel — now as the Python
-   `services/ai/` FastAPI service; capture is already enqueueing `ai_annotation` jobs for
-   its Electron-side worker to consume.
+4. Complete the `MVP-09` live-provider acceptance check with controlled first-version and
+   two-image fixtures; the service and Electron worker are implemented and jobs are wired.
 5. Decide the demo AI provider and demo asset owner this week; the visual direction is now recorded in `docs/challenge/CONSTRAINTS.md`.
 6. Every team member completes the required IBM SkillsBuild activity before July 25.
 

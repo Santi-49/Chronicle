@@ -7,15 +7,19 @@
  * so tests can't load it); all behavior lives in services.ts, which is
  * tested directly.
  */
-import { BrowserWindow, dialog, ipcMain, net, protocol } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron'
 import fs from 'node:fs'
+import path from 'node:path'
 import { Readable } from 'node:stream'
 import type { ChronicleApi } from '../../shared/ipc'
+import { createAiClient } from '../ai/client'
+import { createAiServiceProcess } from '../ai/service-process'
+import { createAiWorker } from '../ai/worker'
 import type { ChronicleDb } from '../db/database'
 import { libraryFilePathFor } from '../versioning'
 import { API_METHOD_NAMES, apiChannel, eventChannel, type EmitEvent } from './channels'
 import { CHRONICLE_SCHEME, chronicleUrlToHash, sniffImageContentType } from './media'
-import { createSafeStorageSecretStore } from './secrets'
+import { createSafeStorageSecretStore, readApiKey } from './secrets'
 import { createChronicleServices } from './services'
 
 export interface ChronicleIpc {
@@ -103,6 +107,24 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
 
   registerChronicleProtocol(libraryRoot)
 
+  // In development app.getAppPath() is apps/desktop; the Python module is
+  // imported from the repository root. Bundling the sidecar is stretch scope.
+  const repositoryRoot = path.resolve(app.getAppPath(), '..', '..')
+  const aiProcess = createAiServiceProcess(repositoryRoot)
+  const aiWorker = createAiWorker({
+    db,
+    libraryRoot,
+    client: createAiClient(),
+    emit,
+    getSettings: services.api.getSettings,
+    readApiKey: () => readApiKey(db),
+    isOnline: () => net.isOnline(),
+    ensureService: () => aiProcess.start(),
+    onQueueChanged: () => {
+      void services.api.getAppStatus().then((status) => emit('statusChanged', status))
+    },
+  })
+
   for (const method of API_METHOD_NAMES) {
     ipcMain.handle(apiChannel(method), (event, ...args: unknown[]) => {
       if (!isTrustedSender(event.senderFrame)) throw new Error('Untrusted IPC sender')
@@ -111,11 +133,15 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
   }
 
   services.start()
+  aiProcess.start()
+  aiWorker.start()
 
   return {
     api: services.api,
     async dispose() {
       for (const method of API_METHOD_NAMES) ipcMain.removeHandler(apiChannel(method))
+      aiWorker.stop()
+      await aiProcess.stop()
       await services.dispose()
     },
   }

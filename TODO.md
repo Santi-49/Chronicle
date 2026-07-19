@@ -353,9 +353,9 @@ AI states are clear, and a new teammate can answer what changed between versions
 
 ## Phase 4 — AI and search
 
-### [ ] MVP-09 — Research and implement API-based AI annotation (Python AI service)
+### [~] MVP-09 — Research and implement API-based AI annotation (Python AI service)
 
-**Owner:** Unassigned  
+**Owner:** Unassigned · implementation complete; live provider acceptance pending
 **Depends on:** MVP-01, MVP-02, MVP-04; MVP-05 for the status/events surface  
 **Goal:** Produce structured summaries, changes, and tags asynchronously through LangChain (Python).
 

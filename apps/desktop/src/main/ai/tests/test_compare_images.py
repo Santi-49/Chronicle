@@ -2,6 +2,7 @@
 
 from fastapi.testclient import TestClient
 
+from apps.desktop.src.main.ai import compare_images
 from apps.desktop.src.main.ai.main import app
 
 
@@ -50,3 +51,30 @@ def test_annotate_rejects_unknown_fields() -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_provider_errors_are_sanitized(monkeypatch) -> None:
+    async def fail(_request):
+        raise RuntimeError("provider leaked secret-key")
+
+    monkeypatch.setattr(compare_images, "annotate_version", fail)
+    response = client.post(
+        "/annotate",
+        json={
+            "provider": "google_genai",
+            "model": "gemini-2.5-flash",
+            "apiKey": "secret-key",
+            "fileName": "logo.png",
+            "previous": None,
+            "current": {"base64": "aW1hZ2U=", "mediaType": "image/png"},
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": {
+            "code": "provider_error",
+            "message": "The AI provider rejected the request.",
+        }
+    }
+    assert "secret-key" not in response.text

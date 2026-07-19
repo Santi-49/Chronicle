@@ -10,6 +10,7 @@ Format: `date · member · what Bob did · feature/PR`.
 | 2026-07-18 | Santi R | *Pending — implemented with Claude Code; log real Bob usage for this PR (e.g. Bob review of the settle/ignore rules) before submission* | MVP-03 — folder watching (`feat/mvp-03-folder-watcher`) |
 | 2026-07-18 | Santi R | *Pending — implemented with Claude Code; log real Bob usage for this PR (e.g. Bob review of the hash/dedup pipeline) before submission* | MVP-04 — version capture (`feat/mvp-04-version-capture`) |
 | 2026-07-19 | Santi R | *Pending — implemented with Claude Code; log real Bob usage for this PR (e.g. Bob security review of the IPC surface / preload boundary) before submission* | MVP-05 — secure IPC bridge (`feat/mvp-05-ipc-bridge`) |
+| 2026-07-19 | TBD | *Pending — implemented with Codex; run IBM Bob review of the loopback service, secret boundary, retry worker, and generated C3 types before submission* | MVP-09 — local AI service + Electron worker (`feat/mvp-09-python-ai`) |
 
 ## Ideas for judge-visible Bob usage
 

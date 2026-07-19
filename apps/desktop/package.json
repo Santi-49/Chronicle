@@ -12,7 +12,8 @@
     "package": "npm run build && electron-builder --win nsis --x64",
     "preview": "electron-vite preview",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "generate-ai-types": "python src/main/ai/export_openapi.py && openapi-typescript ../../packages/contracts/ai/openapi.json -o src/main/ai/generated.ts"
   },
   "build": {
     "appId": "app.chronicle.desktop",
@@ -51,6 +52,7 @@
     "electron": "^43.1.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^4.0.0",
+    "openapi-typescript": "^7.13.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "4.3.3",

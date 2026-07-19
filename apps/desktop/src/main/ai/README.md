@@ -32,8 +32,7 @@ Install only the provider packages used for manual tests, for example
 LangChain and never contact a paid provider.
 
 Do not place provider keys in environment variables, source files, fixtures, URLs or
-logs. Electron will eventually decrypt the key from `safeStorage` only while creating
-one local request.
+logs. Electron decrypts the key from `safeStorage` only while creating one local request.
 
 ## Files
 
@@ -44,14 +43,24 @@ one local request.
 | `schemas.py` | Strict Pydantic v2 request and response validation. |
 | `model_engine.py` | Model-agnostic `init_chat_model` and `init_embeddings` calls. |
 | `prompts.py` | Loads the versioned prompt from `packages/prompts/`. |
+| `generated.ts` | HTTP types generated from FastAPI's OpenAPI schema. |
+| `client.ts` | Typed loopback HTTP client. |
+| `service-process.ts` | Starts and stops uvicorn with the Electron lifecycle. |
+| `worker.ts` | Drains annotation/embedding jobs and persists their results. |
 | `tests/` | Provider-mocked contract and behavior tests. |
 
-`image_loader.py` remains a local helper from the first spike, but HTTP requests use
-the portable base64 contract rather than filesystem paths. `cli.py` is intentionally
-empty and superseded by FastAPI.
+Regenerate the OpenAPI file and TypeScript types after changing a route or Pydantic model:
 
-## Still pending on the Electron side
+```bash
+npm --prefix apps/desktop run generate-ai-types
+```
 
-The TypeScript queue worker, generated HTTP client, safe retries, result persistence,
-service-process lifecycle and status events remain MVP-09 work. Once this Python package
-moves to `services/ai/`, this folder will contain only those Electron components.
+## Electron integration
+
+Electron starts uvicorn at app startup, health-checks it, and processes one queued job at
+a time. Annotation output is stored before an embedding job is created. Offline and
+service-down states leave jobs untouched; provider failures retry up to three times and
+then mark the annotation failed so the existing Retry AI action can requeue it.
+
+The implementation remains in this temporary mixed Python/TypeScript folder by team
+decision. Moving the Python files to `services/ai/` later does not change the HTTP contract.
