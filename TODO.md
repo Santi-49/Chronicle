@@ -373,6 +373,12 @@ AI states are clear, and a new teammate can answer what changed between versions
 > embeddings and a history chatbot are roadmap, not MVP** — do not build `/embed-image`
 > or `/chat` before every MVP task is done.
 
+> ✅ **RESOLVED 2026-07-19** — the corrections below are applied: model-agnostic
+> `init_chat_model`/`init_embeddings` engine, per-request BYOK key, FastAPI transport,
+> Pydantic v2 with nullable `confidence`, and base64 `ImageInput`. The Python package
+> now lives in `services/ai/` (package `chronicle_ai`); only the TS worker/client remain
+> in `apps/desktop/src/main/ai/`. Kept here as the historical record.
+>
 > ⚠️ **NEW 2026-07-19 — COURSE CORRECTION for the `feat/mvp-09-python-ai` spike.**
 > Read this before writing any MVP-09 code. The spike predates the decisions above and
 > deviates from them; the merge on this branch kept its files but they must change:

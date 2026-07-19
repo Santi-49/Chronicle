@@ -45,7 +45,7 @@ live('MVP-09 live provider acceptance', () => {
     async () => {
       const workingImage = path.join(root, 'acceptance.jpg')
       fs.copyFileSync(
-        path.resolve(process.cwd(), 'src/main/ai/tests/fixtures/after.jpg'),
+        path.resolve(process.cwd(), '..', '..', 'services/ai/tests/fixtures/after.jpg'),
         workingImage,
       )
       const captured = await captureVersion(db, libraryRoot, workingImage)

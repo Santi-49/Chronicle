@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from apps.desktop.src.main.ai.model_engine import annotate_version, embed_text
-from apps.desktop.src.main.ai.schemas import AnnotateRequest, EmbedTextRequest
+from chronicle_ai.engine import annotate_version, embed_text
+from chronicle_ai.schemas import AnnotateRequest, EmbedTextRequest
 
 
 IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png"}
@@ -190,7 +190,7 @@ async def test_diff_prompt_instructs_change_description() -> None:
 @pytest.mark.asyncio
 async def test_annotate_accepts_version_annotation_instance_from_model() -> None:
     """with_structured_output may return a VersionAnnotation directly."""
-    from apps.desktop.src.main.ai.schemas import VersionAnnotation
+    from chronicle_ai.schemas import VersionAnnotation
 
     expected = VersionAnnotation(
         summary="Logo updated.",

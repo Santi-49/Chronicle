@@ -1,7 +1,7 @@
-"""Temporary home of Chronicle's Python AI service spike."""
+"""Chronicle's local, loopback-only Python AI service."""
 
 from .main import app
-from .model_engine import annotate_version, embed_text
+from .engine import annotate_version, embed_text
 from .schemas import AnnotateRequest, EmbedTextRequest, VersionAnnotation
 
 __all__ = [

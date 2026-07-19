@@ -34,7 +34,7 @@ hybrid search remain unimplemented.
 | Folder watcher | Merged (MVP-03) | Chokidar watching with the 2 s settle and C4 ignore rules, 14 tests. Manual demo-editor test pending until capture is wired to the UI. |
 | Version storage | Merged (MVP-02 + MVP-04) | SQLite init + repositories, and content-addressed capture: stream hash, dedup by content, append-only versions, dimensions metadata, AI job enqueue. 38 tests. |
 | Secure IPC bridge | Implemented on feature branch; renderer integration pending | C1 handlers, native folder picker, watcher→capture wiring, `chronicle://` image serving, encrypted BYOK storage, status/events, and input validation are implemented and tested. The React renderer does not consume the bridge yet. |
-| AI summaries | Complete on feature branch (MVP-09) | The temporary local FastAPI service, generated client, Electron process lifecycle, FIFO worker, persistence, retries, events, and embedding jobs are implemented under `apps/desktop/src/main/ai/`. Controlled Gemini first-version, diff, and 3,072-dimension embedding calls passed through the real worker/service/SQLite flow. The sidecar is not yet bundled for an installed build. |
+| AI summaries | Complete on feature branch (MVP-09) | The Python AI service now lives in `services/ai/` (package `chronicle_ai`, FastAPI + LangChain, 41 tests); the Electron queue worker, generated C3 client, and process lifecycle stay in `apps/desktop/src/main/ai/`. Non-retryable (4xx) failures now fail fast instead of retrying three times. Controlled Gemini first-version, diff, and 3,072-dimension embedding calls passed through the real worker/service/SQLite flow. The sidecar is not yet bundled for an installed build. |
 | Timeline and settings | UI skeleton ready; real data pending | Assets, Timeline, Version Details, project creation, and Settings render with demo data. Buttons that require IPC are disabled and no renderer code currently calls `window.chronicle`. |
 | Restore and search | Not implemented end to end | Restore/save-copy and the real hybrid-search IPC handlers reject as not implemented. The visible Search page only filters typed demo data. |
 | Backend control plane | Base auth/RBAC ready | Chronicle telemetry/config/gateway additions are low priority or stretch and must not delay the MVP. |
@@ -75,7 +75,7 @@ not a public contract. Change it carefully through migrations once released.
 
 | Decision or risk | Owner | Needed by | Current action |
 |---|---|---|---|
-| MVP-09 packaging | MVP-09 / MVP-12 owner | Before MVP-12 | Live provider acceptance passed. Still required for an installed build: decide the final move to `services/ai/` and package the Python sidecar/provider dependency; this does not block the development-mode MVP flow. |
+| MVP-09 packaging | MVP-09 / MVP-12 owner | Before MVP-12 | Live provider acceptance passed and the service is now in `services/ai/`. Still required for an installed build: bundle the Python sidecar and its provider dependency into the packaged app; this does not block the development-mode MVP flow. |
 | Renderer still uses demo data | UI / integration owner | Now | Replace imports from `renderer/src/data/demoData.ts` with C1 IPC calls and subscriptions. Until this lands, the functional capture and AI core cannot be exercised from the UI. |
 | Team roster and task ownership | Team lead | Now | Fill `docs/challenge/CONSTRAINTS.md` and TODO owners. |
 | `dev` branch and repository protection | Team lead | Before implementation PRs | Create `dev`; require review for `dev` and `main`. |

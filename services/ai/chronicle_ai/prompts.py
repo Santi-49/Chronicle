@@ -4,8 +4,9 @@ from functools import lru_cache
 from pathlib import Path
 
 
+# services/ai/chronicle_ai/prompts.py → repository root is three levels up.
 PROMPT_PATH = (
-    Path(__file__).resolve().parents[5]
+    Path(__file__).resolve().parents[3]
     / "packages"
     / "prompts"
     / "version-annotation.md"

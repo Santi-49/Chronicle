@@ -19,7 +19,7 @@ import {
 } from '../db/repositories'
 import type { EmitEvent } from '../ipc/channels'
 import { libraryFilePathFor } from '../versioning'
-import type { AiClient, ProviderRequest } from './client'
+import { AiServiceError, type AiClient, type ProviderRequest } from './client'
 
 const MAX_ATTEMPTS = 3
 
@@ -75,17 +75,29 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     return { base64: bytes.toString('base64'), mediaType: mediaType(asset.path) }
   }
 
-  function retryOrDiscard(job: QueueItem, versionId: number | null): void {
-    if (job.retryCount + 1 >= MAX_ATTEMPTS) {
-      deleteJob(deps.db, job.id)
-      if (versionId !== null && job.jobType === 'ai_annotation') {
-        setVersionAiStatus(deps.db, versionId, 'failed')
-        deps.emit('annotationUpdated', { versionId, aiStatus: 'failed' })
-      }
-    } else {
-      bumpJobRetry(deps.db, job.id)
+  function markFailed(job: QueueItem, versionId: number | null): void {
+    deleteJob(deps.db, job.id)
+    if (versionId !== null && job.jobType === 'ai_annotation') {
+      setVersionAiStatus(deps.db, versionId, 'failed')
+      deps.emit('annotationUpdated', { versionId, aiStatus: 'failed' })
     }
     deps.onQueueChanged()
+  }
+
+  function handleFailure(job: QueueItem, versionId: number | null, error: unknown): void {
+    // A non-retryable service error (4xx: bad key, invalid request, invalid
+    // model output) will fail identically on every attempt — fail fast instead
+    // of burning all three. Retryable errors (5xx, network) back off and retry.
+    if (error instanceof AiServiceError && !error.retryable) {
+      markFailed(job, versionId)
+      return
+    }
+    if (job.retryCount + 1 >= MAX_ATTEMPTS) {
+      markFailed(job, versionId)
+    } else {
+      bumpJobRetry(deps.db, job.id)
+      deps.onQueueChanged()
+    }
   }
 
   async function processAnnotation(job: QueueItem, versionId: number): Promise<void> {
@@ -171,8 +183,8 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     try {
       if (job.jobType === 'ai_annotation') await processAnnotation(job, versionId)
       else await processEmbedding(job, versionId)
-    } catch {
-      retryOrDiscard(job, versionId)
+    } catch (error) {
+      handleFailure(job, versionId, error)
     } finally {
       running = false
     }

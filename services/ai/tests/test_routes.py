@@ -1,6 +1,6 @@
 """Tests for the HTTP surface; no external AI provider is contacted.
 
-The annotate and embed-text routes delegate to model_engine coroutines.
+The annotate and embed-text routes delegate to engine coroutines.
 Success-path tests patch those coroutines with lightweight in-process fakes
 so the full FastAPI + Pydantic validation stack runs without network calls.
 """
@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from apps.desktop.src.main.ai import compare_images
-from apps.desktop.src.main.ai.main import app
-from apps.desktop.src.main.ai.schemas import EmbedTextResponse, VersionAnnotation
+from chronicle_ai import routes
+from chronicle_ai.main import app
+from chronicle_ai.schemas import EmbedTextResponse, VersionAnnotation
 
 
 client = TestClient(app)
@@ -115,7 +115,7 @@ def test_provider_errors_are_sanitized(monkeypatch) -> None:
     async def fail(_request):
         raise RuntimeError("provider leaked secret-key")
 
-    monkeypatch.setattr(compare_images, "annotate_version", fail)
+    monkeypatch.setattr(routes, "annotate_version", fail)
     response = client.post(
         "/annotate",
         json={
@@ -144,7 +144,7 @@ def test_provider_errors_are_sanitized(monkeypatch) -> None:
 
 
 @patch(
-    "apps.desktop.src.main.ai.compare_images.annotate_version",
+    "chronicle_ai.routes.annotate_version",
     new_callable=AsyncMock,
 )
 def test_annotate_first_version_returns_c3_annotation(mock_annotate: AsyncMock) -> None:
@@ -168,7 +168,7 @@ def test_annotate_first_version_returns_c3_annotation(mock_annotate: AsyncMock) 
 
 
 @patch(
-    "apps.desktop.src.main.ai.compare_images.annotate_version",
+    "chronicle_ai.routes.annotate_version",
     new_callable=AsyncMock,
 )
 def test_annotate_diff_passes_both_images(mock_annotate: AsyncMock) -> None:
@@ -194,7 +194,7 @@ def test_annotate_diff_passes_both_images(mock_annotate: AsyncMock) -> None:
 
 
 @patch(
-    "apps.desktop.src.main.ai.compare_images.embed_text",
+    "chronicle_ai.routes.embed_text",
     new_callable=AsyncMock,
 )
 def test_embed_text_returns_vector_and_metadata(mock_embed: AsyncMock) -> None:

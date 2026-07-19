@@ -1,4 +1,4 @@
-"""Integration tests: image_loader → model_engine pipeline.
+"""Integration tests: image_loader → engine pipeline.
 
 These tests exercise the full data path that Chronicle uses at runtime:
 
@@ -6,7 +6,7 @@ These tests exercise the full data path that Chronicle uses at runtime:
      plus the MIME type.
   2. The bytes are base64-encoded exactly as the pipeline does it.
   3. An AnnotateRequest is assembled from those bytes.
-  4. model_engine.annotate_version() is called with a fake LLM injected via
+  4. engine.annotate_version() is called with a fake LLM injected via
      the model_factory argument — no API key, no network, no external process.
   5. The returned VersionAnnotation is validated against the C3 output schema.
 
@@ -22,9 +22,9 @@ from typing import Any
 
 import pytest
 
-from apps.desktop.src.main.ai.image_loader import load_image
-from apps.desktop.src.main.ai.model_engine import annotate_version
-from apps.desktop.src.main.ai.schemas import AnnotateRequest, VersionAnnotation
+from chronicle_ai.image_loader import load_image
+from chronicle_ai.engine import annotate_version
+from chronicle_ai.schemas import AnnotateRequest, VersionAnnotation
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +203,7 @@ def test_jpeg_extension_encodes_as_jpeg_mime(jpeg_file_alt_ext: Path) -> None:
 
 
 # ===========================================================================
-# Pipeline: AnnotateRequest → model_engine → VersionAnnotation
+# Pipeline: AnnotateRequest → engine → VersionAnnotation
 # (all formats × both annotation modes, fake LLM injected)
 # ===========================================================================
 

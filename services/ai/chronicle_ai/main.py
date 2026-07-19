@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from .compare_images import router
+from .routes import router
 
 
 app = FastAPI(

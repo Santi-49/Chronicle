@@ -7,8 +7,8 @@ This script exercises the real Chronicle annotation pipeline end-to-end:
 Run from the repository root with the committed demo fixtures or explicit
 PNG/JPG paths:
 
-    python apps/desktop/src/main/ai/tests/manual_gemini_smoke.py
-    python apps/desktop/src/main/ai/tests/manual_gemini_smoke.py --first
+    python services/ai/tests/manual_gemini_smoke.py
+    python services/ai/tests/manual_gemini_smoke.py --first
 
 Prerequisites:
     pip install langchain langchain-google-genai python-dotenv pydantic
@@ -17,7 +17,7 @@ The GOOGLE_API_KEY is read from the .env file at the repo root.
 Images default to fixtures/before.jpg and fixtures/after.jpg; pass any PNG or
 JPG paths as positional arguments to override:
 
-    python apps/desktop/src/main/ai/tests/manual_gemini_smoke.py path/to/before.jpg path/to/after.jpg
+    python services/ai/tests/manual_gemini_smoke.py path/to/before.jpg path/to/after.jpg
 """
 
 import argparse
@@ -42,15 +42,15 @@ API_KEY = os.environ.get("GOOGLE_API_KEY", "").strip()
 # ---------------------------------------------------------------------------
 # 2. Import the real Chronicle pipeline modules
 # ---------------------------------------------------------------------------
-# Add the repo root to sys.path so the package is importable without
-# installing it first.
-REPO_ROOT = Path(__file__).resolve().parents[6]
+# Add the service root (services/ai) to sys.path so `chronicle_ai` is
+# importable without installing the package first.
+SERVICE_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures"
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(SERVICE_ROOT))
 
-from apps.desktop.src.main.ai.image_loader import load_image       # noqa: E402
-from apps.desktop.src.main.ai.model_engine import annotate_version # noqa: E402
-from apps.desktop.src.main.ai.schemas import AnnotateRequest        # noqa: E402
+from chronicle_ai.image_loader import load_image       # noqa: E402
+from chronicle_ai.engine import annotate_version # noqa: E402
+from chronicle_ai.schemas import AnnotateRequest        # noqa: E402
 
 # ---------------------------------------------------------------------------
 # 3. Helpers

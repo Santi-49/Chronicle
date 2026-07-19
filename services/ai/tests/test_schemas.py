@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from apps.desktop.src.main.ai.schemas import VersionAnnotation
+from chronicle_ai.schemas import VersionAnnotation
 
 
 def test_annotation_accepts_the_c3_shape() -> None:

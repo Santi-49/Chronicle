@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
-from .model_engine import annotate_version, embed_text
+from .engine import annotate_version, embed_text
 from .schemas import (
     AnnotateRequest,
     EmbedTextRequest,

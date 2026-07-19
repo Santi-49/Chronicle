@@ -13,7 +13,7 @@
     "preview": "electron-vite preview",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "generate-ai-types": "python src/main/ai/export_openapi.py && openapi-typescript ../../packages/contracts/ai/openapi.json -o src/main/ai/generated.ts"
+    "generate-ai-types": "cd ../../services/ai && python -m chronicle_ai.export_openapi && cd ../../apps/desktop && openapi-typescript ../../packages/contracts/ai/openapi.json -o src/main/ai/generated.ts"
   },
   "build": {
     "appId": "app.chronicle.desktop",
