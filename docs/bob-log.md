@@ -11,6 +11,9 @@ Format: `date · member · what Bob did · feature/PR`.
 | 2026-07-18 | Santi R | *Pending — implemented with Claude Code; log real Bob usage for this PR (e.g. Bob review of the hash/dedup pipeline) before submission* | MVP-04 — version capture (`feat/mvp-04-version-capture`) |
 | 2026-07-19 | Santi R | *Pending — implemented with Claude Code; log real Bob usage for this PR (e.g. Bob security review of the IPC surface / preload boundary) before submission* | MVP-05 — secure IPC bridge (`feat/mvp-05-ipc-bridge`) |
 | 2026-07-19 | TBD | *Pending — implemented with Codex; run IBM Bob review of the loopback service, secret boundary, retry worker, and generated C3 types before submission* | MVP-09 — local AI service + Electron worker (`feat/mvp-09-python-ai`) |
+| 2026-07-19 | Joel | Bob analysed the full AI module structure, identified image-block format bug (`type:image` → `type:image_url` data-URL), fixed the `model_validate` guard for already-parsed `VersionAnnotation` instances, expanded test coverage from 3 → 19 tests (all passing), and corrected `pyproject.toml` dependency names | MVP-09 — Python AI service (`feat/mvp-09-python-ai`) |
+| 2026-07-19 | Joel | Bob wrote the full pipeline integration test suite: `conftest.py` generates real PNG/JPEG binaries (stdlib only, no Pillow), `test_pipeline.py` threads `image_loader → base64 → AnnotateRequest → model_engine` across all formats (.png, .jpg, .jpeg) and both annotation modes (first-version + diff); 40/40 tests green | MVP-09 — pipeline integration tests (`feat/mvp-09-python-ai`) |
+| 2026-07-19 | Joel | Bob prototyped an alternative queue worker and sidecar; during integration the team retained the generated C3 client and embedding-capable worker, while carrying forward Bob's Gemini/model-engine fixes and pipeline tests | MVP-09 — integration review (`feat/mvp-09-python-ai`) |
 
 ## Ideas for judge-visible Bob usage
 
