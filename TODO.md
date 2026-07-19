@@ -533,6 +533,58 @@ pass over `docs/desktop/overview.md` and `PROJECT_STATUS.md`.
 **Done when:** A teammate follows the README on a clean machine, the video is under three minutes,
 all links work publicly, secrets/private files are absent, and submission is completed before the deadline.
 
+### [ ] LAND-01 — Build the Chronicle landing page `Stretch`
+
+**Owner:** Unassigned
+**Depends on:** MVP-12 (do not let this delay the MVP — `apps/landing/` is optional marketing only)
+**Goal:** A single, polished marketing page that sells the "from `final_v8.png` chaos to an AI-annotated version timeline" story and drives a (mock) desktop-app download.
+
+**Required reading first (do this before writing any code):**
+
+- `docs/challenge/VISION.md` (selling point, philosophy, demo beats) and `CONSTRAINTS.md`
+  (design language: clean, minimal, dark-first, neutral gray + IBM blue for primary actions,
+  system sans-serif) — the page must match Chronicle's visual identity, not invent a new one.
+- `docs/challenge/RESEARCH.md` (framing that resonates: "help creators work smarter",
+  "version control for the creative industry") — reuse this exact language on the page.
+- `apps/landing/README.md` and its existing `src/` — this is Astro → Cloudflare Pages; stay
+  within it.
+- **Then research references BEFORE designing:** the implementing AI must first prompt the
+  user to go research *many* strong, modern landing pages (developer-tool / creative-tool
+  sites — e.g. Linear, Raycast, Vercel, Figma, Framer, Arc) and bring back what specifically
+  works (layout rhythm, hero framing, motion restraint, typographic scale, spacing). Do not
+  start visual work until reference direction is agreed with the user. Copy the *principles*,
+  never the assets or exact copy of another product.
+
+**May edit:** `apps/landing/**` only (Astro pages, components, styles, local assets).
+**Must not edit:** `apps/desktop/**`, any service, any contract, or any MVP task's files.
+
+**Required functionality:**
+
+- One landing page: hero (headline + subhead + primary CTA), the problem (`_final_v8` pain),
+  how it works (watch → auto-version → AI diff → search), and a closing CTA.
+- **Call-to-action buttons are mock only** — "Download for Windows" / "Download for macOS"
+  that link to a placeholder (e.g. `#` or a "coming soon" state). No real installer, no real
+  backend, no forms that collect data, no fake download that pretends to be the real binary.
+- Fully static, offline-capable, no external CDN calls (self-host fonts/icons as the rest of
+  the repo does).
+
+**No AI-slop bar (explicit acceptance):**
+
+- Restrained, purposeful motion only — subtle scroll reveals / a tasteful timeline animation,
+  respecting `prefers-reduced-motion`. No gratuitous gradients, glow, floating blobs, emoji
+  soup, generic stock "AI" imagery, or motion for motion's sake.
+- Real, specific copy (the actual product story), not vague marketing filler. If it reads like
+  a template a hundred other products could use, it fails this bar.
+- A teammate reviewing the page should not be able to tell it was AI-generated from its polish
+  or restraint.
+
+**Docs to update:** `apps/landing/README.md` (what the page is, that CTAs are mock, how to run
+and build); one line in `docs/bob-log.md`.
+
+**Done when:** `npm run dev` and `npm run build` succeed in `apps/landing/`; the page renders
+correctly in light and dark; CTA buttons are clearly mock; animations degrade gracefully with
+reduced motion; and the team agrees it looks like a deliberate product page, not AI slop.
+
 ## Deferred until after the MVP
 
 Do not claim these while any MVP task above is incomplete:

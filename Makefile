@@ -56,6 +56,9 @@ run: run-desktop
 run-desktop: ensure-electron
 	$(NPM) --prefix $(DESKTOP_DIR) run dev
 
+run-landing:
+	$(NPM) --prefix $(LANDING_DIR) run dev
+
 run-all: setup-env ensure-electron
 	$(DOCKER_COMPOSE) up --build -d
 	$(NPM) --prefix $(DESKTOP_DIR) run dev
@@ -167,6 +170,11 @@ help:
 	$(info   make test-ai        Run provider-mocked AI service tests)
 	$(info   make smoke-ai       Live smoke test the annotation pipeline (needs a real key))
 	$(info   make generate-ai-types Regenerate the C3 AI client types)
+	$(info )
+	$(info Landing page (apps/landing):)
+	$(info   make setup-landing  Install landing page deps)
+	$(info   make build-landing  Build the landing page)
+	$(info   make run-landing    Run the landing page dev server)
 	$(info )
 	$(info Everything / optional surfaces:)
 	$(info   make setup-all      Setup desktop, landing page, backend, and migrations)
