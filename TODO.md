@@ -567,8 +567,9 @@ tests pass, critical console errors are absent, and known limitations are docume
 
 > Packaging/automation implemented on `feat/mvp-12-reliability-release`: the Windows NSIS build
 > now bundles a frozen-import- and health-smoked PyInstaller Gemini/OpenAI/Anthropic sidecar,
-> version sources are checked, PR CI is required only for `main`, and reviewed Release Please PRs
-> create tagged GitHub Releases with one attached installer build. The automated gate passed three consecutive runs
+> version sources are checked, PR CI is required only for `main`, and guarded auto-merge promotes
+> `dev` plus the generated Release Please metadata PR before creating a tagged GitHub Release with
+> one attached installer build. The automated gate passed three consecutive runs
 > (desktop 138 passed/1 skipped, AI 48 passed, API 41 passed per run). The task remains open until the manual journey record in
 > `docs/mvp-12-acceptance.md` passes three consecutive times on the clean demo machine.
 

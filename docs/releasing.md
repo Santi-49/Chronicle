@@ -50,13 +50,18 @@ like any other `main` PR; no workflow writes a version directly onto `main`.
    jobs are skipped successfully because the bot PR changes release metadata rather than
    implementation or contracts. Ordinary PRs still run all three complete jobs; a lookalike branch
    without the Release Please label also receives the full suite.
-4. Merging the release PR creates `vX.Y.Z`. The workflow checks the tag equals the desktop
+4. `auto-merge-main.yml` enables squash auto-merge for the exact same-repository `dev → main`
+   promotion and for the labeled Release Please PR. GitHub merges each only after protected-main
+   requirements pass. The release branch is then deleted; the persistent `dev` branch is never a
+   cleanup target.
+5. Merging the release PR creates `vX.Y.Z`. The workflow checks the tag equals the desktop
    `package.json` version, rebuilds that exact tagged commit, health-checks the sidecar, and attaches
    the installer/checksum to the GitHub Release.
 
 Repository setup:
 
-- Protect `main`; require review and the three **Main PR CI** jobs.
+- Protect `main` and require the three **Main PR CI** jobs. For the zero-touch solo flow, use zero
+  required approvals; teams that require human approval keep that manual gate.
 - Add a fine-grained `RELEASE_PLEASE_TOKEN` secret with Contents and Pull requests write access.
   A PAT is necessary because resources created with the built-in `GITHUB_TOKEN` do not trigger the
   required PR workflow.
@@ -78,15 +83,21 @@ needed. The release action attaches release files; POST-08 still owns `electron-
    pull requests in the repository.
 3. In **Settings → Actions → General → Workflow permissions**, select **Read and write
    permissions** and enable **Allow GitHub Actions to create and approve pull requests**.
-4. In **Settings → Rules → Rulesets**, create an active branch ruleset named `Protect main` whose
+4. In **Settings → General → Pull Requests**, enable **Allow squash merging** and
+   **Allow auto-merge**. Do not enable global automatic head-branch deletion: Chronicle deletes
+   only Release Please branches, avoiding any chance of deleting persistent `dev`.
+5. In **Settings → Rules → Rulesets**, create an active branch ruleset named `Protect main` whose
    target is the exact branch `main`.
-5. Enable **Require a pull request before merging**, require at least one approval, block force
-   pushes and deletions, and do not grant routine bypass access.
-6. Enable **Require status checks to pass** and select these checks after they have run once:
+6. Enable **Require a pull request before merging**, set required approvals to **0** for the
+   zero-touch solo workflow, block force pushes and deletions, and do not grant routine bypass
+   access. With one required approval, automation will safely wait for a human approval instead.
+7. Enable **Require status checks to pass** and select these checks after they have run once:
    `Desktop (Windows)`, `AI service and C3 contract`, and `Control plane and C6 contract`.
-7. Do not select checks from `Package main` or `Release desktop`: those run after merge and cannot
-   gate the PR. Do not enable GitHub's merge queue unless the workflow also gains a `merge_group`
-   trigger.
+8. Do not select checks from `Package Windows snapshot`, `Release desktop`, or
+   `Auto-merge main promotion`: they coordinate after/beside the protected checks and must not gate
+   themselves. Workflows that merge use the existing `RELEASE_PLEASE_TOKEN`, ensuring their pushes
+   can trigger the next release workflow. Do not enable GitHub's merge queue unless the workflows
+   also gain a `merge_group` trigger.
 
 The ruleset applies only to `main`. There is intentionally no required CI ruleset for `dev`.
 
@@ -95,25 +106,25 @@ The ruleset applies only to `main`. There is intentionally no required CI rulese
 The normal promotion flow is:
 
 1. Merge feature branches into `dev` after review.
-2. Open one PR with base `main` and compare `dev`. For the initial MVP-12 rollout, the current
-   feature branch may be used as the compare branch because it is based on `dev` and therefore
-   promotes the same accumulated development history.
-3. Wait for all three **Main PR CI** jobs and the human review. Resolve failures on the compare
-   branch; never push a fix directly to `main`.
-4. Squash-merge or merge the PR. Preserve a Conventional Commit title such as `feat: ...` or
-   `fix: ...`, because Release Please determines the next desktop version from commits on `main`.
-5. Check the **Actions** tab. `Release desktop` should create or refresh the Release Please PR.
-   Do not run the manual snapshot packager unless someone needs to test an intermediate installer.
+2. Open one PR with base `main` and compare `dev`. Its title must start with `feat:` or `fix:`
+   (optionally scoped or breaking), because the workflow squash-merges that title and Release Please
+   uses it to determine the next version.
+3. `Auto-merge main promotion` enables auto-merge. All three **Main PR CI** jobs must pass; a
+   failure leaves the PR open. Fix failures on `dev`, never directly on `main`.
+4. After the checks pass, GitHub merges the promotion, Release Please opens its metadata PR, the
+   lightweight guard passes, and GitHub merges that PR automatically.
+5. `Release desktop` creates the version/tag/release, attaches the installer/checksum, and the
+   cleanup job removes the temporary release branch. No second PR action is required.
 
 ## Creating a new public version
 
 Do not edit `apps/desktop/package.json`, create a tag, or draft a GitHub Release manually during
 the normal flow.
 
-1. Review the automated `chore(main): release ...` PR. Confirm its proposed version and changelog.
-2. Wait for the lightweight `Desktop (Windows)` version guard; the implementation jobs appear as
-   successful skips. Approve and merge the release PR into `main`.
-3. Release Please creates `vX.Y.Z` and the GitHub Release. `Release desktop` then rebuilds the exact
+1. Release Please creates `chore(main): release ...` after the development promotion lands.
+2. The lightweight `Desktop (Windows)` version guard runs while the implementation jobs appear as
+   successful skips. Auto-merge waits if any protected requirement is not satisfied.
+3. After automatic merge, Release Please creates `vX.Y.Z` and the GitHub Release. `Release desktop` then rebuilds the exact
    tag, verifies it matches `package.json`, and attaches the Windows installer and checksum.
 4. Download the installer from the Release, verify the checksum, and complete the release smoke
    test before sharing the URL.
