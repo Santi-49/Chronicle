@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/Santi-49/Chronicle/compare/v0.2.0...v0.3.0) (2026-07-21)
+
+
+### Features
+
+* enhance AI provider support and packaging ([517e7d2](https://github.com/Santi-49/Chronicle/commit/517e7d257111bf31337442a818907a70e7b449ad))
+* enhance AI provider support and packaging ([eb156da](https://github.com/Santi-49/Chronicle/commit/eb156dad8dab2f770e5ce4db18306f609ea1676e))
+
+
+### Bug Fixes
+
+* refresh Windows branding and hide control-plane status ([a1dafa4](https://github.com/Santi-49/Chronicle/commit/a1dafa4a18f57ed4959793569e2eb4f6983ac716))
+
 ## [0.2.0](https://github.com/Santi-49/Chronicle/compare/v0.1.0...v0.2.0) (2026-07-21)
 
 
