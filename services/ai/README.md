@@ -77,8 +77,9 @@ python -m uvicorn chronicle_ai.main:app --host 127.0.0.1 --port 8765
 python -m pytest
 ```
 
-Install only the provider package used for manual tests, e.g.
-`python -m pip install -e ".[google]"` for the current demo configuration.
+Install a single provider package for focused manual development, e.g.
+`python -m pip install -e ".[google]"`, or `.[providers]` for every integration shipped in the
+desktop installer (Gemini, OpenAI, and Anthropic).
 Automated tests mock LangChain and never contact a paid provider.
 
 ## Windows sidecar packaging
@@ -87,7 +88,7 @@ MVP-12 packages the service with PyInstaller so an installed Chronicle build doe
 system Python. Build from the repository root with a clean Python 3.12 environment:
 
 ```powershell
-python -m pip install -e "services/ai[google,bundle]"
+python -m pip install -e "services/ai[providers,bundle]"
 python scripts/build_ai_sidecar.py
 python scripts/smoke_ai_sidecar.py
 ```
@@ -95,8 +96,10 @@ python scripts/smoke_ai_sidecar.py
 The executable is generated at
 `apps/desktop/build/sidecar/chronicle-ai-sidecar.exe`; electron-builder copies it and the
 canonical `packages/prompts/version-annotation.md` into `resources/ai/`. Electron sets
-`CHRONICLE_PROMPT_PATH` when spawning the installed sidecar. The MVP executable includes the
-live-validated Gemini integration only; additional provider packs remain future packaging work.
+`CHRONICLE_PROMPT_PATH` when spawning the installed sidecar. The build script uses a cached,
+isolated `apps/desktop/build/sidecar-venv/` so unrelated packages from the developer's global
+Python installation are not analyzed. Its smoke check imports all three packaged integrations
+before probing `/health`.
 
 ## Regenerate the TypeScript client (C3)
 

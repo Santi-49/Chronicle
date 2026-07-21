@@ -6,7 +6,7 @@ journey three consecutive times without clearing Chronicle data between restart 
 ## Automated gate
 
 ```powershell
-python -m pip install -e "services/ai[dev,google,bundle]"
+python -m pip install -e "services/ai[dev,providers,bundle]"
 python -m pip install -e "services/api[dev]"
 npm ci --prefix apps/desktop
 python scripts/mvp12_acceptance.py --package
