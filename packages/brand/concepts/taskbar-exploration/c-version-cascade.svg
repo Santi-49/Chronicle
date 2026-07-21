@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <title>C — Version Cascade</title>
+  <rect x="5" y="8" width="26" height="27" rx="6" transform="rotate(-10 5 8)" fill="#c4b5fd"/>
+  <rect x="11" y="8" width="28" height="30" rx="7" transform="rotate(4 11 8)" fill="#8b5cf6"/>
+  <rect x="16" y="12" width="27" height="29" rx="7" fill="#4338ca"/>
+  <path d="M22 20h15M22 26h11M22 32h7" stroke="#eef2ff" stroke-width="3" stroke-linecap="round"/>
+</svg>
