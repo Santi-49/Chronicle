@@ -16,6 +16,11 @@ import { createAiClient } from '../ai/client'
 import { createAiServiceProcess } from '../ai/service-process'
 import { createAiWorker } from '../ai/worker'
 import type { ChronicleDb } from '../db/database'
+import { getSetting } from '../db/repositories'
+import type { AppSettings } from '../../shared/settings'
+import { createControlPlaneClient } from '../gateway-client/client'
+import { obtainGoogleIdToken } from '../gateway-client/google-oauth'
+import { createSessionStore } from '../gateway-client/session-store'
 import { libraryFilePathFor } from '../versioning'
 import { API_METHOD_NAMES, apiChannel, eventChannel, type EmitEvent } from './channels'
 import { CHRONICLE_SCHEME, chronicleUrlToHash, sniffImageContentType } from './media'
@@ -93,6 +98,10 @@ const emit: EmitEvent = (event, payload) => {
 
 /** Call once after `app.whenReady()`; returns the live api and a disposer. */
 export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): ChronicleIpc {
+  const account = createControlPlaneClient(
+    () => getSetting<AppSettings>(db, 'app-settings')?.controlPlane.baseUrl ?? 'http://localhost:8000',
+    createSessionStore(db),
+  )
   const services = createChronicleServices({
     db,
     libraryRoot,
@@ -111,6 +120,15 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
     },
     secrets: createSafeStorageSecretStore(db),
     isOnline: () => net.isOnline(),
+    account,
+    googleCredential: () => obtainGoogleIdToken(process.env['GOOGLE_OAUTH_CLIENT_ID'] ?? ''),
+    installation: {
+      appVersion: app.getVersion(),
+      osFamily:
+        process.platform === 'win32' ? 'windows'
+          : process.platform === 'darwin' ? 'macos'
+            : process.platform === 'linux' ? 'linux' : 'other',
+    },
   })
 
   registerChronicleProtocol(libraryRoot)

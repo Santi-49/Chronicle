@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.core.dependencies import require_permission
 from app.models.user import User

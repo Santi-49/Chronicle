@@ -426,6 +426,7 @@
 
 /* Settings — folders + AI provider controls */
 .settings-empty { margin: 20px 0 4px 44px; color: var(--text-secondary); font-size: 13px; }
+.account-preferences { display: grid; gap: 18px; margin: 20px 0 0 44px; }
 .folder-row .project-folder { width: 28px; height: 28px; flex: none; }
 .dev-toggle { margin: 24px 0 4px 44px; }
 .ai-task { margin: 20px 0 0 44px; padding: 18px 20px 20px; border: 1px solid var(--border); border-radius: 10px; }

@@ -143,8 +143,8 @@ seed: migrate
 generate-types:
 	$(DOCKER_COMPOSE) run --rm api python -c \
 		"import json; from app.main import app; print(json.dumps(app.openapi()))" \
-		> packages/contracts/api/openapi.yaml
-	npx --yes openapi-typescript packages/contracts/api/openapi.yaml \
+		> packages/contracts/api/openapi.json
+	npx --yes openapi-typescript packages/contracts/api/openapi.json \
 		-o packages/contracts/api/generated/index.ts
 
 # Regenerate the C3 AI client types from the AI service's OpenAPI schema.

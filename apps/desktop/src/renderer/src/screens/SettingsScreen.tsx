@@ -230,7 +230,7 @@ function AiSection() {
       <div className="api-keys">
         <div className="api-keys-heading">
           <h3>Provider API keys</h3>
-          <p>Save a key per provider you use. Keys are encrypted on this device and sent only to that provider — never to Chronicle's backend. A task's provider can be switched without re-entering its key.</p>
+          <p>Save a key per provider you use. Keys stay encrypted on this device and are sent only to that provider by default. Optional signed-in sync uploads only a passphrase-encrypted envelope that Chronicle cannot decrypt.</p>
         </div>
         {keyProviders.map((provider) => (
           <ApiKeyRow
@@ -346,11 +346,35 @@ function ProviderModelPicker({
 // ── Account ────────────────────────────────────────────────────────────────
 
 function AccountSection() {
+  const { settings, save } = useSettings()
   const [email, setEmail] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [passphrase, setPassphrase] = useState('')
+  const [status, setStatus] = useState<string | null>(null)
 
-  useEffect(() => {
-    void chronicle.getAccountState().then((state) => setEmail(state.email))
-  }, [])
+  const refreshAccount = async () => {
+    const state = await chronicle.getAccountState()
+    setEmail(state.email)
+    setIsAdmin(state.isAdmin)
+  }
+
+  useEffect(() => { void refreshAccount() }, [])
+
+  const run = async (label: string, operation: () => Promise<void>) => {
+    setStatus(label)
+    try {
+      await operation()
+      await refreshAccount()
+      setStatus('Done.')
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const updateControlPlane = async (patch: Partial<NonNullable<typeof settings>['controlPlane']>) => {
+    if (!settings) return
+    await save({ controlPlane: { ...settings.controlPlane, ...patch } })
+  }
 
   return (
     <section className="settings-section">
@@ -358,10 +382,62 @@ function AccountSection() {
         <Icon name="info" />
         <div><h2>Account</h2><p>An account is optional and never gates local version history.</p></div>
       </div>
-      <p className="settings-empty">{email ? `Signed in as ${email}.` : 'Running in local mode. Your history stays on this device.'}</p>
-      <button className="google-button settings-google-button" disabled type="button">
-        <span className="google-button-label"><GoogleMark />Continue with Google</span><span className="soon-badge">Coming soon</span>
-      </button>
+      <p className="settings-empty">
+        {email ? `Signed in as ${email}${isAdmin ? ' (admin)' : ''}.` : 'Running in local mode. Local features remain available offline.'}
+      </p>
+      {email ? (
+        <div className="api-key-actions">
+          <button className="google-button settings-google-button" onClick={() => void run('Opening Google…', async () => { await chronicle.loginWithGoogle() })} type="button">
+            <span className="google-button-label"><GoogleMark />Link Google account</span>
+          </button>
+          <button className="secondary-button" onClick={() => void run('Signing out…', () => chronicle.logout())} type="button">Sign out</button>
+        </div>
+      ) : (
+        <button className="google-button settings-google-button" onClick={() => void run('Opening Google…', async () => { await chronicle.loginWithGoogle() })} type="button">
+          <span className="google-button-label"><GoogleMark />Continue with Google</span>
+        </button>
+      )}
+
+      {settings && (
+        <div className="account-preferences">
+          <label className="toggle-field">
+            <input
+              checked={settings.controlPlane.telemetryOptIn}
+              onChange={(event) => void updateControlPlane({ telemetryOptIn: event.target.checked })}
+              type="checkbox"
+            />
+            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends installation and usage counts only; no creative files, names, paths, summaries, tags, or search text. POST-04 will implement delivery.</small></span>
+          </label>
+          <label className="toggle-field">
+            <input
+              checked={settings.controlPlane.settingsSyncEnabled}
+              disabled={!email}
+              onChange={(event) => void updateControlPlane({ settingsSyncEnabled: event.target.checked })}
+              type="checkbox"
+            />
+            <span><strong>Sync preferences</strong><small>Signed-in only. Syncs AI provider/model choices and these preferences, never device paths or project metadata.</small></span>
+          </label>
+          {email && settings.controlPlane.settingsSyncEnabled && (
+            <button className="secondary-button compact-button" onClick={() => void run('Syncing preferences…', () => chronicle.syncSettings())} type="button">Sync preferences now</button>
+          )}
+
+          <div className="api-keys-heading">
+            <h3>Encrypted API-key sync</h3>
+            <p>Optional and separate from preference sync. Keys are encrypted on this device with your passphrase; Chronicle stores only the opaque envelope. The passphrase cannot be recovered.</p>
+          </div>
+          <div className="settings-form-grid">
+            <label><span>Sync passphrase</span><input disabled={!email} minLength={12} onChange={(event) => setPassphrase(event.target.value)} placeholder="At least 12 characters" type="password" value={passphrase} /></label>
+          </div>
+          {email && (
+            <div className="api-key-actions">
+              <button className="secondary-button compact-button" disabled={passphrase.length < 12} onClick={() => void run('Encrypting and uploading keys…', () => chronicle.syncApiKeys(passphrase))} type="button">Upload encrypted keys</button>
+              <button className="secondary-button compact-button" disabled={passphrase.length < 12} onClick={() => void run('Downloading and decrypting keys…', () => chronicle.restoreApiKeys(passphrase))} type="button">Restore encrypted keys</button>
+              {settings.controlPlane.apiKeySyncEnabled && <button className="text-button" onClick={() => void run('Deleting synced keys…', () => chronicle.disableApiKeySync())} type="button">Disable and delete cloud copy</button>}
+            </div>
+          )}
+        </div>
+      )}
+      {status && <span className="inline-status" role="status">{status}</span>}
     </section>
   )
 }

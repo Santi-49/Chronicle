@@ -40,7 +40,7 @@ PostgreSQL 16 managed via **SQLAlchemy 2.0 (async)** and **Alembic** migrations.
 | `email` | VARCHAR(255) | UNIQUE, NOT NULL |
 | `name` | VARCHAR(100) | NOT NULL |
 | `surname` | VARCHAR(100) | NOT NULL |
-| `hashed_password` | VARCHAR(255) | NOT NULL |
+| `hashed_password` | VARCHAR(255) | nullable for Google-only accounts |
 | `is_active` | BOOLEAN | NOT NULL, default `true` |
 | `created_at` | TIMESTAMPTZ | NOT NULL, default `now()` |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, default `now()`, auto-update |
@@ -86,6 +86,17 @@ PK: `(user_id, role_id)`.
 
 PK: `(role_id, permission_id)`.
 
+### POST-03 control-plane tables
+
+Migration 002 adds:
+
+- `external_identities`: Chronicle user FK, provider, stable provider subject, and last-login
+  timestamp; unique by `(provider, provider_subject)` and `(user_id, provider)`.
+- `account_settings`: one strict JSON payload per user with optimistic `revision`.
+- `encrypted_secrets`: one opaque client-encrypted envelope per user with optimistic `revision`.
+- `installations`: random installation UUID, optional linked user, app version, OS family, and
+  first/last-seen timestamps. It contains no hardware ID, hostname, paths, or project data.
+
 ---
 
 ## SQLAlchemy Models
@@ -124,3 +135,9 @@ docker compose exec api alembic downgrade -1
 - Permissions: full matrix (`users`, `roles`, `permissions`, `hello`) × (`read`, `write`, `delete`)
 - Role assignments: `admin` → all permissions, `user` → `hello:read`
 - First admin user: from `FIRST_ADMIN_EMAIL` / `FIRST_ADMIN_PASSWORD` env vars
+
+### Migration 002 — Chronicle Control Plane
+
+[`alembic/versions/002_control_plane_accounts.py`](../../services/api/alembic/versions/002_control_plane_accounts.py)
+makes password hashes nullable, creates the four POST-03 tables, and grants `account:read/write`
+to both `user` and `admin`. Verified against PostgreSQL 16 on 2026-07-21.

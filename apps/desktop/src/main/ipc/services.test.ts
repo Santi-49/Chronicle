@@ -79,6 +79,7 @@ beforeEach(() => {
         secretKeys.delete(provider)
       },
       providers: () => [...secretKeys.keys()],
+      entries: () => Object.fromEntries(secretKeys),
     },
     isOnline: () => online,
     settleMs: 120, // production keeps the C4 2 s default
@@ -142,8 +143,9 @@ describe('C1 contract surface', () => {
 
   it('pending features reject with a clear error instead of pretending', async () => {
     await expect(services.api.search('logo')).rejects.toThrow(/not implemented/)
-    await expect(services.api.register('a@b.c', 'pw')).rejects.toThrow(/not implemented/)
-    await expect(services.api.login('a@b.c', 'pw')).rejects.toThrow(/not implemented/)
+    await expect(services.api.register('a@b.c', 'pw')).rejects.toThrow(/control plane/)
+    await expect(services.api.login('a@b.c', 'pw')).rejects.toThrow(/control plane/)
+    await expect(services.api.loginWithGoogle()).rejects.toThrow(/Google sign-in/)
   })
 
   it('account state is local mode; logout is a safe no-op', async () => {

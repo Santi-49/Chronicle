@@ -36,7 +36,12 @@ const API_METHODS = {
   getAccountState: true,
   register: true,
   login: true,
+  loginWithGoogle: true,
   logout: true,
+  syncSettings: true,
+  syncApiKeys: true,
+  restoreApiKeys: true,
+  disableApiKeySync: true,
   getAppStatus: true,
   listPendingJobs: true,
 } as const satisfies Record<keyof ChronicleApi, true>

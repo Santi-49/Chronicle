@@ -781,6 +781,12 @@ online but the full product still works before/without that response; Chronicle 
 honest installation count; and Google/provider/plaintext Chronicle secrets never appear in API
 logs, account settings, generated OpenAPI examples, or renderer-visible data.
 
+**Implementation status (2026-07-21):** API, migration, OPA policy, generated OpenAPI/TS types,
+desktop Google/PKCE handoff, persistent refreshable sessions, installation registration/linking,
+portable settings, and passphrase-encrypted key sync are implemented. Automated backend and
+desktop suites pass. Final acceptance requires one interactive Google login against the team's
+configured OAuth client after restarting the currently running desktop process.
+
 ### [ ] POST-04 — Wire the app to the control plane for usage statistics `Post-MVP`
 
 **Owner:** Unassigned

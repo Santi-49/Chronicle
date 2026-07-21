@@ -2,9 +2,10 @@
  * BYOK API-key storage (C5 security boundary). Keys are encrypted with
  * Electron `safeStorage` (OS keychain / DPAPI) and persisted as opaque blobs
  * in the SQLite settings table under reserved, provider-scoped keys. They never
- * enter the C1 `AppSettings` object, are never sent to Chronicle's backend, and
- * no IPC method can read one back — the renderer only learns *which providers*
- * have a key (`configuredProviders`).
+ * enter the C1 `AppSettings` object, and no IPC method can read one back — the
+ * renderer only learns *which providers* have a key (`configuredProviders`).
+ * They stay local unless a signed-in user explicitly enables API-key sync; that
+ * path uploads only a passphrase-encrypted, authenticated envelope.
  *
  * Keys are stored per provider so a task's provider can be switched without
  * re-entering credentials (e.g. Gemini for annotation, OpenAI for embeddings).
@@ -24,6 +25,8 @@ export interface SecretStore {
   clear(provider: string): Promise<void> | void
   /** Provider ids that currently have a saved key. */
   providers(): Promise<string[]> | string[]
+  /** Main-process-only plaintext export used exclusively for client-side E2E encryption. */
+  entries(): Promise<Record<string, string>> | Record<string, string>
 }
 
 /** Reserved settings-table key prefix. getSettings() never reads these. */
@@ -72,6 +75,15 @@ export function createSafeStorageSecretStore(db: ChronicleDb): SecretStore {
         .prepare('SELECT key FROM settings WHERE key LIKE ?')
         .all(`${SECRET_PREFIX}%`) as Array<{ key: string }>
       return rows.map((row) => row.key.slice(SECRET_PREFIX.length))
+    },
+    entries(): Record<string, string> {
+      const rows = db
+        .prepare('SELECT key FROM settings WHERE key LIKE ?')
+        .all(`${SECRET_PREFIX}%`) as Array<{ key: string }>
+      return Object.fromEntries(rows.map((row) => {
+        const provider = row.key.slice(SECRET_PREFIX.length)
+        return [provider, readApiKey(db, provider) ?? '']
+      }))
     },
   }
 }

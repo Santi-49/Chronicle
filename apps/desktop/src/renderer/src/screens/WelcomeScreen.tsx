@@ -4,9 +4,20 @@ import { Icon } from '../components/Icon'
 
 interface WelcomeScreenProps {
   onContinue: () => void
+  onContinueGoogle: () => Promise<void>
 }
 
-export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
+export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenProps) {
+  const [googleState, setGoogleState] = useState<string | null>(null)
+
+  const signIn = async () => {
+    setGoogleState('Opening Google…')
+    try {
+      await onContinueGoogle()
+    } catch (error) {
+      setGoogleState(error instanceof Error ? error.message : String(error))
+    }
+  }
   return (
     <main className="welcome-screen">
       <section className="welcome-story" aria-labelledby="welcome-title">
@@ -61,17 +72,20 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
               <span>or</span>
             </div>
 
-            <button className="google-button" disabled type="button">
+            <button className="google-button" onClick={() => void signIn()} type="button">
               <span className="google-button-label"><GoogleMark />Continue with Google</span>
-              <span className="soon-badge">Coming soon</span>
             </button>
+            {googleState && <p className="inline-status" role="status">{googleState}</p>}
           </div>
 
           <p className="privacy-note">
-            Local mode works without an account or internet connection.
+            Local mode works without an account. Chronicle registers a random installation ID
+            when online; creative files, names, paths, summaries, and searches stay out of the
+            control plane.
           </p>
         </div>
       </section>
     </main>
   )
 }
+import { useState } from 'react'

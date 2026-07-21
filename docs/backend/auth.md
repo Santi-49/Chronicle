@@ -31,6 +31,20 @@ The `refresh:{user_id}` key lets logout revoke the refresh token without the cli
 
 ## Flows
 
+### Google desktop sign-in
+
+Chronicle uses a Google OAuth client of type **Desktop app**. Electron opens the system browser,
+binds a temporary random `127.0.0.1` callback, and uses state + nonce + PKCE S256. It exchanges the
+one-time authorization code locally and sends only the short-lived Google ID token to `POST
+/api/v1/auth/google`. The API verifies the Google signature, `aud`, issuer, expiry, and verified
+email with `google-auth`, keys identities by the stable `sub` claim, then issues the same Chronicle
+JWT pair used by password login. Google access/refresh tokens are never stored.
+
+If the Google email already belongs to a password account, login returns
+`409 account_link_required`; the signed-in user must call `POST /auth/google/link`. Chronicle never
+merges accounts by email alone. Google-only users have a null `hashed_password` and cannot use the
+password endpoint unless a future password-setting flow is added.
+
 ### Login
 
 ```
@@ -101,6 +115,8 @@ Authorization: Bearer <refresh_token>
 | `401` | Missing token, invalid signature, expired token, token revoked |
 | `403` | Token valid but OPA denied the action |
 | `409` | Email already registered (register endpoint) |
+| `409` | Google email needs explicit account linking, or identity already linked elsewhere |
+| `503` | `GOOGLE_OAUTH_CLIENT_ID` is not configured |
 
 ---
 

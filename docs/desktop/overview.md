@@ -42,15 +42,16 @@ is still the tracked folder; there is no extra grouping layer between folders an
 Launch
   │
   ├─ First entry ─→ Welcome screen:  [ Continue local ]          ← primary, no account/backend
-  │                                  [ Continue with Google ]    ← disabled "Coming soon" (F1)
+  │                                  [ Continue with Google ]    ← system-browser OAuth + PKCE (F1)
   │
   └─ After continuing ─→ workspace shell, landing on Home
                           (never blocks on the network)
 ```
 
 - **Continue local** is the primary path: fully functional forever, no account required.
-- Sign-in is Google-branded (standard-color "G", approved wording — see RESEARCH.md) and
-  ships disabled as a skeleton; accounts stay control-plane scope (F1, low priority).
+- Sign-in is Google-branded (standard-color "G", approved wording — see RESEARCH.md),
+  uses the system browser with PKCE, and exchanges the verified Google identity for the
+  existing Chronicle JWT session; accounts stay optional control-plane scope.
 - If AI isn't configured yet (no key), the app still captures versions; summaries show as
   pending instead of failing.
 
@@ -98,8 +99,8 @@ One window; regions as implemented:
 ### 1. Welcome — F1
 
 Brand panel (stacked version-cards illustration) plus an access card: **Continue local**
-(primary) and a disabled **Continue with Google** ("Coming soon"). A privacy note states
-local mode works without an account or internet connection.
+(primary) and **Continue with Google**. A privacy note states local mode works without an
+account and that a random installation ID is registered when the control plane is reachable.
 
 ### 2. Home (landing) — F2, F3, F5
 
@@ -187,8 +188,8 @@ Four sections, in current order:
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
-| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle swaps the pickers for free-text provider/model (any LangChain-supported pair). **API key** is stored encrypted on-device (Electron `safeStorage`), sent only to the chosen provider, **never readable back** and **never to our backend**; a "Saved" badge and **Remove saved key** reflect its state. Persists via C1 `updateSettings` + `setApiKey`. *(Stretch, F9: gateway switch.)* |
-| **Account** (F1 — lowest priority) | Local-mode line (from `getAccountState`); disabled **Continue with Google** ("Coming soon"); copy states an account never gates local history. *(Planned: telemetry opt-in, F8.)* |
+| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle swaps the pickers for free-text provider/model. Keys use Electron `safeStorage`, never enter renderer-visible settings, and stay local by default. The separate signed-in sync control uploads only a passphrase-encrypted envelope. |
+| **Account** (F1/F8) | Live Google/password sign-in and sign-out; local history remains account-independent. Telemetry is enabled by default with an explicit local-data warning; portable settings sync and API-key sync are independent, off-by-default controls. Key upload/restore/delete requires a user passphrase. POST-04 will deliver telemetry events. |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
 online/offline, AI-ready state, and pending AI/embedding job count — refreshed from `statusChanged`.
@@ -207,14 +208,14 @@ admin surface.
 
 | Feature (spec §4) | Where it lives |
 |---|---|
-| F1 Accounts (low) | Welcome · Settings → Account (Google skeleton, disabled) |
+| F1 Accounts (low) | Welcome · Settings → Account (Google/password sign-in, persistent Chronicle session) |
 | F2 Tracked folders | New Project · Projects · Home · Settings → Tracked folders |
 | F3 Version capture | Background (main process); surfaces on Home, Project, Timeline, and the live status bar |
 | F4 AI summary | Timeline (status chip) · Version details · Settings → AI summaries |
 | F5 Timeline & details | Home / Project → Timeline → Version details |
 | F6 Restore | Version details (append-only restore + native save-copy fallback) |
 | F7 Hybrid search | Search (`Ctrl/Cmd+K`) |
-| F8 Telemetry (low) | *Planned:* Settings opt-in; runs only when signed in |
+| F8 Telemetry (low) | Settings preference and disclosure implemented; event delivery planned in POST-04 |
 | F9 Gateway (stretch) | Settings → AI ("Use Chronicle service") |
 | F10 Admin (stretch) | Admin page (role-gated) |
 
