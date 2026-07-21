@@ -35,7 +35,7 @@ make demo-status              # show the current workspace version of each asset
 make demo-next ASSET=logo     # swap in the next version (omit ASSET = advance all; wraps)
 make demo-set ASSET=logo V=3  # jump the workspace to a specific version
 make demo-assets              # RE-RENDER sources/ from scratch (needs Pillow) + reset
-make demo-clean               # delete workspace/ + sources/ entirely
+make demo-clean               # delete workspace/ + .state.json; preserve committed sources/
 ```
 
 ## Typical test loop

@@ -32,7 +32,7 @@ Commands (usually driven by the Makefile):
     set   <asset> <n>   put a specific version into the workspace
     next  [asset]       advance one asset (or all) to its next version, wrapping
     status              print the current workspace version of each asset
-    clean               delete the whole demo-assets/ folder
+    clean               delete workspace/ and .state.json; preserve committed sources/
 
 The changes between versions are intentionally obvious so the AI diff has an
 easy, demo-friendly story to tell:
@@ -307,11 +307,20 @@ def cmd_status() -> None:
 
 
 def cmd_clean() -> None:
-    if ROOT.exists():
-        shutil.rmtree(ROOT)
-        print(f"Removed {ROOT}")
+    removed: list[Path] = []
+    if WORKSPACE.exists():
+        shutil.rmtree(WORKSPACE)
+        removed.append(WORKSPACE)
+    if STATE_FILE.exists():
+        STATE_FILE.unlink()
+        removed.append(STATE_FILE)
+
+    if removed:
+        for path in removed:
+            print(f"Removed {path}")
+        print(f"Preserved source versions at {SOURCES}")
     else:
-        print("Nothing to clean.")
+        print("Nothing to clean; source versions were preserved.")
 
 
 # --- Entry point -----------------------------------------------------------

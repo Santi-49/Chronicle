@@ -21,6 +21,7 @@ Format: `date · member · what Bob did · feature/PR`.
 | 2026-07-21 | Team | Bob designed and implemented a contract-first destructive history reset: a discreet Timeline action expands behind typed `RESET`, the latest immutable snapshot is recreated as a fresh v1 ID, old version metadata/AI/search/jobs are transactionally removed, stale in-flight AI cannot attach to the baseline, and a new initial annotation is queued; 91 tests + typecheck + build green | MVP-08 — safeguarded asset history reset |
 | 2026-07-21 | Team | Bob extended project removal with two peer delete choices: deleting only the project retains local history, while the visually stronger project-and-history action removes assets, versions, AI/search metadata, queued work, and only unshared content-addressed blobs; nested tracked projects and original working files remain safe; focused typecheck + 60 tests green | F2 — project and history deletion |
 | 2026-07-21 | Team | Bob corrected the Home activity feed so retained versions from removed projects no longer appear under Recent changes; the stored history remains intact, while only assets belonging to currently tracked projects are shown | F2 — removal feed cleanup |
+| 2026-07-21 | Team | Bob narrowed `make demo-clean` to remove only the mutable `demo-assets/workspace/` and `.state.json`, preserving the committed source-version library, README, and parent demo directory | DEMO-01 — safe demo cleanup |
 
 
 ## Ideas for judge-visible Bob usage

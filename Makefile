@@ -208,7 +208,7 @@ help:
 	$(info   make demo-next ASSET=logo   Swap in the next version (omit ASSET for all))
 	$(info   make demo-set ASSET=logo V=3   Put a specific version in the workspace)
 	$(info   make demo-reset     Reset every workspace file back to v1)
-	$(info   make demo-clean     Delete the demo-assets/ folder)
+	$(info   make demo-clean     Delete workspace/ + .state.json; preserve source versions)
 	$(info )
 	$(info Landing page (apps/landing):)
 	$(info   make setup-landing  Install landing page deps)
