@@ -16,6 +16,11 @@ Python runtime versions come from installed distribution metadata, with the adja
 `pyproject.toml` as the source-tree fallback. Generated OpenAPI documents carry their service's
 version. `python scripts/check_versions.py` rejects manifest/lock/contract drift.
 
+FastAPI and Pydantic are exact-pinned in both Python services because their patch/minor releases
+can change generated OpenAPI even when Chronicle's own schemas do not change. Upgrade that pair in
+one reviewed PR, regenerate both contracts, inspect the semantic diff, and run both service and
+desktop test suites before merging.
+
 ## Desktop SemVer policy
 
 Before `1.0.0`:
