@@ -1,29 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { AssetPreview } from '../components/AssetPreview'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
-import { assets } from '../data/demoData'
+import { relativeTime, useSearch } from '../lib/useChronicle'
 
 interface SearchScreenProps {
-  onOpenVersion: (assetId: string, versionId: string) => void
+  onOpenVersion: (assetId: number, versionId: number) => void
 }
 
-const suggestions = ['blue campaign', 'typography changes', 'packaging label']
+const suggestions = ['blue background', 'tagline removed', 'logo']
 
 export function SearchScreen({ onOpenVersion }: SearchScreenProps) {
   const [query, setQuery] = useState('')
-  const normalizedQuery = query.trim().toLowerCase()
-  const results = useMemo(() => {
-    if (!normalizedQuery) return []
-    return assets.flatMap((asset) =>
-      asset.versions
-        .filter((version) => {
-          const searchable = [asset.name, version.summary, ...version.tags].join(' ').toLowerCase()
-          return normalizedQuery.split(/\s+/).some((term) => searchable.includes(term))
-        })
-        .map((version) => ({ asset, version }))
-    )
-  }, [normalizedQuery])
+  const { results, loading, unavailable } = useSearch(query)
+  const hasQuery = query.trim() !== ''
 
   return (
     <section className="page search-page" aria-labelledby="search-title">
@@ -39,14 +29,14 @@ export function SearchScreen({ onOpenVersion }: SearchScreenProps) {
         <input
           autoFocus
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Try “blue campaign” or “label changed”"
+          placeholder="Try “blue background” or “tagline removed”"
           type="search"
           value={query}
         />
         <kbd>Ctrl K</kbd>
       </label>
 
-      {!normalizedQuery ? (
+      {!hasQuery ? (
         <div className="search-start-state">
           <Icon name="clock" />
           <div>
@@ -59,25 +49,34 @@ export function SearchScreen({ onOpenVersion }: SearchScreenProps) {
             </div>
           </div>
         </div>
+      ) : unavailable ? (
+        <div className="no-results">
+          <Icon name="spark" />
+          <h2>Search is warming up</h2>
+          <p>Version indexing is still being set up. Keyword and semantic search light up once it is available.</p>
+        </div>
       ) : (
         <div className="search-results" aria-live="polite">
-          <p className="result-count">{results.length} {results.length === 1 ? 'version' : 'versions'} found</p>
-          {results.length > 0 ? results.map(({ asset, version }) => (
+          <p className="result-count">
+            {loading ? 'Searching…' : `${results.length} ${results.length === 1 ? 'version' : 'versions'} found`}
+          </p>
+          {results.map(({ version, assetName, snippet, matchedBy }) => (
             <button
               className="search-result"
-              key={`${asset.id}-${version.id}`}
-              onClick={() => onOpenVersion(asset.id, version.id)}
+              key={version.id}
+              onClick={() => onOpenVersion(version.assetId, version.id)}
               type="button"
             >
-              <AssetPreview variant={asset.variant} />
+              <AssetPreview src={version.thumbnailUrl} alt={assetName} />
               <span className="search-result-copy">
-                <span className="search-result-title"><strong>{asset.name}</strong><span>Version {version.number}</span></span>
-                <span>{version.summary}</span>
-                <small>{version.createdAt} · {version.tags.join(' · ')}</small>
+                <span className="search-result-title"><strong>{assetName}</strong><span>Version {version.versionNumber}</span></span>
+                <span>{snippet || version.summary || 'No summary yet'}</span>
+                <small>{relativeTime(version.capturedAt)} · matched by {matchedBy}</small>
               </span>
               <Icon name="chevron-right" />
             </button>
-          )) : (
+          ))}
+          {!loading && results.length === 0 && (
             <div className="no-results">
               <Icon name="search" />
               <h2>No matching versions</h2>

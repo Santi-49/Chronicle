@@ -2,11 +2,13 @@ import type { ReactNode } from 'react'
 import type { AppRoute, PrimaryRouteName } from '../types/navigation'
 import { getPrimaryRoute } from '../types/navigation'
 import { Icon, type IconName } from './Icon'
+import { StatusBar } from './StatusBar'
 
 interface AppShellProps {
   route: AppRoute
   children: ReactNode
   onNavigate: (route: AppRoute) => void
+  onOpenJobs: () => void
 }
 
 const primaryNavigation: { name: PrimaryRouteName; label: string; icon: IconName }[] = [
@@ -15,7 +17,7 @@ const primaryNavigation: { name: PrimaryRouteName; label: string; icon: IconName
   { name: 'search', label: 'Search', icon: 'search' },
 ]
 
-export function AppShell({ route, children, onNavigate }: AppShellProps) {
+export function AppShell({ route, children, onNavigate, onOpenJobs }: AppShellProps) {
   const activeRoute = getPrimaryRoute(route)
 
   return (
@@ -57,8 +59,8 @@ export function AppShell({ route, children, onNavigate }: AppShellProps) {
         <div className="workspace-content" id="main-content" tabIndex={-1}>
           {children}
         </div>
+        <StatusBar onOpenJobs={onOpenJobs} />
       </div>
-
     </div>
   )
 }

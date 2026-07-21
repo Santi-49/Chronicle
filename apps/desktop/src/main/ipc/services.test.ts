@@ -17,6 +17,7 @@ import { DATABASE_FILE_NAME, openChronicleDb, type ChronicleDb } from '../db/dat
 import {
   appendVersion,
   deleteJob,
+  enqueueJob,
   getAssetByPath,
   listJobs,
   saveAnnotation,
@@ -45,7 +46,7 @@ let services: ChronicleServices
 let events: RecordedEvent[]
 let nextPick: string | null
 let online: boolean
-let secretValue: string | null
+let secretKeys: Map<string, string>
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ipc-'))
@@ -56,20 +57,21 @@ beforeEach(() => {
   events = []
   nextPick = null
   online = true
-  secretValue = null
+  secretKeys = new Map()
   services = createChronicleServices({
     db,
     libraryRoot,
     emit: (event, payload) => events.push({ event, payload }),
     pickFolder: async () => nextPick,
     secrets: {
-      set: (plaintext) => {
-        secretValue = plaintext
+      set: (provider, plaintext) => {
+        secretKeys.set(provider, plaintext)
       },
-      has: () => secretValue !== null,
-      clear: () => {
-        secretValue = null
+      has: (provider) => secretKeys.has(provider),
+      clear: (provider) => {
+        secretKeys.delete(provider)
       },
+      providers: () => [...secretKeys.keys()],
     },
     isOnline: () => online,
     settleMs: 120, // production keeps the C4 2 s default
@@ -154,45 +156,116 @@ describe('C1 contract surface', () => {
 // ---------------------------------------------------------------------------
 
 describe('tracked folders and capture events', () => {
-  it('addFolder persists the pick, watches it, and emits statusChanged', async () => {
+  it('pickFolder returns the native pick or null when cancelled', async () => {
     nextPick = workDir
-    const folder = await services.api.addFolder()
-    expect(folder).not.toBeNull()
-    expect(folder!.path).toBe(path.resolve(workDir))
+    expect(await services.api.pickFolder()).toBe(workDir)
+    nextPick = null
+    expect(await services.api.pickFolder()).toBeNull()
+  })
+
+  it('addFolder persists the path with defaults, watches it, and emits statusChanged', async () => {
+    const folder = await services.api.addFolder(workDir)
+    expect(folder.path).toBe(path.resolve(workDir))
+    expect(folder.displayName).toBe(path.basename(workDir))
+    expect(folder.description).toBe('')
+    expect(folder.icon).toBe('folder')
+    expect(folder.color).toMatch(/^#/)
+    expect(folder.excludedPaths).toEqual([])
+    expect(folder.allowedExtensions).toEqual(['.png', '.jpg', '.jpeg'])
     expect(await services.api.listFolders()).toHaveLength(1)
     await waitFor(() => eventsOf('statusChanged').length > 0, 'statusChanged')
     expect((await services.api.getAppStatus()).watchedFolders).toBe(1)
   })
 
-  it('addFolder returns null (and stores nothing) when the picker is cancelled', async () => {
-    nextPick = null
-    expect(await services.api.addFolder()).toBeNull()
-    expect(await services.api.listFolders()).toHaveLength(0)
+  it('addFolder stores provided presentation metadata', async () => {
+    const folder = await services.api.addFolder(workDir, {
+      displayName: 'Aurora launch',
+      description: 'Spring campaign explorations',
+      icon: 'campaign',
+      color: '#ee5396',
+    })
+    expect(folder.displayName).toBe('Aurora launch')
+    expect(folder.description).toBe('Spring campaign explorations')
+    expect(folder.icon).toBe('campaign')
+    expect(folder.color).toBe('#ee5396')
+  })
+
+  it('addFolder validates its arguments', async () => {
+    await expect(services.api.addFolder(42 as unknown as string)).rejects.toThrow(TypeError)
+    await expect(
+      services.api.addFolder(workDir, { bogus: 'x' } as never),
+    ).rejects.toThrow(/Unknown meta field/)
+    await expect(
+      services.api.addFolder(workDir, { description: 42 } as never),
+    ).rejects.toThrow(/meta\.description must be a string/)
   })
 
   it('adding the same folder twice returns the existing row', async () => {
-    nextPick = workDir
-    const first = await services.api.addFolder()
-    const second = await services.api.addFolder()
-    expect(second!.id).toBe(first!.id)
+    const first = await services.api.addFolder(workDir)
+    const second = await services.api.addFolder(workDir)
+    expect(second.id).toBe(first.id)
     expect(await services.api.listFolders()).toHaveLength(1)
   })
 
+  it('updateFolder changes presentation fields; unknown ids reject', async () => {
+    const folder = await services.api.addFolder(workDir)
+    const ignored = path.join(workDir, 'ignored.png')
+    const updated = await services.api.updateFolder(folder.id, {
+      displayName: 'Renamed',
+      description: 'Updated project context',
+      color: '#42be65',
+      excludedPaths: [ignored],
+      allowedExtensions: ['.png'],
+    })
+    expect(updated.displayName).toBe('Renamed')
+    expect(updated.description).toBe('Updated project context')
+    expect(updated.color).toBe('#42be65')
+    expect(updated.icon).toBe('folder') // untouched
+    expect(updated.excludedPaths).toEqual([ignored])
+    expect(updated.allowedExtensions).toEqual(['.png'])
+    expect((await services.api.listFolders())[0]!.displayName).toBe('Renamed')
+    await expect(services.api.updateFolder(999, { displayName: 'x' })).rejects.toThrow(/Unknown folder/)
+    await expect(services.api.updateFolder(1.5, {})).rejects.toThrow(TypeError)
+  })
+
   it('removeFolder stops watching; unknown ids are a no-op', async () => {
-    nextPick = workDir
-    const folder = await services.api.addFolder()
-    await services.api.removeFolder(folder!.id)
+    const folder = await services.api.addFolder(workDir)
+    await services.api.removeFolder(folder.id)
     expect(await services.api.listFolders()).toHaveLength(0)
     expect((await services.api.getAppStatus()).watchedFolders).toBe(0)
     await expect(services.api.removeFolder(999)).resolves.toBeUndefined()
     await expect(services.api.removeFolder(1.5)).rejects.toThrow(TypeError)
   })
 
+  it('scanFolder lists supported files with sizes, skipping temp/hidden/unsupported', async () => {
+    fs.mkdirSync(path.join(workDir, 'sub'), { recursive: true })
+    writeFile('logo.png', pngBytes(10, 10))
+    writeFile('sub/banner.jpg', pngBytes(10, 10))
+    writeFile('notes.txt', 'ignored')
+    writeFile('logo.png.tmp', 'ignored')
+    const entries = await services.api.scanFolder(workDir)
+    const names = entries.map((e) => e.relativePath.replace(/\\/g, '/')).sort()
+    expect(names).toEqual(['logo.png', 'sub/banner.jpg'])
+    expect(entries.every((e) => e.sizeBytes > 0)).toBe(true)
+  })
+
+  it('addFolder stores excludedPaths/allowedExtensions and the watcher honors them', async () => {
+    const keep = writeFile('keep.png', pngBytes(10, 10))
+    const skip = writeFile('skip.png', pngBytes(10, 10))
+    await services.api.addFolder(workDir, { excludedPaths: [skip], allowedExtensions: ['.png'] })
+
+    await waitFor(() => eventsOf('versionCaptured').length > 0, 'versionCaptured')
+    // Give the (excluded) second file the same chance to be captured.
+    await new Promise((r) => setTimeout(r, 500))
+    const assets = await services.api.listAssets()
+    expect(assets.map((a) => a.path).sort()).toEqual([keep])
+    expect(assets.some((a) => a.path === skip)).toBe(false)
+  }, 15_000)
+
   it(
     'a save in a watched folder becomes a version and a versionCaptured event',
     async () => {
-      nextPick = workDir
-      await services.api.addFolder()
+      await services.api.addFolder(workDir)
       writeFile('logo.png', pngBytes(800, 600))
 
       await waitFor(() => eventsOf('versionCaptured').length > 0, 'versionCaptured')
@@ -208,8 +281,7 @@ describe('tracked folders and capture events', () => {
   it(
     'an oversized file emits fileSkipped with only the file name',
     async () => {
-      nextPick = workDir
-      await services.api.addFolder()
+      await services.api.addFolder(workDir)
       const big = writeFile('huge.png', 'x')
       fs.truncateSync(big, MAX_FILE_BYTES + 1) // sparse — no real 50 MB write
 
@@ -223,8 +295,7 @@ describe('tracked folders and capture events', () => {
   it(
     'deleting a captured file marks the asset off-disk, history kept',
     async () => {
-      nextPick = workDir
-      await services.api.addFolder()
+      await services.api.addFolder(workDir)
       const file = writeFile('logo.png', pngBytes(10, 10))
       await waitFor(() => eventsOf('versionCaptured').length > 0, 'versionCaptured')
 
@@ -399,19 +470,23 @@ describe('settings and the secret boundary', () => {
     await expect(services.api.updateSettings('nope' as never)).rejects.toThrow(TypeError)
   })
 
-  it('stores the API key write-only: never readable, never in settings', async () => {
-    await expect(services.api.setApiKey('')).rejects.toThrow(/empty/)
-    await expect(services.api.setApiKey(42 as unknown as string)).rejects.toThrow(TypeError)
+  it('stores API keys per provider, write-only: never readable, never in settings', async () => {
+    await expect(services.api.setApiKey('google', '')).rejects.toThrow(/empty/)
+    await expect(services.api.setApiKey('', 'sk-x')).rejects.toThrow(/provider/)
+    await expect(services.api.setApiKey('google', 42 as unknown as string)).rejects.toThrow(TypeError)
 
-    await services.api.setApiKey('sk-super-secret')
-    expect(await services.api.hasApiKey()).toBe(true)
-    // The whole renderer-visible settings payload must not contain the key.
-    expect(JSON.stringify(await services.api.getSettings())).not.toContain('sk-super-secret')
-    // And no C1 method returns it — the api object simply has no getter.
+    await services.api.setApiKey('google', 'sk-google-secret')
+    await services.api.setApiKey('openai', 'sk-openai-secret')
+    expect((await services.api.configuredProviders()).sort()).toEqual(['google', 'openai'])
+    // The whole renderer-visible settings payload must not contain any key.
+    const settingsJson = JSON.stringify(await services.api.getSettings())
+    expect(settingsJson).not.toContain('sk-google-secret')
+    expect(settingsJson).not.toContain('sk-openai-secret')
+    // And no C1 method returns a key — the api object simply has no getter.
     expect('getApiKey' in services.api).toBe(false)
 
-    await services.api.clearApiKey()
-    expect(await services.api.hasApiKey()).toBe(false)
+    await services.api.clearApiKey('google')
+    expect(await services.api.configuredProviders()).toEqual(['openai'])
   })
 })
 
@@ -429,9 +504,14 @@ describe('getAppStatus', () => {
       aiConfigured: false,
     })
 
+    // Clear the demo provider/model DEFAULT_SETTINGS ships, so the key-alone
+    // guard is what's under test (not the default provider).
+    await services.api.updateSettings({
+      ai: { mode: 'local', chat: { provider: '', model: '' }, embeddings: { provider: '', model: '' } },
+    })
     await seedCapture('logo.png', pngBytes(3, 3)) // enqueues one AI job
     online = false
-    await services.api.setApiKey('sk-x') // key alone is not "configured"
+    await services.api.setApiKey('anthropic', 'sk-x') // key saved, but chat provider is '' → not configured
     expect((await services.api.getAppStatus()).aiConfigured).toBe(false)
     await services.api.updateSettings({
       ai: {
@@ -445,6 +525,25 @@ describe('getAppStatus', () => {
     expect(after.online).toBe(false)
     expect(after.pendingJobs.ai).toBe(1)
     expect(after.aiConfigured).toBe(true)
+  })
+
+  it('returns renderer-safe pending AI jobs in FIFO order', async () => {
+    const capture = await seedCapture('queued-logo.png', pngBytes(8, 6))
+    enqueueJob(db, 'embedding', { versionId: capture.versionId })
+    enqueueJob(db, 'telemetry', { event: 'version_captured', secret: 'internal' })
+
+    const jobs = await services.api.listPendingJobs()
+    expect(jobs).toHaveLength(2)
+    expect(jobs.map((job) => job.jobType)).toEqual(['ai_annotation', 'embedding'])
+    expect(jobs[0]).toMatchObject({
+      versionId: capture.versionId,
+      assetId: capture.assetId,
+      assetName: 'queued-logo.png',
+      versionNumber: 1,
+      retryCount: 0,
+    })
+    expect(jobs[0]?.thumbnailUrl).toBe((await services.api.getVersionDetails(capture.versionId)).thumbnailUrl)
+    expect(JSON.stringify(jobs)).not.toContain('internal')
   })
 })
 

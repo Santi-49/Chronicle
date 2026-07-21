@@ -16,10 +16,15 @@
  * register/login (F1 — low priority; local mode always works).
  */
 import path from 'node:path'
+import fs from 'node:fs/promises'
 import type {
   AppStatus,
   AssetSummary,
   ChronicleApi,
+  FolderMetaPatch,
+  FolderScanEntry,
+  PendingJob,
+  TrackedFolder,
   VersionDetails,
   VersionSummary,
 } from '../../shared/ipc'
@@ -27,6 +32,7 @@ import type { AppSettings } from '../../shared/settings'
 import type { ChronicleDb } from '../db/database'
 import {
   addTrackedFolder,
+  getAsset,
   getAnnotation,
   getVersion,
   listAssets,
@@ -38,11 +44,13 @@ import {
   setSetting,
   setVersionAiStatus,
   removeTrackedFolder,
+  updateTrackedFolder,
   enqueueJob,
   type JobType,
   type VersionRecord,
 } from '../db/repositories'
 import { createFolderWatcher, type FolderWatcher } from '../watcher/watcher'
+import { hasWatchedExtension, isHiddenPath, isTemporaryPath } from '../watcher/evaluate'
 import { captureVersion, markFileMissing } from '../versioning'
 import type { EmitEvent } from './channels'
 import { imageUrlForHash } from './media'
@@ -55,10 +63,12 @@ const SETTINGS_KEY = 'app-settings'
 export const DEFAULT_SETTINGS: AppSettings = {
   ai: {
     mode: 'local',
-    // Empty provider/model = "not configured yet" — the Settings screen fills
-    // these in; the demo provider decision is tracked in docs/spec.md §7.
-    chat: { provider: '', model: '' },
-    embeddings: { provider: '', model: '' },
+    // Default demo provider/model (Google Gemini) — validated in RESEARCH.md's
+    // live acceptance. This is configuration, not code: the engine stays
+    // model-agnostic (spec §6.4) and the user can switch provider/model in
+    // Settings. AI stays inert until an API key is also configured.
+    chat: { provider: 'google', model: 'gemini-flash-latest' },
+    embeddings: { provider: 'google', model: 'gemini-embedding-001' },
   },
   controlPlane: {
     baseUrl: 'http://localhost:8000',
@@ -104,6 +114,36 @@ function expectString(value: unknown, name: string): string {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function expectStringArray(value: unknown, name: string): string[] {
+  if (!Array.isArray(value) || value.some((v) => typeof v !== 'string')) {
+    throw new TypeError(`${name} must be an array of strings`)
+  }
+  return value as string[]
+}
+
+/** Validates a C1 FolderMetaPatch: presentation strings + tracking-selection arrays. */
+function expectFolderMeta(value: unknown, name: string): FolderMetaPatch {
+  if (value === undefined) return {}
+  if (!isPlainObject(value)) throw new TypeError(`${name} must be an object`)
+  const patch: FolderMetaPatch = {}
+  for (const key of Object.keys(value)) {
+    if (key === 'displayName' || key === 'description' || key === 'icon' || key === 'color') {
+      patch[key] = expectString(value[key], `${name}.${key}`)
+    } else if (key === 'excludedPaths') {
+      patch.excludedPaths = expectStringArray(value[key], `${name}.excludedPaths`).map((p) =>
+        path.resolve(p),
+      )
+    } else if (key === 'allowedExtensions') {
+      patch.allowedExtensions = expectStringArray(value[key], `${name}.allowedExtensions`).map((e) =>
+        e.toLowerCase(),
+      )
+    } else {
+      throw new TypeError(`Unknown ${name} field: ${key}`)
+    }
+  }
+  return patch
 }
 
 /**
@@ -156,14 +196,46 @@ export function mergeSettings(current: AppSettings, patch: unknown): AppSettings
 
 // ── Services ────────────────────────────────────────────────────────────
 
+/** Case-insensitive on Windows, exact elsewhere — for path-set membership. */
+function samePath(a: string, b: string): boolean {
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b
+}
+
 export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleServices {
   const { db, libraryRoot, emit, secrets } = deps
+
+  /** The tracked folder that owns a captured file (deepest matching root). */
+  function owningFolder(filePath: string): TrackedFolder | undefined {
+    const abs = path.resolve(filePath)
+    let best: TrackedFolder | undefined
+    for (const folder of listTrackedFolders(db)) {
+      const rel = path.relative(folder.path, abs)
+      if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) continue
+      if (!best || folder.path.length > best.path.length) best = folder
+    }
+    return best
+  }
+
+  /**
+   * Honors the per-folder tracking selection (C1 excludedPaths/allowedExtensions).
+   * A file with no owning folder is captured (e.g. a restore write) — selection
+   * only constrains files inside a tracked tree.
+   */
+  function selectedForCapture(filePath: string): boolean {
+    const folder = owningFolder(filePath)
+    if (!folder) return true
+    const abs = path.resolve(filePath)
+    if (folder.excludedPaths.some((p) => samePath(p, abs))) return false
+    return folder.allowedExtensions.includes(path.extname(abs).toLowerCase())
+  }
 
   // Watcher → capture → events (the wiring MVP-03/04 left open). Capture
   // results are handled asynchronously; nothing here blocks an IPC reply.
   const watcher: FolderWatcher = createFolderWatcher(
     {
       onAccepted: (candidate) => {
+        // Per-folder selection (C1): silently ignore deselected files/types.
+        if (!selectedForCapture(candidate.path)) return
         void captureVersion(db, libraryRoot, candidate.path)
           .then((result) => {
             if (result.outcome === 'captured') {
@@ -226,15 +298,72 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       return listTrackedFolders(db)
     },
 
-    async addFolder() {
-      const chosen = await deps.pickFolder()
-      if (chosen === null) return null
-      const folderPath = path.resolve(chosen)
-      const existing = listTrackedFolders(db).find((f) => f.path === folderPath)
-      const folder = existing ?? addTrackedFolder(db, folderPath)
-      watcher.watch(folderPath) // no-op if already watched; initial scan captures existing files
+    async pickFolder() {
+      return deps.pickFolder()
+    },
+
+    async scanFolder(folderPath) {
+      const root = path.resolve(expectString(folderPath, 'folderPath'))
+      const entries: FolderScanEntry[] = []
+      const MAX_ENTRIES = 5_000 // safety cap for pathological trees
+
+      const walk = async (dir: string): Promise<void> => {
+        if (entries.length >= MAX_ENTRIES) return
+        let dirents
+        try {
+          dirents = await fs.readdir(dir, { withFileTypes: true })
+        } catch {
+          return // unreadable directory — skip rather than fail the whole scan
+        }
+        for (const dirent of dirents) {
+          if (entries.length >= MAX_ENTRIES) return
+          const full = path.join(dir, dirent.name)
+          if (dirent.isDirectory()) {
+            if (isHiddenPath(dirent.name)) continue
+            await walk(full)
+          } else if (dirent.isFile()) {
+            if (isHiddenPath(dirent.name) || isTemporaryPath(full) || !hasWatchedExtension(full)) {
+              continue
+            }
+            let sizeBytes = 0
+            try {
+              sizeBytes = (await fs.stat(full)).size
+            } catch {
+              continue
+            }
+            entries.push({
+              path: full,
+              relativePath: path.relative(root, full),
+              sizeBytes,
+              ext: path.extname(full).toLowerCase(),
+            })
+          }
+        }
+      }
+
+      await walk(root)
+      entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath))
+      return entries
+    },
+
+    async addFolder(folderPath, meta) {
+      const resolved = path.resolve(expectString(folderPath, 'folderPath'))
+      const validatedMeta = expectFolderMeta(meta, 'meta')
+      // Idempotent by path: re-tracking a folder returns the existing row
+      // (its presentation fields are left as they were).
+      const existing = listTrackedFolders(db).find((f) => f.path === resolved)
+      const folder = existing ?? addTrackedFolder(db, resolved, validatedMeta)
+      watcher.watch(resolved) // no-op if already watched; initial scan captures existing files
       pushStatus()
       return folder
+    },
+
+    async updateFolder(folderId, patch) {
+      const id = expectId(folderId, 'folderId')
+      const validatedPatch = expectFolderMeta(patch, 'patch')
+      const updated = updateTrackedFolder(db, id, validatedPatch)
+      if (!updated) throw new Error(`Unknown folder: ${folderId}`)
+      return updated
     },
 
     async removeFolder(folderId) {
@@ -330,20 +459,22 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       return next
     },
 
-    async setApiKey(key) {
+    async setApiKey(provider, key) {
+      const providerId = expectString(provider, 'provider')
+      if (providerId.trim() === '') throw new TypeError('provider must not be empty')
       const plaintext = expectString(key, 'key')
       if (plaintext.trim() === '') throw new TypeError('key must not be empty')
-      await secrets.set(plaintext)
+      await secrets.set(providerId, plaintext)
       pushStatus()
     },
 
-    async hasApiKey() {
-      return secrets.has()
+    async clearApiKey(provider) {
+      await secrets.clear(expectString(provider, 'provider'))
+      pushStatus()
     },
 
-    async clearApiKey() {
-      await secrets.clear()
-      pushStatus()
+    async configuredProviders() {
+      return secrets.providers()
     },
 
     // F1 — account (low priority; the app is fully usable in local mode)
@@ -369,12 +500,42 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           embedding: count('embedding'),
           telemetry: count('telemetry'),
         },
+        // Ready when the annotation (chat) provider is fully configured AND has
+        // a saved key. Per-task keys mean readiness is provider-specific.
         aiConfigured:
-          (await secrets.has()) &&
           settings.ai.chat.provider !== '' &&
-          settings.ai.chat.model !== '',
+          settings.ai.chat.model !== '' &&
+          (await secrets.has(settings.ai.chat.provider)),
       }
       return status
+    },
+
+    async listPendingJobs() {
+      const pending: PendingJob[] = []
+      for (const job of listJobs(db)) {
+        if (job.jobType !== 'ai_annotation' && job.jobType !== 'embedding') continue
+
+        const payload = isPlainObject(job.payload) ? job.payload : undefined
+        const candidateVersionId = payload?.['versionId']
+        const versionId =
+          typeof candidateVersionId === 'number' && Number.isInteger(candidateVersionId) && candidateVersionId > 0
+            ? candidateVersionId
+            : null
+        const version = versionId === null ? undefined : getVersion(db, versionId)
+        const asset = version ? getAsset(db, version.assetId) : undefined
+        pending.push({
+          id: job.id,
+          jobType: job.jobType,
+          queuedAt: job.createdAt,
+          retryCount: job.retryCount,
+          versionId,
+          assetId: version?.assetId ?? null,
+          assetName: asset?.displayName ?? null,
+          versionNumber: version?.versionNumber ?? null,
+          thumbnailUrl: version ? imageUrlForHash(version.contentHash) : null,
+        })
+      }
+      return pending
     },
   }
 

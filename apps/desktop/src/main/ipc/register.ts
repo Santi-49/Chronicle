@@ -117,7 +117,7 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
     client: createAiClient(),
     emit,
     getSettings: services.api.getSettings,
-    readApiKey: () => readApiKey(db),
+    readApiKey: (provider) => readApiKey(db, provider),
     isOnline: () => net.isOnline(),
     ensureService: () => aiProcess.start(),
     onQueueChanged: () => {

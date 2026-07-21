@@ -1,19 +1,29 @@
 import { AssetPreview } from '../components/AssetPreview'
+import { FolderGlyph } from '../components/FolderGlyph'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
-import { getProjectAssets, projects } from '../data/demoData'
+import {
+  assetsForFolder,
+  folderForAsset,
+  relativeTime,
+  totalVersions,
+  useAssets,
+  useFolders,
+} from '../lib/useChronicle'
 
 interface HomeScreenProps {
   onAddProject: () => void
-  onOpenProject: (projectId: string) => void
-  onOpenVersion: (projectId: string, assetId: string, versionId: string) => void
+  onOpenProject: (projectId: number) => void
+  onOpenAsset: (assetId: number, projectId?: number) => void
   onViewProjects: () => void
 }
 
-export function HomeScreen({ onAddProject, onOpenProject, onOpenVersion, onViewProjects }: HomeScreenProps) {
-  const recentChanges = projects.flatMap((project) =>
-    getProjectAssets(project.id).map((asset) => ({ project, asset, version: asset.versions[0] }))
-  ).slice(0, 5)
+export function HomeScreen({ onAddProject, onOpenProject, onOpenAsset, onViewProjects }: HomeScreenProps) {
+  const { folders } = useFolders()
+  const { assets } = useAssets()
+
+  const recentProjects = folders.slice(0, 6)
+  const recentChanges = assets.slice(0, 5)
 
   return (
     <section className="page home-page" aria-labelledby="home-title">
@@ -32,50 +42,65 @@ export function HomeScreen({ onAddProject, onOpenProject, onOpenVersion, onViewP
       <section className="home-section" aria-labelledby="recent-projects-title">
         <div className="section-title-row">
           <div><p className="section-label">Tracked folders</p><h2 id="recent-projects-title">Recent projects</h2></div>
-          <button className="text-button" onClick={onViewProjects} type="button">View all projects <Icon name="chevron-right" /></button>
+          {folders.length > 0 && (
+            <button className="text-button" onClick={onViewProjects} type="button">View all projects <Icon name="chevron-right" /></button>
+          )}
         </div>
-        <div className="project-card-grid">
-          {projects.map((project) => {
-            const projectAssets = getProjectAssets(project.id)
-            const versionCount = projectAssets.reduce((total, asset) => total + asset.versions.length, 0)
-            return (
-              <button className="project-card" key={project.id} onClick={() => onOpenProject(project.id)} type="button">
-                <span className="project-folder" style={{ color: project.color }}><Icon name={project.icon} /></span>
-                <span className="project-card-copy">
-                  <strong>{project.name}</strong>
-                  <small>{project.path}</small>
-                  <span>{projectAssets.length} {projectAssets.length === 1 ? 'asset' : 'assets'} · {versionCount} versions</span>
-                </span>
-                <span className="project-updated">{project.updatedAt}</span>
-              </button>
-            )
-          })}
-        </div>
+
+        {folders.length === 0 ? (
+          <div className="empty-state">
+            <Icon name="folder-plus" />
+            <h3>No folders tracked yet</h3>
+            <p>Point Chronicle at a folder you work in. Every PNG or JPG you save there becomes a version automatically.</p>
+            <button className="primary-button compact-button" onClick={onAddProject} type="button">
+              <Icon name="folder-plus" /> Add your first project
+            </button>
+          </div>
+        ) : (
+          <div className="project-card-grid">
+            {recentProjects.map((project) => {
+              const projectAssets = assetsForFolder(project, assets)
+              return (
+                <button className="project-card" key={project.id} onClick={() => onOpenProject(project.id)} type="button">
+                  <FolderGlyph icon={project.icon} color={project.color} />
+                  <span className="project-card-copy">
+                    <strong>{project.displayName}</strong>
+                    {project.description && <p title={project.description}>{project.description}</p>}
+                    <small>{project.path}</small>
+                    <span>{projectAssets.length} {projectAssets.length === 1 ? 'asset' : 'assets'} · {totalVersions(projectAssets)} versions</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </section>
 
-      <section className="home-section" aria-labelledby="recent-changes-title">
-        <div className="section-title-row">
-          <div><p className="section-label">Across all projects</p><h2 id="recent-changes-title">Recent changes</h2></div>
-        </div>
-        <div className="activity-list">
-          {recentChanges.map(({ project, asset, version }) => (
-            <button
-              className="activity-row"
-              key={`${asset.id}-${version.id}`}
-              onClick={() => onOpenVersion(project.id, asset.id, version.id)}
-              type="button"
-            >
-              <AssetPreview variant={asset.variant} />
-              <span className="activity-copy">
-                <span><strong>{asset.name}</strong><small>Version {version.number}</small></span>
-                <span>{version.summary}</span>
-                <small>{project.name} · {version.createdAt}</small>
-              </span>
-              <Icon name="chevron-right" />
-            </button>
-          ))}
-        </div>
-      </section>
+      {recentChanges.length > 0 && (
+        <section className="home-section" aria-labelledby="recent-changes-title">
+          <div className="section-title-row">
+            <div><p className="section-label">Across all projects</p><h2 id="recent-changes-title">Recent changes</h2></div>
+          </div>
+          <div className="activity-list">
+            {recentChanges.map((asset) => (
+              <button
+                className="activity-row"
+                key={asset.id}
+                onClick={() => onOpenAsset(asset.id, folderForAsset(asset, folders)?.id)}
+                type="button"
+              >
+                <AssetPreview src={asset.thumbnailUrl} alt={asset.displayName} />
+                <span className="activity-copy">
+                  <span><strong>{asset.displayName}</strong><small>{asset.versionCount} versions</small></span>
+                  <span>{asset.lastSummary ?? 'Waiting for an AI change summary.'}</span>
+                  <small>{relativeTime(asset.lastCapturedAt)}{asset.onDisk ? '' : ' · file no longer on disk'}</small>
+                </span>
+                <Icon name="chevron-right" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </section>
   )
 }

@@ -97,6 +97,9 @@ flowchart TB
 - The **preload bridge** is the narrow, safe connection between them.
 
 The renderer must never directly access the filesystem, database, API key, or Node.js APIs.
+The current UI consumes only the typed preload bridge: tracked folders appear as projects
+with a name, optional description, icon, color, enabled image types, and persistent ignored
+files. A live status bar links to the renderer-safe pending AI-job queue.
 
 ### Local storage
 
@@ -116,6 +119,8 @@ uses one prompt, several steps, tools, OCR, or deterministic assistance.
 
 Prompt assets are Markdown files with YAML metadata in `packages/prompts/`. They are
 implementation assets that can improve through testing without changing the AI contract.
+BYOK credentials remain write-only from the renderer and are encrypted separately for each
+provider, allowing annotation and embedding providers to be changed independently.
 
 ### Optional backend
 

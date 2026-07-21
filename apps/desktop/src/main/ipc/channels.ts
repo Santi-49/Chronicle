@@ -15,7 +15,10 @@ import type { ChronicleApi, ChronicleEventName, ChronicleEvents } from '../../sh
 
 const API_METHODS = {
   listFolders: true,
+  pickFolder: true,
+  scanFolder: true,
   addFolder: true,
+  updateFolder: true,
   removeFolder: true,
   listAssets: true,
   getTimeline: true,
@@ -27,13 +30,14 @@ const API_METHODS = {
   getSettings: true,
   updateSettings: true,
   setApiKey: true,
-  hasApiKey: true,
   clearApiKey: true,
+  configuredProviders: true,
   getAccountState: true,
   register: true,
   login: true,
   logout: true,
   getAppStatus: true,
+  listPendingJobs: true,
 } as const satisfies Record<keyof ChronicleApi, true>
 
 const EVENTS = {
