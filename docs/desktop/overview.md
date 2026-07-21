@@ -5,10 +5,10 @@
 > update this file in the same PR. Feature IDs (F1–F10) refer to [spec.md §4](../spec.md).
 > Parent: [System Overview](../architecture/overview.md) · Code: `apps/desktop/src/renderer/`
 >
-> **Last synced with the implemented UI: 2026-07-17.** The full screen set below is built
-> and navigable on `dev` as a UI skeleton running on mock data
-> (`src/renderer/src/data/demoData.ts`); wiring to real data is blocked on the IPC bridge
-> (TODO MVP-05). Anything not yet built is explicitly marked *planned*.
+> **Last synced with the implemented UI: 2026-07-21.** On `feat/mvp-06-ui-wire`, the
+> renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore and the
+> hybrid-search engine remain planned in MVP-07/MVP-10; their screens already expose clear
+> unavailable states. Anything else not yet built is explicitly marked *planned*.
 
 ---
 
@@ -72,7 +72,7 @@ One window; regions as implemented:
 │  Settings│                                             │
 │  v0.1    │                                             │
 ├──────────┴─────────────────────────────────────────────┤
-│ Status bar (PLANNED): ● watching · AI queue · offline  │
+│ Status bar: ● watched folders · AI state · pending jobs │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -84,8 +84,9 @@ One window; regions as implemented:
   is marked with `aria-current="page"`.
 - **Content area** — exactly one page at a time; a short reduced-motion-aware transition
   plays on route change and focus moves to the main content region.
-- **Status bar** — *planned, not yet built*: watcher state, AI queue depth, connectivity
-  (offline = "queued", never an error), account state. Required before MVP-06 is done.
+- **Status bar** — live watched-folder count, connectivity, AI readiness, and pending
+  annotation/embedding count from C1 `AppStatus`. Clicking a non-zero job count opens the
+  live FIFO pending-jobs screen; offline work remains queued rather than becoming a UI error.
 - **Theme** — dark / light / system (default), persisted; toggle available pre-workspace
   and in Settings → Appearance.
 - **Global shortcut** — `Ctrl/Cmd+K` opens Search from anywhere in the workspace.
@@ -102,13 +103,14 @@ local mode works without an account or internet connection.
 
 ### 2. Home (landing) — F2, F3, F5
 
-The workspace landing page: **Recent projects** (project cards: icon/color, name, path,
+The workspace landing page: **Recent projects** (project cards: icon/color, name,
+optional description, path,
 asset + version counts, last-updated) and **Recent changes** across all projects (latest
 versions with thumbnail, version number, summary). Header action: **Add project**.
 
 - Click a project → Project page. Click a change → Version details.
-- *Planned:* live updates as new versions are captured; empty state doubling as onboarding
-  ("Add a folder to start tracking").
+- Live C1 events refresh captures/annotations without a reload. With no projects, the empty
+  state doubles as onboarding ("Add a folder to start tracking").
 
 ### 3. Projects — F2
 
@@ -117,10 +119,12 @@ Grid of all projects (tracked folders) with the same card treatment. Header acti
 
 ### 4. New Project — F2
 
-Creates a tracked folder: display name, optional description, **folder picker** (*Browse… planned — needs the
-native dialog over IPC*), icon picker (bundled Material Symbols + custom glyph), color
-picker (palette + custom), **Include subfolders** toggle, and file-type chips — PNG and
-JPG/JPEG active; **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB** marked "Coming soon".
+Creates a tracked folder: display name, optional description, native **folder picker**,
+icon picker (bundled Material Symbols + custom glyph), and color picker (palette + custom).
+After selection, C1 `scanFolder()` supplies a recursive file tree. The user can select all,
+exclude individual PNG/JPG/JPEG files, and enable/disable supported file types while a live
+count shows how many files will be tracked. Those rules persist and apply to initial capture
+and future saves. **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB** are marked "Coming soon".
 Breadcrumb back to Projects.
 
 ### 5. Project — F2, F5
@@ -193,7 +197,7 @@ admin surface.
 |---|---|
 | F1 Accounts (low) | Welcome · Settings → Account (Google skeleton, disabled) |
 | F2 Tracked folders | New Project · Projects · Home · Settings → Tracked folders |
-| F3 Version capture | Background (main process); surfaces on Home, Project, Timeline, *planned* status bar |
+| F3 Version capture | Background (main process); surfaces on Home, Project, Timeline, and the live status bar |
 | F4 AI summary | Timeline (status chip) · Version details · Settings → AI summaries |
 | F5 Timeline & details | Home / Project → Timeline → Version details |
 | F6 Restore | Version details *(wiring planned — MVP-07)* |

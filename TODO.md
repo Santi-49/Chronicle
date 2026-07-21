@@ -272,7 +272,8 @@ access Node APIs, filesystem paths outside returned metadata, API keys, or auth 
 
 ### [~] MVP-06 — Build the application shell, onboarding, and settings
 
-**Owner:** Santi R (UI built on `dev`; IPC wiring blocked on MVP-05)  
+**Owner:** Santi R (`feat/mvp-06-ui-wire`; awaiting review/merge)
+
 **Depends on:** MVP-01, MVP-05  
 **Goal:** Provide understandable navigation and let users start tracking folders/configure AI.
 
@@ -292,22 +293,24 @@ same PR as any screen/navigation change; one line in `docs/bob-log.md`.
 **Done when:** A new user can launch, choose local mode, add a folder, understand AI setup,
 and see watcher/job/connectivity status without assistance.
 
-> Done (feature branch `feat/mvp-06-shell-onboarding-settings`, awaiting review/merge):
+> Done (feature branch `feat/mvp-06-ui-wire`, awaiting review/merge):
 > app shell + status bar, welcome/onboarding, theme persistence, and Ctrl+K remain, and the
 > whole renderer is now wired to the live C1 bridge (no more `demoData.ts`) via
 > `src/renderer/src/lib/{bridge,useChronicle,aiCatalog}.ts`:
 > - **Tracked folders / projects** — real `listFolders`/`pickFolder`/`addFolder`/`updateFolder`/
->   `removeFolder`; New Project uses the native picker + name/icon/color.
+>   `removeFolder`; New/Edit Project uses the native picker/scan + name/description/icon/color,
+>   enabled file types, and persistent ignored-file selection.
 > - **AI settings** — predefined **Google · Anthropic · OpenAI · Bedrock** providers with a
 >   curated quality/price model shortlist per task (change summaries vs. embeddings) and a
 >   **Developer mode** toggle for free-text provider/model; encrypted BYOK key with saved/clear
 >   state. Persisted via `updateSettings` + `setApiKey`; key never read back.
-> - **Status bar** — live `getAppStatus` + `statusChanged` (watched folders, online, AI ready,
->   pending jobs).
+> - **Status bar / queue** — live `getAppStatus` + `statusChanged` (watched folders, online,
+>   AI ready, pending jobs) and a renderer-safe FIFO pending-jobs screen.
 > ✅ Contract-alignment resolved: C1 `TrackedFolder` extended to
-> `{ id, path, addedAt, displayName, icon, color }` (schema migration + repositories + services
-> + tests updated); `addFolder(path, meta?)`/`updateFolder(id, patch)`/`pickFolder()` added.
-> Typecheck + 82 desktop tests + build all green.
+> `{ id, path, addedAt, displayName, description, icon, color, excludedPaths,
+> allowedExtensions }` (idempotent schema migrations + repositories + services + tests);
+> `pickFolder()`/`scanFolder(path)`/`addFolder(path, meta?)`/`updateFolder(id, patch)` added.
+> Per-provider `setApiKey`/`clearApiKey` and `configuredProviders()` replace the legacy global key.
 > Remaining (human): manual launch/demo-editor smoke on Windows; the "Log in / Register"
 > startup path stays F1 (low priority) coming-soon.
 
@@ -335,7 +338,8 @@ one line in `docs/bob-log.md`.
 
 ### [~] MVP-08 — Build Assets, Timeline, and Version Details pages
 
-**Owner:** Santi R (UI built on `dev` against mock data; real-data wiring blocked on MVP-05)  
+**Owner:** Santi R (live-data UI on `feat/mvp-06-ui-wire`; awaiting review/merge)
+
 **Depends on:** MVP-05, MVP-06; usable mock data may be used earlier  
 **Goal:** Make the complete version history understandable to a first-time user.
 
@@ -353,7 +357,7 @@ this task delivers); one line in `docs/bob-log.md`.
 AI states are clear, and a new teammate can answer what changed between versions.
 
 > Done: Home, Projects/Project, Timeline, and Version Details now render **live C1 data**
-> (wired alongside MVP-06 on `feat/mvp-06-shell-onboarding-settings`): real thumbnails via
+> (wired alongside MVP-06 on `feat/mvp-06-ui-wire`): real thumbnails via
 > `chronicle://`, live capture/annotation refresh from `versionCaptured`/`annotationUpdated`,
 > and the Restore button calls `restoreVersion` (surfaces MVP-07's "coming soon" until that
 > lands). Retry calls `retryAnnotation`. Remaining for MVP-08 sign-off: restore end-to-end
@@ -469,7 +473,8 @@ ranking, empty query, unavailable embeddings, and model changes are tested.
 
 ### [~] MVP-11 — Build the Search page
 
-**Owner:** Santi R (UI built on `dev` against mock data; blocked on MVP-05/MVP-10)  
+**Owner:** Santi R (live C1 search UI on `feat/mvp-06-ui-wire`; engine blocked on MVP-10)
+
 **Depends on:** MVP-06, MVP-10; mock results may be used earlier  
 **Goal:** Present one simple search experience without exposing implementation modes.
 
@@ -510,9 +515,10 @@ offline queue; failed/retry state; 50 MB skip; deleted source; keyboard navigati
 **Done when:** The scripted journey succeeds three consecutive times on Windows, typecheck/build/
 tests pass, critical console errors are absent, and known limitations are documented.
 
-### [ ] DEMO-01 — Create and freeze the demo asset pack
+### [~] DEMO-01 — Create and freeze the demo asset pack
 
-**Owner:** Unassigned  
+**Owner:** Santi R (`feat/mvp-06-ui-wire`; team approval pending)
+
 **Depends on:** Human design decision; can begin immediately  
 **May edit:** A new clearly documented demo-fixtures folder and related test references.  
 **Must not use:** Copyrighted or private assets without permission.
@@ -522,6 +528,12 @@ the expected annotation/search outcomes); one line in `docs/bob-log.md`.
 
 **Done when:** Logo, banner, and product-image histories include controlled color/text/layout edits,
 have expected annotation/search outcomes, and are approved by the team for public distribution.
+
+> Implemented on the feature branch: committed v1/v2/v3 PNG/JPG sources for logo, banner,
+> and product stories; a git-ignored `demo-assets/workspace/`; deterministic
+> `reset`/`set`/`next`/`status`/`clean` commands in `scripts/demo_assets.py`; Make targets;
+> and [demo-assets/README.md](demo-assets/README.md) with expected diffs. Remaining: team
+> approval for public distribution and acceptance against the completed search/restore flow.
 
 ### [ ] SUBMIT-01 — Prepare the judged submission
 

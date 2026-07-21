@@ -71,6 +71,7 @@ Chronicle/
 │   └── landing/          Astro static page (optional, stretch)
 │
 ├── services/
+│   ├── ai/               Local FastAPI + LangChain AI service (part of desktop)
 │   ├── api/              FastAPI control plane ← pre-built (auth, RBAC, JWT)
 │   └── module/           Challenge logic — AI gateway (stretch)
 │
@@ -80,6 +81,8 @@ Chronicle/
 │       └── module/       Python Protocol (backend ↔ module boundary)
 │
 ├── infra/                OPA policies, Postgres init, Redis config
+├── demo-assets/          Committed image histories + mutable demo workspace
+├── scripts/              Demo-asset workflow and repository utilities
 ├── docs/                 Start at docs/index.md — team spec at docs/spec.md
 ├── docker-compose.yml
 └── Makefile
@@ -89,7 +92,7 @@ Chronicle/
 
 | Layer | Technology |
 |---|---|
-| Desktop app (the product) | Electron 38 + electron-vite + React 19 + TypeScript + Tailwind CSS 4 |
+| Desktop app (the product) | Electron 43 + electron-vite 4 + React 19 + TypeScript 5.9 + Tailwind CSS 4 |
 | Local storage | SQLite (better-sqlite3) + content-addressed file library |
 | File watching | chokidar (debounced, temp-file-aware) |
 | AI layer | Local Python AI service — FastAPI + LangChain (BYOK), called by the Electron app on `127.0.0.1` · same code behind the gateway (stretch) |
@@ -108,10 +111,12 @@ Full detail and the reasoning behind each choice: [docs/spec.md](docs/spec.md).
 This is the MVP path and the one to use for normal Chronicle development. It does not
 require Docker, a backend, or an account.
 
-**Requires:** Node.js 20+ and GNU make. On Windows, run make from Git Bash or WSL.
+**Requires:** Node.js 20+, Python 3.12, and GNU make. The default setup uses Python only
+to prepare the demo workspace; AI summaries/embeddings also use it for the local service.
+On Windows, run make from Git Bash or WSL.
 
 ```bash
-make setup      # install desktop dependencies
+make setup      # install desktop dependencies and prepare demo-assets/workspace/
 make run        # open Electron with hot reload
 make build      # build the desktop app
 make package    # create a Windows installer .exe in apps/desktop/dist/
@@ -140,6 +145,36 @@ npm --prefix apps/desktop run dev
 npm --prefix apps/desktop run build
 npm --prefix apps/desktop run package
 ```
+
+### Enable AI summaries
+
+The app captures versions without AI. To enable summaries and semantic indexing, install
+the loopback AI service and its default Gemini provider, then save a provider key in
+**Settings → AI summaries**. Electron starts and health-checks the service automatically.
+
+```bash
+make setup-ai
+```
+
+Chronicle stores a separate encrypted key for each configured provider, so the annotation
+and embedding providers can be switched independently without re-entering credentials.
+The predefined UI supports Google Gemini, Anthropic Claude, OpenAI, and Amazon Bedrock;
+developer mode accepts another LangChain-supported provider/model pair.
+
+### Exercise the capture flow with the demo pack
+
+The repository includes controlled logo, banner, and product-image histories. Point a new
+Chronicle project at `demo-assets/workspace/`, then replace the watched files in place:
+
+```bash
+make demo-reset
+make demo-next ASSET=logo
+make demo-next ASSET=logo
+make demo-status
+```
+
+The two logo advances create an obvious navy → teal change followed by tagline removal.
+See [demo-assets/README.md](demo-assets/README.md) for all stories and commands.
 
 ### Optional: Docker backend control plane
 
@@ -189,7 +224,13 @@ Start at [docs/index.md](docs/index.md).
 
 ## Status
 
-Planning, documentation, and boundary contracts are ready; MVP implementation is next.
+The capture/storage core, secure IPC bridge, Python AI service, and live renderer wiring
+are implemented. On the current feature branch, users can create and edit tracked-folder
+projects, choose which image files/types remain watched, configure per-provider BYOK keys,
+browse live projects/timelines/version details, and inspect queued AI work. Restore and the
+hybrid-search engine remain the main unfinished end-to-end MVP paths; installer-side AI
+service bundling and real-editor Windows smoke testing also remain open.
+
 See the live [project status](PROJECT_STATUS.md). Submission is due
 **July 31, 2026, 11:59 PM ET**.
 Milestones: contracts (Jul 18) → MVP feature-complete (Jul 27) → video + README +

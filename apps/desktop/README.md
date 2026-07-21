@@ -14,7 +14,7 @@ src/main/       Electron main process (Node)
   ai/             job worker + typed client for the local Python AI service (services/ai/)
   gateway-client/ control-plane client (auth, logs, stats, hosted inference)
 src/preload/    typed IPC bridge (contextBridge)
-src/renderer/   React UI — Assets, Timeline, Version details, Search
+src/renderer/   React UI — Projects/Edit, Timeline, Version details, Search, Settings, jobs
 ```
 
 ## Commands
@@ -55,7 +55,7 @@ provider**, are never readable back over IPC, and never appear in `getSettings()
 | `listAssets` / `getTimeline` / `getVersionDetails` (F5) | ✅ |
 | `retryAnnotation` (F4) | ✅ re-queues; the AI worker itself is MVP-09 |
 | `getSettings` / `updateSettings` / `setApiKey(provider,key)` / `clearApiKey(provider)` / `configuredProviders` (C5) | ✅ per-provider BYOK keys (switch a task's provider without re-entering) |
-| `getAppStatus` + all four events (`versionCaptured`, `annotationUpdated`, `statusChanged`, `fileSkipped`) | ✅ |
+| `getAppStatus` / `listPendingJobs` + all four events (`versionCaptured`, `annotationUpdated`, `statusChanged`, `fileSkipped`) | ✅ live status bar + renderer-safe FIFO queue |
 | `getAccountState` / `logout` | ✅ always local mode for now |
 | `restoreVersion` / `saveVersionCopy` (F6) | ⏳ MVP-07 — rejects "not implemented yet" |
 | `search` (F7) | ⏳ MVP-10 — rejects "not implemented yet" |

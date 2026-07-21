@@ -8,8 +8,9 @@
  * SECRETS NEVER ENTER THIS OBJECT and never reach the renderer:
  *   - the AI API key            → Electron safeStorage, main process only
  *   - control-plane auth tokens → Electron safeStorage, main process only
- * The renderer manages them through dedicated IPC calls (C1: setApiKey /
- * hasApiKey / clearApiKey) that write and read only on the main side.
+ * The renderer manages them through dedicated per-provider IPC calls (C1:
+ * setApiKey / configuredProviders / clearApiKey); plaintext is write-only and
+ * key material remains on the main side.
  *
  * Fixed behavioral constants (watched extensions, settle time, size cap) are
  * NOT settings — they live in the watcher rules contract (C4).

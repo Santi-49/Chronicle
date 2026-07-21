@@ -1,8 +1,9 @@
 # Chronicle — Team Spec: Tech Stack, Best Practices, Functionality
 
-> **Status:** agreed 2026-07-16. This is the "same direction" document — read it before building anything.
-> It defines **what** we build and **with which tools**, not **how** (no implementation here).
-> Next step after this doc: boundary contracts and implementation research → task board → self-assignment.
+> **Status:** agreed 2026-07-16; implementation details synced 2026-07-21. This is the
+> "same direction" document — read it before building anything. It defines **what** we build
+> and **with which tools**, not **how**. Current progress and ownership live in
+> [PROJECT_STATUS.md](../PROJECT_STATUS.md) and [TODO.md](../TODO.md).
 
 ---
 
@@ -20,7 +21,7 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 
 | Layer | Choice | Why |
 |---|---|---|
-| App shell | **Electron 38** + **electron-vite 4** | Desktop app with web tech; already scaffolded and verified |
+| App shell | **Electron 43** + **electron-vite 4** | Desktop app with web tech; already scaffolded and verified |
 | UI | **React 19 + TypeScript 5.9** | Team-known, typed |
 | Styling | **Tailwind CSS 4** | Fast to build clean UI; no component library unless a real need appears |
 | Local database | **SQLite** via **better-sqlite3** (runs inside the app, single file) | Zero-setup embedded DB; metadata, AI summaries, search index all in one file |
@@ -121,7 +122,12 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
 ### F2 — Tracked folders `MVP`
 
 - The user adds/removes folders to track from a Settings screen; the list persists locally.
-- Watching is recursive (subfolders included).
+- The UI presents a tracked folder as a project with a persisted display name, optional
+  description, icon, and accent color; this is presentation metadata, not a grouping layer.
+- Before adding a project, a read-only recursive scan previews supported files. The user may
+  exclude individual files and disable a supported file type. These selections persist and
+  are enforced on both the initial capture and later saves; editing a project can change them.
+- Watching is recursive (subfolders included), subject to the project's saved exclusions.
 - Only `.png`, `.jpg`, `.jpeg` files count (case-insensitive). Other formats are ignored. The UI lists `.svg`, `.blend`, `.obj`, `.step`/`.stp`, `.psd`, and `.psb` as "coming soon". These future labels are roadmap communication, not supported MVP behavior.
 - Hidden files/folders and temp files (e.g. `~$…`, `.tmp`, editor autosave/swap files) are ignored.
 - **Done when:** add a folder, save a PNG in a subfolder → version appears; save a `.txt` → nothing happens.
@@ -143,7 +149,11 @@ The heart of the product. Exact rules:
 ### F4 — AI change summary (the "commit message") `MVP`
 
 - When a new version is captured, an **async job** sends the *previous* image + *new* image (plus filename) to the **local AI service**, which calls a vision-capable model via LangChain (Python) and returns structured output: **summary** (1 sentence), **changes** (bullet list), **tags** (3–8 lowercase keywords), and an optional **confidence** (0–1, nullable — reserved for future partial-extraction formats).
-- The AI connection is configured in **Settings → AI**: provider, model, and API key (BYOK — stored encrypted on-device via Electron `safeStorage`, never sent to our backend). No key configured → versions still capture; summaries show *pending — configure AI in Settings*.
+- The AI connection is configured per task in **Settings → AI**: provider/model for change
+  summaries and provider/model for embeddings. BYOK keys are encrypted on-device via Electron
+  `safeStorage`, one per provider, never readable back by the renderer, and never sent to our
+  backend. Switching back to a configured provider does not require re-entry. No key for the
+  annotation provider → versions still capture; summaries show *pending — configure AI in Settings*.
 - Version 1 of an asset has no predecessor → the AI writes a **description** instead of a diff.
 - The version's AI status is visible in the UI: *pending → done* or *failed (retry button)*.
 - **The UI never waits for AI.** Versions appear instantly; the summary fills in when ready.
@@ -212,7 +222,7 @@ SQLite schema remains implementation-owned and evolves through migrations:
 | **Version** | One captured save of an asset | version number, content hash, timestamp, size, dimensions, AI status |
 | **AI annotation** | The AI's output for a version | summary, changes, tags, provider used, latency |
 | **Embedding** | Search vector for a version | the vector + which text produced it |
-| **Tracked folder** | A folder the user watches | path, added date |
+| **Tracked folder** | A folder/project the user watches | path, added date, display name, optional description, icon/color, excluded files, enabled extensions |
 | **Queue item** | Pending offline work | job type (AI / embedding / telemetry), payload, retry count |
 
 Backend keeps only: **User** (pre-built), **Account config** (JSON blob per user), **Telemetry event** (per F8 privacy rule) — all control-plane, all low priority.
@@ -239,9 +249,9 @@ Rules for everyone, regardless of experience level:
 | Decision | Options / note | Needed by |
 |---|---|---|
 | Team roster & feature ownership | Fill the table in [CONSTRAINTS.md](challenge/CONSTRAINTS.md) | now |
-| Default demo AI provider | Recommend: a strong vision model (e.g. Claude) as primary, **watsonx/Granite configured as the swap** to prove model-agnosticism and score IBM points | Jul 18 |
-| Design language | Colors/fonts/style TBD — run the design-skill search before UI work; working assumption: dark "pro tool" (Linear/Figma-like) | before first UI PR |
-| Demo asset pack | Who creates the logo/banner/product-shot set + the scripted edits | Jul 20 |
+| Final demo AI provider/budget | Gemini is the validated/configured default; formally approve account access, retention/cost assumptions, model IDs, and budget. Keep watsonx/Granite as a model-agnostic alignment option only if live-tested. | before MVP-12 |
+| Design language | Resolved: dark-first neutral-gray pro tool, IBM blue actions/focus, paired light/system themes; validate against live demo data before release. | before MVP-12 |
+| Demo asset pack | Generated logo/banner/product v1–v3 histories and commands exist in `demo-assets/`; team approval and end-to-end acceptance remain. | before MVP-12 |
 | SkillsBuild activity | **Each member individually** — a missing certificate invalidates the whole submission | don't leave past Jul 25 |
 
 ---
