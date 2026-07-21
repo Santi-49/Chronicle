@@ -43,11 +43,13 @@ like any other `main` PR; no workflow writes a version directly onto `main`.
 
 1. `.github/workflows/ci.yml` runs **only** for pull requests whose base is `main`. Configure its
    three jobs as required branch-protection checks. PRs to `dev` do not run required CI.
-2. A merge to `main` runs `package-main.yml`: Windows builds the Gemini sidecar, type-safe Electron
-   bundle, NSIS installer, health smoke, and SHA-256 checksum, then retains them as a 30-day
-   workflow artifact.
-3. The same merge runs `release.yml`. Release Please creates or updates a release PR from merged
+2. A merge to `main` runs `release.yml`. Release Please creates or updates a release PR from merged
    Conventional Commits.
+3. Release Please PRs carrying its `autorelease: pending` label retain the required
+   `Desktop (Windows)` check, but run only the version consistency guard. The AI and control-plane
+   jobs are skipped successfully because the bot PR changes release metadata rather than
+   implementation or contracts. Ordinary PRs still run all three complete jobs; a lookalike branch
+   without the Release Please label also receives the full suite.
 4. Merging the release PR creates `vX.Y.Z`. The workflow checks the tag equals the desktop
    `package.json` version, rebuilds that exact tagged commit, health-checks the sidecar, and attaches
    the installer/checksum to the GitHub Release.
@@ -61,9 +63,11 @@ Repository setup:
 - Allow GitHub Actions to create pull requests.
 - Keep direct pushes to `main` disabled.
 
-Every `main` commit is buildable, but only a reviewed release PR produces a durable version tag.
-The action attaches release files; POST-08 still owns `electron-updater`, `latest.yml`, update UI,
-code signing, and macOS publication.
+Every ordinary `main` PR proves that the application builds, but the expensive Windows installer is
+built only once for a durable version tag. `package-main.yml` remains available through
+**Actions → Package Windows snapshot → Run workflow** when an intermediate installer is genuinely
+needed. The release action attaches release files; POST-08 still owns `electron-updater`,
+`latest.yml`, update UI, code signing, and macOS publication.
 
 ## One-time GitHub setup (repository administrator)
 
@@ -98,8 +102,8 @@ The normal promotion flow is:
    branch; never push a fix directly to `main`.
 4. Squash-merge or merge the PR. Preserve a Conventional Commit title such as `feat: ...` or
    `fix: ...`, because Release Please determines the next desktop version from commits on `main`.
-5. Check the **Actions** tab. `Package main` should upload an installable workflow artifact, while
-   `Release desktop` creates or refreshes the Release Please PR.
+5. Check the **Actions** tab. `Release desktop` should create or refresh the Release Please PR.
+   Do not run the manual snapshot packager unless someone needs to test an intermediate installer.
 
 ## Creating a new public version
 
@@ -107,7 +111,8 @@ Do not edit `apps/desktop/package.json`, create a tag, or draft a GitHub Release
 the normal flow.
 
 1. Review the automated `chore(main): release ...` PR. Confirm its proposed version and changelog.
-2. Let the same three PR checks pass, approve it, and merge it into `main`.
+2. Wait for the lightweight `Desktop (Windows)` version guard; the implementation jobs appear as
+   successful skips. Approve and merge the release PR into `main`.
 3. Release Please creates `vX.Y.Z` and the GitHub Release. `Release desktop` then rebuilds the exact
    tag, verifies it matches `package.json`, and attaches the Windows installer and checksum.
 4. Download the installer from the Release, verify the checksum, and complete the release smoke

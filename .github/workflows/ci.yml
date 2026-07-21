@@ -18,6 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        if: "${{ !(startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending')) }}"
         with:
           node-version: 22
           cache: npm
@@ -25,20 +26,30 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: npm ci
+      - name: Verify release metadata
+        if: "${{ startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}"
+        run: python scripts/check_versions.py
+      - if: "${{ !(startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending')) }}"
+        run: npm ci
         working-directory: apps/desktop
-      - run: python scripts/check_versions.py
-      - run: npm run generate-api-types
+      - if: "${{ !(startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending')) }}"
+        run: python scripts/check_versions.py
+      - if: "${{ !(startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending')) }}"
+        run: npm run generate-api-types
         working-directory: apps/desktop
-      - run: npm run typecheck
+      - if: "${{ !(startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending')) }}"
+        run: npm run typecheck
         working-directory: apps/desktop
-      - run: npm test
+      - if: "${{ !(startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending')) }}"
+        run: npm test
         working-directory: apps/desktop
-      - run: npm run build
+      - if: "${{ !(startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending')) }}"
+        run: npm run build
         working-directory: apps/desktop
 
   ai:
     name: AI service and C3 contract
+    if: "${{ !(startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending')) }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +74,7 @@ jobs:
 
   control-plane:
     name: Control plane and C6 contract
+    if: "${{ !(startsWith(github.head_ref, 'release-please--') && contains(github.event.pull_request.labels.*.name, 'autorelease: pending')) }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

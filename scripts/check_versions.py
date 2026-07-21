@@ -32,6 +32,14 @@ def main() -> None:
             "Run npm install --package-lock-only in apps/desktop."
         )
 
+    release_manifest = json_file(ROOT / ".release-please-manifest.json")
+    released_desktop_version = release_manifest.get("apps/desktop")
+    if desktop_version != released_desktop_version:
+        raise SystemExit(
+            "Desktop package/release manifest mismatch: "
+            f"{desktop_version} != {released_desktop_version}."
+        )
+
     versions = {
         "desktop": desktop_version,
         "ai": project_version(ROOT / "services" / "ai" / "pyproject.toml"),

@@ -1,8 +1,6 @@
-name: Package main
+name: Package Windows snapshot
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
