@@ -46,7 +46,8 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          "app_version=$(node -p \"require('./apps/desktop/package.json').version\")" >> $env:GITHUB_OUTPUT
+          $appVersion = node -p "require('./apps/desktop/package.json').version"
+          "app_version=$appVersion" >> $env:GITHUB_OUTPUT
       - uses: actions/upload-artifact@v4
         with:
           name: Chronicle-${{ steps.version.outputs.app_version }}-windows-${{ github.sha }}
