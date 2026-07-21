@@ -1,0 +1,134 @@
+name: Auto-merge main promotion
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled, ready_for_review, converted_to_draft, closed]
+
+# pull_request_target can access the release PAT, so this workflow deliberately
+# never checks out or executes code from the pull request.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-merge-main-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  enable-auto-merge:
+    name: Enable guarded auto-merge
+    if: >-
+      ${{
+        github.event.action != 'closed' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (
+          github.event.pull_request.head.ref == 'dev' ||
+          startsWith(github.event.pull_request.head.ref, 'release-please--')
+        )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clear any stale auto-merge request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          enabled=$(
+            gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --json autoMergeRequest --jq '.autoMergeRequest != null'
+          )
+          if [[ "$enabled" == "true" ]]; then
+            gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --disable-auto
+          fi
+
+      - name: Require a releasing title for dev promotion
+        if: ${{ github.event.pull_request.head.ref == 'dev' }}
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          title_pattern='^(feat|fix)(\([^)]+\))?!?:[[:space:]].+'
+          if [[ ! "$PR_TITLE" =~ $title_pattern ]]; then
+            echo "::error::A dev → main squash title must start with feat: or fix: so Release Please creates a version."
+            exit 1
+          fi
+
+      - name: Verify Release Please metadata scope
+        if: ${{ startsWith(github.event.pull_request.head.ref, 'release-please--') }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          RELEASE_LABEL_PRESENT: "${{ contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}"
+        run: |
+          if [[ "$RELEASE_LABEL_PRESENT" != "true" ]]; then
+            echo "::error::Release Please PR is missing the autorelease: pending label."
+            exit 1
+          fi
+          title_pattern='^chore\(main\):[[:space:]]release[[:space:]][0-9]+\.[0-9]+\.[0-9]+$'
+          if [[ ! "$PR_TITLE" =~ $title_pattern ]]; then
+            echo "::error::Unexpected Release Please PR title: $PR_TITLE"
+            exit 1
+          fi
+
+          declare -A required=(
+            [".release-please-manifest.json"]=0
+            ["apps/desktop/CHANGELOG.md"]=0
+            ["apps/desktop/package-lock.json"]=0
+            ["apps/desktop/package.json"]=0
+          )
+          mapfile -t files < <(
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename'
+          )
+          for file in "${files[@]}"; do
+            if [[ ! -v "required[$file]" ]]; then
+              echo "::error::Release Please PR changed an unexpected file: $file"
+              exit 1
+            fi
+            required["$file"]=1
+          done
+          for file in "${!required[@]}"; do
+            if [[ "${required[$file]}" != 1 ]]; then
+              echo "::error::Release Please PR did not update required metadata: $file"
+              exit 1
+            fi
+          done
+
+      - name: Merge after protected-main requirements pass
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: >-
+          gh pr merge "$PR_NUMBER"
+          --repo "$GITHUB_REPOSITORY"
+          --auto
+          --squash
+          --match-head-commit "$HEAD_SHA"
+          --subject "$PR_TITLE"
+
+  delete-release-please-branch:
+    name: Delete merged release branch
+    if: >-
+      ${{
+        github.event.action == 'closed' &&
+        github.event.pull_request.merged == true &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        startsWith(github.event.pull_request.head.ref, 'release-please--')
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete only the temporary Release Please branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: >-
+          gh api
+          --method DELETE
+          "repos/$GITHUB_REPOSITORY/git/refs/heads/$HEAD_REF"
