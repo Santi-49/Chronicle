@@ -383,9 +383,11 @@ AI states are clear, and a new teammate can answer what changed between versions
 > C3's source of truth becomes the service's OpenAPI schema + `output.schema.json`, with
 > generated TS client types.
 >
-> AI feature scope (decided 2026-07-19): the MVP service surface is exactly
+> AI feature scope (updated 2026-07-21): the MVP service surface is
 > `POST /annotate` (two-image diff; `previous: null` → first-version description),
-> `POST /embed-text` (version summaries+tags and search queries), and `GET /health`.
+> `POST /embed-text` (version summaries+tags and search queries),
+> `POST /validate-provider-model` (minimal live chat/embedding configuration probe),
+> and `GET /health`.
 > The annotation output includes an optional nullable `confidence` (0–1). **Image
 > embeddings and a history chatbot are roadmap, not MVP** — do not build `/embed-image`
 > or `/chat` before every MVP task is done.
@@ -433,8 +435,9 @@ without a separate approved change; the C1 contract; the control plane.
 loaded from the Markdown/YAML asset, provider called with the per-request BYOK key
 (taken from Electron `safeStorage`, sent only over loopback, never persisted by the
 service), output validated against the schema, status/output/provider/model/latency
-persisted, safe retries, queued jobs resumed after outages, and a health check the app
-surfaces in the status bar. A documented start script for the service.
+persisted, safe retries, queued jobs resumed after outages, a health check, and a
+task-specific provider/model reachability probe used before Settings persists a changed
+selection. A documented start script for the service.
 
 **Contracts upheld:** C3 operation functionality and schema; C5 secret boundary; all AI work async.
 
@@ -454,9 +457,9 @@ service-down behavior are tested. No local model is added.
 > mocked tests retain coverage for invalid output, missing key, retry, offline, and
 > service-down behavior.
 
-### [ ] MVP-10 — Implement hybrid keyword and semantic search
+### [x] MVP-10 — Implement hybrid keyword and semantic search
 
-**Owner:** Unassigned  
+**Owner:** Joan / Santi R · engine and C1 integration complete
 **Depends on:** MVP-02, MVP-09  
 **Goal:** Find exact and meaning-related versions in one ranked list.
 
@@ -476,9 +479,16 @@ behavior, model-identity rule); one line in `docs/bob-log.md`.
 **Done when:** “version with the tagline” and “blue background” find the expected fixtures;
 ranking, empty query, unavailable embeddings, and model changes are tested.
 
+> Accepted 2026-07-21: FTS5 phrase search and cosine semantic search are merged behind
+> C1 `search`; provider-qualified embedding identities prevent incompatible vector
+> comparisons; semantic failures degrade to keyword-only. Changing the embedding provider
+> or model queues deduplicated re-embedding jobs for every existing annotation without
+> repeating vision analysis. The banner fixture regression covers meaning-based queries
+> whose words are not an exact stored phrase.
+
 ### [~] MVP-11 — Build the Search page
 
-**Owner:** Santi R (live C1 search UI merged into `dev`; engine blocked on MVP-10)
+**Owner:** Santi R (live C1 search UI and engine integration merged; final UX acceptance pending)
 
 **Depends on:** MVP-06, MVP-10; mock results may be used earlier  
 **Goal:** Present one simple search experience without exposing implementation modes.
@@ -494,10 +504,9 @@ note once built); one line in `docs/bob-log.md`.
 **Done when:** Keyboard search opens a result's version details and clearly explains when recent
 semantic indexing is still pending.
 
-> Done: Search screen with Ctrl+K now calls the real C1 `search` (debounced) and opens live
-> version details; while MVP-10's engine is unbuilt the handler rejects, and the page shows a
-> clear "search is warming up" state. Remaining for MVP-11 sign-off: real ranked results and
-> the semantic-indexing-pending affordance once MVP-10 lands.
+> Done: Search screen with Ctrl+K calls the real C1 hybrid search (debounced), renders ranked
+> version results, and opens live version details. Remaining for MVP-11 sign-off: explicit
+> semantic-indexing-pending feedback while reindex jobs are queued.
 
 ## Phase 5 — Integration, quality, and submission
 

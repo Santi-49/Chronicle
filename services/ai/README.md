@@ -16,6 +16,7 @@ to the configured provider.
 | `GET`  | `/health`     | Confirms the process is up without calling a provider. |
 | `POST` | `/annotate`   | First-version description (`previous: null`) or previous-vs-current diff. |
 | `POST` | `/embed-text` | One embedding vector for a version's summary+tags or a search query. |
+| `POST` | `/validate-provider-model` | Uses the supplied BYOK key to make a minimal task-specific provider call and report whether the model is reachable. |
 
 Images cross the boundary as base64 plus `image/png` / `image/jpeg`. Provider,
 model and the BYOK key arrive per request (or fall back to the env defaults
@@ -24,6 +25,12 @@ nullable `confidence` — plus `usage` (token counts) and `cost` (estimated USD
 from the configured per-task prices). Embedding responses carry the same
 `usage`/`cost` fields, though the standard embedding interface rarely reports
 token usage, so they are usually null.
+
+Configuration validation requires an explicit provider, model, task, and API
+key. Chat validation sends a one-pixel image through the real structured vision
+path; embeddings validation embeds a short probe string. The key and probe are
+never persisted. Because these are real provider calls, they may incur a tiny
+provider charge.
 
 ## Configuration (`.env`)
 
@@ -50,7 +57,7 @@ services/ai/
   pyproject.toml            # package + dev/provider extras
   chronicle_ai/
     main.py                 # FastAPI app factory
-    routes.py               # the three HTTP routes + error mapping
+    routes.py               # the four HTTP routes + error mapping
     engine.py               # model-agnostic LangChain calls (init_chat_model / init_embeddings)
     config.py               # env-driven defaults: provider, key, per-task models + prices
     schemas.py              # strict Pydantic v2 request/response models

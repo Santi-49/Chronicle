@@ -54,12 +54,16 @@ provider**, are never readable back over IPC, and never appear in `getSettings()
 | `listFolders` / `pickFolder` / `scanFolder` / `addFolder` / `updateFolder` / `removeFolder` (F2) | ✅ native picker, folder scan preview, presentation fields, per-folder tracking selection, live watching, plus confirmed removal that either retains history or permanently deletes project metadata/history and unshared blobs without touching originals |
 | `listAssets` / `getTimeline` / `getVersionDetails` / `resetAssetHistory` (F5) | ✅ live history plus typed-safeguard reset of the latest snapshot to a freshly annotated v1 |
 | `retryAnnotation` (F4) | ✅ re-queues; the AI worker itself is MVP-09 |
-| `getSettings` / `updateSettings` / `setApiKey(provider,key)` / `clearApiKey(provider)` / `configuredProviders` (C5) | ✅ per-provider BYOK keys (switch a task's provider without re-entering) |
+| `getSettings` / `updateSettings` / `setApiKey(provider,key)` / `clearApiKey(provider)` / `configuredProviders` (C5) | ✅ per-provider BYOK keys; both task selectors require a saved key, and changed provider/model pairs must pass the local AI service's live validation probe before persistence |
 | `getAppStatus` / `listPendingJobs` + all five events (`versionCaptured`, `assetHistoryReset`, `annotationUpdated`, `statusChanged`, `fileSkipped`) | ✅ live status bar + renderer-safe FIFO queue |
 | `getAccountState` / `logout` | ✅ always local mode for now |
 | `restoreVersion` / `saveVersionCopy` (F6) | ✅ append-only restore, no restore AI job, native save-copy fallback when the original folder is gone |
-| `search` (F7) | ⏳ MVP-10 — rejects "not implemented yet" |
+| `search` (F7) | ✅ MVP-10 — hybrid FTS5 keyword + cosine-similarity semantic search, degrades gracefully to keyword-only when AI is unavailable |
 | `register` / `login` (F1) | ⏳ low priority — rejects "not implemented yet" |
+
+Changing the semantic-search provider or model queues all existing annotation text for
+deduplicated asynchronous re-embedding. Stored and queried vectors use the same
+provider-qualified model identity, so vectors from incompatible configurations are never mixed.
 
 Unparseable image dimensions surface as `0×0` in `VersionDetails` (C1 declares
 them non-nullable; capture stores `null` internally).

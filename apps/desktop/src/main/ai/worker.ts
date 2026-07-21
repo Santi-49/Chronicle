@@ -18,6 +18,7 @@ import {
   type QueueItem,
 } from '../db/repositories'
 import type { EmitEvent } from '../ipc/channels'
+import { embeddingModelIdentity } from '../search'
 import { libraryFilePathFor } from '../versioning'
 import { AiServiceError, type AiClient, type ProviderRequest } from './client'
 
@@ -159,8 +160,9 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       versionId,
       vector: Float32Array.from(result.embedding),
       sourceText,
-      // Provider is part of the identity; equal model names across providers are not comparable.
-      model: `${result.provider}:${result.model}`,
+      // Use the requested configuration for the lookup identity too. Provider
+      // responses may canonicalize aliases, while future queries use Settings.
+      model: embeddingModelIdentity(config.provider, config.model),
     })
     deleteJob(deps.db, job.id)
     deps.onQueueChanged()
