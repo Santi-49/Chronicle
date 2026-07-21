@@ -21,10 +21,12 @@ import {
   getAnnotation,
   getAssetByPath,
   getEmbedding,
+  getSetting,
   getVersion,
   listJobs,
   saveAnnotation,
   saveEmbedding,
+  setSetting,
   setVersionAiStatus,
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
@@ -621,6 +623,16 @@ describe('settings and the secret boundary', () => {
     expect(updated.ai.chat.provider).toBe('anthropic')
     expect(updated.controlPlane).toEqual(DEFAULT_SETTINGS.controlPlane) // untouched section
     expect((await services.api.getSettings()).ai.chat.model).toBe('claude-x')
+  })
+
+  it('migrates the retired persisted appearance setting', async () => {
+    setSetting(db, 'app-settings', {
+      appearance: { theme: 'dark' },
+      ...DEFAULT_SETTINGS,
+    })
+
+    expect(await services.api.getSettings()).toEqual(DEFAULT_SETTINGS)
+    expect(getSetting(db, 'app-settings')).toEqual(DEFAULT_SETTINGS)
   })
 
   it('rejects malformed patches', async () => {
