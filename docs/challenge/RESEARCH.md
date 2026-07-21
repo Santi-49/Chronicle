@@ -166,6 +166,44 @@ commit messages for factuality, usefulness, extraction coverage, latency, and co
 documentation proves the workflows exist; only user evidence can establish frequency and
 willingness to adopt.
 
+### Control-Plane Identity, Sync, and Telemetry (2026-07-21)
+
+Google's OpenID Connect guidance identifies the `sub` claim—not email—as the stable,
+never-reused Google account identifier. Chronicle should request only `openid email profile`,
+validate the returned ID token, store a provider/subject link, and issue its own existing JWT
+session. Google's current OAuth security guidance strongly recommends PKCE for desktop apps and
+warns against embedded browsing environments, so Chronicle should use the system browser, a
+short-lived state/nonce/PKCE transaction, and a one-time desktop handoff. Chronicle does not need
+long-lived Google access or refresh tokens because Google APIs are not part of the feature.
+([Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect),
+[OIDC claims reference](https://developers.google.com/identity/openid-connect/reference),
+[OAuth security guidance](https://developers.google.com/identity/protocols/oauth2/resources/best-practices))
+
+Control-plane data has four distinct purposes and must not be presented as one permission:
+
+- minimal best-effort installation registration for a random installation ID and first/last-seen,
+  app-version, and OS-family metadata;
+- optional portable settings sync, excluding device paths, project metadata, and secrets;
+- separate optional end-to-end-encrypted API-key sync for signed-in users, requiring a
+  client-held recovery/decryption design before implementation; and
+- default-enabled usage statistics containing pseudonymous project inventory and allowlisted
+  events, never creative content or identifying project/file/search metadata.
+
+Project counts can be measured without uploading project identity: each project receives a random
+telemetry-only ID, and the backend stores its current tracked-file count and allowlisted file-type
+distribution. A version-capture event supplies the count increment plus file type, coarse size
+bucket, and timing, but no asset/version ID, exact size, hash, path, or name. These IDs are
+pseudonymous—not anonymous—when linked to an installation/account. Installation registration also
+measures installations, not unique humans, so product/admin copy must use those terms accurately.
+
+The GDPR principles of purpose limitation, data minimization, storage limitation, and security
+require each category to have a defined purpose, lawful basis, retention, export/erasure behavior,
+and accurate disclosure. The team chose a default-enabled telemetry toggle on 2026-07-21. That is
+not affirmative opt-in and must not be labelled consent; onboarding must disclose it before the
+first batch and allow immediate disablement. If consent is selected as the lawful basis, telemetry
+must change to an affirmative choice before production.
+([GDPR Article 5](https://eur-lex.europa.eu/eli/reg/2016/679/art_17/oj/eng))
+
 ### Past Hackathon Winners (if available)
 
 BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Edition, NextGen Hackathon). No public winner list found for this specific series yet — check the hub's community/Discord for July examples. (2026-07-16)
@@ -201,6 +239,11 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
   it understands a proprietary container.
 - For future-format work, follow the selected order: SVG and PSD/PSB adjacency experiments,
   then a sandboxed Blender proof of concept, followed by OBJ and STEP/STP interchange support.
+- Keep control-plane operations purpose-separated in contracts and UI: installation registration,
+  portable settings sync, encrypted-key sync, and usage statistics are not one blanket consent.
+  Use strict allowlisted schemas, client-generated idempotency IDs, short raw-event retention, and
+  aggregate admin views. Never claim “all data stays local”; say precisely that the creative
+  library stays local and name the AI, telemetry, settings, and encrypted-secret exceptions.
 
 ### What to Emphasize in the Demo
 
@@ -266,3 +309,4 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - 2026-07-21 — AI PROVIDER/MODEL UX DECISION (MVP-06): Settings ships predefined providers **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a curated 2–3 model shortlist per task (vision annotation vs. text embeddings) spanning a quality/price range; a **Developer mode** toggle allows free-text provider/model. This is renderer presentation policy only — the engine stays model-agnostic (spec §6.4). `DEFAULT_SETTINGS` now defaults to Google Gemini (`gemini-flash-latest` / `gemini-embedding-001`, the validated demo provider) as configuration, not code. Model IDs are illustrative and BYOK-dependent; availability is the user's account's responsibility — team + session
 - 2026-07-21 — PROJECT METADATA/EDITING DECISION (MVP-06): tracked-folder projects gain an optional persisted `description` (`user_version` 3→4). A dedicated Edit Project route reuses the creation form for name, description, icon, color, enabled file types, and ignored files; it rescans the existing folder while keeping the path locked. Descriptions appear on project cards and details — team + session
 - 2026-07-21 — DEMO FIXTURE DECISION (DEMO-01): the public test pack uses three deterministic, original image stories (logo navy→teal→tagline removed; banner 40%→50%→purple/limited-time copy; product gray→green→NEW badge). Untouched variants are committed under `demo-assets/sources/`, while the watched `workspace/` and version state are ignored. Everyday reset/set/next/status commands require no Pillow, keeping clean-clone demo setup reproducible — team + session
+- 2026-07-21 — CONTROL-PLANE DATA DECISION (POST-03/04): sync portable settings except device-local paths/project metadata; offer separate signed-in, explicit, end-to-end-encrypted API-key sync; best-effort register every local/signed-in installation with a random non-hardware ID; collect default-enabled content-free telemetry for project/file/version/file-type and AI/search usage. Project/installation IDs remain pseudonymous, counts must not be called unique-user counts, and the default-enabled toggle is not affirmative consent. Google auth uses system-browser PKCE, stable `sub`, minimal scopes, and no stored Google API tokens — team + official Google OIDC/OAuth guidance and GDPR Article 5
