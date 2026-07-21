@@ -457,20 +457,22 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       return next
     },
 
-    async setApiKey(key) {
+    async setApiKey(provider, key) {
+      const providerId = expectString(provider, 'provider')
+      if (providerId.trim() === '') throw new TypeError('provider must not be empty')
       const plaintext = expectString(key, 'key')
       if (plaintext.trim() === '') throw new TypeError('key must not be empty')
-      await secrets.set(plaintext)
+      await secrets.set(providerId, plaintext)
       pushStatus()
     },
 
-    async hasApiKey() {
-      return secrets.has()
+    async clearApiKey(provider) {
+      await secrets.clear(expectString(provider, 'provider'))
+      pushStatus()
     },
 
-    async clearApiKey() {
-      await secrets.clear()
-      pushStatus()
+    async configuredProviders() {
+      return secrets.providers()
     },
 
     // F1 — account (low priority; the app is fully usable in local mode)
@@ -496,10 +498,12 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           embedding: count('embedding'),
           telemetry: count('telemetry'),
         },
+        // Ready when the annotation (chat) provider is fully configured AND has
+        // a saved key. Per-task keys mean readiness is provider-specific.
         aiConfigured:
-          (await secrets.has()) &&
           settings.ai.chat.provider !== '' &&
-          settings.ai.chat.model !== '',
+          settings.ai.chat.model !== '' &&
+          (await secrets.has(settings.ai.chat.provider)),
       }
       return status
     },

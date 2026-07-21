@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { FolderGlyph } from '../components/FolderGlyph'
 import { GoogleMark } from '../components/GoogleMark'
@@ -92,19 +92,19 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
         <Icon name="folder-plus" />
         <div><h2>Tracked folders</h2><p>PNG and JPG files in these folders are versioned automatically.</p></div>
       </div>
-      <div className="folder-list">
-        {folders.length === 0 ? (
-          <p className="settings-empty">No folders tracked yet.</p>
-        ) : (
-          folders.map((folder) => (
+      {folders.length === 0 ? (
+        <p className="settings-empty">No folders tracked yet.</p>
+      ) : (
+        <div className="folder-list">
+          {folders.map((folder) => (
             <div className="folder-row" key={folder.id}>
               <FolderGlyph icon={folder.icon} color={folder.color} />
               <div><strong>{folder.displayName}</strong><span>{folder.path}</span></div>
               <button className="text-button" onClick={() => void remove(folder.id)} type="button">Remove</button>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
       <button className="secondary-button" onClick={onAddProject} type="button"><Icon name="folder-plus" /> Add a project</button>
     </section>
   )
@@ -113,14 +113,13 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
 // ── AI summaries ──────────────────────────────────────────────────────────
 
 function AiSection() {
-  const { settings, hasApiKey, loading, save, setApiKey, clearApiKey } = useSettings()
+  const { settings, configuredProviders, loading, save, setApiKey, clearApiKey } = useSettings()
 
   const [devMode, setDevMode] = useState(false)
   const [chatProvider, setChatProvider] = useState('google')
   const [chatModel, setChatModel] = useState('gemini-flash-latest')
   const [embedProvider, setEmbedProvider] = useState('google')
   const [embedModel, setEmbedModel] = useState('gemini-embedding-001')
-  const [apiKeyInput, setApiKeyInput] = useState('')
   const [saveState, setSaveState] = useState<string | null>(null)
 
   // Initialize the form once settings arrive.
@@ -159,20 +158,28 @@ function AiSection() {
           embeddings: { provider: embedProvider.trim(), model: embedModel.trim() },
         },
       })
-      if (apiKeyInput.trim()) {
-        await setApiKey(apiKeyInput.trim())
-        setApiKeyInput('')
-      }
       setSaveState('Saved.')
     } catch (err) {
       setSaveState(err instanceof Error ? err.message : String(err))
     }
   }
 
-  const onClearKey = async () => {
-    await clearApiKey()
-    setSaveState('API key removed.')
-  }
+  // Providers to show a key row for: the curated catalog plus any custom
+  // provider currently selected in developer mode (so its key can be saved).
+  const keyProviders = useMemo(() => {
+    const rows = AI_PROVIDERS.map((p) => ({ id: p.id, label: p.label }))
+    const known = new Set(rows.map((r) => r.id))
+    for (const custom of [chatProvider, embedProvider]) {
+      const id = custom.trim()
+      if (id && !known.has(id)) {
+        known.add(id)
+        rows.push({ id, label: id })
+      }
+    }
+    return rows
+  }, [chatProvider, embedProvider])
+
+  const missingChatKey = chatProvider.trim() !== '' && !configuredProviders.includes(chatProvider.trim())
 
   return (
     <section className="settings-section">
@@ -199,6 +206,7 @@ function AiSection() {
         ) : (
           <ProviderModelPicker task="chat" provider={chatProvider} model={chatModel} onProvider={(p) => changeProvider('chat', p)} onModel={setChatModel} />
         )}
+        {missingChatKey && <p className="ai-task-hint">No saved key for this provider yet — add one below to generate summaries.</p>}
       </fieldset>
 
       <fieldset className="ai-task">
@@ -213,34 +221,86 @@ function AiSection() {
         )}
       </fieldset>
 
-      <div className="settings-form-grid">
-        <label className="full-field">
-          <span>API key {hasApiKey && <em className="key-saved-badge">Saved</em>}</span>
-          <div className="input-with-icon">
-            <Icon name="key" />
-            <input
-              onChange={(event) => setApiKeyInput(event.target.value)}
-              placeholder={hasApiKey ? 'A key is saved — type to replace it' : 'Stored encrypted on this device'}
-              type="password"
-              value={apiKeyInput}
-            />
-          </div>
-        </label>
+      <div className="save-cluster save-cluster-end">
+        {saveState && <span className="inline-status" role="status">{saveState}</span>}
+        <button className="primary-button compact-button" disabled={loading} onClick={() => void onSave()} type="button">Save AI settings</button>
       </div>
 
-      <div className="settings-action-row">
-        <p>
-          Keys are encrypted on this device and sent only to the provider you choose — never to Chronicle's backend.
-          {hasApiKey && (
-            <> <button className="text-button inline-clear" onClick={() => void onClearKey()} type="button">Remove saved key</button></>
-          )}
-        </p>
-        <div className="save-cluster">
-          {saveState && <span className="inline-status" role="status">{saveState}</span>}
-          <button className="primary-button compact-button" disabled={loading} onClick={() => void onSave()} type="button">Save AI settings</button>
+      <div className="api-keys">
+        <div className="api-keys-heading">
+          <h3>Provider API keys</h3>
+          <p>Save a key per provider you use. Keys are encrypted on this device and sent only to that provider — never to Chronicle's backend. A task's provider can be switched without re-entering its key.</p>
         </div>
+        {keyProviders.map((provider) => (
+          <ApiKeyRow
+            key={provider.id}
+            provider={provider.id}
+            label={provider.label}
+            saved={configuredProviders.includes(provider.id)}
+            onSave={setApiKey}
+            onClear={clearApiKey}
+          />
+        ))}
       </div>
     </section>
+  )
+}
+
+function ApiKeyRow({
+  provider,
+  label,
+  saved,
+  onSave,
+  onClear,
+}: {
+  provider: string
+  label: string
+  saved: boolean
+  onSave: (provider: string, key: string) => Promise<void>
+  onClear: (provider: string) => Promise<void>
+}) {
+  const [draft, setDraft] = useState('')
+  const [status, setStatus] = useState<string | null>(null)
+
+  const save = async () => {
+    if (!draft.trim()) return
+    setStatus('Saving…')
+    try {
+      await onSave(provider, draft.trim())
+      setDraft('')
+      setStatus('Saved.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const clear = async () => {
+    await onClear(provider)
+    setStatus('Removed.')
+  }
+
+  return (
+    <div className="api-key-row">
+      <div className="api-key-label">
+        <strong>{label}</strong>
+        {saved && <em className="key-saved-badge">Saved</em>}
+        {status && <span className="inline-status" role="status">{status}</span>}
+      </div>
+      <div className="input-with-icon">
+        <Icon name="key" />
+        <input
+          aria-label={`${label} API key`}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder={saved ? 'Saved — type to replace it' : 'Paste API key'}
+          type="password"
+          value={draft}
+        />
+      </div>
+      <div className="api-key-actions">
+        <button className="secondary-button compact-button" disabled={!draft.trim()} onClick={() => void save()} type="button">Save</button>
+        {saved && <button className="text-button" onClick={() => void clear()} type="button">Remove</button>}
+      </div>
+    </div>
   )
 }
 

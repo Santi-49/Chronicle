@@ -160,9 +160,13 @@ export interface ChronicleApi {
   // C5 — settings (secrets handled separately, see below)
   getSettings(): Promise<AppSettings>
   updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>
-  setApiKey(key: string): Promise<void> // encrypted via safeStorage; never readable back
-  hasApiKey(): Promise<boolean>
-  clearApiKey(): Promise<void>
+  // BYOK keys are stored per provider, encrypted via safeStorage, and never
+  // readable back over IPC. Saving a key per provider lets a task's provider be
+  // switched without re-entering credentials.
+  setApiKey(provider: string, key: string): Promise<void>
+  clearApiKey(provider: string): Promise<void>
+  /** Provider ids that currently have a saved key (for "Saved" badges / readiness). */
+  configuredProviders(): Promise<string[]>
 
   // F1 — account (low priority; everything above works in 'local' mode)
   getAccountState(): Promise<AccountState>

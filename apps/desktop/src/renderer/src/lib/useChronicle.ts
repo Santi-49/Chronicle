@@ -140,26 +140,29 @@ export function useVersionDetails(versionId: number): AsyncState<VersionDetails>
 
 export interface SettingsApi {
   settings: AppSettings | undefined
-  hasApiKey: boolean
+  /** Provider ids with a saved key (BYOK). */
+  configuredProviders: string[]
   loading: boolean
   save: (patch: Partial<AppSettings>) => Promise<void>
-  setApiKey: (key: string) => Promise<void>
-  clearApiKey: () => Promise<void>
+  setApiKey: (provider: string, key: string) => Promise<void>
+  clearApiKey: (provider: string) => Promise<void>
 }
 
 export function useSettings(): SettingsApi {
   const [settings, setSettings] = useState<AppSettings>()
-  const [hasApiKey, setHasApiKey] = useState(false)
+  const [configuredProviders, setConfiguredProviders] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
-    void Promise.all([chronicle.getSettings(), chronicle.hasApiKey()]).then(([s, has]) => {
-      if (cancelled) return
-      setSettings(s)
-      setHasApiKey(has)
-      setLoading(false)
-    })
+    void Promise.all([chronicle.getSettings(), chronicle.configuredProviders()]).then(
+      ([s, providers]) => {
+        if (cancelled) return
+        setSettings(s)
+        setConfiguredProviders(providers)
+        setLoading(false)
+      },
+    )
     return () => {
       cancelled = true
     }
@@ -170,17 +173,17 @@ export function useSettings(): SettingsApi {
     setSettings(next)
   }, [])
 
-  const setApiKey = useCallback(async (key: string) => {
-    await chronicle.setApiKey(key)
-    setHasApiKey(true)
+  const setApiKey = useCallback(async (provider: string, key: string) => {
+    await chronicle.setApiKey(provider, key)
+    setConfiguredProviders((prev) => (prev.includes(provider) ? prev : [...prev, provider]))
   }, [])
 
-  const clearApiKey = useCallback(async () => {
-    await chronicle.clearApiKey()
-    setHasApiKey(false)
+  const clearApiKey = useCallback(async (provider: string) => {
+    await chronicle.clearApiKey(provider)
+    setConfiguredProviders((prev) => prev.filter((p) => p !== provider))
   }, [])
 
-  return { settings, hasApiKey, loading, save, setApiKey, clearApiKey }
+  return { settings, configuredProviders, loading, save, setApiKey, clearApiKey }
 }
 
 // ── Search ────────────────────────────────────────────────────────────────

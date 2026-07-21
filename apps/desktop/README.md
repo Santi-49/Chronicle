@@ -45,15 +45,16 @@ The preload exposes exactly `ChronicleBridge` (`src/shared/ipc.ts`) as
 `window.chronicle`; behavior lives in `src/main/ipc/services.ts` (Electron-free,
 tested), Electron glue in `src/main/ipc/register.ts`. Images reach the renderer
 only as `chronicle://image/<hash>` URLs served from the library — never bytes or
-filesystem paths. The BYOK API key is written via `safeStorage`, is never
-readable back over IPC, and never appears in `getSettings()`.
+filesystem paths. BYOK API keys are written via `safeStorage`, **one per
+provider**, are never readable back over IPC, and never appear in `getSettings()`
+— the renderer only learns which providers have a key (`configuredProviders`).
 
 | C1 surface | Status |
 |---|---|
 | `listFolders` / `pickFolder` / `scanFolder` / `addFolder` / `updateFolder` / `removeFolder` (F2) | ✅ native picker, folder scan preview, presentation fields (displayName/icon/color), per-folder tracking selection (`excludedPaths`/`allowedExtensions`, enforced by the watcher), live watching |
 | `listAssets` / `getTimeline` / `getVersionDetails` (F5) | ✅ |
 | `retryAnnotation` (F4) | ✅ re-queues; the AI worker itself is MVP-09 |
-| `getSettings` / `updateSettings` / `setApiKey` / `hasApiKey` / `clearApiKey` (C5) | ✅ |
+| `getSettings` / `updateSettings` / `setApiKey(provider,key)` / `clearApiKey(provider)` / `configuredProviders` (C5) | ✅ per-provider BYOK keys (switch a task's provider without re-entering) |
 | `getAppStatus` + all four events (`versionCaptured`, `annotationUpdated`, `statusChanged`, `fileSkipped`) | ✅ |
 | `getAccountState` / `logout` | ✅ always local mode for now |
 | `restoreVersion` / `saveVersionCopy` (F6) | ⏳ MVP-07 — rejects "not implemented yet" |

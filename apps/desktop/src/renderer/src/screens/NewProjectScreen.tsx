@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { Icon, type IconName } from '../components/Icon'
 import { FOLDER_COLORS, FOLDER_ICONS } from '../components/FolderGlyph'
 import { PageHeader } from '../components/PageHeader'
@@ -22,20 +22,50 @@ function baseName(p: string): string {
   return parts[parts.length - 1] ?? p
 }
 
-/** Group scan entries by their parent directory (relative, "/"-normalized), root first. */
-function groupByDirectory(entries: FolderScanEntry[]): { dir: string; files: FolderScanEntry[] }[] {
-  const groups = new Map<string, FolderScanEntry[]>()
+interface FileNode {
+  type: 'file'
+  name: string
+  entry: FolderScanEntry
+}
+interface DirNode {
+  type: 'dir'
+  name: string
+  /** Relative path of this directory, "/"-normalized (root = ""). */
+  relPath: string
+  dirs: DirNode[]
+  files: FileNode[]
+}
+
+/** Build a nested folder tree from the flat scan result. */
+function buildTree(entries: FolderScanEntry[]): DirNode {
+  const root: DirNode = { type: 'dir', name: '', relPath: '', dirs: [], files: [] }
   for (const entry of entries) {
-    const normalized = entry.relativePath.replace(/\\/g, '/')
-    const slash = normalized.lastIndexOf('/')
-    const dir = slash === -1 ? '' : normalized.slice(0, slash)
-    const list = groups.get(dir) ?? []
-    list.push(entry)
-    groups.set(dir, list)
+    const parts = entry.relativePath.replace(/\\/g, '/').split('/')
+    let node = root
+    for (let i = 0; i < parts.length - 1; i++) {
+      const name = parts[i]!
+      const relPath = node.relPath ? `${node.relPath}/${name}` : name
+      let child = node.dirs.find((d) => d.name === name)
+      if (!child) {
+        child = { type: 'dir', name, relPath, dirs: [], files: [] }
+        node.dirs.push(child)
+      }
+      node = child
+    }
+    node.files.push({ type: 'file', name: parts[parts.length - 1]!, entry })
   }
-  return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dir, files]) => ({ dir, files }))
+  const sort = (dir: DirNode): void => {
+    dir.dirs.sort((a, b) => a.name.localeCompare(b.name))
+    dir.files.sort((a, b) => a.name.localeCompare(b.name))
+    dir.dirs.forEach(sort)
+  }
+  sort(root)
+  return root
+}
+
+/** All file entries anywhere under a directory node (recursive). */
+function filesUnder(dir: DirNode): FolderScanEntry[] {
+  return [...dir.files.map((f) => f.entry), ...dir.dirs.flatMap(filesUnder)]
 }
 
 export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps) {
@@ -53,6 +83,7 @@ export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps)
   const [scanning, setScanning] = useState(false)
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
   const [enabledTypes, setEnabledTypes] = useState<Set<'png' | 'jpg'>>(new Set(['png', 'jpg']))
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const activeColor = customColor ?? color
 
@@ -69,7 +100,99 @@ export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps)
   const eligible = scan ? scan.filter(typeEnabled) : []
   const allTracked = eligible.length > 0 && eligible.every((e) => !excluded.has(e.path))
 
-  const groups = useMemo(() => (scan ? groupByDirectory(scan) : []), [scan])
+  const tree = useMemo(() => (scan ? buildTree(scan) : null), [scan])
+
+  const toggleExpand = (relPath: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(relPath)) next.delete(relPath)
+      else next.add(relPath)
+      return next
+    })
+  }
+
+  /** Select/deselect every eligible file under a directory in one click. */
+  const toggleFolder = (dir: DirNode) => {
+    const eligiblePaths = filesUnder(dir).filter(typeEnabled).map((e) => e.path)
+    const allSelected = eligiblePaths.length > 0 && eligiblePaths.every((p) => !excluded.has(p))
+    setExcluded((prev) => {
+      const next = new Set(prev)
+      if (allSelected) eligiblePaths.forEach((p) => next.add(p))
+      else eligiblePaths.forEach((p) => next.delete(p))
+      return next
+    })
+  }
+
+  /** Recursive tree: folders (collapsed by default) then files, indented by depth. */
+  const renderNodes = (dir: DirNode, depth: number): ReactElement[] => {
+    const rows: ReactElement[] = []
+    const indent = { paddingLeft: depth * 18 + 12 }
+
+    for (const child of dir.dirs) {
+      const open = expanded.has(child.relPath)
+      const eligiblePaths = filesUnder(child).filter(typeEnabled).map((e) => e.path)
+      const trackedN = eligiblePaths.filter((p) => !excluded.has(p)).length
+      const allSel = eligiblePaths.length > 0 && trackedN === eligiblePaths.length
+      const someSel = trackedN > 0
+
+      rows.push(
+        <div className="tree-row tree-folder-row" key={`d:${child.relPath}`} style={indent}>
+          <button
+            aria-expanded={open}
+            aria-label={open ? 'Collapse folder' : 'Expand folder'}
+            className="tree-disclosure"
+            onClick={() => toggleExpand(child.relPath)}
+            type="button"
+          >
+            <Icon name="chevron-right" className={open ? 'tree-chevron tree-chevron-open' : 'tree-chevron'} />
+          </button>
+          <input
+            aria-label={`Track all files in ${child.name}`}
+            checked={allSel}
+            className="tree-check"
+            disabled={eligiblePaths.length === 0}
+            onChange={() => toggleFolder(child)}
+            ref={(el) => {
+              if (el) el.indeterminate = someSel && !allSel
+            }}
+            type="checkbox"
+          />
+          <button className="tree-folder-name" onClick={() => toggleExpand(child.relPath)} type="button">
+            <Icon name="folder" />
+            <span>{child.name}</span>
+            <em>{trackedN}/{eligiblePaths.length}</em>
+          </button>
+        </div>,
+      )
+      if (open) rows.push(...renderNodes(child, depth + 1))
+    }
+
+    for (const file of dir.files) {
+      const enabled = typeEnabled(file.entry)
+      rows.push(
+        <label
+          className={enabled ? 'tree-row tree-file-row' : 'tree-row tree-file-row scan-file-disabled'}
+          key={`f:${file.entry.path}`}
+          style={indent}
+          title={enabled ? '' : 'This file type is turned off above'}
+        >
+          <span className="tree-disclosure-spacer" />
+          <input
+            checked={isTracked(file.entry)}
+            className="tree-check"
+            disabled={!enabled}
+            onChange={() => toggleFile(file.entry)}
+            type="checkbox"
+          />
+          <Icon name="image" className="tree-file-icon" />
+          <span className="tree-file-name">{file.name}</span>
+          <span className="tree-file-size">{formatBytes(file.entry.sizeBytes)}</span>
+        </label>,
+      )
+    }
+
+    return rows
+  }
 
   const handleBrowse = async () => {
     setError(null)
@@ -310,36 +433,8 @@ export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps)
                 <p className="scan-empty">No PNG or JPG files here yet — versions will appear as you save them.</p>
               )}
 
-              {scan && scan.length > 0 && (
-                <div className="scan-tree">
-                  {groups.map((group) => (
-                    <div className="scan-group" key={group.dir || '.'}>
-                      <div className="scan-group-label">
-                        <Icon name="folder" />
-                        {group.dir || 'Root folder'}
-                      </div>
-                      {group.files.map((entry) => {
-                        const enabled = typeEnabled(entry)
-                        return (
-                          <label
-                            className={enabled ? 'scan-file' : 'scan-file scan-file-disabled'}
-                            key={entry.path}
-                            title={enabled ? '' : 'This file type is turned off above'}
-                          >
-                            <input
-                              checked={isTracked(entry)}
-                              disabled={!enabled}
-                              onChange={() => toggleFile(entry)}
-                              type="checkbox"
-                            />
-                            <span className="scan-file-name">{baseName(entry.relativePath)}</span>
-                            <span className="scan-file-size">{formatBytes(entry.sizeBytes)}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                  ))}
-                </div>
+              {tree && scan && scan.length > 0 && (
+                <div className="scan-tree">{renderNodes(tree, 0)}</div>
               )}
             </div>
           )}

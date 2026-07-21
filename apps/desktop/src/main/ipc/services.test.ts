@@ -45,7 +45,7 @@ let services: ChronicleServices
 let events: RecordedEvent[]
 let nextPick: string | null
 let online: boolean
-let secretValue: string | null
+let secretKeys: Map<string, string>
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ipc-'))
@@ -56,20 +56,21 @@ beforeEach(() => {
   events = []
   nextPick = null
   online = true
-  secretValue = null
+  secretKeys = new Map()
   services = createChronicleServices({
     db,
     libraryRoot,
     emit: (event, payload) => events.push({ event, payload }),
     pickFolder: async () => nextPick,
     secrets: {
-      set: (plaintext) => {
-        secretValue = plaintext
+      set: (provider, plaintext) => {
+        secretKeys.set(provider, plaintext)
       },
-      has: () => secretValue !== null,
-      clear: () => {
-        secretValue = null
+      has: (provider) => secretKeys.has(provider),
+      clear: (provider) => {
+        secretKeys.delete(provider)
       },
+      providers: () => [...secretKeys.keys()],
     },
     isOnline: () => online,
     settleMs: 120, // production keeps the C4 2 s default
@@ -452,19 +453,23 @@ describe('settings and the secret boundary', () => {
     await expect(services.api.updateSettings('nope' as never)).rejects.toThrow(TypeError)
   })
 
-  it('stores the API key write-only: never readable, never in settings', async () => {
-    await expect(services.api.setApiKey('')).rejects.toThrow(/empty/)
-    await expect(services.api.setApiKey(42 as unknown as string)).rejects.toThrow(TypeError)
+  it('stores API keys per provider, write-only: never readable, never in settings', async () => {
+    await expect(services.api.setApiKey('google', '')).rejects.toThrow(/empty/)
+    await expect(services.api.setApiKey('', 'sk-x')).rejects.toThrow(/provider/)
+    await expect(services.api.setApiKey('google', 42 as unknown as string)).rejects.toThrow(TypeError)
 
-    await services.api.setApiKey('sk-super-secret')
-    expect(await services.api.hasApiKey()).toBe(true)
-    // The whole renderer-visible settings payload must not contain the key.
-    expect(JSON.stringify(await services.api.getSettings())).not.toContain('sk-super-secret')
-    // And no C1 method returns it — the api object simply has no getter.
+    await services.api.setApiKey('google', 'sk-google-secret')
+    await services.api.setApiKey('openai', 'sk-openai-secret')
+    expect((await services.api.configuredProviders()).sort()).toEqual(['google', 'openai'])
+    // The whole renderer-visible settings payload must not contain any key.
+    const settingsJson = JSON.stringify(await services.api.getSettings())
+    expect(settingsJson).not.toContain('sk-google-secret')
+    expect(settingsJson).not.toContain('sk-openai-secret')
+    // And no C1 method returns a key — the api object simply has no getter.
     expect('getApiKey' in services.api).toBe(false)
 
-    await services.api.clearApiKey()
-    expect(await services.api.hasApiKey()).toBe(false)
+    await services.api.clearApiKey('google')
+    expect(await services.api.configuredProviders()).toEqual(['openai'])
   })
 })
 
@@ -489,7 +494,7 @@ describe('getAppStatus', () => {
     })
     await seedCapture('logo.png', pngBytes(3, 3)) // enqueues one AI job
     online = false
-    await services.api.setApiKey('sk-x') // key alone, no provider/model → not configured
+    await services.api.setApiKey('anthropic', 'sk-x') // key saved, but chat provider is '' → not configured
     expect((await services.api.getAppStatus()).aiConfigured).toBe(false)
     await services.api.updateSettings({
       ai: {
