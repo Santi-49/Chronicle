@@ -177,7 +177,9 @@ results are a single ranked list of **versions** (thumbnail, asset name, version
 matched summary/tags snippet). Keyword and semantic engines run together behind the same
 box — the user never chooses a "mode". Click a result → Version details.
 
-- *Planned:* offline note when semantic indexing is still pending for recent versions.
+- A live status notice appears while recent versions still need semantic indexing. It distinguishes
+  active indexing, work paused offline, and missing AI setup; in every state it confirms that
+  keyword search remains available while meaning-based matches catch up.
 
 ### 9. Settings — F1, F2, F4/F9 config
 
