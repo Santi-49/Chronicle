@@ -1,15 +1,20 @@
-export function ChronicleMark() {
+import type { CSSProperties } from 'react'
+import markDarkUrl from '../../../../../../packages/brand/assets/chronicle-mark-dark.svg'
+import markLightUrl from '../../../../../../packages/brand/assets/chronicle-mark-light.svg'
+
+/** Shared Chronicle mark; SVG sources live in packages/brand for cross-app reuse. */
+export function ChronicleMark({ size = 32 }: { size?: number }) {
+  const style = { '--brand-mark-size': `${size}px` } as CSSProperties
+
   return (
-    <svg
+    <span
       aria-hidden="true"
       className="brand-mark"
-      viewBox="0 0 32 32"
-      fill="none"
+      style={style}
     >
-      <rect x="5" y="8" width="18" height="18" rx="3" />
-      <path d="M10 8V6.5A2.5 2.5 0 0 1 12.5 4h12A2.5 2.5 0 0 1 27 6.5v12a2.5 2.5 0 0 1-2.5 2.5H23" />
-      <path d="M10 14h8M10 19h6" />
-    </svg>
+      <img alt="" className="brand-mark-image brand-mark-image-dark" src={markDarkUrl} />
+      <img alt="" className="brand-mark-image brand-mark-image-light" src={markLightUrl} />
+    </span>
   )
 }
 

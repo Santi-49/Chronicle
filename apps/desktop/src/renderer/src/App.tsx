@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { AppShell } from './components/AppShell'
 import { ThemeToggle } from './components/ThemeToggle'
 import { WindowTitleBar } from './components/WindowTitleBar'
@@ -140,10 +140,13 @@ export default function App() {
   )
   const theme = themePreference === 'system' ? systemTheme : themePreference
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme
     document.documentElement.style.colorScheme = theme
     localStorage.setItem('chronicle-theme-preference', themePreference)
+    void window.chronicle
+      .setWindowTheme(theme)
+      .catch((error) => console.error('[chronicle] failed to theme native window controls:', error))
   }, [theme, themePreference])
 
   useEffect(() => {

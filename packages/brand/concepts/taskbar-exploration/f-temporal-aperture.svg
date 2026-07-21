@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <title>F — Temporal Aperture</title>
+  <path d="M24 5a19 19 0 0 1 16.5 9.5L29 17Z" fill="#ec4899"/>
+  <path d="M40.5 14.5A19 19 0 0 1 40.5 33L32 24Z" fill="#a855f7"/>
+  <path d="M40.5 33A19 19 0 0 1 24 42l2-13Z" fill="#7e22ce"/>
+  <path d="M24 42A19 19 0 0 1 7.5 32.5L19 30Z" fill="#6d28d9"/>
+  <path d="M7.5 32.5A19 19 0 0 1 7.5 14L16 24Z" fill="#8b5cf6"/>
+  <path d="M7.5 14A19 19 0 0 1 24 5l-2 13Z" fill="#c084fc"/>
+  <circle cx="24" cy="24" r="5" fill="#faf5ff"/>
+</svg>

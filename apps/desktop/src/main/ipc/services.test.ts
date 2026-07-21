@@ -21,10 +21,12 @@ import {
   getAnnotation,
   getAssetByPath,
   getEmbedding,
+  getSetting,
   getVersion,
   listJobs,
   saveAnnotation,
   saveEmbedding,
+  setSetting,
   setVersionAiStatus,
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
@@ -51,6 +53,8 @@ let events: RecordedEvent[]
 let nextPick: string | null
 let nextSavePath: string | null
 let online: boolean
+let secretValue: string | null
+let windowTheme: 'dark' | 'light' | null
 let secretKeys: Map<string, string>
 
 beforeEach(() => {
@@ -63,6 +67,8 @@ beforeEach(() => {
   nextPick = null
   nextSavePath = null
   online = true
+  secretValue = null
+  windowTheme = null
   secretKeys = new Map()
   services = createChronicleServices({
     db,
@@ -81,6 +87,9 @@ beforeEach(() => {
       providers: () => [...secretKeys.keys()],
     },
     isOnline: () => online,
+    setWindowTheme: (theme) => {
+      windowTheme = theme
+    },
     settleMs: 120, // production keeps the C4 2 s default
   })
 })
@@ -153,6 +162,13 @@ describe('C1 contract surface', () => {
       isAdmin: false,
     })
     await expect(services.api.logout()).resolves.toBeUndefined()
+  })
+
+  it('validates and applies the native window theme', async () => {
+    await services.api.setWindowTheme('light')
+    expect(windowTheme).toBe('light')
+    await expect(services.api.setWindowTheme('sepia' as never)).rejects.toThrow(TypeError)
+    expect(windowTheme).toBe('light')
   })
 })
 
@@ -607,6 +623,16 @@ describe('settings and the secret boundary', () => {
     expect(updated.ai.chat.provider).toBe('anthropic')
     expect(updated.controlPlane).toEqual(DEFAULT_SETTINGS.controlPlane) // untouched section
     expect((await services.api.getSettings()).ai.chat.model).toBe('claude-x')
+  })
+
+  it('migrates the retired persisted appearance setting', async () => {
+    setSetting(db, 'app-settings', {
+      appearance: { theme: 'dark' },
+      ...DEFAULT_SETTINGS,
+    })
+
+    expect(await services.api.getSettings()).toEqual(DEFAULT_SETTINGS)
+    expect(getSetting(db, 'app-settings')).toEqual(DEFAULT_SETTINGS)
   })
 
   it('rejects malformed patches', async () => {

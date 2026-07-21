@@ -14,6 +14,7 @@
 import type { ChronicleApi, ChronicleEventName, ChronicleEvents } from '../../shared/ipc'
 
 const API_METHODS = {
+  setWindowTheme: true,
   listFolders: true,
   pickFolder: true,
   scanFolder: true,

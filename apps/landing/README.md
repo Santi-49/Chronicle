@@ -24,3 +24,4 @@ npm run export:mockup
 ```
 
 The exporter builds the Astro site, starts a local preview server, reveals the hidden live 3D mockup, captures it with Playwright/Chromium, trims fully transparent pixels from the output, and writes the updated PNG back to `public/exports/tilted-app-mockup.png`.
+

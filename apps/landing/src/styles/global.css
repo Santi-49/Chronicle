@@ -111,13 +111,10 @@ a {
 }
 
 .brand__icon {
-  display: grid;
-  place-items: center;
-  width: 21px;
-  height: 21px;
-  border: 1px solid white;
-  border-radius: 50%;
-  font-size: 0.78rem;
+  display: block;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
 }
 
 .nav {

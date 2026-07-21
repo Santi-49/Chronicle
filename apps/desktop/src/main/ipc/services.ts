@@ -21,6 +21,7 @@ import type {
   AppStatus,
   AssetSummary,
   ChronicleApi,
+  WindowTheme,
   FolderMetaPatch,
   FolderScanEntry,
   PendingJob,
@@ -96,6 +97,8 @@ export interface ChronicleServicesDeps {
   pickVersionCopyPath: (suggestedName: string) => Promise<string | null>
   secrets: SecretStore
   isOnline: () => boolean
+  /** Applies theme colors to native title-bar controls. */
+  setWindowTheme: (theme: WindowTheme) => void
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
   settleMs?: number
   emitInitial?: boolean
@@ -309,6 +312,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
   }
 
   const api: ChronicleApi = {
+    async setWindowTheme(theme) {
+      if (theme !== 'light' && theme !== 'dark') {
+        throw new TypeError("theme must be 'light' or 'dark'")
+      }
+      deps.setWindowTheme(theme)
+    },
+
     // F2 — tracked folders
     async listFolders() {
       return listTrackedFolders(db)
@@ -507,10 +517,23 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
 
     // C5 — settings (secrets live in SecretStore, never in this object)
     async getSettings() {
-      const stored = getSetting<AppSettings>(db, SETTINGS_KEY)
+      const stored = getSetting<unknown>(db, SETTINGS_KEY)
       // Merging over the defaults keeps old stored settings valid when a
       // field is added; mergeSettings also re-validates what was stored.
-      return stored ? mergeSettings(DEFAULT_SETTINGS, stored) : structuredClone(DEFAULT_SETTINGS)
+      if (stored === undefined) return structuredClone(DEFAULT_SETTINGS)
+
+      // Older builds persisted appearance here. Theme preference now belongs
+      // to renderer-local storage, so remove that retired field once while
+      // retaining strict unknown-key validation for renderer-provided patches.
+      if (isPlainObject(stored) && Object.hasOwn(stored, 'appearance')) {
+        const migratedPatch = { ...stored }
+        delete migratedPatch['appearance']
+        const migrated = mergeSettings(DEFAULT_SETTINGS, migratedPatch)
+        setSetting(db, SETTINGS_KEY, migrated)
+        return migrated
+      }
+
+      return mergeSettings(DEFAULT_SETTINGS, stored)
     },
 
     async updateSettings(patch) {
