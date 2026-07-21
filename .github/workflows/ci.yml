@@ -28,6 +28,8 @@ jobs:
       - run: npm ci
         working-directory: apps/desktop
       - run: python scripts/check_versions.py
+      - run: npm run generate-api-types
+        working-directory: apps/desktop
       - run: npm run typecheck
         working-directory: apps/desktop
       - run: npm test

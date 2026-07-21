@@ -45,6 +45,10 @@ dist/
 # (compose files are committed; ignore local override secrets if any)
 
 # ── IDEs ──────────────────────────────────────────────────────────────
+.claude/
+.codex/
+.cursor/
+.vscode/
 .idea/
 *.swp
 *.swo
@@ -62,7 +66,7 @@ demo-assets/workspace/
 demo-assets/.state.json
 
 # ── Generated contract artifacts ──────────────────────────────────────
-packages/contracts/api/generated/
+# Generated TypeScript is committed so clean checkouts compile; CI verifies drift.
 packages/contracts/api/openapi.yaml
 
 # ── Alembic ───────────────────────────────────────────────────────────
@@ -74,4 +78,3 @@ packages/contracts/api/openapi.yaml
 # Local test files
 test_gemini.py
 .env
-.vscode/settings.json

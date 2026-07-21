@@ -60,6 +60,66 @@ Every `main` commit is buildable, but only a reviewed release PR produces a dura
 The action attaches release files; POST-08 still owns `electron-updater`, `latest.yml`, update UI,
 code signing, and macOS publication.
 
+## One-time GitHub setup (repository administrator)
+
+1. Push this branch so GitHub can discover the workflows and their check names.
+2. In **Settings → Secrets and variables → Actions**, create the repository secret
+   `RELEASE_PLEASE_TOKEN`. Use a fine-grained PAT limited to this repository with Contents,
+   Pull requests, and Issues read/write permissions. The token owner must be allowed to create
+   pull requests in the repository.
+3. In **Settings → Actions → General → Workflow permissions**, select **Read and write
+   permissions** and enable **Allow GitHub Actions to create and approve pull requests**.
+4. In **Settings → Rules → Rulesets**, create an active branch ruleset named `Protect main` whose
+   target is the exact branch `main`.
+5. Enable **Require a pull request before merging**, require at least one approval, block force
+   pushes and deletions, and do not grant routine bypass access.
+6. Enable **Require status checks to pass** and select these checks after they have run once:
+   `Desktop (Windows)`, `AI service and C3 contract`, and `Control plane and C6 contract`.
+7. Do not select checks from `Package main` or `Release desktop`: those run after merge and cannot
+   gate the PR. Do not enable GitHub's merge queue unless the workflow also gains a `merge_group`
+   trigger.
+
+The ruleset applies only to `main`. There is intentionally no required CI ruleset for `dev`.
+
+## Merging development into main
+
+The normal promotion flow is:
+
+1. Merge feature branches into `dev` after review.
+2. Open one PR with base `main` and compare `dev`. For the initial MVP-12 rollout, the current
+   feature branch may be used as the compare branch because it is based on `dev` and therefore
+   promotes the same accumulated development history.
+3. Wait for all three **Main PR CI** jobs and the human review. Resolve failures on the compare
+   branch; never push a fix directly to `main`.
+4. Squash-merge or merge the PR. Preserve a Conventional Commit title such as `feat: ...` or
+   `fix: ...`, because Release Please determines the next desktop version from commits on `main`.
+5. Check the **Actions** tab. `Package main` should upload an installable workflow artifact, while
+   `Release desktop` creates or refreshes the Release Please PR.
+
+## Creating a new public version
+
+Do not edit `apps/desktop/package.json`, create a tag, or draft a GitHub Release manually during
+the normal flow.
+
+1. Review the automated `chore(main): release ...` PR. Confirm its proposed version and changelog.
+2. Let the same three PR checks pass, approve it, and merge it into `main`.
+3. Release Please creates `vX.Y.Z` and the GitHub Release. `Release desktop` then rebuilds the exact
+   tag, verifies it matches `package.json`, and attaches the Windows installer and checksum.
+4. Download the installer from the Release, verify the checksum, and complete the release smoke
+   test before sharing the URL.
+
+For an exceptional forced version, use Release Please's documented `Release-As: X.Y.Z` commit
+footer and review the resulting release PR. Do not change the manifest and package version by hand.
+
+## Packaged AI providers
+
+The MVP Windows sidecar bundles **Google Gemini only**. The source service also supports LangChain
+extras for OpenAI, Anthropic, and IBM watsonx in development, but those packages and PyInstaller
+hooks are not in the installer. Amazon Bedrock appears in the UI catalog through LangChain's AWS
+integration but likewise is not packaged. Adding a provider requires installing its Python extra,
+adding its PyInstaller metadata/hidden imports, and running a real provider plus clean-machine
+installer smoke test before the UI may promise installed support.
+
 ## Local release verification
 
 ```powershell
