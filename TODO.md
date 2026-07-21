@@ -618,6 +618,252 @@ Do not claim these while any MVP task above is incomplete:
 - Future formats (SVG, BLEND, OBJ, STEP/STP, PSD, PSB), rename tracking, cloud sync,
   collaboration, branching, or visual diff
 
+## Phase 6 — Post-MVP roadmap
+
+These tasks are **out of MVP scope** and must not delay any `MVP-*` task or the Jul 31
+submission. They are scoped here so the direction is agreed before work starts. Each still
+follows every shared rule above (contract-first, PRs into `dev`, async AI, library defaults,
+secrets never in git, `docs/bob-log.md` line per PR). Contract-touching tasks (`C1`, `C3`,
+`C5`, `C6`) require a coordinated contract change proposed *before* implementation, per
+`docs/contracts.md`.
+
+### [ ] POST-01 — Refactor the AI annotation request to carry an explicit file format `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** MVP-09
+**Goal:** Make the C3 `annotate` request format-aware so the AI service can dispatch
+per-format extraction later, *without* changing MVP behavior for images. This is the
+prerequisite refactor before any future format is added (POST-02).
+
+> Today C3 carries only base64 bytes + `mediaType` (`ImageInput`). Add an explicit
+> `format` field (an enum of supported formats) to the annotate request so the service
+> selects the right extraction/preview path per version, rather than inferring it from a
+> media type. Keep the change backward-compatible for PNG/JPG so existing captures and the
+> demo pack keep working unchanged.
+
+**May edit:** `packages/contracts/ai/**` (through the agreed C3 change: OpenAPI +
+`output.schema.json` + generated TS client), `services/ai/**` (request model + dispatch),
+`apps/desktop/src/main/ai/**` (worker/client passing the format through), related tests.
+**Must not edit:** C3 *output* (annotation) schema semantics, C1, C5, or the control plane.
+
+**Required functionality:** Add a `format` (or `fileType`) enum to the annotate request;
+the watcher/capture layer already knows a version's extension, so thread it through the
+queue → worker → service; the service maps `format` to a handler and, for the MVP formats,
+keeps the current image path. Unknown/unsupported formats are rejected with a clear error,
+not silently annotated.
+
+**Contracts touched:** C3 request shape (coordinated change; regenerate TS types). No
+output-schema change. AI work stays async.
+
+**Docs to update:** `packages/contracts/ai/interface.ts` doc comments and the C3 row in
+`docs/contracts.md`; `services/ai/README.md`; one line in `docs/bob-log.md`.
+
+**Done when:** The annotate request includes a validated `format` field; PNG/JPG diffs and
+first-version descriptions still pass on the demo fixtures through the running service;
+generated TS types compile; an unsupported format returns a typed error.
+
+### [ ] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** POST-01
+**Goal:** Add support for the selected future formats behind the format-aware request,
+using the researched adapter pipeline: **safe extraction → normalized preview / structure
+diff → LangChain annotation**. Do not send opaque project bytes to a model and hope it
+understands a proprietary container.
+
+**Required reading first:** `docs/challenge/RESEARCH.md` → "Creative File Formats and the
+Version-Sprawl Opportunity" (extraction approach, safety rules, and the agreed prioritization
+order: PSD/PSB and SVG first, then BLEND, then OBJ and STEP/STP).
+
+**Format checklist** (mark `[x]` when its extraction + preview + annotation path ships and
+is tested on a fixture pair; PNG/JPG are the MVP baseline, already done):
+
+- [x] PNG *(MVP)*
+- [x] JPG / JPEG *(MVP)*
+- [ ] PSD
+- [ ] PSB
+- [ ] SVG
+- [ ] BLEND
+- [ ] OBJ
+- [ ] STEP / STP
+
+**May edit:** `services/ai/**` (per-format extractors/preview generators + handlers),
+`packages/contracts/ai/**` only to widen the POST-01 `format` enum, format fixtures and
+tests, prompt assets under `packages/prompts/` when recording an intentional experiment.
+**Must not edit:** C1; C5; the control plane.
+
+**Required functionality:** For each format, a safe extractor (no executing embedded
+macros/Python/plug-ins/editor scripts; scripts disabled, restricted network, time/memory
+limits, explicit user consent for host-app rendering) that produces a normalized preview
+and/or structure JSON; the annotation states both the change and its coverage/confidence
+(the nullable C3 `confidence` field) when dependencies are missing or extraction is partial.
+
+**Contracts touched:** C3 request `format` enum widened per format (coordinated). No
+output-schema change — `confidence` already exists.
+
+**Docs to update:** `services/ai/README.md` (per-format extraction + safety notes); a
+findings entry in `docs/challenge/RESEARCH.md`; front-matter notes on prompt experiments in
+`packages/prompts/`; one line in `docs/bob-log.md`.
+
+**Done when:** Each checked format annotates a fixture version pair through the running
+service with a factual, coverage-aware message; unsupported/partial cases degrade gracefully
+without crashing capture; no untrusted embedded code is ever executed.
+
+### [ ] POST-03 — Build the control-plane API and Google sign-in `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** Nothing in the MVP (control plane is pre-built auth; extend, don't rewrite)
+**Goal:** Stand up the optional control plane (F1/C6) and add **Google sign-in** on top of
+the pre-built JWT + Redis whitelist auth, so an account can be linked from the desktop app.
+Signing in never gates a local feature (spec F1).
+
+**May edit:** `services/api/**` (new auth route for Google OAuth, account-config endpoints),
+`infra/opa/policies/**` (authorization rules), Alembic migrations, `packages/contracts/api/**`
+(planned shapes → OpenAPI → `make generate-types`), the desktop startup/settings sign-in flow
+in the renderer.
+**Must not edit:** Local capture/version/search behavior; C3; the AI service.
+
+**Required functionality:** Google OAuth flow issuing the existing JWT session; `GET/PUT
+/account/config` (small JSON: preferred AI provider, telemetry opt-in — **never** the BYOK
+key); session persists across restarts with automatic refresh (pre-built stack). The Google
+sign-in control must follow Google branding (standard-color "G", approved "Continue with
+Google" wording — see `docs/challenge/RESEARCH.md`); no improvised or recolored mark.
+
+**Contracts touched:** C6 (`GET/PUT /account/config` + the auth surface) → regenerate TS
+types with `make generate-types`. C5: the API key is never part of account config.
+
+**Docs to update:** `docs/backend/**` (new auth + account-config endpoints), `.env.example`
+(OAuth client vars), the startup-flow section of `docs/desktop/overview.md`; one line in
+`docs/bob-log.md`.
+
+**Done when:** A user can "Log in / Register" and "Continue with Google" from the app,
+account config round-trips through the API, "Continue local" still needs no backend, and the
+BYOK key never touches account config.
+
+### [ ] POST-04 — Wire the app to the control plane for usage statistics `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** POST-03
+**Goal:** Report **usage statistics** to the control plane (F8) — including from
+**"Continue local"** sessions when the user has opted in — while guaranteeing that **no user
+data and no file content ever leave the device**.
+
+> Privacy rule (hard, from F8): telemetry contains **no file contents, no file names, no
+> summaries** — only counts, sizes, file types, and timings. "We can see usage, we cannot see
+> your work." Local-mode reporting must be **opt-in** and must send the same content-free
+> events; nothing is sent if the user has not opted in.
+
+**May edit:** Desktop telemetry emitter + offline queue (`apps/desktop/src/main/**`),
+`POST /telemetry/events` (batch) in `services/api/**`, `packages/contracts/api/**`
+(→ `make generate-types`), telemetry tests.
+**Must not edit:** The F8 privacy rule; C3; local capture/version data.
+
+**Required functionality:** Content-free events (app opened, version captured, AI summary
+generated with latency/provider, search performed) batched and flushed when online, queued
+offline; a single review point that asserts no file name/content/summary is ever included; an
+explicit opt-in toggle that also works in local mode.
+
+**Contracts touched:** C6 `POST /telemetry/events` → regenerate TS types.
+
+**Docs to update:** the F8 section of `docs/spec.md` if local-mode opt-in wording changes,
+`docs/backend/**`; one line in `docs/bob-log.md`.
+
+**Done when:** After a demo run, an admin can answer "how many versions were captured today
+and how many AI calls did we make?"; a test asserts the event payloads carry no file
+names/content/summaries; local-mode opt-in sends the same content-free events and opt-out
+sends nothing.
+
+### [ ] POST-05 — Build the admin UI for control-plane data `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** POST-04
+**Goal:** Give admins a real surface for the aggregated usage statistics (F10). MVP baseline
+was Swagger (`/docs`); this replaces it with a proper read-only admin view for the `admin`
+role that RBAC already supports.
+
+**May edit:** A new admin surface — the decision in `docs/spec.md` §3 prefers an **Admin tab
+inside the desktop app** (visible only to `admin`) over a separate web app; read-only stats
+endpoints in `services/api/**` if aggregates aren't already exposed; `infra/opa/policies/**`
+for the admin authorization rule; `packages/contracts/api/**` (→ `make generate-types`).
+**Must not edit:** Local product behavior; the F8 privacy rule (admins see aggregates, never
+file content); C3.
+
+**Required functionality:** Authenticated admin-only views of the F8 aggregates (versions
+captured, AI calls, latencies, provider mix, search counts over time); no access to any file
+name, content, or summary; graceful empty/error states.
+
+**Contracts touched:** C6 read-only stats endpoints if added → regenerate TS types.
+
+**Docs to update:** `docs/backend/**` and `docs/desktop/overview.md` (admin surface); one
+line in `docs/bob-log.md`.
+
+**Done when:** An `admin` user reads live aggregates through the admin UI; a non-admin cannot
+reach it; no file-level data is ever exposed.
+
+### [ ] POST-06 — Make Chronicle GDPR-compliant `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** POST-03, POST-04 (data handling, consent, and account data must exist first)
+**Goal:** Bring the app and control plane into GDPR compliance: lawful basis + explicit
+consent for telemetry, clear disclosure of what stays local vs. what is sent to an AI
+provider, data-subject rights (access, export, erasure), and a written privacy policy.
+
+**Required reading first:** the F8 privacy rule and the "Privacy wording" item in the
+"Decisions humans must make" section below — the exact user-facing wording is a **human
+decision**, not something to auto-generate.
+
+**May edit:** Consent/telemetry UX in the desktop app, account-data export/delete endpoints
+in `services/api/**` (reuse the existing "Delete project and history" local flow for local
+erasure), retention configuration, `packages/contracts/api/**` (→ `make generate-types`),
+a privacy-policy document.
+**Must not edit:** The local-first guarantee (the version library never leaves the device);
+C3 output semantics.
+
+**Required functionality:** Opt-in (not opt-out) telemetry consent with a clear record;
+plain-language disclosure that image content used for inference leaves the device under the
+selected AI path while the version library does not; account-data **export** and **erasure**
+(right to be forgotten) for control-plane data; documented retention periods; a privacy
+policy linked from the app.
+
+**Contracts touched:** C6 export/delete endpoints if added → regenerate TS types.
+
+**Docs to update:** a new privacy-policy doc; the privacy sections of `docs/spec.md` /
+`docs/challenge/CONSTRAINTS.md` if wording changes; one line in `docs/bob-log.md`.
+
+**Done when:** A user can give/withdraw telemetry consent, export and delete their
+control-plane account data, and read an accurate privacy policy; disclosures match what the
+app actually sends; the local library is never uploaded.
+
+### [ ] POST-07 — Research and improve the install / onboarding experience `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** MVP-12 (a working, packaged app to install)
+**Goal:** Research and improve the first-run install/onboarding screen so a new user gets
+from "just installed" to "folder tracked, first version captured" with minimal friction —
+including the Python AI-service prerequisite (spec Risk #8) surfaced clearly.
+
+**Required reading first:** the startup-flow section of `docs/desktop/overview.md` (Continue
+local vs. Log in / Register), and Risk #8 in `docs/spec.md` §8 (the demo machine needs Python
+3.12 + the AI service running; the app degrades gracefully and shows a health check).
+**Then research references** with the user before designing (as LAND-01 requires for the
+landing page): strong desktop-app onboarding patterns; agree direction before visual work.
+
+**May edit:** Renderer onboarding/first-run screens and the status-bar AI-service health
+affordance (`apps/desktop/**`), electron-builder installer config if packaging is in scope.
+**Must not edit:** C1/C3/C5 contracts; local capture behavior.
+
+**Required functionality:** A clear first-run flow (pick a folder, understand Continue local
+vs. account, understand and check the AI-service prerequisite) that never blocks core capture
+when AI is unavailable; graceful empty/error/"AI pending" states; the "No AI-slop bar" quality
+standard from LAND-01 applies to the visuals.
+
+**Docs to update:** `docs/desktop/overview.md` (onboarding flow), `apps/desktop/README.md`
+(install/run + AI-service prerequisite); one line in `docs/bob-log.md`.
+
+**Done when:** A teammate who has never seen the app can install it, understand the AI
+prerequisite, track a folder, and capture a first version without help; capture still works
+when the AI service is down (versions show "pending").
+
 ## Decisions humans must make—not delegate blindly to an AI assistant
 
 AI coding tools can propose options and write code, but the team remains responsible for:
