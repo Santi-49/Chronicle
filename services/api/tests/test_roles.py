@@ -68,10 +68,6 @@ async def test_delete_role(client: AsyncClient, admin_token):
 
 
 async def test_assign_permissions_to_role(client: AsyncClient, admin_token, seed_roles):
-    from app.models.permission import Permission
-    from sqlalchemy.ext.asyncio import AsyncSession
-    import uuid
-
     role = seed_roles["user"]
 
     # Create a permission directly via the API

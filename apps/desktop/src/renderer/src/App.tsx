@@ -15,9 +15,11 @@ import { VersionDetailsScreen } from './screens/VersionDetailsScreen'
 import { WelcomeScreen } from './screens/WelcomeScreen'
 import type { AppRoute } from './types/navigation'
 import { getPrimaryRoute } from './types/navigation'
+import { chronicle } from './lib/bridge'
+import type { AppearanceTheme } from '../../shared/settings'
 
 export type Theme = 'dark' | 'light'
-export type ThemePreference = Theme | 'system'
+export type ThemePreference = AppearanceTheme
 
 interface WorkspaceScreenProps {
   route: AppRoute
@@ -140,6 +142,10 @@ export default function App() {
   )
   const theme = themePreference === 'system' ? systemTheme : themePreference
 
+  useEffect(() => {
+    void chronicle.getSettings().then((settings) => setThemePreference(settings.appearance.theme))
+  }, [])
+
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme
     document.documentElement.style.colorScheme = theme
@@ -179,7 +185,12 @@ export default function App() {
   }, [hasEnteredWorkspace, route])
 
   const toggleTheme = () => {
-    setThemePreference(theme === 'dark' ? 'light' : 'dark')
+    changeThemePreference(theme === 'dark' ? 'light' : 'dark')
+  }
+
+  const changeThemePreference = (preference: ThemePreference) => {
+    setThemePreference(preference)
+    void chronicle.updateSettings({ appearance: { theme: preference } })
   }
 
   const openJobs = () => {
@@ -202,6 +213,13 @@ export default function App() {
                 localStorage.setItem(HAS_ONBOARDED_KEY, 'true')
                 setHasEnteredWorkspace(true)
               }}
+              onContinueGoogle={async () => {
+                await chronicle.loginWithGoogle()
+                const synced = await chronicle.getSettings()
+                setThemePreference(synced.appearance.theme)
+                localStorage.setItem(HAS_ONBOARDED_KEY, 'true')
+                setHasEnteredWorkspace(true)
+              }}
             />
           </div>
         ) : (
@@ -211,7 +229,7 @@ export default function App() {
                 route={route}
                 themePreference={themePreference}
                 navigate={setRoute}
-                onThemePreferenceChange={setThemePreference}
+                onThemePreferenceChange={changeThemePreference}
                 onCloseJobs={() => setRoute(jobsReturnRoute)}
               />
             </div>

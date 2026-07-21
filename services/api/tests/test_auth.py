@@ -1,5 +1,8 @@
 import pytest
 from httpx import AsyncClient
+from unittest.mock import AsyncMock, patch
+
+from app.schemas.control_plane import GoogleIdentityClaims
 
 
 pytestmark = pytest.mark.asyncio
@@ -98,3 +101,68 @@ async def test_refresh_with_access_token_fails(client: AsyncClient, user_token):
         "/api/v1/auth/refresh", headers={"Authorization": f"Bearer {user_token}"}
     )
     assert resp.status_code == 401
+
+
+async def test_google_login_creates_account_and_reuses_subject(client: AsyncClient, seed_roles):
+    claims = GoogleIdentityClaims(
+        subject="google-subject-1",
+        email="google@test.com",
+        email_verified=True,
+        given_name="Go",
+        family_name="Ogle",
+        display_name="Go Ogle",
+    )
+    with patch(
+        "app.services.google_auth_service.verify_google_credential",
+        new=AsyncMock(return_value=claims),
+    ):
+        first = await client.post("/api/v1/auth/google", json={"credential": "x" * 20})
+        second = await client.post("/api/v1/auth/google", json={"credential": "y" * 20})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    me = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {second.json()['access_token']}"},
+    )
+    assert me.status_code == 200
+    assert me.json()["email"] == "google@test.com"
+
+
+async def test_google_login_requires_explicit_link_for_existing_email(
+    client: AsyncClient, regular_user
+):
+    claims = GoogleIdentityClaims(
+        subject="google-existing",
+        email=regular_user.email,
+        email_verified=True,
+        given_name="Regular",
+        family_name="Test",
+    )
+    with patch(
+        "app.services.google_auth_service.verify_google_credential",
+        new=AsyncMock(return_value=claims),
+    ):
+        response = await client.post("/api/v1/auth/google", json={"credential": "x" * 20})
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "account_link_required"
+
+
+async def test_authenticated_user_can_link_google(client: AsyncClient, user_token):
+    claims = GoogleIdentityClaims(
+        subject="google-link",
+        email="another-google@test.com",
+        email_verified=True,
+    )
+    with patch(
+        "app.services.google_auth_service.verify_google_credential",
+        new=AsyncMock(return_value=claims),
+    ):
+        linked = await client.post(
+            "/api/v1/auth/google/link",
+            json={"credential": "x" * 20},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        login = await client.post("/api/v1/auth/google", json={"credential": "y" * 20})
+    assert linked.status_code == 204
+    assert login.status_code == 200

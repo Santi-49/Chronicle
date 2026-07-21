@@ -15,6 +15,7 @@ import {
 } from '../lib/aiCatalog'
 import { useFolders, useSettings } from '../lib/useChronicle'
 import { chronicle } from '../lib/bridge'
+import { friendlyError } from '../lib/friendlyError'
 import { friendlyIpcError } from '../lib/errors'
 
 interface SettingsScreenProps {
@@ -158,9 +159,9 @@ function AiSection() {
   const missingEmbedKey =
     embedProvider.trim() !== '' && !configuredProviders.includes(embedProvider.trim())
   const chatError = chatSelectionError ??
-    (missingChatKey ? 'No saved key for this provider yet — add one below to generate summaries.' : null)
+    (missingChatKey ? 'No saved key for this provider yet, add one below to generate summaries.' : null)
   const embedError = embedSelectionError ??
-    (missingEmbedKey ? 'No saved key for this provider yet — add one below to enable semantic search.' : null)
+    (missingEmbedKey ? 'No saved key for this provider yet, add one below to enable semantic search.' : null)
 
   const onSave = async () => {
     const validationError = chatError ?? embedError
@@ -257,7 +258,7 @@ function AiSection() {
       <div className="api-keys">
         <div className="api-keys-heading">
           <h3>Provider API keys</h3>
-          <p>Save a key per provider you use. Keys are encrypted on this device and sent only to that provider — never to Chronicle's backend. A task's provider can be switched without re-entering its key.</p>
+          <p>Save a key per provider you use. Keys stay encrypted on this device and are sent only to that provider by default. Optional signed-in sync uploads only a passphrase-encrypted envelope that Chronicle cannot decrypt.</p>
         </div>
         {keyProviders.map((provider) => (
           <ApiKeyRow
@@ -318,7 +319,7 @@ function ApiKeyRow({
         <input
           aria-label={`${label} API key`}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder={saved ? 'Saved — type to replace it' : 'Paste API key'}
+          placeholder={saved ? 'Saved - type to replace it' : 'Paste API key'}
           type="password"
           value={draft}
         />
@@ -355,7 +356,7 @@ function ProviderModelPicker({
       <label>
         <span>Provider</span>
         <select aria-invalid={!providerValid} onChange={(event) => onProvider(event.target.value)} value={provider}>
-          {!providerValid && <option disabled value={provider}>{provider ? `Unavailable — ${provider}` : 'Select a provider'}</option>}
+          {!providerValid && <option disabled value={provider}>{provider ? `Unavailable - ${provider}` : 'Select a provider'}</option>}
           {providers.map((p) => (
             <option key={p.id} value={p.id}>{p.label}</option>
           ))}
@@ -364,9 +365,9 @@ function ProviderModelPicker({
       <label>
         <span>Model</span>
         <select aria-invalid={!modelValid} onChange={(event) => onModel(event.target.value)} value={model}>
-          {!modelValid && <option disabled value={model}>{model ? `Unavailable — ${model}` : 'Select a model'}</option>}
+          {!modelValid && <option disabled value={model}>{model ? `Unavailable - ${model}` : 'Select a model'}</option>}
           {models.map((m) => (
-            <option key={m.id} value={m.id}>{m.label} — {m.tier}</option>
+            <option key={m.id} value={m.id}>{m.label} - {m.tier}</option>
           ))}
         </select>
       </label>
@@ -377,11 +378,79 @@ function ProviderModelPicker({
 // ── Account ────────────────────────────────────────────────────────────────
 
 function AccountSection() {
+  const { settings, save } = useSettings()
   const [email, setEmail] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [passphrase, setPassphrase] = useState('')
+  const [controlPlaneAvailable, setControlPlaneAvailable] = useState<boolean | null>(null)
+  const [authBusy, setAuthBusy] = useState(false)
+  const [authStatus, setAuthStatus] = useState<string | null>(null)
+  const [keyStatus, setKeyStatus] = useState<string | null>(null)
+
+  const refreshAccount = async () => {
+    const state = await chronicle.getAccountState()
+    setEmail(state.email)
+    setIsAdmin(state.isAdmin)
+  }
+
+  const checkControlPlane = async () => {
+    setControlPlaneAvailable(null)
+    const available = await chronicle.checkControlPlaneHealth().catch(() => false)
+    setControlPlaneAvailable(available)
+    setAuthStatus(available ? null : 'Chronicle sign-in is unavailable. Start the control plane, then retry.')
+  }
 
   useEffect(() => {
-    void chronicle.getAccountState().then((state) => setEmail(state.email))
+    void refreshAccount()
+    void checkControlPlane()
   }, [])
+
+  const runAuth = async (operation: () => Promise<void>, success: string) => {
+    setAuthBusy(true)
+    setAuthStatus(null)
+    try {
+      await operation()
+      await refreshAccount()
+      setAuthStatus(success)
+    } catch (error) {
+      setAuthStatus(friendlyError(error))
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  const updateControlPlane = async (patch: Partial<NonNullable<typeof settings>['controlPlane']>) => {
+    if (!settings) return
+    await save({ controlPlane: { ...settings.controlPlane, ...patch } })
+  }
+
+  const toggleKeySync = async (enabled: boolean) => {
+    setKeyStatus(null)
+    try {
+      if (enabled) {
+        await updateControlPlane({ apiKeySyncEnabled: true })
+        setKeyStatus('Enter a passphrase, then save an encrypted cloud copy.')
+      } else {
+        await chronicle.disableApiKeySync()
+        await updateControlPlane({ apiKeySyncEnabled: false })
+        setPassphrase('')
+        setKeyStatus('Encrypted cloud copy deleted. Local keys were kept.')
+      }
+    } catch (error) {
+      setKeyStatus(friendlyError(error))
+    }
+  }
+
+  const runKeyOperation = async (operation: () => Promise<void>, success: string) => {
+    setKeyStatus('Working…')
+    try {
+      await operation()
+      setPassphrase('')
+      setKeyStatus(success)
+    } catch (error) {
+      setKeyStatus(friendlyError(error))
+    }
+  }
 
   return (
     <section className="settings-section">
@@ -389,10 +458,72 @@ function AccountSection() {
         <Icon name="info" />
         <div><h2>Account</h2><p>An account is optional and never gates local version history.</p></div>
       </div>
-      <p className="settings-empty">{email ? `Signed in as ${email}.` : 'Running in local mode. Your history stays on this device.'}</p>
-      <button className="google-button settings-google-button" disabled type="button">
-        <span className="google-button-label"><GoogleMark />Continue with Google</span><span className="soon-badge">Coming soon</span>
-      </button>
+      <div className="account-access">
+        <p className="settings-empty">
+          {email ? `Signed in as ${email}${isAdmin ? ' (admin)' : ''}.` : 'Running in local mode. Local features remain available offline.'}
+        </p>
+        <div className="account-access-actions">
+          <button
+            className="google-button settings-google-button"
+            disabled={controlPlaneAvailable !== true || authBusy}
+            onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, email ? 'Google account linked.' : 'Signed in with Google.')}
+            type="button"
+          >
+            <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : email ? 'Link Google account' : 'Continue with Google'}</span>
+          </button>
+          {email && <button className="secondary-button" disabled={authBusy} onClick={() => void runAuth(() => chronicle.logout(), 'Signed out.')} type="button">Sign out</button>}
+        </div>
+        {controlPlaneAvailable === null && <span className="inline-status" role="status">Checking Chronicle sign-in…</span>}
+        {authStatus && <span className={controlPlaneAvailable === false ? 'inline-status inline-status-error' : 'inline-status'} role="status">{authStatus}</span>}
+        {controlPlaneAvailable === false && <button className="text-button account-retry" onClick={() => void checkControlPlane()} type="button">Retry connection check</button>}
+      </div>
+
+      {settings && (
+        <div className="account-preferences">
+          <label className="toggle-field">
+            <input
+              checked={settings.controlPlane.telemetryOptIn}
+              onChange={(event) => void updateControlPlane({ telemetryOptIn: event.target.checked })}
+              type="checkbox"
+            />
+            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends installation and usage counts only; no creative files, names, paths, summaries, tags, or search text.</small></span>
+          </label>
+          <label className="toggle-field">
+            <input
+              checked={settings.controlPlane.settingsSyncEnabled}
+              disabled={!email}
+              onChange={(event) => void updateControlPlane({ settingsSyncEnabled: event.target.checked })}
+              type="checkbox"
+            />
+            <span><strong>Sync preferences</strong><small>Signed-in only. Automatically syncs changes to AI provider/model choices and these preferences, never device paths or project metadata.</small></span>
+          </label>
+
+          <label className="toggle-field">
+            <input
+              checked={settings.controlPlane.apiKeySyncEnabled}
+              disabled={!email}
+              onChange={(event) => void toggleKeySync(event.target.checked)}
+              type="checkbox"
+            />
+            <span><strong>Encrypted API-key sync</strong><small>Optional and separate from preference sync. Chronicle stores only an opaque passphrase-encrypted envelope.</small></span>
+          </label>
+          {email && settings.controlPlane.apiKeySyncEnabled && (
+            <div className="key-sync-panel">
+              <label className="key-sync-passphrase">
+                <span>Sync passphrase</span>
+                <input autoComplete="off" minLength={12} onChange={(event) => setPassphrase(event.target.value)} placeholder="At least 12 characters" type="password" value={passphrase} />
+                <small>Used only for this action. Chronicle never saves or receives the passphrase, so it cannot be recovered.</small>
+              </label>
+              <div className="key-sync-actions">
+                <button className="secondary-button compact-button" disabled={passphrase.length < 12} onClick={() => void runKeyOperation(() => chronicle.syncApiKeys(passphrase), 'Encrypted cloud copy saved.')} type="button">Save encrypted copy</button>
+                <button className="secondary-button compact-button" disabled={passphrase.length < 12} onClick={() => void runKeyOperation(() => chronicle.restoreApiKeys(passphrase), 'Keys restored to this device.')} type="button">Restore to this device</button>
+                <button className="text-button" onClick={() => void toggleKeySync(false)} type="button">Disable and delete cloud copy</button>
+              </div>
+              {keyStatus && <span className="inline-status" role="status">{keyStatus}</span>}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }

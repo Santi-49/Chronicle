@@ -357,7 +357,10 @@ describe('settings', () => {
         chat: { provider: 'anthropic', model: 'claude-sonnet-5' },
         embeddings: { provider: 'openai', model: 'text-embedding-3-small' },
       },
-      controlPlane: { baseUrl: 'http://localhost:8000', telemetryOptIn: false },
+      controlPlane: {
+        baseUrl: 'http://localhost:8000', telemetryOptIn: true,
+        settingsSyncEnabled: false, apiKeySyncEnabled: false,
+      },
     }
     setSetting(db, 'app', value)
     expect(getSetting(db, 'app')).toEqual(value)

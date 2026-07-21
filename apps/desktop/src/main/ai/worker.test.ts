@@ -58,12 +58,16 @@ vi.mock('../db/repositories', () => ({
 }))
 
 const settings: AppSettings = {
+  appearance: { theme: 'system' },
   ai: {
     mode: 'local',
     chat: { provider: 'google_genai', model: 'gemini-2.5-flash' },
     embeddings: { provider: 'openai', model: 'text-embedding-3-small' },
   },
-  controlPlane: { baseUrl: 'http://localhost:8000', telemetryOptIn: false },
+  controlPlane: {
+    baseUrl: 'http://localhost:8000', telemetryOptIn: true,
+    settingsSyncEnabled: false, apiKeySyncEnabled: false,
+  },
 }
 
 let libraryRoot: string

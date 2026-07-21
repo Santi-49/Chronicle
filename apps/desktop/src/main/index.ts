@@ -1,3 +1,4 @@
+import { config as loadEnv } from 'dotenv'
 import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
 import path from 'node:path'
 import { openAppDatabase, type ChronicleDb } from './db'
@@ -7,6 +8,10 @@ import { ensureAppDirs, libraryDir } from './paths'
 /** Single app-lifetime database handle; the IPC services receive this. */
 let db: ChronicleDb
 let ipc: ChronicleIpc | undefined
+
+// Development uses the repository-root .env. Production deployments should
+// inject the public desktop client ID at build/startup; secrets are never bundled.
+loadEnv({ path: path.resolve(app.getAppPath(), '..', '..', '.env'), quiet: true })
 
 // Scheme privileges must be declared before the app is ready.
 registerChronicleScheme()

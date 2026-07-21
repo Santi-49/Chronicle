@@ -51,7 +51,7 @@ export function AppShell({ route, children, onNavigate, onOpenJobs }: AppShellPr
             <Icon name="settings" />
             <span>Settings</span>
           </button>
-          <p className="sidebar-version">Chronicle 0.1</p>
+          <p className="sidebar-version">Chronicle {__APP_VERSION__}</p>
         </nav>
       </aside>
 

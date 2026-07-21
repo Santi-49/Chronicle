@@ -12,7 +12,7 @@ src/main/       Electron main process (Node)
   versioning/     hashing, content-addressed library, capture pipeline
   ipc/            C1 bridge: handlers, events, chronicle:// protocol, secrets
   ai/             job worker + typed client for the local Python AI service (services/ai/)
-  gateway-client/ control-plane client (auth, logs, stats, hosted inference)
+  gateway-client/ optional control-plane client (health, auth, installation/settings/key sync)
 src/preload/    typed IPC bridge (contextBridge)
 src/renderer/   React UI — Projects/Edit, Timeline, Version details, Search, Settings, jobs
 ```
@@ -28,6 +28,28 @@ npm run build      # production bundle to out/
 npm run package    # Windows installer to dist/
 npm run typecheck  # tsc over main+preload and renderer
 ```
+
+Packaging requires Python 3.12 with `services/ai[google,bundle]` installed. `make package`
+installs that build dependency automatically. The generated installer bundles a self-contained
+Gemini-capable sidecar under Electron resources; an installed user does not need Python.
+Run `python ../../scripts/smoke_ai_sidecar.py` after packaging to probe the actual executable.
+
+The MVP installer is unsigned, so Windows SmartScreen may warn. The model-agnostic service can
+use additional integrations in development, but this MVP installer bundles only the validated
+Gemini provider package. Signing, macOS packaging, additional provider packs, and in-app
+auto-update remain future work.
+
+## CI, versions, and releases
+
+`package.json` is the desktop version source of truth; electron-builder, the sidebar, installation
+registration, artifact names, and Git tags derive from it. CI is a required check only on pull
+requests targeting `main`. Every merge to `main` builds a versioned Windows artifact. Release
+Please maintains a reviewed release PR; merging it creates `vX.Y.Z`, and the release workflow
+builds that exact tag and attaches the installer and SHA-256 checksum.
+
+Configure a fine-grained `RELEASE_PLEASE_TOKEN` repository secret with Contents and Pull requests
+write access so Release Please PRs trigger the required `main` PR CI. See
+[`docs/releasing.md`](../../docs/releasing.md) for the bump policy and repository settings.
 
 ## Native modules (better-sqlite3)
 
@@ -67,6 +89,35 @@ provider-qualified model identity, so vectors from incompatible configurations a
 
 Unparseable image dimensions surface as `0×0` in `VersionDetails` (C1 declares
 them non-nullable; capture stores `null` internally).
+
+## AI provider setup (BYOK)
+
+AI is model-agnostic (LangChain in `services/ai/`); the desktop app just ships a
+default and lets you switch provider/model in **Settings → AI**. The validated
+default (VALIDATE-01, 2026-07-21) is Google Gemini:
+
+| Task | Default model | Notes |
+|---|---|---|
+| Change summaries | `gemini-flash-latest` | Vision + structured output. **Moving alias** — Google hot-swaps it each release (2-week breaking-change notice). Pin a dated Flash ID if you need a frozen demo. |
+| Semantic search | `gemini-embedding-001` | 3,072-dimension text vectors (Google's only current text-embedding model). |
+
+Setup for a fresh BYOK user:
+
+1. Get a Google AI Studio key (`https://aistudio.google.com/apikey`).
+2. In **Settings → AI**, keep the Google Gemini defaults (or pick another
+   provider/model), paste the key, and Save. Save is blocked until each selected
+   task has a saved key, and a changed provider/model is **live-probed** with the
+   real task call before it persists — a rejected or unreachable pair rolls back.
+3. Keys are stored per provider in Electron `safeStorage`, never readable back
+   over IPC and never sent to Chronicle's backend by default.
+
+Caveats worth stating in the demo (do not overclaim): the live probe and every
+summary/embedding are **real provider calls** that leave the device and may incur
+a small charge; cost estimates (≈$0.007–0.011/annotation for Flash) are
+**approximate and dated**; and the free tier is used by Google to improve
+products, so say the *creative library* stays local while naming the AI exception
+— never "zero retention". Standalone-service defaults are configured via the
+`CHRONICLE_AI_*` variables in `.env` (see repo-root `.env.example`).
 
 ## Where app data lives
 

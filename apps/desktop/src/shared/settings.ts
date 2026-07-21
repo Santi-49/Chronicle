@@ -18,8 +18,10 @@
 
 /** Provider identifiers remain open so adding a provider is not a contract change. */
 export type AiProvider = string
+export type AppearanceTheme = 'system' | 'dark' | 'light'
 
 export interface AppSettings {
+  appearance: { theme: AppearanceTheme }
   ai: {
     /** 'local' = BYOK through the loopback Python service · 'gateway' = Chronicle service (stretch F9). */
     mode: 'local' | 'gateway'
@@ -28,7 +30,11 @@ export interface AppSettings {
   }
   controlPlane: {
     baseUrl: string
-    /** Telemetry runs only when signed in AND opted in (spec F1/F8). */
+    /** Default-enabled usage reporting; POST-04 implements event delivery. */
     telemetryOptIn: boolean
+    /** Signed-in, portable preference sync. Device paths and project metadata never sync. */
+    settingsSyncEnabled: boolean
+    /** Signed-in, separately enabled E2E-encrypted provider-key sync. */
+    apiKeySyncEnabled: boolean
   }
 }

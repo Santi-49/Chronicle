@@ -14,6 +14,7 @@ from .schemas import (
     ValidateProviderModelRequest,
     ValidateProviderModelResponse,
 )
+from .version import __version__
 
 
 router = APIRouter()
@@ -23,7 +24,7 @@ router = APIRouter()
 async def health() -> HealthResponse:
     """Report process health without contacting an external provider."""
 
-    return HealthResponse()
+    return HealthResponse(version=__version__)
 
 
 ERROR_RESPONSES = {

@@ -29,14 +29,14 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 | Hashing | Node.js built-in `crypto` (**SHA-256**) | Detects "did the content actually change"; no dependency |
 | AI engine | **Local Python AI service** (`services/ai/`): **FastAPI** + **LangChain (Python)**, model-agnostic, **default classes/methods only** — the Electron main process calls it on `127.0.0.1` | AI features are developed in Python (team decision 2026-07-19, replaces LangChain.js in-app); provider swappable (Anthropic, watsonx/Granite, OpenAI…); one AI codebase shared with the stretch gateway |
 | Embeddings storage | Vectors stored **in SQLite**, similarity computed in-process | Hundreds of versions ≠ vector DB territory; simplest thing that works |
-| Packaging (stretch) | **electron-builder** | Produces a Windows installer for the demo if we want one; dev mode is fine for the video |
+| Packaging (MVP-12) | **PyInstaller sidecar + electron-builder NSIS** | Produces a self-contained unsigned Windows installer; installed users do not need Python |
 
 ### Backend control plane (`services/api/` + `services/module/`) — pre-built, we extend · **lowest priority (non-essential)**
 
 | Layer | Choice | Why |
 |---|---|---|
 | API | **FastAPI (Python 3.12)** + Postgres 16 + Redis 7 + OPA | Already built: register/login/JWT/refresh/logout, RBAC, user CRUD |
-| New endpoints we add | telemetry/stats, account config, *(stretch)* AI-inference gateway | See §4 F8/F9 |
+| New endpoints we add | Google auth, installation registration, portable settings, opaque encrypted-secret storage, telemetry/stats, *(stretch)* AI-inference gateway | See §4 F1/F8/F9 |
 | AI calls (gateway path, stretch) | Reuses the **same `services/ai/` Python implementation** behind the control plane | One AI codebase — no JS/Python twin to keep in sync |
 | Migrations | Alembic (`make makemigration`) | Template standard |
 
@@ -51,7 +51,7 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 | Concern | Choice |
 |---|---|
 | Contracts | Boundary operations and data formats mapped in [contracts.md](contracts.md): IPC · persistence behavior · AI I/O · watcher decisions · settings · control-plane OpenAPI · optional module `Protocol`. SQLite DDL, prompts, algorithms, provider choices, and orchestration are implementation specifications, not contracts. |
-| Testing | **Vitest** for desktop logic (hashing, version rules, search ranking) · **pytest** for the AI service and backend (backend already has 32 tests) |
+| Testing | **Vitest** for desktop logic (hashing, version rules, search ranking) · **pytest** for the AI service and backend |
 | Lint/format | **ESLint + Prettier** (TS) · **Ruff** (Python) |
 | Dev tool | **IBM Bob** — mandatory, judged. Every member logs usage in [bob-log.md](bob-log.md) |
 | Runtimes | Node 20+, Python 3.12 (AI service + backend), Docker Desktop (control plane only — never needed for the AI service) |
@@ -67,7 +67,8 @@ desktop product: no Docker, no Postgres, no account.
 
 - **BYOK (MVP):** the key is stored encrypted by the app (Electron `safeStorage`) and
   passed per-request to the local AI service, which forwards it only to the configured
-  provider. The service never persists it, and it is **never sent to Chronicle's backend**.
+  provider. The service never persists it. It stays off Chronicle's backend unless the user
+  separately enables E2E-encrypted API-key sync, which uploads only an opaque envelope.
 - **Configuration validation:** Settings requires a saved key for each selected task
   provider. Before a changed provider/model is persisted, the main process asks the local
   service to make a minimal real task-specific call (`POST /validate-provider-model`): a
@@ -79,8 +80,9 @@ desktop product: no Docker, no Postgres, no account.
 Why a Python service instead of LangChain.js inside Electron: the team develops AI
 features in Python, LangChain's Python ecosystem is the reference implementation, and
 the stretch gateway reuses the code instead of maintaining a JS twin. Accepted
-trade-off: dev/demo needs a Python 3.12 runtime next to the app (a start script covers
-it); bundling the service into the installer is stretch scope.
+trade-off: development needs Python 3.12, while the Windows installer bundles a
+self-contained Gemini-capable sidecar. Additional provider integrations remain a packaging
+follow-up; capture and queued keyword/search behavior still degrade gracefully if AI is down.
 
 There is no local-model path in the MVP. “Local” refers to local storage, local
 orchestration, and the locally running AI service; inference uses an external API
@@ -102,7 +104,9 @@ matter and are loaded from there rather than embedded in code.
 **On our backend (never any file content) — optional, lowest priority.** The app is fully usable account-less ("Continue local" at startup); an account only adds telemetry/stats and (stretch) hosted inference:
 
 - Accounts (register/login — the pre-built JWT stack).
-- Account config (small JSON: preferred AI provider, telemetry opt-in). The BYOK API key is **not** part of it.
+- Revisioned portable settings (appearance, preferred AI providers/models, sync flags, telemetry preference). Device-local paths, projects, and file history are excluded.
+- An optional encrypted-secret envelope. API-key sync is independently enabled, uses a user passphrase plus authenticated encryption on-device, and gives the backend neither plaintext keys nor the decryption key.
+- A random installation record for every reachable first-run profile, including local mode. It contains app/OS and first/last-seen metadata and measures installations—not unique people.
 - Telemetry events and aggregated stats (see F8 for the exact privacy rule).
 - *(Stretch)* the AI-inference gateway.
 
@@ -118,11 +122,15 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
 
 ### F1 — Accounts & sign-in `Low` (control plane — optional)
 
-- On first launch the app offers two paths: **"Continue local"** (default — no account or Chronicle backend) or **"Log in / Register"** (against our backend). The configured AI provider still requires network connectivity.
-- An account can be linked later from Settings; signing in never gates a local feature — it only enables telemetry (F8) and the gateway option (F9).
+- On first launch the app offers **"Continue local"** (default) or **"Continue with Google"** through the operating system's default external browser using OAuth Authorization Code + PKCE. Do not use an Electron `BrowserWindow`/webview for Google auth. The pre-built password endpoints remain available to API clients; the implemented desktop account surface is Google-first.
+- Google ID tokens are verified server-side and bound by stable Google `sub`; an existing password account is never merged by email alone. The app stores only Chronicle JWTs, not Google access/refresh tokens.
+- An account can be linked later from Settings; signing in never gates a local feature. It enables optional portable settings sync, separately opted-in E2E API-key sync, and the gateway option (F9).
+- Before Google sign-in is enabled/opened, the app calls the public Chronicle API health endpoint with a short timeout. Failure keeps local mode usable and offers an explicit retry instead of repeatedly opening Google. An expired, cancelled, or lost loopback handoff closes cleanly and becomes concise inline copy; raw Electron IPC messages never reach the user.
+- Encrypted API-key sync is an independent signed-in-only checkbox, off by default. Enabling it reveals a compact passphrase row with explicit **Save encrypted copy** and **Restore to this device** actions; disabling it deletes the cloud envelope while retaining local keys. The passphrase is used only for the selected action, is cleared afterwards, and is not synced or recoverable.
+- Every install keeps a random, resettable installation UUID and attempts registration without blocking startup. This measures installations, not unique users, and includes no hardware ID, hostname, paths, or project data.
 - If signed in: the session persists across restarts; token refresh is automatic (pre-built stack). Signing in requires internet **once**; after that everything except AI calls and telemetry works offline (those queue — see F4/F8).
 - **Hard rule:** the app runs with **no Docker setup and no Chronicle API connection**. Capture, cached timeline, restore, and keyword search remain usable offline; AI summaries and semantic indexing queue until their configured API is reachable.
-- **Done when:** fresh install → "Continue local" → capture, timeline, restore, and keyword search work with no backend; configure an AI provider → queued summaries and embeddings run through its API; register later from Settings → telemetry starts flowing.
+- **Done when:** fresh install → "Continue local" → capture, timeline, restore, and keyword search work with no backend; Google sign-in yields a refreshable Chronicle session; an unhealthy API never opens the browser; timeout/cancellation never leaks raw IPC errors; portable settings round-trip without local data; explicitly enabled key sync round-trips only an opaque client-encrypted envelope.
 
 ### F2 — Tracked folders `MVP`
 
@@ -167,7 +175,9 @@ The heart of the product. Exact rules:
 - The AI connection is configured per task in **Settings → AI**: provider/model for change
   summaries and provider/model for embeddings. BYOK keys are encrypted on-device via Electron
   `safeStorage`, one per provider, never readable back by the renderer, and never sent to our
-  backend. Switching back to a configured provider does not require re-entry. No key for the
+  backend by default. A signed-in user may separately enable passphrase-based E2E key sync;
+  Chronicle stores only an opaque authenticated-encryption envelope and cannot decrypt it.
+  Switching back to a configured provider does not require re-entry. No key for the
   annotation provider → versions still capture; summaries show *pending — configure AI in Settings*.
   Both task selectors show a missing-key error and AI settings cannot be saved until keys exist
   for their selected providers. Changed selections are live-validated before persistence.
@@ -207,7 +217,9 @@ The heart of the product. Exact rules:
 
 ### F8 — Telemetry & admin stats `Low` (control plane — optional)
 
-- Only when signed in (F1) and opted in: the app reports events to the backend — app opened, version captured, AI summary generated (latency, provider), search performed. In local mode, nothing is sent, ever.
+- Usage telemetry is **enabled by default** for signed-in and local profiles, with an adjacent warning that creative data remains local and a one-click off switch. This is default-enabled reporting, not an opt-in or affirmative consent, and the product must describe it honestly. New settings resolve it to `true`; existing profiles receive a one-time migration from the pre-POST-03 `false` placeholder that had no user-facing control. After that marker is stored, an explicit user choice of `false` is preserved.
+- Local profiles use only their random installation UUID; telemetry does not silently create a Chronicle login account. Installation registration is a separately disclosed, minimal operation and continues even when usage telemetry is disabled.
+- When enabled, the app reports allowlisted events — app opened, project/file/version counts, version captured, app version, supported file type, new-version count, AI summary generated (latency/provider), and search performed (never the query).
 - **Privacy rule (hard):** telemetry contains **no file contents, no file names, no summaries** — only counts, sizes, file types, timings. This is one sentence in the demo: "we can see usage, we cannot see your work."
 - Events queue offline and flush when online.
 - Admins read aggregates via Swagger (`/docs`). *(Stretch: admin tab in the desktop app.)*
@@ -245,7 +257,7 @@ SQLite schema remains implementation-owned and evolves through migrations:
 | **Tracked folder** | A folder/project the user watches | path, added date, display name, optional description, icon/color, excluded files, enabled extensions |
 | **Queue item** | Pending offline work | job type (AI / embedding / telemetry), payload, retry count |
 
-Backend keeps only: **User** (pre-built), **Account config** (JSON blob per user), **Telemetry event** (per F8 privacy rule) — all control-plane, all low priority.
+Backend keeps only: **User** (pre-built), **External identity**, **Installation**, revisioned **Account settings**, optional opaque **Encrypted secret**, and **Telemetry event** (POST-04, per F8 privacy rule) — all control-plane, all low priority.
 
 ---
 
@@ -287,7 +299,7 @@ Rules for everyone, regardless of experience level:
 | 5 | **Scope creep** — gateway, future formats, admin UI, landing | MVP slips past Jul 27 | Stretch labels in §4 are binding; MVP first, always |
 | 6 | **Compliance misses** — SkillsBuild per member, Bob usage undocumented, video > 3 min | Submission invalid or loses the easiest points | Deadlines in §7; bob-log.md filled continuously; script the video from VISION.md |
 | 7 | **API keys & cost** for demo/testing | Blocked AI testing | Decide provider(s) Jul 18; small shared test budget; BYOK design means any member's key works |
-| 8 | **Python AI-service friction** — the demo machine needs Python 3.12 and the local service running for AI features | AI demo beat fails; teammates stuck on setup | App degrades gracefully by design (versions capture, jobs queue, UI shows *pending*); one documented start script; health check surfaced in the status bar; bundling the service into the installer is stretch |
+| 8 | **AI sidecar health/provider packaging** — development needs Python 3.12, and an installed sidecar can fail to start or lack a selected provider integration | AI demo beat fails; teammates stuck on setup | The Windows installer bundles and health-smokes a self-contained Gemini sidecar; app still degrades gracefully (versions capture, jobs queue, UI shows *pending*); additional provider packs remain future work |
 
 ---
 
@@ -300,5 +312,5 @@ Rules for everyone, regardless of experience level:
 - **Where are past versions stored?** File bytes in Chronicle's library folder (content-addressed copies); everything else (metadata, AI text, vectors) in one local SQLite file. Not in Postgres — the backend never sees files.
 - **Is SQLite enough?** Yes — ideal for local-first single-user apps. Our scale (thousands of versions) is trivial for it; FTS5 gives us built-in keyword search; brute-force vector similarity is milliseconds at our size (`sqlite-vec` is the upgrade path if that ever changes); and its only real weakness — many concurrent writers — doesn't apply to a one-process app. File bytes stay on disk, not in the DB. Precedent: Adobe Lightroom's entire catalog is a SQLite file. Multi-user sync (future) would live in the backend's Postgres, not here.
 - **Is filesystem watching the same on Windows and macOS?** Yes for our code — chokidar abstracts the OS differences (Windows and macOS use different native mechanisms underneath). Windows is the primary dev/demo target; we smoke-test macOS.
-- **Is the desktop app easy to demo/ship?** Demo: yes — `npm run dev` runs the full app; the video needs nothing more. Installers: electron-builder produces a Windows installer easily (stretch); macOS installers without an Apple signing certificate show a security warning — acceptable, judges watch the video and clone the repo.
+- **Is the desktop app easy to demo/ship?** Demo: yes — `npm run dev` runs the full app. MVP-12 produces an unsigned, self-contained Windows NSIS installer with the Gemini sidecar; SmartScreen may warn. macOS packaging/signing and in-app auto-update remain post-MVP.
 - **Why is restore a new version instead of going back?** Never destroying history is the product's whole promise — and it's simpler to build.

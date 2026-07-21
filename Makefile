@@ -1,7 +1,7 @@
 # Chronicle command map
 #
-# Windows users: run make from Git Bash or WSL. PowerShell/CMD do not provide
-# the POSIX shell features used by recipes such as `test` and `cp`.
+# Recipes use Python for cross-platform file operations, so GNU Make works from
+# PowerShell/CMD as well as Git Bash, WSL, Linux, and macOS.
 
 .DEFAULT_GOAL := help
 
@@ -17,9 +17,9 @@ ENV_FILE := .env
 .PHONY: help \
 	setup setup-all setup-env setup-desktop setup-landing setup-backend setup-ai ensure-electron \
 	run run-desktop run-all run-ai app ai \
-	backend run-backend dev stop restart \
+	backend run-backend dev stop restart control-plane-up control-plane-down control-plane-health \
 	build build-desktop build-all build-landing build-backend package package-desktop installer \
-	typecheck test test-local test-ai smoke-ai lint \
+	typecheck test test-local test-desktop test-ai smoke-ai lint check \
 	migrate makemigration seed generate-types generate-ai-types clean \
 	demo-assets demo-reset demo-set demo-next demo-status demo-clean
 
@@ -31,8 +31,7 @@ setup: setup-desktop demo-reset
 setup-all: setup setup-landing setup-backend setup-ai
 
 setup-env:
-	@test -f "$(ENV_FILE)" || cp .env.example "$(ENV_FILE)"
-	@echo "Environment ready: $(ENV_FILE)"
+	@$(PYTHON) -c "from pathlib import Path; p=Path(r'$(ENV_FILE)'); p.exists() or p.write_bytes(Path('.env.example').read_bytes()); print('Environment ready:', p)"
 
 setup-desktop:
 	$(NPM) --prefix $(DESKTOP_DIR) ci
@@ -44,14 +43,12 @@ ensure-electron:
 setup-landing:
 	$(NPM) --prefix $(LANDING_DIR) ci
 
-# Local AI service (services/ai): dev tools + the default demo provider (Gemini).
+# Local AI service: dev tools, default Gemini provider, and Windows bundler.
 # Add other providers with, e.g., pip install -e "services/ai[anthropic]".
 setup-ai:
-	$(PYTHON) -m pip install -e "$(AI_DIR)[dev,google]"
+	$(PYTHON) -m pip install -e "$(AI_DIR)[dev,google,bundle]"
 
-setup-backend: setup-env
-	$(DOCKER_COMPOSE) up --build -d
-	$(DOCKER_COMPOSE) run --rm api alembic upgrade head
+setup-backend: control-plane-up
 
 # --- Run -------------------------------------------------------------------
 run: run-desktop
@@ -62,8 +59,7 @@ run-desktop: ensure-electron
 run-landing:
 	$(NPM) --prefix $(LANDING_DIR) run dev
 
-run-all: setup-env ensure-electron
-	$(DOCKER_COMPOSE) up --build -d
+run-all: control-plane-up ensure-electron
 	$(NPM) --prefix $(DESKTOP_DIR) run dev
 
 app: run-desktop
@@ -77,6 +73,16 @@ ai: run-ai
 
 backend run-backend dev: setup-env
 	$(DOCKER_COMPOSE) up --build
+
+control-plane-up: setup-env
+	$(DOCKER_COMPOSE) up --build -d
+	$(DOCKER_COMPOSE) run --rm api alembic upgrade head
+
+control-plane-down:
+	$(DOCKER_COMPOSE) down
+
+control-plane-health:
+	curl --fail --silent --show-error http://localhost:8000/health
 
 stop:
 	$(DOCKER_COMPOSE) down
@@ -99,7 +105,7 @@ build-backend:
 
 package: package-desktop
 
-package-desktop: ensure-electron
+package-desktop: ensure-electron setup-ai
 	$(NPM) --prefix $(DESKTOP_DIR) run package
 	echo "Desktop app packaged in $(DESKTOP_DIR)/dist"
 
@@ -109,12 +115,15 @@ installer: package-desktop
 typecheck:
 	$(NPM) --prefix $(DESKTOP_DIR) run typecheck
 
-test:
+test-desktop:
+	$(NPM) --prefix $(DESKTOP_DIR) test
+
+test: setup-env
 	$(DOCKER_COMPOSE) run --rm -e TESTING=true api \
 		pytest --cov=app --cov-report=term-missing -v
 
-test-local:
-	cd services/api && TESTING=true pytest --cov=app --cov-report=term-missing -v --no-header
+test-local: setup-env
+	cd services/api && $(PYTHON) -m pytest --cov=app --cov-report=term-missing -v --no-header
 
 # Provider-mocked AI service tests (no network, no API key required).
 test-ai:
@@ -126,25 +135,27 @@ test-ai:
 smoke-ai:
 	$(PYTHON) $(AI_DIR)/tests/manual_smoke.py $(ARGS)
 
-lint:
-	$(DOCKER_COMPOSE) run --rm api ruff check app tests
+lint: setup-env
+	$(DOCKER_COMPOSE) run --rm api ruff check app tests alembic
+
+check: typecheck test-desktop test lint
 
 # --- Database --------------------------------------------------------------
-migrate:
+migrate: setup-env
 	$(DOCKER_COMPOSE) run --rm api alembic upgrade head
 
 MSG ?= migration
-makemigration:
+makemigration: setup-env
 	$(DOCKER_COMPOSE) exec api alembic revision --autogenerate -m "$(MSG)"
 
 seed: migrate
 
 # --- Contracts -------------------------------------------------------------
-generate-types:
+generate-types: setup-env
 	$(DOCKER_COMPOSE) run --rm api python -c \
-		"import json; from app.main import app; print(json.dumps(app.openapi()))" \
-		> packages/contracts/api/openapi.yaml
-	npx --yes openapi-typescript packages/contracts/api/openapi.yaml \
+		"import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))" \
+		> packages/contracts/api/openapi.json
+	npx --yes openapi-typescript packages/contracts/api/openapi.json \
 		-o packages/contracts/api/generated/index.ts
 
 # Regenerate the C3 AI client types from the AI service's OpenAPI schema.
@@ -224,10 +235,15 @@ help:
 	$(info   make setup-backend  Start Docker services and run migrations)
 	$(info   make backend        Run Postgres, Redis, OPA, and FastAPI)
 	$(info   make dev            Alias for make backend)
+	$(info   make control-plane-up     Start the control plane in the background + migrate)
+	$(info   make control-plane-down   Stop the control plane)
+	$(info   make control-plane-health Check http://localhost:8000/health)
 	$(info   make stop           Stop Docker services)
 	$(info   make migrate        Apply Alembic migrations)
 	$(info   make makemigration MSG="...")
 	$(info   make generate-types Generate API TypeScript types)
 	$(info   make test           Run backend tests in Docker)
+	$(info   make test-desktop   Run desktop tests)
 	$(info   make lint           Run backend Ruff checks)
+	$(info   make check          Run desktop types/tests and backend tests/lint)
 	@:

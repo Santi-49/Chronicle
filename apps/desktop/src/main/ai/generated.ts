@@ -172,10 +172,7 @@ export interface components {
              * @constant
              */
             service: "chronicle-ai";
-            /**
-             * Version
-             * @default 0.1.0
-             */
+            /** Version */
             version: string;
         };
         /**

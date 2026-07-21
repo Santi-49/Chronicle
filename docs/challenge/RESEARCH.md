@@ -172,12 +172,29 @@ Google's OpenID Connect guidance identifies the `sub` claim—not email—as the
 never-reused Google account identifier. Chronicle should request only `openid email profile`,
 validate the returned ID token, store a provider/subject link, and issue its own existing JWT
 session. Google's current OAuth security guidance strongly recommends PKCE for desktop apps and
-warns against embedded browsing environments, so Chronicle should use the system browser, a
-short-lived state/nonce/PKCE transaction, and a one-time desktop handoff. Chronicle does not need
+warns against embedded browsing environments. Google's installed-app guide is explicit that a
+desktop app opens the **system browser** and uses a local loopback redirect; OAuth policy forbids
+an embedded user-agent controlled by the app. RFC 8252 applies the same best-current-practice to
+hybrid desktop apps such as Electron: use an external user-agent, normally the operating system's
+default browser, because the app cannot inspect its cookies, credentials, or page content and the
+user retains their existing session, password manager, and accessibility configuration. Chronicle
+therefore opens the default browser (Chrome only when it is the user's default), **not** a small
+temporary `BrowserWindow`/webview. It uses a short-lived state/nonce/PKCE transaction and a one-time
+loopback handoff. Chronicle does not need
 long-lived Google access or refresh tokens because Google APIs are not part of the feature.
 ([Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect),
 [OIDC claims reference](https://developers.google.com/identity/openid-connect/reference),
-[OAuth security guidance](https://developers.google.com/identity/protocols/oauth2/resources/best-practices))
+[Google OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app),
+[Google OAuth policy](https://developers.google.com/identity/protocols/oauth2/policies),
+[RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252))
+
+The external-browser transaction must remain bounded and recoverable. Before opening the browser,
+the desktop should call the Chronicle API's public health endpoint with a short timeout. If that
+preflight fails, it should keep local mode available, show one actionable inline status, and avoid
+opening Google or starting an OAuth timeout that cannot succeed. A browser flow that expires,
+is cancelled, or loses its loopback callback should close its temporary listener and return a
+plain product message (for example, “Google sign-in took too long. Try again.”), never the raw
+Electron IPC wrapper text. A visible retry is preferable to automatic repeated health/auth calls.
 
 Control-plane data has four distinct purposes and must not be presented as one permission:
 
@@ -203,6 +220,108 @@ not affirmative opt-in and must not be labelled consent; onboarding must disclos
 first batch and allow immediate disablement. If consent is selected as the lawful basis, telemetry
 must change to an affirmative choice before production.
 ([GDPR Article 5](https://eur-lex.europa.eu/eli/reg/2016/679/art_17/oj/eng))
+
+### Default AI Provider/Model Validation (VALIDATE-01, 2026-07-21)
+
+Chronicle ships Google Gemini as the default AI provider (`google_genai`) with
+`gemini-flash-latest` for annotation and `gemini-embedding-001` for embeddings. This
+section records the dated research and repeatable live test that confirm those defaults
+work for a new BYOK user. A prior successful call is evidence, not proof that a *changing*
+external default still works, so the defaults were re-probed live against the committed
+demo fixtures on this date.
+
+**Toolchain verified:** `langchain-google-genai` 4.2.2, `google-genai` 1.75.0,
+LangChain 1.3.14, Python 3.13. The service resolves both tasks through LangChain's
+model-agnostic `init_chat_model` / `init_embeddings` factories (no provider wrapper).
+
+**Live results (2026-07-21, real BYOK key, three end-to-end passes):**
+
+- **`gemini-flash-latest` (annotation).** First-version description and the controlled
+  two-version diff both succeeded on every pass. The diff correctly identified the two
+  added magenta ellipses in the `before.jpg → after.jpg` fixture; the first-version pass
+  correctly described the navy Chronicle logo. Multimodal image input works through the
+  standard `image_url` data-URL block, and structured output (summary/changes/tags) parsed
+  cleanly. Observed latency ≈ 6–7 s per call; reported usage ≈ 1,230 input / 640–870 output
+  tokens (first-version) and ≈ 2,330 input / 560–800 output tokens (diff). At the configured
+  `$1.50` input / `$9.00` output per-million pricing that is ≈ **$0.007–0.011 per annotation**.
+- **`gemini-embedding-001` (embeddings).** Returned a **3,072-dimension** vector on every
+  call (matching the 2026-07-19 acceptance). Semantic ranking behaved correctly: "the
+  version with the tagline removed" and "green bottle" each ranked the intended candidate
+  first. `$0.15` input / `$0` output per million, so search embedding cost is negligible.
+- **Configuration probe.** `POST /validate-provider-model` returned VALID for both the chat
+  and embeddings tasks using the real task-specific call.
+- **Error paths (all graceful/asynchronous).** An invalid API key was rejected for both
+  tasks (`ChatGoogleGenerativeAIError` / `GoogleGenerativeAIError` → mapped to a 502 provider
+  error, no key leaked). A non-existent model was rejected. `gemini-pro-latest` (a curated
+  "highest quality" catalog option, not a default) returned **429 RESOURCE_EXHAUSTED** on the
+  demo key's free-tier quota — a valid model ID that is rate-limited, exercising the
+  unavailable/rate-limited path; it surfaces as a provider error and never blocks capture.
+
+**Documentation findings (primary sources):**
+
+- **`gemini-flash-latest` is a moving alias.** Google's model docs state `-latest` aliases
+  "get hot-swapped with every new release" of that variation, with a **2-week email notice**
+  before a breaking change to the version behind the alias. As of this date it resolves to a
+  current Gemini 3.x Flash (the models page lists Gemini 3.6 Flash as the latest). **Risk:**
+  the demo default can change under us. It works today, but for a rehearsed demo the team may
+  prefer pinning a specific dated Flash ID for reproducibility. Recorded as an open decision;
+  the default is left unchanged pending team approval.
+- **Pricing is approximate/dated.** Google's public pricing page still prominently lists
+  Gemini **2.5** Flash at `$0.30`/`$2.50`; third-party trackers put the current 3.x Flash tier
+  near `$1.50`/`$9.00`, which is what `.env.example` uses for the cost estimate. Cost figures
+  above are therefore ballpark and must not be presented as a measured/guaranteed rate.
+- **`gemini-embedding-001` is GA:** 3,072 default dimensions (also 1,536 / 768 via Matryoshka
+  truncation), 2,048-token max input, `$0.15`/M input, 100+ languages.
+- **`text-embedding-004` is retired.** Its deprecation date (2026-01-14) has passed; a live
+  request returns **404 NOT_FOUND**. It was still listed as the Gemini "lower cost" embedding
+  option in the shipped catalog, so VALIDATE-01 removed it from
+  `apps/desktop/src/shared/aiCatalog.ts` — `gemini-embedding-001` is now Google's only current
+  text-embedding model and the sole Gemini embedding choice.
+- **Data handling caveat (unchanged).** Google's Gemini *developer* API uses free-tier inputs
+  to improve products; paid-tier inputs are not used for training. Chronicle sends image and
+  text inputs to the provider on the BYOK path, so demo copy must say the *creative library*
+  stays local while naming the AI-inference exception — never claim zero retention.
+
+**Verdict:** both shipped defaults are **suitable and validated for the demo** on the current
+BYOK path. Two items need team sign-off (tracked as open decisions): (1) whether to keep the
+moving `gemini-flash-latest` alias or pin a dated Flash ID before the demo, and (2) formal
+approval of provider/retention/cost/budget assumptions. Configuration was left unchanged; only
+the confirmed-retired `text-embedding-004` catalog entry was removed.
+
+Sources:
+[Gemini API models & `-latest` aliases](https://ai.google.dev/gemini-api/docs/models) ·
+[Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) ·
+[Gemini embeddings (dimensions, GA)](https://ai.google.dev/gemini-api/docs/embeddings) ·
+[Gemini Embedding GA announcement](https://developers.googleblog.com/gemini-embedding-available-gemini-api/) ·
+[text-embedding-004 deprecation (2026-01-14)](https://github.com/simonw/llm-gemini/issues/102)
+
+### Windows Packaging, Versions, and Release Automation (MVP-12, 2026-07-21)
+
+- Electron's `app.getVersion()` reads the packaged app's `package.json`, and electron-builder uses
+  that same version for installer macros. Chronicle therefore treats
+  `apps/desktop/package.json` as the desktop product's only authored version source; the sidebar,
+  installation registration, artifact name, and release tag derive from it. The independently
+  deployed AI and control-plane packages keep independent `pyproject.toml` versions. An HTTP
+  `/api/v1` prefix is a compatibility generation, not a deployment version.
+  ([Electron app API](https://www.electronjs.org/docs/latest/api/app),
+  [electron-builder publish guide](https://www.electron.build/docs/publish/))
+- GitHub distinguishes caches from workflow artifacts: installer binaries belong in artifacts,
+  while npm/pip download state belongs in caches. Chronicle runs required CI only for PRs whose
+  base is `main`, then builds a retained unsigned installer artifact after the merge.
+  ([GitHub workflow artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts),
+  [Node CI guidance](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs))
+- Release Please turns Conventional Commit history into a reviewed version/changelog PR; merging
+  that PR creates the tag/release. Its documentation confirms that a separate PAT is needed when
+  Action-created PRs must trigger another workflow, because events created with the built-in
+  `GITHUB_TOKEN` do not recursively trigger Actions. Chronicle therefore requires a fine-grained
+  `RELEASE_PLEASE_TOKEN` rather than silently bypassing protected-branch CI.
+  ([Release Please Action](https://github.com/googleapis/release-please-action))
+- Local packaging evidence: a clean Python 3.12 environment built the PyInstaller Gemini sidecar
+  in about 70 seconds (25.2 MB); both the raw executable and the copy inside Electron resources
+  returned `/health` with `chronicle-ai` version `0.1.0`. electron-builder then produced a 135 MB
+  unsigned NSIS installer. Building against a polluted global Python environment spent more than
+  ten minutes inspecting unrelated installed packages, so clean, declared build environments are
+  a reproducibility requirement, not merely a CI speed optimization.
 
 ### Past Hackathon Winners (if available)
 
@@ -249,6 +368,11 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
   Use strict allowlisted schemas, client-generated idempotency IDs, short raw-event retention, and
   aggregate admin views. Never claim “all data stays local”; say precisely that the creative
   library stays local and name the AI, telemetry, settings, and encrypted-secret exceptions.
+- Demonstrate release discipline as technical-execution evidence: one authored desktop version,
+  generated/runtime derivations, protected `main` PR checks, a clean Windows build, and a
+  health-smoked sidecar. Do not imply the unsigned build is signed or auto-updating. Keep the
+  validated Gemini provider in the MVP installer; add other provider packs only after measuring
+  their size/startup/build costs in isolated environments.
 
 ### What to Emphasize in the Demo
 
@@ -316,6 +440,10 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - 2026-07-21 — PROJECT METADATA/EDITING DECISION (MVP-06): tracked-folder projects gain an optional persisted `description` (`user_version` 3→4). A dedicated Edit Project route reuses the creation form for name, description, icon, color, enabled file types, and ignored files; it rescans the existing folder while keeping the path locked. Descriptions appear on project cards and details — team + session
 - 2026-07-21 — DEMO FIXTURE DECISION (DEMO-01): the public test pack uses three deterministic, original image stories (logo navy→teal→tagline removed; banner 40%→50%→purple/limited-time copy; product gray→green→NEW badge). Untouched variants are committed under `demo-assets/sources/`, while the watched `workspace/` and version state are ignored. Everyday reset/set/next/status commands require no Pillow, keeping clean-clone demo setup reproducible — team + session
 - 2026-07-21 — CONTROL-PLANE DATA DECISION (POST-03/04): sync portable settings except device-local paths/project metadata; offer separate signed-in, explicit, end-to-end-encrypted API-key sync; best-effort register every local/signed-in installation with a random non-hardware ID; collect default-enabled content-free telemetry for project/file/version/file-type and AI/search usage. Project/installation IDs remain pseudonymous, counts must not be called unique-user counts, and the default-enabled toggle is not affirmative consent. Google auth uses system-browser PKCE, stable `sub`, minimal scopes, and no stored Google API tokens — team + official Google OIDC/OAuth guidance and GDPR Article 5
+- 2026-07-21 — GOOGLE DESKTOP AUTH UX DECISION (POST-03): retain the operating system's default external browser (Chrome only when it is the user's default), not a small Electron `BrowserWindow`/webview. Google requires desktop installed apps to open the system browser with a loopback redirect and prohibits developer-controlled embedded user-agents; RFC 8252 gives the same guidance and notes the security/session/accessibility benefits. Chronicle performs a short API-health preflight before opening Google, gives the user an explicit retry after an unreachable API, and converts timeout/cancellation/IPC failures into concise inline product messages — [Google desktop OAuth](https://developers.google.com/identity/protocols/oauth2/native-app), [Google OAuth policy](https://developers.google.com/identity/protocols/oauth2/policies), [RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252)
 - 2026-07-21 — WINDOWS APP-ICON FINDING: Chronicle's plated outline mark becomes a tiny nested-monitor glyph on the dark Windows taskbar; its dark tile merges with the shell and the green clock hand disappears. Microsoft recommends a simple singular form, at most two metaphors, a balanced 48 px grid silhouette, minimal gradients/opacity treatments, detail only on the prominent layer, and explicit exact-size exports (taskbar is 24 px at 100% scaling). At least half the icon should reach 3:1 contrast across light and dark contexts; transparent backgrounds and optional theme-specific assets are preferred. Six non-production SVG/PNG/ICO concepts plus an exact-scale comparison board live in `packages/brand/concepts/taskbar-exploration/` — [Windows app-icon design](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-design), [Windows icon construction and sizes](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-construction)
 - 2026-07-21 — AI CONFIGURATION VALIDATION DECISION: both AI task selectors require a saved provider key before Save is enabled. A changed provider/model is probed through the loopback service with the real task path (one-pixel structured vision or a short embedding); rejected/unreachable configurations are not persisted, selectors return to the previous values, and IPC implementation prefixes are removed from user-facing errors. These probes can incur a tiny provider charge and must be described honestly. Developer-mode pairs remain model-agnostic and are judged by the live probe rather than a static allowlist — team + session
 - 2026-07-21 — SEMANTIC INDEX COMPATIBILITY FIX: embedding rows and query lookup now share a provider-qualified `provider:model` identity. Changing either embedding selector queues existing annotation text for deduplicated asynchronous re-embedding without rerunning vision analysis; keyword search remains available while reindexing or provider calls are unavailable — team + session
+- 2026-07-21 — CATALOG PROVIDER AUDIT (VALIDATE-01): documentation-checked the non-default curated providers against current provider docs (no keys for live probes). Anthropic entries (`claude-haiku-4-5`/`claude-sonnet-5`/`claude-opus-4-8`) are current and vision-capable; empty Anthropic embeddings list is correct (no Anthropic embeddings API). OpenAI's GPT-4o family was superseded by the GPT-5.6 tiers, so chat entries were refreshed to `gpt-5.6-luna`/`gpt-5.6-terra`/`gpt-5.6-sol` (`text-embedding-3-small`/`-large` remain current). Amazon Bedrock's Claude 3.5 IDs moved to Legacy, so chat entries were refreshed to `anthropic.claude-haiku-4-5-20251001-v1:0`/`anthropic.claude-sonnet-4-6`/`anthropic.claude-opus-4-7` (newer Bedrock Claude is inference-profile-based and may need a region prefix like `us.anthropic.…` per account/region; Titan v2 + Cohere Embed English v3 remain active). These stay illustrative/BYOK-dependent and are live-probed before persistence — [OpenAI models](https://developers.openai.com/api/docs/models), [Amazon Bedrock model catalog 2026](https://hidekazu-konishi.com/entry/amazon_bedrock_model_catalog_2026.html), Claude API model reference — team + session
+- 2026-07-21 — DEFAULT PROVIDER VALIDATION (VALIDATE-01): re-probed the shipped Gemini defaults live against the demo fixtures (langchain-google-genai 4.2.2 / google-genai 1.75.0). `gemini-flash-latest` produced correct first-version and diff annotations with working image input and structured output (≈6–7 s, ≈$0.007–0.011/call at $1.50/$9 per-M); `gemini-embedding-001` returned 3,072-dim vectors with correct semantic ranking ($0.15/M). Invalid-key, unknown-model, and a 429-rate-limited `gemini-pro-latest` all failed gracefully as provider errors with no key leak. Findings: `gemini-flash-latest` is a hot-swapped moving alias (2-week breaking-change notice; now a Gemini 3.x Flash) so pinning a dated ID for the demo is an open decision; pricing is approximate/dated; `text-embedding-004` is retired (live 404) and was removed from the catalog. Defaults judged suitable; only the retired catalog entry was changed — configuration and both-default approval remain a team sign-off — team live test + [Gemini models](https://ai.google.dev/gemini-api/docs/models), [pricing](https://ai.google.dev/gemini-api/docs/pricing), [embeddings](https://ai.google.dev/gemini-api/docs/embeddings), [text-embedding-004 deprecation](https://github.com/simonw/llm-gemini/issues/102)
+- 2026-07-21 — MVP-12 PACKAGING/RELEASE FINDING: established independent desktop/AI/control-plane versions, `package.json`-derived desktop display/installer/tag values, PR-only required CI for `main`, per-merge Windows artifacts, and reviewed Release Please version PRs. A clean Python 3.12 PyInstaller build produced a 25.2 MB Gemini sidecar; its raw and packaged-resource health probes passed; electron-builder produced a 135 MB unsigned NSIS installer. Polluted global Python made dependency analysis exceed ten minutes, validating isolated declared build environments. Additional installed provider packs, signing, macOS, and in-app auto-update remain future work — team implementation + official Electron/electron-builder/GitHub/Release Please sources linked above

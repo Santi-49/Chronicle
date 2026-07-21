@@ -78,17 +78,17 @@ telemetry, admin stats, generated OpenAPI types, or the stretch hosted AI gatewa
 ```bash
 make setup-env
 # Optional: edit .env to set JWT_SECRET_KEY and local admin credentials.
-make setup-backend
+make control-plane-up
 ```
 
-`make setup-backend` starts Postgres, Redis, OPA, and the FastAPI service, then runs
+`make control-plane-up` starts Postgres, Redis, OPA, and the FastAPI service, then runs
 Alembic migrations and seed data.
 
 Verify the backend:
 
 ```bash
-curl http://localhost:8000/api/v1/hello
-# {"message":"Hello, world!"}
+make control-plane-health
+# {"status":"ok","service":"chronicle-control-plane","version":"0.2.0"}
 ```
 
 Swagger UI is at `http://localhost:8000/docs`.
@@ -96,8 +96,8 @@ Swagger UI is at `http://localhost:8000/docs`.
 For daily backend work:
 
 ```bash
-make backend   # run backend services in the foreground
-make stop      # stop backend services
+make backend                 # run backend services in the foreground
+make control-plane-down      # stop backend services
 ```
 
 ---
@@ -125,14 +125,18 @@ make run                           # desktop app
 make build                         # desktop build
 make package                       # Windows installer .exe
 make typecheck                     # desktop TypeScript check
-make setup-backend                 # optional Docker backend + migrations
+make test-desktop                  # desktop tests
+make control-plane-up              # optional Docker backend + migrations
+make control-plane-health          # verify API reachability and identity
+make control-plane-down            # stop optional Docker backend
 make backend                       # optional Docker backend foreground run
-make stop                          # stop Docker backend services
 make migrate                       # apply backend migrations
 make makemigration MSG="add table" # create a backend migration
 make generate-types                # OpenAPI -> TypeScript types
 make test                          # backend pytest in Docker
 make test-local                    # backend pytest in local Python env
+make lint                          # backend Ruff checks
+make check                         # desktop typecheck/tests + backend tests/lint
 ```
 
 ---
@@ -144,10 +148,10 @@ These exist only when the Docker backend is running.
 | URL | What |
 |---|---|
 | `http://localhost:8000/docs` | Swagger UI |
-| `http://localhost:8000/api/v1/hello` | Public smoke test |
-| `localhost:5432` | Postgres, user/db from `.env` |
-| `localhost:6379` | Redis |
-| `http://localhost:8181` | OPA policy engine |
+| `http://localhost:8000/health` | Public API reachability + identity/version preflight |
+
+Compose project name is `chronicle`; service names are `api`, `postgres`, `redis`, and `opa`.
+Only `api` publishes a host port. Use `docker compose exec <service> ...` for internal dependencies.
 
 ---
 

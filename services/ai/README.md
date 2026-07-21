@@ -81,6 +81,23 @@ Install only the provider package used for manual tests, e.g.
 `python -m pip install -e ".[google]"` for the current demo configuration.
 Automated tests mock LangChain and never contact a paid provider.
 
+## Windows sidecar packaging
+
+MVP-12 packages the service with PyInstaller so an installed Chronicle build does not require
+system Python. Build from the repository root with a clean Python 3.12 environment:
+
+```powershell
+python -m pip install -e "services/ai[google,bundle]"
+python scripts/build_ai_sidecar.py
+python scripts/smoke_ai_sidecar.py
+```
+
+The executable is generated at
+`apps/desktop/build/sidecar/chronicle-ai-sidecar.exe`; electron-builder copies it and the
+canonical `packages/prompts/version-annotation.md` into `resources/ai/`. Electron sets
+`CHRONICLE_PROMPT_PATH` when spawning the installed sidecar. The MVP executable includes the
+live-validated Gemini integration only; additional provider packs remain future packaging work.
+
 ## Regenerate the TypeScript client (C3)
 
 After changing a route or Pydantic model, regenerate the OpenAPI schema and the
