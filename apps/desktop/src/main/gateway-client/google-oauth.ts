@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import http from 'node:http'
-import { shell } from 'electron'
+import { BrowserWindow, shell } from 'electron'
 
 const CALLBACK_PATH = '/oauth2callback'
 
@@ -50,7 +50,9 @@ export async function obtainGoogleIdToken(clientId: string): Promise<string> {
     prompt: 'select_account',
   }).toString()
 
+  let rejectCodeWait: ((reason: Error) => void) | undefined
   const codePromise = new Promise<string>((resolve, reject) => {
+    rejectCodeWait = reject
     const timeout = setTimeout(() => {
       server.close()
       reject(new Error('Google sign-in timed out'))
@@ -80,12 +82,22 @@ export async function obtainGoogleIdToken(clientId: string): Promise<string> {
         return
       }
       finish(200, 'Signed in to Chronicle')
+      const chronicleWindow = BrowserWindow.getAllWindows().find((window) => !window.isDestroyed())
+      chronicleWindow?.show()
+      chronicleWindow?.focus()
       resolve(code)
     })
   })
 
   try {
-    await shell.openExternal(authorization.toString())
+    try {
+      await shell.openExternal(authorization.toString())
+    } catch (error) {
+      const openError = error instanceof Error ? error : new Error(String(error))
+      rejectCodeWait?.(openError)
+      await codePromise.catch(() => {})
+      throw new Error('Chronicle could not open your default browser')
+    }
     const code = await codePromise
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',

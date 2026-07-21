@@ -14,6 +14,7 @@ import {
 } from '../lib/aiCatalog'
 import { useFolders, useSettings } from '../lib/useChronicle'
 import { chronicle } from '../lib/bridge'
+import { friendlyError } from '../lib/friendlyError'
 
 interface SettingsScreenProps {
   themePreference: ThemePreference
@@ -350,7 +351,11 @@ function AccountSection() {
   const [email, setEmail] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [passphrase, setPassphrase] = useState('')
-  const [status, setStatus] = useState<string | null>(null)
+  const [controlPlaneAvailable, setControlPlaneAvailable] = useState<boolean | null>(null)
+  const [authBusy, setAuthBusy] = useState(false)
+  const [authStatus, setAuthStatus] = useState<string | null>(null)
+  const [syncStatus, setSyncStatus] = useState<string | null>(null)
+  const [keyStatus, setKeyStatus] = useState<string | null>(null)
 
   const refreshAccount = async () => {
     const state = await chronicle.getAccountState()
@@ -358,16 +363,29 @@ function AccountSection() {
     setIsAdmin(state.isAdmin)
   }
 
-  useEffect(() => { void refreshAccount() }, [])
+  const checkControlPlane = async () => {
+    setControlPlaneAvailable(null)
+    const available = await chronicle.checkControlPlaneHealth().catch(() => false)
+    setControlPlaneAvailable(available)
+    setAuthStatus(available ? null : 'Chronicle sign-in is unavailable. Start the control plane, then retry.')
+  }
 
-  const run = async (label: string, operation: () => Promise<void>) => {
-    setStatus(label)
+  useEffect(() => {
+    void refreshAccount()
+    void checkControlPlane()
+  }, [])
+
+  const runAuth = async (operation: () => Promise<void>, success: string) => {
+    setAuthBusy(true)
+    setAuthStatus(null)
     try {
       await operation()
       await refreshAccount()
-      setStatus('Done.')
+      setAuthStatus(success)
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error))
+      setAuthStatus(friendlyError(error))
+    } finally {
+      setAuthBusy(false)
     }
   }
 
@@ -376,27 +394,69 @@ function AccountSection() {
     await save({ controlPlane: { ...settings.controlPlane, ...patch } })
   }
 
+  const runSync = async () => {
+    setSyncStatus('Syncing preferences…')
+    try {
+      await chronicle.syncSettings()
+      setSyncStatus('Preferences synced.')
+    } catch (error) {
+      setSyncStatus(friendlyError(error))
+    }
+  }
+
+  const toggleKeySync = async (enabled: boolean) => {
+    setKeyStatus(null)
+    try {
+      if (enabled) {
+        await updateControlPlane({ apiKeySyncEnabled: true })
+        setKeyStatus('Enter a passphrase, then save an encrypted cloud copy.')
+      } else {
+        await chronicle.disableApiKeySync()
+        await updateControlPlane({ apiKeySyncEnabled: false })
+        setPassphrase('')
+        setKeyStatus('Encrypted cloud copy deleted. Local keys were kept.')
+      }
+    } catch (error) {
+      setKeyStatus(friendlyError(error))
+    }
+  }
+
+  const runKeyOperation = async (operation: () => Promise<void>, success: string) => {
+    setKeyStatus('Working…')
+    try {
+      await operation()
+      setPassphrase('')
+      setKeyStatus(success)
+    } catch (error) {
+      setKeyStatus(friendlyError(error))
+    }
+  }
+
   return (
     <section className="settings-section">
       <div className="settings-section-heading">
         <Icon name="info" />
         <div><h2>Account</h2><p>An account is optional and never gates local version history.</p></div>
       </div>
-      <p className="settings-empty">
-        {email ? `Signed in as ${email}${isAdmin ? ' (admin)' : ''}.` : 'Running in local mode. Local features remain available offline.'}
-      </p>
-      {email ? (
-        <div className="api-key-actions">
-          <button className="google-button settings-google-button" onClick={() => void run('Opening Google…', async () => { await chronicle.loginWithGoogle() })} type="button">
-            <span className="google-button-label"><GoogleMark />Link Google account</span>
+      <div className="account-access">
+        <p className="settings-empty">
+          {email ? `Signed in as ${email}${isAdmin ? ' (admin)' : ''}.` : 'Running in local mode. Local features remain available offline.'}
+        </p>
+        <div className="account-access-actions">
+          <button
+            className="google-button settings-google-button"
+            disabled={controlPlaneAvailable !== true || authBusy}
+            onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, email ? 'Google account linked.' : 'Signed in with Google.')}
+            type="button"
+          >
+            <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : email ? 'Link Google account' : 'Continue with Google'}</span>
           </button>
-          <button className="secondary-button" onClick={() => void run('Signing out…', () => chronicle.logout())} type="button">Sign out</button>
+          {email && <button className="secondary-button" disabled={authBusy} onClick={() => void runAuth(() => chronicle.logout(), 'Signed out.')} type="button">Sign out</button>}
         </div>
-      ) : (
-        <button className="google-button settings-google-button" onClick={() => void run('Opening Google…', async () => { await chronicle.loginWithGoogle() })} type="button">
-          <span className="google-button-label"><GoogleMark />Continue with Google</span>
-        </button>
-      )}
+        {controlPlaneAvailable === null && <span className="inline-status" role="status">Checking Chronicle sign-in…</span>}
+        {authStatus && <span className={controlPlaneAvailable === false ? 'inline-status inline-status-error' : 'inline-status'} role="status">{authStatus}</span>}
+        {controlPlaneAvailable === false && <button className="text-button account-retry" onClick={() => void checkControlPlane()} type="button">Retry connection check</button>}
+      </div>
 
       {settings && (
         <div className="account-preferences">
@@ -406,7 +466,7 @@ function AccountSection() {
               onChange={(event) => void updateControlPlane({ telemetryOptIn: event.target.checked })}
               type="checkbox"
             />
-            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends installation and usage counts only; no creative files, names, paths, summaries, tags, or search text. POST-04 will implement delivery.</small></span>
+            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends installation and usage counts only; no creative files, names, paths, summaries, tags, or search text.</small></span>
           </label>
           <label className="toggle-field">
             <input
@@ -418,26 +478,38 @@ function AccountSection() {
             <span><strong>Sync preferences</strong><small>Signed-in only. Syncs AI provider/model choices and these preferences, never device paths or project metadata.</small></span>
           </label>
           {email && settings.controlPlane.settingsSyncEnabled && (
-            <button className="secondary-button compact-button" onClick={() => void run('Syncing preferences…', () => chronicle.syncSettings())} type="button">Sync preferences now</button>
+            <div className="preference-action">
+              <button className="secondary-button compact-button" onClick={() => void runSync()} type="button">Sync preferences now</button>
+              {syncStatus && <span className="inline-status" role="status">{syncStatus}</span>}
+            </div>
           )}
 
-          <div className="api-keys-heading">
-            <h3>Encrypted API-key sync</h3>
-            <p>Optional and separate from preference sync. Keys are encrypted on this device with your passphrase; Chronicle stores only the opaque envelope. The passphrase cannot be recovered.</p>
-          </div>
-          <div className="settings-form-grid">
-            <label><span>Sync passphrase</span><input disabled={!email} minLength={12} onChange={(event) => setPassphrase(event.target.value)} placeholder="At least 12 characters" type="password" value={passphrase} /></label>
-          </div>
-          {email && (
-            <div className="api-key-actions">
-              <button className="secondary-button compact-button" disabled={passphrase.length < 12} onClick={() => void run('Encrypting and uploading keys…', () => chronicle.syncApiKeys(passphrase))} type="button">Upload encrypted keys</button>
-              <button className="secondary-button compact-button" disabled={passphrase.length < 12} onClick={() => void run('Downloading and decrypting keys…', () => chronicle.restoreApiKeys(passphrase))} type="button">Restore encrypted keys</button>
-              {settings.controlPlane.apiKeySyncEnabled && <button className="text-button" onClick={() => void run('Deleting synced keys…', () => chronicle.disableApiKeySync())} type="button">Disable and delete cloud copy</button>}
+          <label className="toggle-field">
+            <input
+              checked={settings.controlPlane.apiKeySyncEnabled}
+              disabled={!email}
+              onChange={(event) => void toggleKeySync(event.target.checked)}
+              type="checkbox"
+            />
+            <span><strong>Encrypted API-key sync</strong><small>Optional and separate from preference sync. Chronicle stores only an opaque passphrase-encrypted envelope.</small></span>
+          </label>
+          {email && settings.controlPlane.apiKeySyncEnabled && (
+            <div className="key-sync-panel">
+              <label className="key-sync-passphrase">
+                <span>Sync passphrase</span>
+                <input autoComplete="off" minLength={12} onChange={(event) => setPassphrase(event.target.value)} placeholder="At least 12 characters" type="password" value={passphrase} />
+                <small>Used only for this action. Chronicle never saves or receives the passphrase, so it cannot be recovered.</small>
+              </label>
+              <div className="key-sync-actions">
+                <button className="secondary-button compact-button" disabled={passphrase.length < 12} onClick={() => void runKeyOperation(() => chronicle.syncApiKeys(passphrase), 'Encrypted cloud copy saved.')} type="button">Save encrypted copy</button>
+                <button className="secondary-button compact-button" disabled={passphrase.length < 12} onClick={() => void runKeyOperation(() => chronicle.restoreApiKeys(passphrase), 'Keys restored to this device.')} type="button">Restore to this device</button>
+                <button className="text-button" onClick={() => void toggleKeySync(false)} type="button">Disable and delete cloud copy</button>
+              </div>
+              {keyStatus && <span className="inline-status" role="status">{keyStatus}</span>}
             </div>
           )}
         </div>
       )}
-      {status && <span className="inline-status" role="status">{status}</span>}
     </section>
   )
 }

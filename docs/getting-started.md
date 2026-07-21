@@ -48,22 +48,18 @@ They were filled in at kickoff (2026-07-16) — update them as you learn more, e
 # 1. Clone
 git clone <repo-url> && cd AI-Builders-Bob
 
-# 2. Configure
-cp .env.example .env
+# 2. Configure the optional control plane
+make setup-env
 # Open .env and set JWT_SECRET_KEY (any string ≥32 chars)
 # Set FIRST_ADMIN_EMAIL and FIRST_ADMIN_PASSWORD
+# Set GOOGLE_OAUTH_CLIENT_ID for Google desktop sign-in
 
-# 3. Start everything
-docker compose up --build
-# First build: ~2 min. After that, fast.
+# 3. Start the optional control plane and run migrations
+make control-plane-up
 
-# 4. Run migrations
-make migrate
-# Creates tables, seeds roles, creates your admin user
-
-# 5. Verify it works
-curl http://localhost:8000/api/v1/hello
-# → {"message":"Hello, world!"}
+# 4. Verify identity/reachability
+make control-plane-health
+# → {"status":"ok","service":"chronicle-control-plane","version":"0.2.0"}
 ```
 
 Open `http://localhost:8000/docs` to browse the API interactively.
@@ -73,10 +69,11 @@ Open `http://localhost:8000/docs` to browse the API interactively.
 | URL | What |
 |---|---|
 | `http://localhost:8000/docs` | Swagger UI — try every endpoint here |
-| `http://localhost:8000` | API |
-| `http://localhost:5432` | Postgres |
-| `http://localhost:6379` | Redis |
-| `http://localhost:8181` | OPA (authorization engine) |
+| `http://localhost:8000/health` | Chronicle control-plane preflight |
+
+Docker Compose project name is `chronicle`; its service names are `api`, `postgres`, `redis`,
+and `opa`. Only the API publishes a host port. The other services are reachable by those service
+names inside the Compose network.
 
 ---
 
@@ -230,12 +227,16 @@ When you need a new resource (say, a `/pairings` endpoint):
 ## Day-to-day commands
 
 ```bash
-make dev                             # start all services
-make stop                            # shut everything down
+make control-plane-up                # start control plane in background + migrate
+make control-plane-health            # verify API identity/reachability
+make control-plane-down              # shut down the control plane
 make migrate                         # apply migrations
 make makemigration MSG="..."         # create a new migration
 make generate-types                  # sync TypeScript types from the API
-make test                            # run the test suite
+make test                            # backend tests in Docker
+make test-desktop                    # desktop tests
+make lint                            # backend Ruff checks
+make check                           # desktop typecheck/tests + backend tests/lint
 ```
 
 ---

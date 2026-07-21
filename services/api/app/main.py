@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from app.api.v1.router import router
 from app.core.config import settings
@@ -18,9 +20,22 @@ async def lifespan(app: FastAPI):
     await client.aclose()
 
 
+class HealthResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    service: Literal["chronicle-control-plane"] = "chronicle-control-plane"
+    version: str
+
+
+API_VERSION = "0.2.0"
+
+
 app = FastAPI(
-    title="Hackathon API",
-    version="0.1.0",
+    title="Chronicle Control Plane API",
+    summary="Optional accounts, sync, and installation registration for Chronicle.",
+    description=(
+        "Chronicle remains local-first: creative files and local history are not stored by this API."
+    ),
+    version=API_VERSION,
     lifespan=lifespan,
 )
 
@@ -33,3 +48,9 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+
+@app.get("/health", response_model=HealthResponse, tags=["health"], operation_id="health")
+async def health() -> HealthResponse:
+    """Lightweight reachability check used before starting interactive sign-in."""
+    return HealthResponse(version=API_VERSION)

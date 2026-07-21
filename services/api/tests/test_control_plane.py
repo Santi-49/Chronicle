@@ -11,6 +11,17 @@ def auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def test_health_uses_chronicle_metadata(client: AsyncClient):
+    response = await client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "chronicle-control-plane",
+        "version": "0.2.0",
+    }
+
+
 async def test_account_settings_default_and_revision_update(
     client: AsyncClient, user_token
 ):

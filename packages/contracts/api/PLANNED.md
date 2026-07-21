@@ -6,6 +6,10 @@
 The control plane remains non-essential to local capture, history, restore, and search. Every
 desktop network operation is asynchronous. An unreachable API never blocks entry to the product.
 
+`GET /health` is public and returns the control-plane identity and API version. Electron calls it
+with a short timeout before opening an interactive Google flow. A failed preflight starts no OAuth
+transaction; the UI remains local-first and offers an explicit connection retry.
+
 ## Authentication
 
 Existing endpoints remain: `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST
@@ -17,7 +21,8 @@ Existing endpoints remain: `POST /api/v1/auth/register`, `POST /api/v1/auth/logi
 - `POST /api/v1/auth/google/link` performs the same validation for an authenticated Chronicle
   account. An existing password account is never silently merged by matching email.
 - Electron obtains the ID token using the system browser, desktop-client loopback redirect, state,
-  nonce, and PKCE S256. No OAuth client secret is bundled in the desktop app.
+  nonce, and PKCE S256. “System browser” means the operating system's default external browser,
+  not an Electron `BrowserWindow` or webview. No OAuth client secret is bundled in the desktop app.
 
 ## Installation registration
 
@@ -42,6 +47,9 @@ Existing endpoints remain: `POST /api/v1/auth/register`, `POST /api/v1/auth/logi
 - PUT uses the same optimistic revision rule. The envelope is encrypted and authenticated by the
   desktop before upload. The backend never receives plaintext provider keys or a decryption key and
   never parses/logs the envelope.
+- The desktop exposes a separate signed-in-only enable checkbox. Enabling it reveals the
+  passphrase and explicit save/restore actions; disabling it deletes the envelope while retaining
+  local keys. The passphrase remains device-side and is never part of this contract.
 
 ## Authorization
 

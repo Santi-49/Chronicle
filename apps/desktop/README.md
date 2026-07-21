@@ -12,7 +12,7 @@ src/main/       Electron main process (Node)
   versioning/     hashing, content-addressed library, capture pipeline
   ipc/            C1 bridge: handlers, events, chronicle:// protocol, secrets
   ai/             job worker + typed client for the local Python AI service (services/ai/)
-  gateway-client/ control-plane client (auth, logs, stats, hosted inference)
+  gateway-client/ optional control-plane client (health, auth, installation/settings/key sync)
 src/preload/    typed IPC bridge (contextBridge)
 src/renderer/   React UI — Projects/Edit, Timeline, Version details, Search, Settings, jobs
 ```

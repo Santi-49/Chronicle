@@ -25,6 +25,19 @@ const user = {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('control-plane client', () => {
+  it('reports health without throwing on an unavailable control plane', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        status: 'ok', service: 'chronicle-control-plane', version: '0.2.0',
+      }), { status: 200 }))
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createControlPlaneClient(() => 'http://control-plane', tokenStore())
+
+    await expect(client.health()).resolves.toBe(true)
+    await expect(client.health()).resolves.toBe(false)
+  })
+
   it('stores Chronicle tokens after Google login and returns renderer-safe account state', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({

@@ -172,12 +172,29 @@ Google's OpenID Connect guidance identifies the `sub` claim—not email—as the
 never-reused Google account identifier. Chronicle should request only `openid email profile`,
 validate the returned ID token, store a provider/subject link, and issue its own existing JWT
 session. Google's current OAuth security guidance strongly recommends PKCE for desktop apps and
-warns against embedded browsing environments, so Chronicle should use the system browser, a
-short-lived state/nonce/PKCE transaction, and a one-time desktop handoff. Chronicle does not need
+warns against embedded browsing environments. Google's installed-app guide is explicit that a
+desktop app opens the **system browser** and uses a local loopback redirect; OAuth policy forbids
+an embedded user-agent controlled by the app. RFC 8252 applies the same best-current-practice to
+hybrid desktop apps such as Electron: use an external user-agent, normally the operating system's
+default browser, because the app cannot inspect its cookies, credentials, or page content and the
+user retains their existing session, password manager, and accessibility configuration. Chronicle
+therefore opens the default browser (Chrome only when it is the user's default), **not** a small
+temporary `BrowserWindow`/webview. It uses a short-lived state/nonce/PKCE transaction and a one-time
+loopback handoff. Chronicle does not need
 long-lived Google access or refresh tokens because Google APIs are not part of the feature.
 ([Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect),
 [OIDC claims reference](https://developers.google.com/identity/openid-connect/reference),
-[OAuth security guidance](https://developers.google.com/identity/protocols/oauth2/resources/best-practices))
+[Google OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app),
+[Google OAuth policy](https://developers.google.com/identity/protocols/oauth2/policies),
+[RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252))
+
+The external-browser transaction must remain bounded and recoverable. Before opening the browser,
+the desktop should call the Chronicle API's public health endpoint with a short timeout. If that
+preflight fails, it should keep local mode available, show one actionable inline status, and avoid
+opening Google or starting an OAuth timeout that cannot succeed. A browser flow that expires,
+is cancelled, or loses its loopback callback should close its temporary listener and return a
+plain product message (for example, “Google sign-in took too long. Try again.”), never the raw
+Electron IPC wrapper text. A visible retry is preferable to automatic repeated health/auth calls.
 
 Control-plane data has four distinct purposes and must not be presented as one permission:
 
@@ -310,3 +327,4 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - 2026-07-21 — PROJECT METADATA/EDITING DECISION (MVP-06): tracked-folder projects gain an optional persisted `description` (`user_version` 3→4). A dedicated Edit Project route reuses the creation form for name, description, icon, color, enabled file types, and ignored files; it rescans the existing folder while keeping the path locked. Descriptions appear on project cards and details — team + session
 - 2026-07-21 — DEMO FIXTURE DECISION (DEMO-01): the public test pack uses three deterministic, original image stories (logo navy→teal→tagline removed; banner 40%→50%→purple/limited-time copy; product gray→green→NEW badge). Untouched variants are committed under `demo-assets/sources/`, while the watched `workspace/` and version state are ignored. Everyday reset/set/next/status commands require no Pillow, keeping clean-clone demo setup reproducible — team + session
 - 2026-07-21 — CONTROL-PLANE DATA DECISION (POST-03/04): sync portable settings except device-local paths/project metadata; offer separate signed-in, explicit, end-to-end-encrypted API-key sync; best-effort register every local/signed-in installation with a random non-hardware ID; collect default-enabled content-free telemetry for project/file/version/file-type and AI/search usage. Project/installation IDs remain pseudonymous, counts must not be called unique-user counts, and the default-enabled toggle is not affirmative consent. Google auth uses system-browser PKCE, stable `sub`, minimal scopes, and no stored Google API tokens — team + official Google OIDC/OAuth guidance and GDPR Article 5
+- 2026-07-21 — GOOGLE DESKTOP AUTH UX DECISION (POST-03): retain the operating system's default external browser (Chrome only when it is the user's default), not a small Electron `BrowserWindow`/webview. Google requires desktop installed apps to open the system browser with a loopback redirect and prohibits developer-controlled embedded user-agents; RFC 8252 gives the same guidance and notes the security/session/accessibility benefits. Chronicle performs a short API-health preflight before opening Google, gives the user an explicit retry after an unreachable API, and converts timeout/cancellation/IPC failures into concise inline product messages — [Google desktop OAuth](https://developers.google.com/identity/protocols/oauth2/native-app), [Google OAuth policy](https://developers.google.com/identity/protocols/oauth2/policies), [RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252)

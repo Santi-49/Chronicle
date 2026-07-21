@@ -26,7 +26,7 @@ restricted to a one-file PR.
 | **C3** | Electron main ↔ local AI service (`services/ai/`, HTTP on `127.0.0.1`) | Annotation and embedding operation functionality plus typed inputs/outputs and error/status behavior. Prompts, models, and pipelines stay implementation-owned. | The AI service's OpenAPI schema + `packages/contracts/ai/output.schema.json` → generated TS client types (never hand-written). `packages/contracts/ai/interface.ts` documents the operation shapes until the service exists. | High |
 | **C4** | Filesystem ↔ watcher | Candidate-evaluation input/output, rejection reasons, supported formats, settle guarantee, and size cap. Globs, regexes, event handling, and debounce algorithms are implementation details. | `apps/desktop/src/main/watcher/rules.ts` | High |
 | **C5** | Everything ↔ settings | Typed settings read/write data and the security guarantee that secrets never enter the renderer-visible settings object. Defaults and supported-provider discovery are implementation policy. | `apps/desktop/src/shared/settings.ts` | High |
-| **C6** | App ↔ control-plane API | Google credential exchange; installation registration/linking; revisioned portable settings; and opaque client-encrypted secret CRUD. Telemetry event ingestion remains POST-04. | `packages/contracts/api/openapi.json` → `packages/contracts/api/generated/index.ts` (guarantees in `PLANNED.md`) | Low |
+| **C6** | App ↔ control-plane API | Public API health/identity preflight; Google credential exchange; installation registration/linking; revisioned portable settings; and opaque client-encrypted secret CRUD. Telemetry event ingestion remains POST-04. | `packages/contracts/api/openapi.json` → `packages/contracts/api/generated/index.ts` (guarantees in `PLANNED.md`) | Low |
 | **C7** | Backend ↔ module | Optional gateway operations and Python input/output formats. The gateway reuses the `services/ai/` Python implementation rather than maintaining a second AI pipeline. | `packages/contracts/module/interface.py` | Stretch |
 
 Prompt assets live only in `packages/prompts/` as Markdown with YAML front matter.
@@ -105,7 +105,7 @@ FastAPI auto-generates an OpenAPI spec from the Pydantic schemas. The frontend c
 
 ```bash
 make generate-types
-# → writes packages/contracts/api/openapi.yaml
+# → writes packages/contracts/api/openapi.json and generated/index.ts
 # → writes packages/contracts/api/generated/index.ts
 ```
 

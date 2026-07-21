@@ -51,7 +51,7 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 | Concern | Choice |
 |---|---|
 | Contracts | Boundary operations and data formats mapped in [contracts.md](contracts.md): IPC · persistence behavior · AI I/O · watcher decisions · settings · control-plane OpenAPI · optional module `Protocol`. SQLite DDL, prompts, algorithms, provider choices, and orchestration are implementation specifications, not contracts. |
-| Testing | **Vitest** for desktop logic (hashing, version rules, search ranking) · **pytest** for the AI service and backend (backend already has 32 tests) |
+| Testing | **Vitest** for desktop logic (hashing, version rules, search ranking) · **pytest** for the AI service and backend |
 | Lint/format | **ESLint + Prettier** (TS) · **Ruff** (Python) |
 | Dev tool | **IBM Bob** — mandatory, judged. Every member logs usage in [bob-log.md](bob-log.md) |
 | Runtimes | Node 20+, Python 3.12 (AI service + backend), Docker Desktop (control plane only — never needed for the AI service) |
@@ -116,13 +116,15 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
 
 ### F1 — Accounts & sign-in `Low` (control plane — optional)
 
-- On first launch the app offers **"Continue local"** (default) or **"Continue with Google"** through the system browser using OAuth Authorization Code + PKCE. Password registration/login remains available in Settings.
+- On first launch the app offers **"Continue local"** (default) or **"Continue with Google"** through the operating system's default external browser using OAuth Authorization Code + PKCE. Do not use an Electron `BrowserWindow`/webview for Google auth. The pre-built password endpoints remain available to API clients; the implemented desktop account surface is Google-first.
 - Google ID tokens are verified server-side and bound by stable Google `sub`; an existing password account is never merged by email alone. The app stores only Chronicle JWTs, not Google access/refresh tokens.
 - An account can be linked later from Settings; signing in never gates a local feature. It enables optional portable settings sync, separately opted-in E2E API-key sync, and the gateway option (F9).
+- Before Google sign-in is enabled/opened, the app calls the public Chronicle API health endpoint with a short timeout. Failure keeps local mode usable and offers an explicit retry instead of repeatedly opening Google. An expired, cancelled, or lost loopback handoff closes cleanly and becomes concise inline copy; raw Electron IPC messages never reach the user.
+- Encrypted API-key sync is an independent signed-in-only checkbox, off by default. Enabling it reveals a compact passphrase row with explicit **Save encrypted copy** and **Restore to this device** actions; disabling it deletes the cloud envelope while retaining local keys. The passphrase is used only for the selected action, is cleared afterwards, and is not synced or recoverable.
 - Every install keeps a random, resettable installation UUID and attempts registration without blocking startup. This measures installations, not unique users, and includes no hardware ID, hostname, paths, or project data.
 - If signed in: the session persists across restarts; token refresh is automatic (pre-built stack). Signing in requires internet **once**; after that everything except AI calls and telemetry works offline (those queue — see F4/F8).
 - **Hard rule:** the app runs with **no Docker setup and no Chronicle API connection**. Capture, cached timeline, restore, and keyword search remain usable offline; AI summaries and semantic indexing queue until their configured API is reachable.
-- **Done when:** fresh install → "Continue local" → capture, timeline, restore, and keyword search work with no backend; Google/password sign-in yields a refreshable Chronicle session; portable settings round-trip without local data; key sync round-trips only an opaque client-encrypted envelope.
+- **Done when:** fresh install → "Continue local" → capture, timeline, restore, and keyword search work with no backend; Google sign-in yields a refreshable Chronicle session; an unhealthy API never opens the browser; timeout/cancellation never leaks raw IPC errors; portable settings round-trip without local data; explicitly enabled key sync round-trips only an opaque client-encrypted envelope.
 
 ### F2 — Tracked folders `MVP`
 
@@ -204,7 +206,7 @@ The heart of the product. Exact rules:
 
 ### F8 — Telemetry & admin stats `Low` (control plane — optional)
 
-- Usage telemetry is **enabled by default** for signed-in and local profiles, with an adjacent warning that creative data remains local and a one-click off switch. This is default-enabled consent, not an opt-in, and the product must describe it honestly.
+- Usage telemetry is **enabled by default** for signed-in and local profiles, with an adjacent warning that creative data remains local and a one-click off switch. This is default-enabled reporting, not an opt-in or affirmative consent, and the product must describe it honestly. New settings resolve it to `true`; existing profiles receive a one-time migration from the pre-POST-03 `false` placeholder that had no user-facing control. After that marker is stored, an explicit user choice of `false` is preserved.
 - Local profiles use only their random installation UUID; telemetry does not silently create a Chronicle login account. Installation registration is a separately disclosed, minimal operation and continues even when usage telemetry is disabled.
 - When enabled, the app reports allowlisted events — app opened, project/file/version counts, version captured, app version, supported file type, new-version count, AI summary generated (latency/provider), and search performed (never the query).
 - **Privacy rule (hard):** telemetry contains **no file contents, no file names, no summaries** — only counts, sizes, file types, timings. This is one sentence in the demo: "we can see usage, we cannot see your work."

@@ -184,17 +184,19 @@ types, or the stretch AI gateway. It is not needed to run or demo Chronicle loca
 **Requires:** Docker Desktop.
 
 ```bash
-make setup-backend   # create .env if missing, start services, run migrations
-make backend         # run Postgres, Redis, OPA, and FastAPI in the foreground
-make stop            # stop backend services
+make control-plane-up       # create .env if missing, start services, run migrations
+make control-plane-health   # verify Chronicle API identity/version
+make control-plane-down     # stop backend services
 ```
 
 Swagger UI is available at `http://localhost:8000/docs`. Smoke test:
 
 ```bash
-curl http://localhost:8000/api/v1/hello
-# {"message":"Hello, world!"}
+make control-plane-health
+# {"status":"ok","service":"chronicle-control-plane","version":"0.2.0"}
 ```
+
+Docker Compose project name: `chronicle`. Service names: `api`, `postgres`, `redis`, `opa`.
 
 All-in commands exist for people touching every surface:
 

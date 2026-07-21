@@ -42,7 +42,7 @@ is still the tracked folder; there is no extra grouping layer between folders an
 Launch
   │
   ├─ First entry ─→ Welcome screen:  [ Continue local ]          ← primary, no account/backend
-  │                                  [ Continue with Google ]    ← system-browser OAuth + PKCE (F1)
+  │                                  [ Continue with Google ]    ← API health → system-browser PKCE (F1)
   │
   └─ After continuing ─→ workspace shell, landing on Home
                           (never blocks on the network)
@@ -50,8 +50,11 @@ Launch
 
 - **Continue local** is the primary path: fully functional forever, no account required.
 - Sign-in is Google-branded (standard-color "G", approved wording — see RESEARCH.md),
-  uses the system browser with PKCE, and exchanges the verified Google identity for the
-  existing Chronicle JWT session; accounts stay optional control-plane scope.
+  uses the operating system's default external browser (not an Electron child window) with PKCE,
+  and exchanges the verified Google identity for the existing Chronicle JWT session; accounts
+  stay optional control-plane scope. The app first performs a short control-plane health check.
+  An unavailable API leaves the sign-in action in a retryable unavailable state without opening
+  Google; timeout/cancellation errors are concise inline copy rather than raw IPC exceptions.
 - If AI isn't configured yet (no key), the app still captures versions; summaries show as
   pending instead of failing.
 
@@ -101,6 +104,9 @@ One window; regions as implemented:
 Brand panel (stacked version-cards illustration) plus an access card: **Continue local**
 (primary) and **Continue with Google**. A privacy note states local mode works without an
 account and that a random installation ID is registered when the control plane is reachable.
+Google sign-in is enabled only after the API health preflight succeeds. The unavailable state
+offers a connection retry; an expired browser handoff says that sign-in took too long and can be
+retried, without exposing Electron/IPC implementation text.
 
 ### 2. Home (landing) — F2, F3, F5
 
@@ -189,7 +195,7 @@ Four sections, in current order:
 | **Appearance** | Theme: System (default) · Dark · Light |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
 | **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle swaps the pickers for free-text provider/model. Keys use Electron `safeStorage`, never enter renderer-visible settings, and stay local by default. The separate signed-in sync control uploads only a passphrase-encrypted envelope. |
-| **Account** (F1/F8) | Live Google/password sign-in and sign-out; local history remains account-independent. Telemetry is enabled by default with an explicit local-data warning; portable settings sync and API-key sync are independent, off-by-default controls. Key upload/restore/delete requires a user passphrase. POST-04 will deliver telemetry events. |
+| **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting is checked by default, including a one-time migration from the unreleased pre-POST-03 false placeholder, with an explicit local-data warning and immediate off switch; choices made after migration are preserved. Portable settings sync and encrypted API-key sync are independent, signed-in-only, off-by-default checkboxes. Enabling key sync reveals a compact passphrase row with explicit **Save encrypted copy** and **Restore to this device** actions; disabling it removes the cloud envelope but keeps local keys. The passphrase is cleared after an action, cannot be recovered, and is never sent to Chronicle. Operation status/errors sit beside the related control. |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
 online/offline, AI-ready state, and pending AI/embedding job count — refreshed from `statusChanged`.
@@ -208,7 +214,7 @@ admin surface.
 
 | Feature (spec §4) | Where it lives |
 |---|---|
-| F1 Accounts (low) | Welcome · Settings → Account (Google/password sign-in, persistent Chronicle session) |
+| F1 Accounts (low) | Welcome · Settings → Account (Google sign-in, persistent Chronicle session; password endpoints remain API-only) |
 | F2 Tracked folders | New Project · Projects · Home · Settings → Tracked folders |
 | F3 Version capture | Background (main process); surfaces on Home, Project, Timeline, and the live status bar |
 | F4 AI summary | Timeline (status chip) · Version details · Settings → AI summaries |

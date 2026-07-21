@@ -25,6 +25,7 @@ import {
   listJobs,
   saveAnnotation,
   saveEmbedding,
+  setSetting,
   setVersionAiStatus,
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
@@ -609,6 +610,19 @@ describe('settings and the secret boundary', () => {
     expect(updated.ai.chat.provider).toBe('anthropic')
     expect(updated.controlPlane).toEqual(DEFAULT_SETTINGS.controlPlane) // untouched section
     expect((await services.api.getSettings()).ai.chat.model).toBe('claude-x')
+  })
+
+  it('migrates the unreleased telemetry placeholder once, then preserves opt-out', async () => {
+    setSetting(db, 'app-settings', {
+      ...DEFAULT_SETTINGS,
+      controlPlane: { ...DEFAULT_SETTINGS.controlPlane, telemetryOptIn: false },
+    })
+
+    expect((await services.api.getSettings()).controlPlane.telemetryOptIn).toBe(true)
+    await services.api.updateSettings({
+      controlPlane: { ...DEFAULT_SETTINGS.controlPlane, telemetryOptIn: false },
+    })
+    expect((await services.api.getSettings()).controlPlane.telemetryOptIn).toBe(false)
   })
 
   it('rejects malformed patches', async () => {

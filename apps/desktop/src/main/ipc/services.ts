@@ -71,6 +71,7 @@ import { decryptProviderKeys, encryptProviderKeys } from '../gateway-client/secr
 
 const SETTINGS_KEY = 'app-settings'
 const INSTALLATION_ID_KEY = 'control-plane-installation-id'
+const TELEMETRY_DEFAULT_MIGRATION_KEY = 'post03-telemetry-default-applied'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   appearance: { theme: 'system' },
@@ -105,6 +106,7 @@ export interface ChronicleServicesDeps {
   isOnline: () => boolean
   account?: ControlPlaneClient
   googleCredential?: () => Promise<string>
+  googleClientConfigured?: boolean
   installation?: Omit<InstallationDescriptor, 'installationId'>
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
   settleMs?: number
@@ -588,7 +590,16 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       const stored = getSetting<AppSettings>(db, SETTINGS_KEY)
       // Merging over the defaults keeps old stored settings valid when a
       // field is added; mergeSettings also re-validates what was stored.
-      return stored ? mergeSettings(DEFAULT_SETTINGS, stored) : structuredClone(DEFAULT_SETTINGS)
+      const next = stored ? mergeSettings(DEFAULT_SETTINGS, stored) : structuredClone(DEFAULT_SETTINGS)
+      // Before POST-03 shipped, telemetryOptIn existed with a false placeholder
+      // but had no user-facing control. Migrate that placeholder exactly once;
+      // subsequent user choices (including false) are preserved.
+      if (!getSetting<boolean>(db, TELEMETRY_DEFAULT_MIGRATION_KEY)) {
+        next.controlPlane.telemetryOptIn = true
+        setSetting(db, SETTINGS_KEY, next)
+        setSetting(db, TELEMETRY_DEFAULT_MIGRATION_KEY, true)
+      }
+      return next
     },
 
     async updateSettings(patch) {
@@ -620,6 +631,10 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
 
     // F1 — account (the app is fully usable in local mode)
+    async checkControlPlaneHealth() {
+      if (!deps.account || !deps.googleClientConfigured) return false
+      return deps.account.health()
+    },
     async getAccountState() {
       return deps.account?.accountState() ?? { mode: 'local', email: null, isAdmin: false }
     },
@@ -639,6 +654,9 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
     async loginWithGoogle() {
       if (!deps.googleCredential) throw new Error('Google sign-in is not configured')
+      if (!(await api.checkControlPlaneHealth())) {
+        throw new Error('Chronicle sign-in is unavailable. Check the control plane and try again.')
+      }
       const account = requireAccount()
       const credential = await deps.googleCredential()
       const current = await account.accountState()

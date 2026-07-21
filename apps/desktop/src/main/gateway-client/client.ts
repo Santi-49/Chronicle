@@ -21,6 +21,7 @@ export interface InstallationDescriptor {
 }
 
 export interface ControlPlaneClient {
+  health(): Promise<boolean>
   accountState(): Promise<AccountState>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
@@ -120,6 +121,20 @@ export function createControlPlaneClient(
   }
 
   return {
+    async health() {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 3_000)
+      try {
+        const response = await fetch(`${getBaseUrl()}/health`, { signal: controller.signal })
+        if (!response.ok) return false
+        const body = await response.json() as { status?: unknown; service?: unknown }
+        return body.status === 'ok' && body.service === 'chronicle-control-plane'
+      } catch {
+        return false
+      } finally {
+        clearTimeout(timeout)
+      }
+    },
     async accountState() {
       if (!tokens.read()) return { mode: 'local', email: null, isAdmin: false }
       try { return state(await me()) } catch { return { mode: 'local', email: null, isAdmin: false } }

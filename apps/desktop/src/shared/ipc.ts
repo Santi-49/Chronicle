@@ -197,6 +197,8 @@ export interface ChronicleApi {
   configuredProviders(): Promise<string[]>
 
   // F1 — account (low priority; everything above works in 'local' mode)
+  /** Reachability/configuration preflight; never throws for ordinary connection failures. */
+  checkControlPlaneHealth(): Promise<boolean>
   getAccountState(): Promise<AccountState>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>

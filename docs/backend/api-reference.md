@@ -6,10 +6,26 @@ Base URL: `http://localhost:8000/api/v1`
 Interactive docs (Swagger UI): `http://localhost:8000/docs`  
 OpenAPI JSON: `http://localhost:8000/openapi.json`
 
+API identity: **Chronicle Control Plane API** · version `0.2.0`
+
 **Auth column legend:**
 - `—` public
 - `JWT` valid access token required
 - `JWT + OPA` valid token **and** OPA `allow = true` for the listed resource:action
+
+---
+
+## Health
+
+### `GET /health`
+
+Public, lightweight reachability and identity preflight. The desktop calls this before opening
+Google sign-in; no Chronicle JWT is required.
+
+**Response `200`:**
+```json
+{ "status": "ok", "service": "chronicle-control-plane", "version": "0.2.0" }
+```
 
 ---
 

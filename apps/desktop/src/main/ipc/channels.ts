@@ -33,6 +33,7 @@ const API_METHODS = {
   setApiKey: true,
   clearApiKey: true,
   configuredProviders: true,
+  checkControlPlaneHealth: true,
   getAccountState: true,
   register: true,
   login: true,
