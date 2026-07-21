@@ -6,9 +6,9 @@
 > Parent: [System Overview](../architecture/overview.md) · Code: `apps/desktop/src/renderer/`
 >
 > **Last synced with the implemented UI: 2026-07-21.** On `dev`, the
-> renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore and the
-> hybrid-search engine remain planned in MVP-07/MVP-10; their screens already expose clear
-> unavailable states. Anything else not yet built is explicitly marked *planned*.
+> renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore is built;
+> only the hybrid-search engine remains planned in MVP-10, with a clear unavailable state.
+> Anything else not yet built is explicitly marked *planned*.
 
 ---
 
@@ -136,7 +136,8 @@ Breadcrumbs Projects → project. Click an asset → its Timeline.
   display name, optional description, icon, color, enabled file types, and ignored files. The
   existing folder is rescanned for the file tree, while its selector remains locked.
 
-- *Planned:* "file no longer on disk" badge (F3.7).
+- A missing source file is marked on its asset card and Timeline header while every stored
+  version remains available (F3.7).
 
 ### 6. Asset Timeline — F3, F5
 
@@ -145,7 +146,8 @@ One asset's history, newest first, on a vertical rail. Each row: version number,
 *Summary ready · pending · failed*. Breadcrumbs Projects → project → asset.
 
 - Click a version → Version details.
-- *Planned:* full keyboard traversal (↑/↓ + Enter), failed-state retry from the row.
+- Timeline rows support ↑/↓ and Home/End focus traversal plus Enter to open. Failed rows
+  explain the recovery path; retry is available on Version Details.
 - This is the demo's hero screen and the candidate for GSAP animation polish.
 
 ### 7. Version Details — F4, F5, F6
@@ -153,9 +155,10 @@ One asset's history, newest first, on a vertical rail. Each row: version number,
 Everything about one version: large preview, the full AI output (summary, changes list,
 tags), metadata, and actions:
 
-- **Restore this version** (F6) — *planned wiring (MVP-07):* writes the bytes back to the
+- **Restore this version** (F6) — writes the bytes back to the
   original path; history is never rewritten (a new version "Restored from version N"
-  appears). If the original folder is gone, the button becomes **Save a copy…**
+  appears and no AI job is queued). If the original folder is gone, the button becomes
+  **Save a copy…** and opens the native save dialog.
 - **Retry AI** — visible when the summary failed.
 
 ### 8. Search — F7
@@ -200,7 +203,7 @@ admin surface.
 | F3 Version capture | Background (main process); surfaces on Home, Project, Timeline, and the live status bar |
 | F4 AI summary | Timeline (status chip) · Version details · Settings → AI summaries |
 | F5 Timeline & details | Home / Project → Timeline → Version details |
-| F6 Restore | Version details *(wiring planned — MVP-07)* |
+| F6 Restore | Version details (append-only restore + native save-copy fallback) |
 | F7 Hybrid search | Search (`Ctrl/Cmd+K`) |
 | F8 Telemetry (low) | *Planned:* Settings opt-in; runs only when signed in |
 | F9 Gateway (stretch) | Settings → AI ("Use Chronicle service") |

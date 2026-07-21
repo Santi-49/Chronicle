@@ -251,6 +251,8 @@
 .asset-card-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; }
 .asset-card-heading strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .asset-card-heading .icon { width: 17px; height: 17px; color: var(--text-muted); transition: color var(--motion-fast) ease; }
+.asset-missing-badge { display: inline-flex; margin-left: auto; align-items: center; gap: 4px; color: var(--danger); font-size: 9px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; }
+.asset-missing-badge .icon { width: 13px; height: 13px; color: currentColor; }
 .asset-card-summary { display: -webkit-box; margin-top: 12px; overflow: hidden; color: var(--text-secondary); font-size: 12px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .asset-card-meta { display: flex; margin-top: auto; padding-top: 18px; justify-content: space-between; gap: 8px; color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
 
@@ -328,6 +330,8 @@
 .asset-header-preview.asset-preview-poster strong { font-size: 18px; }
 
 .file-path { max-width: 590px; margin: 10px 0 0; overflow: hidden; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.asset-missing-notice { display: flex; margin: 10px 0 0; align-items: center; gap: 6px; color: var(--danger); font-size: 11px; }
+.asset-missing-notice .icon { width: 14px; height: 14px; }
 .timeline-count { display: grid; padding-left: 32px; border-left: 1px solid var(--border); }
 .timeline-count strong { font-size: 26px; font-weight: 600; }
 .timeline-count span { margin-top: 3px; color: var(--text-muted); font-size: 11px; }
@@ -393,6 +397,7 @@
 /* Version details — restore action + inline status */
 .version-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .inline-status { margin: 0; color: var(--text-secondary); font-size: 12px; }
+.inline-status-error { color: var(--danger); }
 .provider-note { margin-top: 8px; color: var(--text-muted); font-size: 11px; }
 .mono-value { font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace; }
 

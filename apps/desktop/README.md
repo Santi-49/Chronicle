@@ -57,7 +57,7 @@ provider**, are never readable back over IPC, and never appear in `getSettings()
 | `getSettings` / `updateSettings` / `setApiKey(provider,key)` / `clearApiKey(provider)` / `configuredProviders` (C5) | ✅ per-provider BYOK keys (switch a task's provider without re-entering) |
 | `getAppStatus` / `listPendingJobs` + all four events (`versionCaptured`, `annotationUpdated`, `statusChanged`, `fileSkipped`) | ✅ live status bar + renderer-safe FIFO queue |
 | `getAccountState` / `logout` | ✅ always local mode for now |
-| `restoreVersion` / `saveVersionCopy` (F6) | ⏳ MVP-07 — rejects "not implemented yet" |
+| `restoreVersion` / `saveVersionCopy` (F6) | ✅ append-only restore, no restore AI job, native save-copy fallback when the original folder is gone |
 | `search` (F7) | ⏳ MVP-10 — rejects "not implemented yet" |
 | `register` / `login` (F1) | ⏳ low priority — rejects "not implemented yet" |
 

@@ -45,6 +45,7 @@ let db: ChronicleDb
 let services: ChronicleServices
 let events: RecordedEvent[]
 let nextPick: string | null
+let nextSavePath: string | null
 let online: boolean
 let secretKeys: Map<string, string>
 
@@ -56,6 +57,7 @@ beforeEach(() => {
   db = openChronicleDb(path.join(dir, DATABASE_FILE_NAME))
   events = []
   nextPick = null
+  nextSavePath = null
   online = true
   secretKeys = new Map()
   services = createChronicleServices({
@@ -63,6 +65,7 @@ beforeEach(() => {
     libraryRoot,
     emit: (event, payload) => events.push({ event, payload }),
     pickFolder: async () => nextPick,
+    pickVersionCopyPath: async () => nextSavePath,
     secrets: {
       set: (provider, plaintext) => {
         secretKeys.set(provider, plaintext)
@@ -134,8 +137,6 @@ describe('C1 contract surface', () => {
   })
 
   it('pending features reject with a clear error instead of pretending', async () => {
-    await expect(services.api.restoreVersion(1)).rejects.toThrow(/not implemented/)
-    await expect(services.api.saveVersionCopy(1)).rejects.toThrow(/not implemented/)
     await expect(services.api.search('logo')).rejects.toThrow(/not implemented/)
     await expect(services.api.register('a@b.c', 'pw')).rejects.toThrow(/not implemented/)
     await expect(services.api.login('a@b.c', 'pw')).rejects.toThrow(/not implemented/)
@@ -394,6 +395,67 @@ describe('timeline and version details', () => {
     expect(logo.versionCount).toBe(2)
     expect(logo.lastSummary).toBeNull() // latest version is still pending
     expect(logo.lastCapturedAt).toBeTruthy()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Append-only restore + save-copy fallback (F6)
+// ---------------------------------------------------------------------------
+
+describe('restore and save copy', () => {
+  it('restores v2 from v5 as v6, preserves history, and suppresses the AI job', async () => {
+    const filePath = path.join(workDir, 'logo.png')
+    const versions = Array.from({ length: 5 }, (_, index) => pngBytes(20, 10, `v${index + 1}`))
+    let assetId = 0
+    let version2Id = 0
+    for (const [index, bytes] of versions.entries()) {
+      fs.writeFileSync(filePath, bytes)
+      const captured = await captureVersion(db, libraryRoot, filePath)
+      if (captured.outcome !== 'captured') throw new Error(`v${index + 1} was not captured`)
+      assetId = captured.asset.id
+      if (index === 1) version2Id = captured.version.id
+    }
+    expect(listJobs(db, 'ai_annotation')).toHaveLength(5)
+
+    const result = await services.api.restoreVersion(version2Id)
+
+    expect(result).toEqual({ ok: true, newVersionNumber: 6 })
+    expect(fs.readFileSync(filePath)).toEqual(versions[1])
+    const timeline = await services.api.getTimeline(assetId)
+    expect(timeline).toHaveLength(6)
+    expect(timeline[0]).toMatchObject({
+      versionNumber: 6,
+      aiStatus: 'none',
+      summary: 'Restored from version 2',
+    })
+    expect(listJobs(db, 'ai_annotation')).toHaveLength(5)
+    expect(eventsOf('versionCaptured')).toContainEqual({
+      assetId,
+      versionId: timeline[0]!.id,
+    })
+  })
+
+  it('returns folder-missing, then saves the selected immutable bytes elsewhere', async () => {
+    const bytes = pngBytes(12, 9, 'portable')
+    const { versionId } = await seedCapture('missing.png', bytes)
+    fs.rmSync(workDir, { recursive: true, force: true })
+
+    await expect(services.api.restoreVersion(versionId)).resolves.toEqual({
+      ok: false,
+      reason: 'folder-missing',
+    })
+
+    nextSavePath = path.join(dir, 'recovered.png')
+    await services.api.saveVersionCopy(versionId)
+    expect(fs.readFileSync(nextSavePath)).toEqual(bytes)
+  })
+
+  it('treats a cancelled save dialog as a no-op and validates version ids', async () => {
+    const { versionId } = await seedCapture('logo.png', pngBytes(2, 2))
+    nextSavePath = null
+    await expect(services.api.saveVersionCopy(versionId)).resolves.toBeUndefined()
+    await expect(services.api.restoreVersion(0)).rejects.toThrow(TypeError)
+    await expect(services.api.saveVersionCopy(99_999)).rejects.toThrow(/Unknown version/)
   })
 })
 

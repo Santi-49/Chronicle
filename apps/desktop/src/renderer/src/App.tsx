@@ -115,8 +115,14 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
   }
 }
 
+const HAS_ONBOARDED_KEY = 'chronicle-has-onboarded'
+
 export default function App() {
-  const [hasEnteredWorkspace, setHasEnteredWorkspace] = useState(false)
+  // After the first "Continue local" the welcome screen is skipped and returning
+  // users land straight on Home.
+  const [hasEnteredWorkspace, setHasEnteredWorkspace] = useState(
+    () => localStorage.getItem(HAS_ONBOARDED_KEY) === 'true'
+  )
   const [route, setRoute] = useState<AppRoute>({ name: 'home' })
   const [jobsReturnRoute, setJobsReturnRoute] = useState<AppRoute>({ name: 'home' })
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
@@ -183,7 +189,12 @@ export default function App() {
             <div className="theme-control">
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
             </div>
-            <WelcomeScreen onContinue={() => setHasEnteredWorkspace(true)} />
+            <WelcomeScreen
+              onContinue={() => {
+                localStorage.setItem(HAS_ONBOARDED_KEY, 'true')
+                setHasEnteredWorkspace(true)
+              }}
+            />
           </div>
         ) : (
           <AppShell route={route} onNavigate={setRoute} onOpenJobs={openJobs}>

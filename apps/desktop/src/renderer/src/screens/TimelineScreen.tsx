@@ -1,3 +1,4 @@
+import { useRef, type KeyboardEvent } from 'react'
 import { AssetPreview } from '../components/AssetPreview'
 import { Icon } from '../components/Icon'
 import type { AiStatus } from '../../../shared/ipc'
@@ -19,13 +20,25 @@ const statusLabels: Record<AiStatus, string> = {
 }
 
 export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onOpenVersion }: TimelineScreenProps) {
-  const { versions } = useTimeline(assetId)
+  const { versions, loading, error, reload } = useTimeline(assetId)
   const { assets } = useAssets()
   const { folders } = useFolders()
 
   const asset = assets.find((a) => a.id === assetId)
   const folder = asset ? folderForAsset(asset, folders) : undefined
   const folderId = projectId ?? folder?.id
+  const rowRefs = useRef<Array<HTMLButtonElement | null>>([])
+
+  const moveFocus = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex: number | undefined
+    if (event.key === 'ArrowDown') nextIndex = Math.min(index + 1, versions.length - 1)
+    if (event.key === 'ArrowUp') nextIndex = Math.max(index - 1, 0)
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = versions.length - 1
+    if (nextIndex === undefined) return
+    event.preventDefault()
+    rowRefs.current[nextIndex]?.focus()
+  }
 
   return (
     <section className="page timeline-page" aria-labelledby="timeline-title">
@@ -41,6 +54,7 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
           <p className="eyebrow">Version timeline</p>
           <h1 id="timeline-title">{asset?.displayName ?? 'Asset'}</h1>
           {asset && <p className="file-path">{asset.path}</p>}
+          {asset && !asset.onDisk && <p className="asset-missing-notice"><Icon name="info" /> File no longer on disk; stored versions remain available.</p>}
         </div>
         <div className="timeline-count">
           <strong>{versions.length}</strong>
@@ -48,13 +62,32 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
         </div>
       </header>
 
-      <div className="timeline-list" role="list" aria-label={`Versions of ${asset?.displayName ?? 'asset'}`}>
-        {versions.map((version, index) => (
+      {loading ? (
+        <div className="empty-state" role="status"><Icon name="info" /><h3>Loading timeline…</h3></div>
+      ) : error ? (
+        <div className="empty-state" role="alert">
+          <Icon name="info" /><h3>Timeline unavailable</h3><p>{error}</p>
+          <button className="secondary-button" onClick={reload} type="button">Try again</button>
+        </div>
+      ) : versions.length === 0 ? (
+        <div className="empty-state"><Icon name="info" /><h3>No versions yet</h3><p>Chronicle will add the first version after this file is captured.</p></div>
+      ) : (
+      <div className="timeline-list" role="group" aria-label={`Versions of ${asset?.displayName ?? 'asset'}`}>
+        {versions.map((version, index) => {
+          const fallbackSummary = version.aiStatus === 'failed'
+            ? 'Summary generation failed. Open this version to retry.'
+            : version.aiStatus === 'pending'
+              ? 'Waiting for an AI change summary.'
+              : version.aiStatus === 'none'
+                ? 'Restored version.'
+                : 'No change summary is available.'
+          return (
           <button
             className="timeline-row"
             key={version.id}
             onClick={() => onOpenVersion(version.id)}
-            role="listitem"
+            onKeyDown={(event) => moveFocus(event, index)}
+            ref={(element) => { rowRefs.current[index] = element }}
             type="button"
           >
             <span className="timeline-rail" aria-hidden="true">
@@ -63,15 +96,17 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
             <span className="version-number">v{version.versionNumber}</span>
             <span className="version-copy">
               <span className="version-time">{relativeTime(version.capturedAt)}{index === 0 && <em>Latest</em>}</span>
-              <strong>{version.summary ?? 'Waiting for an AI change summary.'}</strong>
+              <strong>{version.summary ?? fallbackSummary}</strong>
               <span className={`version-status status-${version.aiStatus}`}>
                 <i /> {statusLabels[version.aiStatus]}
               </span>
             </span>
             <Icon name="chevron-right" />
           </button>
-        ))}
+          )
+        })}
       </div>
+      )}
     </section>
   )
 }

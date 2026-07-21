@@ -7,8 +7,8 @@ Start here at the beginning of a work session. Use [TODO.md](TODO.md) to claim w
 
 ## Current stage
 
-**MVP build in progress: capture, IPC, AI, and the live renderer are connected. Next:
-restore, hybrid search, and a repeatable end-to-end reliability pass.**
+**MVP build in progress: capture, IPC, AI, restore, and the live renderer are connected.
+Next: hybrid search and a repeatable end-to-end reliability pass.**
 
 ```text
 Research       Documentation       Contracts        MVP build         Demo/submission
@@ -36,8 +36,9 @@ through the local Python service. Restore and the hybrid-search engine remain un
 | Secure IPC bridge | Merged (MVP-05); renderer now consumes it | C1 handlers, native folder picker, watcher→capture wiring, `chronicle://` image serving, encrypted BYOK storage, status/events, and input validation are implemented and tested. MVP-06 wired the renderer onto the bridge. |
 | AI summaries | Merged (MVP-09) | The Python AI service lives in `services/ai/` (package `chronicle_ai`, FastAPI + LangChain, 41 tests); the Electron queue worker, generated C3 client, and process lifecycle stay in `apps/desktop/src/main/ai/`. Non-retryable (4xx) failures fail fast instead of retrying three times. Controlled Gemini first-version, diff, and 3,072-dimension embedding calls passed through the real worker/service/SQLite flow. The sidecar is not yet bundled for an installed build. |
 | Shell, onboarding, settings | Merged (MVP-06) | Renderer wired to live C1 via `src/renderer/src/lib/{bridge,useChronicle,aiCatalog}.ts` — no more `demoData.ts`. Status bar and pending-jobs screen, native folder scan/selection, project create/edit (name, description, icon, color, file types, ignored files), and curated Google/Anthropic/OpenAI/Bedrock settings with per-provider encrypted BYOK are implemented. Typecheck, 86 tests, and build are green. |
-| Timeline and search UI | Rendering live data | Home, Projects/Project, Timeline, Version Details, and Search now render live C1 queries/events and real thumbnails (wired with MVP-06). Restore/search backends still reject (MVP-07/MVP-10), surfaced as clear "coming soon" states. |
-| Restore and search engines | Not implemented end to end | Restore/save-copy and hybrid-search IPC handlers reject as not implemented (MVP-07/MVP-10); the UI is already wired to call them. |
+| Assets, Timeline, Version Details | Complete (MVP-08) | Live C1 queries/events and real thumbnails; keyboard timeline traversal; explicit pending/failed/restore states; retry feedback; missing-source badges; and the completed restore/save-copy controls. |
+| Restore engine | Complete (MVP-07) | Selected library bytes overwrite the original path and append a provenance-marked version with no AI job. A missing original folder switches the UI to a native Save a copy dialog. Acceptance covers v2→v6, missing-folder fallback, cancellation, and validation. |
+| Search UI and engine | UI ready; engine pending | Search renders the C1 surface and clear unavailable state; hybrid keyword + embedding implementation remains MVP-10. |
 | Backend control plane | Base auth/RBAC ready | Chronicle telemetry/config/gateway additions are low priority or stretch and must not delay the MVP. |
 | Landing page | Existing optional page | Not part of the MVP; do not spend time here before the desktop app works. |
 | Demo and submission | Demo pack merged (DEMO-01) | Three approved, generated image histories and a git-ignored watched workspace are documented in `demo-assets/`; video, final README evidence, and SkillsBuild completion remain outstanding. |
@@ -61,8 +62,8 @@ not a public contract. Change it carefully through migrations once released.
 
 ## Immediate next actions
 
-1. Implement restore/save-copy (`MVP-07`) and hybrid search (`MVP-10`), then close the
-   remaining UI acceptance work in `MVP-08`/`MVP-11`.
+1. Implement hybrid search (`MVP-10`), then close the remaining Search UI acceptance
+   work in `MVP-11`.
 2. Run the full `MVP-12` journey repeatedly using `demo-assets/workspace/`, including
    offline queue, retry, restart, deleted-source, and 50 MB skip cases.
 3. Decide and record the final demo provider/model/budget.

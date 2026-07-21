@@ -123,7 +123,11 @@ export function ProjectScreen({ projectId, onBack, onEdit, onOpenAsset }: Projec
                 <button className="asset-card" key={asset.id} onClick={() => onOpenAsset(asset.id)} type="button">
                   <AssetPreview src={asset.thumbnailUrl} alt={asset.displayName} />
                   <span className="asset-card-body">
-                    <span className="asset-card-heading"><strong>{asset.displayName}</strong><Icon name="chevron-right" /></span>
+                    <span className="asset-card-heading">
+                      <strong>{asset.displayName}</strong>
+                      {!asset.onDisk && <span className="asset-missing-badge"><Icon name="info" /> Missing</span>}
+                      <Icon name="chevron-right" />
+                    </span>
                     <span className="asset-card-summary">{asset.lastSummary ?? 'Waiting for an AI change summary.'}</span>
                     <span className="asset-card-meta"><span>{asset.versionCount} versions</span><span>{relativeTime(asset.lastCapturedAt)}</span></span>
                   </span>

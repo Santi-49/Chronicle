@@ -6,3 +6,4 @@
 export { captureVersion, markFileMissing, type CaptureResult } from './capture'
 export { libraryFilePathFor, snapshotToLibrary, type LibrarySnapshot } from './library'
 export { readImageDimensions, type ImageDimensions } from './dimensions'
+export { restoreVersion, saveVersionCopy, type RestoreVersionResult } from './restore'

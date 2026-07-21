@@ -24,7 +24,10 @@ export function VersionDetailsScreen({
   const { data: version, loading, error } = useVersionDetails(versionId)
   const { assets } = useAssets()
   const { folders } = useFolders()
-  const [restoreState, setRestoreState] = useState<string | null>(null)
+  const [actionState, setActionState] = useState<{ kind: 'status' | 'error'; message: string } | null>(null)
+  const [originalFolderMissing, setOriginalFolderMissing] = useState(false)
+  const [actionPending, setActionPending] = useState(false)
+  const [retryPending, setRetryPending] = useState(false)
 
   const asset = assets.find((a) => a.id === assetId)
   const folder = asset ? folderForAsset(asset, folders) : undefined
@@ -32,22 +35,48 @@ export function VersionDetailsScreen({
   const format = asset?.displayName.split('.').pop()?.toUpperCase()
 
   const handleRestore = async () => {
-    setRestoreState('Restoring…')
+    setActionPending(true)
+    setActionState({ kind: 'status', message: 'Restoring…' })
     try {
       const result = await chronicle.restoreVersion(versionId)
-      setRestoreState(
-        result.ok
-          ? `Restored as version ${result.newVersionNumber}.`
-          : 'The original folder is missing — use “Save a copy” instead.',
-      )
+      if (result.ok) {
+        setActionState({ kind: 'status', message: `Restored as version ${result.newVersionNumber}.` })
+      } else {
+        setOriginalFolderMissing(true)
+        setActionState({ kind: 'status', message: 'The original folder is missing. Save these bytes to another location.' })
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      setRestoreState(/not implemented/i.test(message) ? 'Restore is coming soon.' : `Restore failed: ${message}`)
+      setActionState({ kind: 'error', message: `Restore failed: ${message}` })
+    } finally {
+      setActionPending(false)
     }
   }
 
-  const handleRetry = () => {
-    void chronicle.retryAnnotation(versionId)
+  const handleSaveCopy = async () => {
+    setActionPending(true)
+    setActionState({ kind: 'status', message: 'Opening the save dialog…' })
+    try {
+      await chronicle.saveVersionCopy(versionId)
+      setActionState(null)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setActionState({ kind: 'error', message: `Could not save a copy: ${message}` })
+    } finally {
+      setActionPending(false)
+    }
+  }
+
+  const handleRetry = async () => {
+    setRetryPending(true)
+    try {
+      await chronicle.retryAnnotation(versionId)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setActionState({ kind: 'error', message: `Could not retry the summary: ${message}` })
+    } finally {
+      setRetryPending(false)
+    }
   }
 
   if (loading || !version) {
@@ -84,11 +113,20 @@ export function VersionDetailsScreen({
           <h1 id="version-title">{relativeTime(version.capturedAt)}</h1>
         </div>
         <div className="version-header-actions">
-          <button className="secondary-button" onClick={handleRestore} type="button">
+          <button
+            className="secondary-button"
+            disabled={actionPending}
+            onClick={originalFolderMissing ? handleSaveCopy : handleRestore}
+            type="button"
+          >
             <Icon name="restore" />
-            Restore this version
+            {actionPending ? 'Working…' : originalFolderMissing ? 'Save a copy…' : 'Restore this version'}
           </button>
-          {restoreState && <p className="inline-status" role="status">{restoreState}</p>}
+          {actionState && (
+            <p className={`inline-status ${actionState.kind === 'error' ? 'inline-status-error' : ''}`} role={actionState.kind === 'error' ? 'alert' : 'status'}>
+              {actionState.message}
+            </p>
+          )}
         </div>
       </header>
 
@@ -116,7 +154,11 @@ export function VersionDetailsScreen({
                 <i /> {version.aiStatus === 'done' ? 'Ready' : version.aiStatus === 'none' ? 'Restore' : version.aiStatus}
               </span>
             </div>
-            <p className="summary-lead">{version.summary ?? 'This version is stored locally. Its AI summary is not available yet.'}</p>
+            <p className="summary-lead">
+              {version.summary ?? (version.aiStatus === 'failed'
+                ? 'The AI change summary could not be generated.'
+                : 'This version is stored locally. Its AI summary is not available yet.')}
+            </p>
             {hasChanges ? (
               <ol className="changes-list">
                 {version.changes.map((change) => <li key={change}>{change}</li>)}
@@ -128,13 +170,17 @@ export function VersionDetailsScreen({
                   <span>
                     {version.aiStatus === 'pending'
                       ? 'The AI change summary is being generated.'
-                      : 'This version is stored locally. Its AI summary is not available yet.'}
+                      : version.aiStatus === 'failed'
+                        ? 'Summary generation failed. Retry when the provider is available.'
+                        : 'This version is stored locally. Its AI summary is not available yet.'}
                   </span>
                 </div>
               )
             )}
             {version.aiStatus === 'failed' && (
-              <button className="text-button" onClick={handleRetry} type="button"><Icon name="refresh" /> Retry summary</button>
+              <button className="text-button" disabled={retryPending} onClick={handleRetry} type="button">
+                <Icon name="refresh" /> {retryPending ? 'Queueing…' : 'Retry summary'}
+              </button>
             )}
           </section>
 

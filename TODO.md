@@ -249,7 +249,8 @@ new version; duplicate content is stored once; 50 MB and missing-file cases are 
 > `channels.ts` (compile-time-exhaustive channel map shared with preload), plus the
 > watcher → capture → events wiring MVP-03/04 left open. Preload now exposes exactly
 > `ChronicleBridge`. Pending inside C1 (handlers reject clearly, see
-> `apps/desktop/README.md`): restore/save-copy (MVP-07), search (MVP-10), register/login (F1).
+> `apps/desktop/README.md`): search (MVP-10), register/login (F1). Restore/save-copy
+> landed in MVP-07.
 
 **May edit:** `apps/desktop/src/preload/index.ts`, new `apps/desktop/src/main/ipc/**`, and
 IPC-focused tests.  
@@ -314,9 +315,9 @@ and see watcher/job/connectivity status without assistance.
 > The "Log in / Register" startup path stays F1 (low priority) coming-soon. Real-editor
 > Windows smoke coverage remains part of the MVP-12 reliability pass.
 
-### [ ] MVP-07 — Implement restore and save-copy behavior
+### [x] MVP-07 — Implement restore and save-copy behavior
 
-**Owner:** Unassigned  
+**Owner:** Team (completed 2026-07-21)
 **Depends on:** MVP-04, MVP-05  
 **Goal:** Restore an old version without rewriting history.
 
@@ -336,7 +337,7 @@ one line in `docs/bob-log.md`.
 
 **Done when:** Restoring v2 from v5 writes v2 bytes and creates v6; missing-folder save-copy works.
 
-### [~] MVP-08 — Build Assets, Timeline, and Version Details pages
+### [x] MVP-08 — Build Assets, Timeline, and Version Details pages
 
 **Owner:** Santi R (live-data UI merged into `dev` via `feat/mvp-06-ui-wire`)
 
@@ -359,9 +360,10 @@ AI states are clear, and a new teammate can answer what changed between versions
 > Done: Home, Projects/Project, Timeline, and Version Details now render **live C1 data**
 > (wired alongside MVP-06 and merged into `dev`): real thumbnails via
 > `chronicle://`, live capture/annotation refresh from `versionCaptured`/`annotationUpdated`,
-> and the Restore button calls `restoreVersion` (surfaces MVP-07's "coming soon" until that
-> lands). Retry calls `retryAnnotation`. Remaining for MVP-08 sign-off: restore end-to-end
-> (needs MVP-07) and a review of pending/failed AI-state coverage against real captures.
+> and the Restore button calls the completed MVP-07 flow. Timeline rows support
+> Arrow Up/Down, Home/End, and Enter; pending/failed/restore states have explicit copy,
+> failed details can be retried, and missing source files are visibly marked. Restore
+> falls back to the native Save a copy dialog when the original folder is gone.
 
 ## Phase 4 — AI and search
 

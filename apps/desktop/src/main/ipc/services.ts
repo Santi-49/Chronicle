@@ -12,8 +12,8 @@
  * where untrusted renderer data is checked.
  *
  * Not yet implemented (handlers reject with a clear error, tracked in
- * apps/desktop/README.md): restore/save-copy (MVP-07), search (MVP-10),
- * register/login (F1 — low priority; local mode always works).
+ * apps/desktop/README.md): search (MVP-10) and register/login (F1 — low
+ * priority; local mode always works).
  */
 import path from 'node:path'
 import fs from 'node:fs/promises'
@@ -51,7 +51,12 @@ import {
 } from '../db/repositories'
 import { createFolderWatcher, type FolderWatcher } from '../watcher/watcher'
 import { hasWatchedExtension, isHiddenPath, isTemporaryPath } from '../watcher/evaluate'
-import { captureVersion, markFileMissing } from '../versioning'
+import {
+  captureVersion,
+  markFileMissing,
+  restoreVersion as restoreStoredVersion,
+  saveVersionCopy as copyStoredVersion,
+} from '../versioning'
 import type { EmitEvent } from './channels'
 import { imageUrlForHash } from './media'
 import type { SecretStore } from './secrets'
@@ -84,6 +89,8 @@ export interface ChronicleServicesDeps {
   emit: EmitEvent
   /** Native folder picker; resolves null when the user cancels (C1 addFolder). */
   pickFolder: () => Promise<string | null>
+  /** Native save picker for F6; receives the original file name as its default. */
+  pickVersionCopyPath: (suggestedName: string) => Promise<string | null>
   secrets: SecretStore
   isOnline: () => boolean
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
@@ -420,9 +427,26 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       return details
     },
 
-    // F6 — restore (MVP-07)
-    restoreVersion: notImplemented('Restore (MVP-07)'),
-    saveVersionCopy: notImplemented('Save a copy (MVP-07)'),
+    // F6 — append-only restore + native save-copy fallback
+    async restoreVersion(versionId) {
+      const id = expectId(versionId, 'versionId')
+      const result = await restoreStoredVersion(db, libraryRoot, id)
+      if (result.outcome === 'folder-missing') return { ok: false, reason: 'folder-missing' }
+      emit('versionCaptured', { assetId: result.version.assetId, versionId: result.version.id })
+      pushStatus()
+      return { ok: true, newVersionNumber: result.version.versionNumber }
+    },
+
+    async saveVersionCopy(versionId) {
+      const id = expectId(versionId, 'versionId')
+      const version = getVersion(db, id)
+      if (!version) throw new Error(`Unknown version: ${versionId}`)
+      const asset = getAsset(db, version.assetId)
+      if (!asset) throw new Error(`Asset for version ${versionId} no longer exists`)
+      const destination = await deps.pickVersionCopyPath(asset.displayName)
+      if (destination === null) return
+      await copyStoredVersion(db, libraryRoot, id, destination)
+    },
 
     // F7 — search (MVP-10)
     search: notImplemented('Search (MVP-10)'),

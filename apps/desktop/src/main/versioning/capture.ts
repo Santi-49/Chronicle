@@ -26,6 +26,7 @@ import {
 import { MAX_FILE_BYTES } from '../watcher/rules'
 import { snapshotToLibrary } from './library'
 import { readImageDimensions } from './dimensions'
+import { serializedByPath } from './operation-queue'
 
 export type CaptureResult =
   /** A new version was appended (F3.4). */
@@ -40,19 +41,6 @@ export type CaptureResult =
  * never race a fresh one into a duplicate version; different paths still
  * hash concurrently. (One-process app — in-memory chaining is enough.)
  */
-const pathQueues = new Map<string, Promise<unknown>>()
-
-function serializedByPath<T>(key: string, task: () => Promise<T>): Promise<T> {
-  const tail = pathQueues.get(key) ?? Promise.resolve()
-  const run = tail.then(task, task)
-  const settled = run.catch(() => {})
-  pathQueues.set(key, settled)
-  void settled.then(() => {
-    if (pathQueues.get(key) === settled) pathQueues.delete(key)
-  })
-  return run
-}
-
 /**
  * Captures one settled save. Never throws for the expected filesystem
  * outcomes (file vanished, over the size cap) — those come back as

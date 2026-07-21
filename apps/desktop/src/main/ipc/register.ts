@@ -101,6 +101,14 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
       const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
       return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0]!
     },
+    pickVersionCopyPath: async (suggestedName) => {
+      const result = await dialog.showSaveDialog({
+        title: 'Save a version copy',
+        defaultPath: suggestedName,
+        filters: [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg'] }],
+      })
+      return result.canceled || !result.filePath ? null : result.filePath
+    },
     secrets: createSafeStorageSecretStore(db),
     isOnline: () => net.isOnline(),
   })
