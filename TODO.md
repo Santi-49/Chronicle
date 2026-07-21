@@ -292,18 +292,24 @@ same PR as any screen/navigation change; one line in `docs/bob-log.md`.
 **Done when:** A new user can launch, choose local mode, add a folder, understand AI setup,
 and see watcher/job/connectivity status without assistance.
 
-> Done so far (on `dev`): custom window title bar with native caption controls, app shell
-> with left navigation, welcome/onboarding screen, dark/light/system theme with persistence,
-> Settings screen, Ctrl+K search shortcut, focus management on route change. All screens run
-> on mock data from `src/renderer/src/data/demoData.ts`.
-> Remaining: wire everything to the real C1 bridge once MVP-05 lands (tracked-folder
-> controls, AI provider/model/key controls, watcher/job/connectivity status), and the
-> "Continue local" vs "Log in" startup choice.
-> ⚠️ Alignment needed: the UI presents each tracked folder as a **"project"** with a
-> display name, icon, and color (see `docs/desktop/overview.md` — Terminology). The C1
-> `TrackedFolder` shape is `{ id, path, addedAt }` and has no display fields. Before
-> MVP-05 wiring, either extend the shape via a contract-change PR or keep name/icon/color
-> renderer-local.
+> Done (feature branch `feat/mvp-06-shell-onboarding-settings`, awaiting review/merge):
+> app shell + status bar, welcome/onboarding, theme persistence, and Ctrl+K remain, and the
+> whole renderer is now wired to the live C1 bridge (no more `demoData.ts`) via
+> `src/renderer/src/lib/{bridge,useChronicle,aiCatalog}.ts`:
+> - **Tracked folders / projects** — real `listFolders`/`pickFolder`/`addFolder`/`updateFolder`/
+>   `removeFolder`; New Project uses the native picker + name/icon/color.
+> - **AI settings** — predefined **Google · Anthropic · OpenAI · Bedrock** providers with a
+>   curated quality/price model shortlist per task (change summaries vs. embeddings) and a
+>   **Developer mode** toggle for free-text provider/model; encrypted BYOK key with saved/clear
+>   state. Persisted via `updateSettings` + `setApiKey`; key never read back.
+> - **Status bar** — live `getAppStatus` + `statusChanged` (watched folders, online, AI ready,
+>   pending jobs).
+> ✅ Contract-alignment resolved: C1 `TrackedFolder` extended to
+> `{ id, path, addedAt, displayName, icon, color }` (schema migration + repositories + services
+> + tests updated); `addFolder(path, meta?)`/`updateFolder(id, patch)`/`pickFolder()` added.
+> Typecheck + 82 desktop tests + build all green.
+> Remaining (human): manual launch/demo-editor smoke on Windows; the "Log in / Register"
+> startup path stays F1 (low priority) coming-soon.
 
 ### [ ] MVP-07 — Implement restore and save-copy behavior
 
@@ -346,10 +352,12 @@ this task delivers); one line in `docs/bob-log.md`.
 **Done when:** New captures appear without reload, keyboard navigation works, pending/failed
 AI states are clear, and a new teammate can answer what changed between versions.
 
-> Done so far (on `dev`): Home, Projects/Project (asset browsing), Timeline, and Version
-> Details screens with previews, AI-status states, and back navigation — all rendering
-> `demoData.ts`. Remaining: replace mock data with C1 queries/events (live capture updates,
-> restore button wiring, real thumbnails) once MVP-05 lands.
+> Done: Home, Projects/Project, Timeline, and Version Details now render **live C1 data**
+> (wired alongside MVP-06 on `feat/mvp-06-shell-onboarding-settings`): real thumbnails via
+> `chronicle://`, live capture/annotation refresh from `versionCaptured`/`annotationUpdated`,
+> and the Restore button calls `restoreVersion` (surfaces MVP-07's "coming soon" until that
+> lands). Retry calls `retryAnnotation`. Remaining for MVP-08 sign-off: restore end-to-end
+> (needs MVP-07) and a review of pending/failed AI-state coverage against real captures.
 
 ## Phase 4 — AI and search
 
@@ -476,9 +484,10 @@ note once built); one line in `docs/bob-log.md`.
 **Done when:** Keyboard search opens a result's version details and clearly explains when recent
 semantic indexing is still pending.
 
-> Done so far (on `dev`): Search screen with Ctrl+K shortcut, result list opening version
-> details — on mock data. Remaining: real C1 search calls and the semantic-indexing-pending
-> state once MVP-10 exists.
+> Done: Search screen with Ctrl+K now calls the real C1 `search` (debounced) and opens live
+> version details; while MVP-10's engine is unbuilt the handler rejects, and the page shows a
+> clear "search is warming up" state. Remaining for MVP-11 sign-off: real ranked results and
+> the semantic-indexing-pending affordance once MVP-10 lands.
 
 ## Phase 5 — Integration, quality, and submission
 

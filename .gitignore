@@ -68,3 +68,4 @@ packages/contracts/api/openapi.yaml
 # Local test files
 test_gemini.py
 .env
+.vscode/settings.json

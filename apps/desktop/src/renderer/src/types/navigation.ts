@@ -1,12 +1,18 @@
 export type PrimaryRouteName = 'home' | 'projects' | 'search' | 'settings'
 
+/**
+ * IDs are the C1 numeric identifiers (folder id, asset id, version id).
+ * `projectId` (the tracked-folder id) is optional on asset-scoped routes: when
+ * absent, the screen derives the owning folder from the asset's path so search
+ * and activity links don't need to know it up front.
+ */
 export type AppRoute =
   | { name: 'home' }
   | { name: 'projects' }
   | { name: 'new-project' }
-  | { name: 'project'; projectId: string }
-  | { name: 'timeline'; projectId: string; assetId: string }
-  | { name: 'version'; projectId: string; assetId: string; versionId: string }
+  | { name: 'project'; projectId: number }
+  | { name: 'timeline'; assetId: number; projectId?: number }
+  | { name: 'version'; versionId: number; assetId: number; projectId?: number }
   | { name: 'search' }
   | { name: 'settings' }
 

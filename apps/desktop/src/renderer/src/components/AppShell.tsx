@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { AppRoute, PrimaryRouteName } from '../types/navigation'
 import { getPrimaryRoute } from '../types/navigation'
 import { Icon, type IconName } from './Icon'
+import { StatusBar } from './StatusBar'
 
 interface AppShellProps {
   route: AppRoute
@@ -57,8 +58,8 @@ export function AppShell({ route, children, onNavigate }: AppShellProps) {
         <div className="workspace-content" id="main-content" tabIndex={-1}>
           {children}
         </div>
+        <StatusBar />
       </div>
-
     </div>
   )
 }

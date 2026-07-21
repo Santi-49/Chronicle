@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { AppShell } from './components/AppShell'
 import { ThemeToggle } from './components/ThemeToggle'
 import { WindowTitleBar } from './components/WindowTitleBar'
-import { getProjectForAsset } from './data/demoData'
 import { HomeScreen } from './screens/HomeScreen'
 import { NewProjectScreen } from './screens/NewProjectScreen'
 import { ProjectScreen } from './screens/ProjectScreen'
@@ -31,9 +30,7 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
         <HomeScreen
           onAddProject={() => navigate({ name: 'new-project' })}
           onOpenProject={(projectId) => navigate({ name: 'project', projectId })}
-          onOpenVersion={(projectId, assetId, versionId) =>
-            navigate({ name: 'version', projectId, assetId, versionId })
-          }
+          onOpenAsset={(assetId, projectId) => navigate({ name: 'timeline', assetId, projectId })}
           onViewProjects={() => navigate({ name: 'projects' })}
         />
       )
@@ -45,13 +42,18 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
         />
       )
     case 'new-project':
-      return <NewProjectScreen onCancel={() => navigate({ name: 'projects' })} />
+      return (
+        <NewProjectScreen
+          onCancel={() => navigate({ name: 'projects' })}
+          onCreated={(projectId) => navigate({ name: 'project', projectId })}
+        />
+      )
     case 'project':
       return (
         <ProjectScreen
           projectId={route.projectId}
           onBack={() => navigate({ name: 'projects' })}
-          onOpenAsset={(assetId) => navigate({ name: 'timeline', projectId: route.projectId, assetId })}
+          onOpenAsset={(assetId) => navigate({ name: 'timeline', assetId, projectId: route.projectId })}
         />
       )
     case 'timeline':
@@ -59,10 +61,12 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
         <TimelineScreen
           assetId={route.assetId}
           projectId={route.projectId}
-          onBack={() => navigate({ name: 'project', projectId: route.projectId })}
+          onBack={(projectId) =>
+            projectId === undefined ? navigate({ name: 'projects' }) : navigate({ name: 'project', projectId })
+          }
           onOpenProjects={() => navigate({ name: 'projects' })}
           onOpenVersion={(versionId) =>
-            navigate({ name: 'version', projectId: route.projectId, assetId: route.assetId, versionId })
+            navigate({ name: 'version', versionId, assetId: route.assetId, projectId: route.projectId })
           }
         />
       )
@@ -72,22 +76,17 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
           assetId={route.assetId}
           projectId={route.projectId}
           versionId={route.versionId}
-          onBack={() => navigate({ name: 'timeline', projectId: route.projectId, assetId: route.assetId })}
-          onOpenProject={() => navigate({ name: 'project', projectId: route.projectId })}
+          onBack={() => navigate({ name: 'timeline', assetId: route.assetId, projectId: route.projectId })}
+          onOpenProject={(projectId) =>
+            projectId === undefined ? navigate({ name: 'projects' }) : navigate({ name: 'project', projectId })
+          }
           onOpenProjects={() => navigate({ name: 'projects' })}
         />
       )
     case 'search':
       return (
         <SearchScreen
-          onOpenVersion={(assetId, versionId) =>
-            navigate({
-              name: 'version',
-              projectId: getProjectForAsset(assetId).id,
-              assetId,
-              versionId
-            })
-          }
+          onOpenVersion={(assetId, versionId) => navigate({ name: 'version', versionId, assetId })}
         />
       )
     case 'settings':

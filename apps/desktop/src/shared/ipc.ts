@@ -24,6 +24,44 @@ export interface TrackedFolder {
   id: number
   path: string
   addedAt: string // ISO 8601, like all dates here
+  /** User-facing name; defaults to the folder's base name when first tracked. */
+  displayName: string
+  /** Icon identifier the renderer interprets — a Material Symbol name or a 1–2 char glyph. */
+  icon: string
+  /** Accent color as a hex string (e.g. "#4589ff"). */
+  color: string
+  /**
+   * Absolute file paths the user chose NOT to track. The watcher skips these
+   * on both the initial scan and live saves until they are removed from this
+   * list. Empty means "track every supported file in the tree".
+   */
+  excludedPaths: string[]
+  /**
+   * Enabled file extensions (lowercase, dot-prefixed, e.g. ".png"). A file
+   * whose extension is not listed is not captured. Always the concrete enabled
+   * set — defaults to every supported extension when a folder is first tracked.
+   */
+  allowedExtensions: string[]
+}
+
+/** Partial update of a tracked folder's presentation + tracking fields (all optional). */
+export interface FolderMetaPatch {
+  displayName?: string
+  icon?: string
+  color?: string
+  excludedPaths?: string[]
+  allowedExtensions?: string[]
+}
+
+/** One supported file found by `scanFolder`, before any exclusion is applied. */
+export interface FolderScanEntry {
+  /** Absolute path (matches the values stored in `TrackedFolder.excludedPaths`). */
+  path: string
+  /** Path relative to the scanned folder root, for building the tree UI. */
+  relativePath: string
+  sizeBytes: number
+  /** Lowercase, dot-prefixed extension (e.g. ".png"). */
+  ext: string
 }
 
 export interface AssetSummary {
@@ -89,8 +127,18 @@ export interface AppStatus {
 export interface ChronicleApi {
   // F2 — tracked folders
   listFolders(): Promise<TrackedFolder[]>
-  /** Opens the native folder picker; null if the user cancels. */
-  addFolder(): Promise<TrackedFolder | null>
+  /** Opens the native folder picker and returns the chosen path; null if cancelled. No side effects. */
+  pickFolder(): Promise<string | null>
+  /**
+   * Lists every supported (png/jpg/jpeg) file under a folder tree, skipping
+   * hidden and temporary files. Read-only — used by the New Project flow to
+   * preview matches and let the user deselect files/types before tracking.
+   */
+  scanFolder(folderPath: string): Promise<FolderScanEntry[]>
+  /** Tracks a folder (idempotent by path). `meta` optional; displayName defaults to the base name. */
+  addFolder(folderPath: string, meta?: FolderMetaPatch): Promise<TrackedFolder>
+  /** Updates a tracked folder's presentation fields. */
+  updateFolder(folderId: number, patch: FolderMetaPatch): Promise<TrackedFolder>
   removeFolder(folderId: number): Promise<void>
 
   // F5 — assets, timeline, details

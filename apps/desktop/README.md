@@ -50,7 +50,7 @@ readable back over IPC, and never appears in `getSettings()`.
 
 | C1 surface | Status |
 |---|---|
-| `listFolders` / `addFolder` / `removeFolder` (F2) | ✅ incl. native picker + live watching |
+| `listFolders` / `pickFolder` / `scanFolder` / `addFolder` / `updateFolder` / `removeFolder` (F2) | ✅ native picker, folder scan preview, presentation fields (displayName/icon/color), per-folder tracking selection (`excludedPaths`/`allowedExtensions`, enforced by the watcher), live watching |
 | `listAssets` / `getTimeline` / `getVersionDetails` (F5) | ✅ |
 | `retryAnnotation` (F4) | ✅ re-queues; the AI worker itself is MVP-09 |
 | `getSettings` / `updateSettings` / `setApiKey` / `hasApiKey` / `clearApiKey` (C5) | ✅ |

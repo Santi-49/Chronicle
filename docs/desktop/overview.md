@@ -28,9 +28,11 @@ The UI presents each tracked folder (F2) as a **project** with a user-chosen dis
 name, icon, and color. "Project" is presentation language only — the underlying entity
 is still the tracked folder; there is no extra grouping layer between folders and assets.
 
-> ⚠️ Contract alignment pending: the C1 `TrackedFolder` shape (`src/shared/ipc.ts`) is
-> `{ id, path, addedAt }` and carries no name/icon/color. Before MVP-05 wiring, either
-> extend the shape via a contract-change PR or keep the display fields renderer-local.
+> ✅ Contract alignment resolved (MVP-06): the C1 `TrackedFolder` shape (`src/shared/ipc.ts`)
+> was extended to `{ id, path, addedAt, displayName, icon, color }` and the main process now
+> persists those fields. `addFolder(path, meta?)` and `updateFolder(id, patch)` set them, and
+> `pickFolder()` opens the native directory picker without side effects. An asset belongs to
+> the tracked folder whose path is the longest prefix of the asset's path.
 
 ---
 
@@ -164,9 +166,12 @@ Four sections, in current order:
 | Section | Contents |
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
-| **Tracked folders** (F2) | Project list (name + path) with remove; **Add a project** → New project. Notes PNG/JPG scope. |
-| **AI summaries** (F4) | **Provider** (watsonx/Granite · Anthropic · OpenAI), **model** name, **API key** — stored encrypted on-device (Electron `safeStorage`), sent only to the chosen provider, **never to our backend**. *Save is planned wiring (C5).* *(Stretch, F9: "Use Chronicle service" gateway switch.)* |
-| **Account** (F1 — lowest priority) | Disabled **Continue with Google** ("Coming soon"); copy states an account never gates local history. *(Planned: telemetry opt-in, F8.)* |
+| **Tracked folders** (F2) | Live project list (icon + name + path) with **Remove** (C1 `removeFolder`); **Add a project** → New project. Notes PNG/JPG scope. |
+| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle swaps the pickers for free-text provider/model (any LangChain-supported pair). **API key** is stored encrypted on-device (Electron `safeStorage`), sent only to the chosen provider, **never readable back** and **never to our backend**; a "Saved" badge and **Remove saved key** reflect its state. Persists via C1 `updateSettings` + `setApiKey`. *(Stretch, F9: gateway switch.)* |
+| **Account** (F1 — lowest priority) | Local-mode line (from `getAccountState`); disabled **Continue with Google** ("Coming soon"); copy states an account never gates local history. *(Planned: telemetry opt-in, F8.)* |
+
+The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
+online/offline, AI-ready state, and pending AI/embedding job count — refreshed from `statusChanged`.
 
 ### 10. Admin `Stretch` — F10
 

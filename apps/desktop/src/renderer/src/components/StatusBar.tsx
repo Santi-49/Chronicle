@@ -1,0 +1,48 @@
+import { useEffect, useState } from 'react'
+import { Icon } from './Icon'
+import { useAppStatus } from '../lib/useChronicle'
+import { chronicle } from '../lib/bridge'
+
+/**
+ * Footer status bar (spec F1 "see watcher/job/connectivity status"). Reads the
+ * live C1 AppStatus and updates from the `statusChanged` event. The trailing
+ * slot shows real account state (local vs. signed in) rather than static branding.
+ */
+export function StatusBar() {
+  const status = useAppStatus()
+  const pendingAi = (status?.pendingJobs.ai ?? 0) + (status?.pendingJobs.embedding ?? 0)
+
+  const [email, setEmail] = useState<string | null>(null)
+  useEffect(() => {
+    void chronicle.getAccountState().then((state) => setEmail(state.email))
+  }, [])
+
+  return (
+    <footer className="status-bar" aria-label="Application status">
+      <span className="status-item">
+        <Icon name="folder" />
+        {status ? `${status.watchedFolders} watched` : '—'}
+      </span>
+
+      <span className="status-item">
+        <span className={`status-dot ${status?.online ? 'status-dot-online' : 'status-dot-offline'}`} aria-hidden="true" />
+        {status ? (status.online ? 'Online' : 'Offline') : '—'}
+      </span>
+
+      <span className="status-item">
+        <Icon name="spark" />
+        {status?.aiConfigured ? 'AI ready' : 'AI not configured'}
+      </span>
+
+      {pendingAi > 0 && (
+        <span className="status-item status-item-busy" aria-live="polite">
+          <Icon name="refresh" />
+          {pendingAi} {pendingAi === 1 ? 'job' : 'jobs'} pending
+        </span>
+      )}
+
+      <span className="status-spacer" />
+      <span className="status-item status-brand">{email ? `Signed in as ${email}` : 'Local mode'}</span>
+    </footer>
+  )
+}

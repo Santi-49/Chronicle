@@ -15,7 +15,10 @@ import type { ChronicleApi, ChronicleEventName, ChronicleEvents } from '../../sh
 
 const API_METHODS = {
   listFolders: true,
+  pickFolder: true,
+  scanFolder: true,
   addFolder: true,
+  updateFolder: true,
   removeFolder: true,
   listAssets: true,
   getTimeline: true,

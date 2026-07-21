@@ -6,7 +6,8 @@
  * SQLite — versions reference the content-addressed library by hash.
  */
 import path from 'node:path'
-import type { AiStatus, TrackedFolder } from '../../shared/ipc'
+import type { AiStatus, FolderMetaPatch, TrackedFolder } from '../../shared/ipc'
+import { WATCHED_EXTENSIONS } from '../watcher/rules'
 import type { ChronicleDb } from './database'
 
 // ── Domain records (snake_case rows mapped to camelCase) ────────────────
@@ -85,19 +86,118 @@ export interface QueueItem {
 
 // ── Tracked folders (F2) ────────────────────────────────────────────────
 
-export function listTrackedFolders(db: ChronicleDb): TrackedFolder[] {
-  const rows = db
-    .prepare('SELECT id, path, added_at FROM tracked_folders ORDER BY id')
-    .all() as Array<{ id: number; path: string; added_at: string }>
-  return rows.map((r) => ({ id: r.id, path: r.path, addedAt: r.added_at }))
+interface TrackedFolderRow {
+  id: number
+  path: string
+  added_at: string
+  display_name: string
+  icon: string
+  color: string
+  excluded_paths: string
+  allowed_extensions: string
 }
 
-export function addTrackedFolder(db: ChronicleDb, folderPath: string): TrackedFolder {
-  const info = db.prepare('INSERT INTO tracked_folders (path) VALUES (?)').run(folderPath)
-  const row = db
-    .prepare('SELECT id, path, added_at FROM tracked_folders WHERE id = ?')
-    .get(info.lastInsertRowid) as { id: number; path: string; added_at: string }
-  return { id: row.id, path: row.path, addedAt: row.added_at }
+/** Every extension Chronicle can capture today (the default enabled set). */
+const SUPPORTED_EXTENSIONS: string[] = [...WATCHED_EXTENSIONS]
+
+/** Parse a JSON string-array column, tolerating null/garbage from older rows. */
+function parseStringArray(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function toTrackedFolder(row: TrackedFolderRow): TrackedFolder {
+  const allowed = parseStringArray(row.allowed_extensions)
+  return {
+    id: row.id,
+    path: row.path,
+    addedAt: row.added_at,
+    // Older rows (or default column values) may carry an empty name — fall
+    // back to the base name so the renderer always has something to show.
+    displayName: row.display_name || path.basename(row.path),
+    icon: row.icon,
+    color: row.color,
+    excludedPaths: parseStringArray(row.excluded_paths),
+    // Empty stored set means "all supported types" (default / legacy rows).
+    allowedExtensions: allowed.length > 0 ? allowed : [...SUPPORTED_EXTENSIONS],
+  }
+}
+
+export function listTrackedFolders(db: ChronicleDb): TrackedFolder[] {
+  const rows = db
+    .prepare('SELECT * FROM tracked_folders ORDER BY id')
+    .all() as TrackedFolderRow[]
+  return rows.map(toTrackedFolder)
+}
+
+export function getTrackedFolder(db: ChronicleDb, folderId: number): TrackedFolder | undefined {
+  const row = db.prepare('SELECT * FROM tracked_folders WHERE id = ?').get(folderId) as
+    | TrackedFolderRow
+    | undefined
+  return row && toTrackedFolder(row)
+}
+
+export function addTrackedFolder(
+  db: ChronicleDb,
+  folderPath: string,
+  meta: FolderMetaPatch = {},
+): TrackedFolder {
+  const info = db
+    .prepare(
+      `INSERT INTO tracked_folders
+         (path, display_name, icon, color, excluded_paths, allowed_extensions)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      folderPath,
+      meta.displayName ?? path.basename(folderPath),
+      meta.icon ?? 'folder',
+      meta.color ?? '#4589ff',
+      JSON.stringify(meta.excludedPaths ?? []),
+      // '[]' is fine — toTrackedFolder expands it to all supported types.
+      JSON.stringify(meta.allowedExtensions ?? []),
+    )
+  return getTrackedFolder(db, info.lastInsertRowid as number)!
+}
+
+/** Updates presentation fields; only provided keys change. Returns the updated row. */
+export function updateTrackedFolder(
+  db: ChronicleDb,
+  folderId: number,
+  patch: FolderMetaPatch,
+): TrackedFolder | undefined {
+  const sets: string[] = []
+  const values: unknown[] = []
+  if (patch.displayName !== undefined) {
+    sets.push('display_name = ?')
+    values.push(patch.displayName)
+  }
+  if (patch.icon !== undefined) {
+    sets.push('icon = ?')
+    values.push(patch.icon)
+  }
+  if (patch.color !== undefined) {
+    sets.push('color = ?')
+    values.push(patch.color)
+  }
+  if (patch.excludedPaths !== undefined) {
+    sets.push('excluded_paths = ?')
+    values.push(JSON.stringify(patch.excludedPaths))
+  }
+  if (patch.allowedExtensions !== undefined) {
+    sets.push('allowed_extensions = ?')
+    values.push(JSON.stringify(patch.allowedExtensions))
+  }
+  if (sets.length > 0) {
+    values.push(folderId)
+    db.prepare(`UPDATE tracked_folders SET ${sets.join(', ')} WHERE id = ?`).run(...values)
+  }
+  return getTrackedFolder(db, folderId)
 }
 
 export function removeTrackedFolder(db: ChronicleDb, folderId: number): void {

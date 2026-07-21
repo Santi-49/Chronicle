@@ -154,45 +154,100 @@ describe('C1 contract surface', () => {
 // ---------------------------------------------------------------------------
 
 describe('tracked folders and capture events', () => {
-  it('addFolder persists the pick, watches it, and emits statusChanged', async () => {
+  it('pickFolder returns the native pick or null when cancelled', async () => {
     nextPick = workDir
-    const folder = await services.api.addFolder()
-    expect(folder).not.toBeNull()
-    expect(folder!.path).toBe(path.resolve(workDir))
+    expect(await services.api.pickFolder()).toBe(workDir)
+    nextPick = null
+    expect(await services.api.pickFolder()).toBeNull()
+  })
+
+  it('addFolder persists the path with defaults, watches it, and emits statusChanged', async () => {
+    const folder = await services.api.addFolder(workDir)
+    expect(folder.path).toBe(path.resolve(workDir))
+    expect(folder.displayName).toBe(path.basename(workDir))
+    expect(folder.icon).toBe('folder')
+    expect(folder.color).toMatch(/^#/)
+    expect(folder.excludedPaths).toEqual([])
+    expect(folder.allowedExtensions).toEqual(['.png', '.jpg', '.jpeg'])
     expect(await services.api.listFolders()).toHaveLength(1)
     await waitFor(() => eventsOf('statusChanged').length > 0, 'statusChanged')
     expect((await services.api.getAppStatus()).watchedFolders).toBe(1)
   })
 
-  it('addFolder returns null (and stores nothing) when the picker is cancelled', async () => {
-    nextPick = null
-    expect(await services.api.addFolder()).toBeNull()
-    expect(await services.api.listFolders()).toHaveLength(0)
+  it('addFolder stores provided presentation metadata', async () => {
+    const folder = await services.api.addFolder(workDir, {
+      displayName: 'Aurora launch',
+      icon: 'campaign',
+      color: '#ee5396',
+    })
+    expect(folder.displayName).toBe('Aurora launch')
+    expect(folder.icon).toBe('campaign')
+    expect(folder.color).toBe('#ee5396')
+  })
+
+  it('addFolder validates its arguments', async () => {
+    await expect(services.api.addFolder(42 as unknown as string)).rejects.toThrow(TypeError)
+    await expect(
+      services.api.addFolder(workDir, { bogus: 'x' } as never),
+    ).rejects.toThrow(/Unknown meta field/)
   })
 
   it('adding the same folder twice returns the existing row', async () => {
-    nextPick = workDir
-    const first = await services.api.addFolder()
-    const second = await services.api.addFolder()
-    expect(second!.id).toBe(first!.id)
+    const first = await services.api.addFolder(workDir)
+    const second = await services.api.addFolder(workDir)
+    expect(second.id).toBe(first.id)
     expect(await services.api.listFolders()).toHaveLength(1)
   })
 
+  it('updateFolder changes presentation fields; unknown ids reject', async () => {
+    const folder = await services.api.addFolder(workDir)
+    const updated = await services.api.updateFolder(folder.id, { displayName: 'Renamed', color: '#42be65' })
+    expect(updated.displayName).toBe('Renamed')
+    expect(updated.color).toBe('#42be65')
+    expect(updated.icon).toBe('folder') // untouched
+    expect((await services.api.listFolders())[0]!.displayName).toBe('Renamed')
+    await expect(services.api.updateFolder(999, { displayName: 'x' })).rejects.toThrow(/Unknown folder/)
+    await expect(services.api.updateFolder(1.5, {})).rejects.toThrow(TypeError)
+  })
+
   it('removeFolder stops watching; unknown ids are a no-op', async () => {
-    nextPick = workDir
-    const folder = await services.api.addFolder()
-    await services.api.removeFolder(folder!.id)
+    const folder = await services.api.addFolder(workDir)
+    await services.api.removeFolder(folder.id)
     expect(await services.api.listFolders()).toHaveLength(0)
     expect((await services.api.getAppStatus()).watchedFolders).toBe(0)
     await expect(services.api.removeFolder(999)).resolves.toBeUndefined()
     await expect(services.api.removeFolder(1.5)).rejects.toThrow(TypeError)
   })
 
+  it('scanFolder lists supported files with sizes, skipping temp/hidden/unsupported', async () => {
+    fs.mkdirSync(path.join(workDir, 'sub'), { recursive: true })
+    writeFile('logo.png', pngBytes(10, 10))
+    writeFile('sub/banner.jpg', pngBytes(10, 10))
+    writeFile('notes.txt', 'ignored')
+    writeFile('logo.png.tmp', 'ignored')
+    const entries = await services.api.scanFolder(workDir)
+    const names = entries.map((e) => e.relativePath.replace(/\\/g, '/')).sort()
+    expect(names).toEqual(['logo.png', 'sub/banner.jpg'])
+    expect(entries.every((e) => e.sizeBytes > 0)).toBe(true)
+  })
+
+  it('addFolder stores excludedPaths/allowedExtensions and the watcher honors them', async () => {
+    const keep = writeFile('keep.png', pngBytes(10, 10))
+    const skip = writeFile('skip.png', pngBytes(10, 10))
+    await services.api.addFolder(workDir, { excludedPaths: [skip], allowedExtensions: ['.png'] })
+
+    await waitFor(() => eventsOf('versionCaptured').length > 0, 'versionCaptured')
+    // Give the (excluded) second file the same chance to be captured.
+    await new Promise((r) => setTimeout(r, 500))
+    const assets = await services.api.listAssets()
+    expect(assets.map((a) => a.path).sort()).toEqual([keep])
+    expect(assets.some((a) => a.path === skip)).toBe(false)
+  }, 15_000)
+
   it(
     'a save in a watched folder becomes a version and a versionCaptured event',
     async () => {
-      nextPick = workDir
-      await services.api.addFolder()
+      await services.api.addFolder(workDir)
       writeFile('logo.png', pngBytes(800, 600))
 
       await waitFor(() => eventsOf('versionCaptured').length > 0, 'versionCaptured')
@@ -208,8 +263,7 @@ describe('tracked folders and capture events', () => {
   it(
     'an oversized file emits fileSkipped with only the file name',
     async () => {
-      nextPick = workDir
-      await services.api.addFolder()
+      await services.api.addFolder(workDir)
       const big = writeFile('huge.png', 'x')
       fs.truncateSync(big, MAX_FILE_BYTES + 1) // sparse — no real 50 MB write
 
@@ -223,8 +277,7 @@ describe('tracked folders and capture events', () => {
   it(
     'deleting a captured file marks the asset off-disk, history kept',
     async () => {
-      nextPick = workDir
-      await services.api.addFolder()
+      await services.api.addFolder(workDir)
       const file = writeFile('logo.png', pngBytes(10, 10))
       await waitFor(() => eventsOf('versionCaptured').length > 0, 'versionCaptured')
 
@@ -429,9 +482,14 @@ describe('getAppStatus', () => {
       aiConfigured: false,
     })
 
+    // Clear the demo provider/model DEFAULT_SETTINGS ships, so the key-alone
+    // guard is what's under test (not the default provider).
+    await services.api.updateSettings({
+      ai: { mode: 'local', chat: { provider: '', model: '' }, embeddings: { provider: '', model: '' } },
+    })
     await seedCapture('logo.png', pngBytes(3, 3)) // enqueues one AI job
     online = false
-    await services.api.setApiKey('sk-x') // key alone is not "configured"
+    await services.api.setApiKey('sk-x') // key alone, no provider/model → not configured
     expect((await services.api.getAppStatus()).aiConfigured).toBe(false)
     await services.api.updateSettings({
       ai: {
