@@ -511,7 +511,7 @@ semantic indexing is still pending.
 
 ## Phase 5 — Integration, quality, and submission
 
-### [ ] VALIDATE-01 — Validate the default AI provider/model configuration
+### [X] VALIDATE-01 — Validate the default AI provider/model configuration
 
 **Owner:** Unassigned
 **Depends on:** MVP-09, DEMO-01

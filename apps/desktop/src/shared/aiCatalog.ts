@@ -23,8 +23,10 @@ export const AI_PROVIDERS: ProviderCatalog[] = [
       { id: 'gemini-pro-latest', label: 'Gemini Pro', tier: 'Highest quality · higher cost' },
     ],
     embeddings: [
+      // gemini-embedding-001 is Google's only current text-embedding model.
+      // text-embedding-004 was retired on 2026-01-14 (verified 404 NOT_FOUND
+      // in VALIDATE-01) and removed here so Settings never offers a dead model.
       { id: 'gemini-embedding-001', label: 'Gemini Embedding 001', tier: 'Recommended' },
-      { id: 'text-embedding-004', label: 'Text Embedding 004', tier: 'Lower cost' },
     ],
   },
   {
@@ -41,9 +43,11 @@ export const AI_PROVIDERS: ProviderCatalog[] = [
     id: 'openai',
     label: 'OpenAI',
     chat: [
-      { id: 'gpt-4o-mini', label: 'GPT-4o mini', tier: 'Fast · lower cost' },
-      { id: 'gpt-4o', label: 'GPT-4o', tier: 'Balanced · recommended' },
-      { id: 'gpt-4.1', label: 'GPT-4.1', tier: 'Highest quality · higher cost' },
+      // Refreshed VALIDATE-01 (2026-07-21): the GPT-4o family was superseded by
+      // the GPT-5.6 tiers; all three support vision (required for annotation).
+      { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', tier: 'Fast · lower cost' },
+      { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', tier: 'Balanced · recommended' },
+      { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', tier: 'Highest quality · higher cost' },
     ],
     embeddings: [
       { id: 'text-embedding-3-small', label: 'Embedding 3 Small', tier: 'Lower cost' },
@@ -54,9 +58,14 @@ export const AI_PROVIDERS: ProviderCatalog[] = [
     id: 'bedrock',
     label: 'Amazon Bedrock',
     chat: [
-      { id: 'anthropic.claude-3-5-haiku-20241022-v1:0', label: 'Claude 3.5 Haiku', tier: 'Fast · lower cost' },
-      { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0', label: 'Claude 3.5 Sonnet', tier: 'Balanced · recommended' },
-      { id: 'amazon.nova-pro-v1:0', label: 'Amazon Nova Pro', tier: 'Higher quality' },
+      // Refreshed VALIDATE-01 (2026-07-21): Claude 3.5 on Bedrock moved to Legacy;
+      // bumped to the current 4.5/4.6-era IDs. Newer Claude models on Bedrock are
+      // inference-profile-based and may require a region prefix (e.g. us.anthropic.…)
+      // depending on the user's account/region — availability is BYOK-dependent and
+      // is live-probed before a selection is saved.
+      { id: 'anthropic.claude-haiku-4-5-20251001-v1:0', label: 'Claude Haiku 4.5', tier: 'Fast · lower cost' },
+      { id: 'anthropic.claude-sonnet-4-6', label: 'Claude Sonnet 4.6', tier: 'Balanced · recommended' },
+      { id: 'anthropic.claude-opus-4-7', label: 'Claude Opus 4.7', tier: 'Highest quality · higher cost' },
     ],
     embeddings: [
       { id: 'amazon.titan-embed-text-v2:0', label: 'Titan Text Embeddings v2', tier: 'Recommended' },

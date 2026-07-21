@@ -68,6 +68,35 @@ provider-qualified model identity, so vectors from incompatible configurations a
 Unparseable image dimensions surface as `0×0` in `VersionDetails` (C1 declares
 them non-nullable; capture stores `null` internally).
 
+## AI provider setup (BYOK)
+
+AI is model-agnostic (LangChain in `services/ai/`); the desktop app just ships a
+default and lets you switch provider/model in **Settings → AI**. The validated
+default (VALIDATE-01, 2026-07-21) is Google Gemini:
+
+| Task | Default model | Notes |
+|---|---|---|
+| Change summaries | `gemini-flash-latest` | Vision + structured output. **Moving alias** — Google hot-swaps it each release (2-week breaking-change notice). Pin a dated Flash ID if you need a frozen demo. |
+| Semantic search | `gemini-embedding-001` | 3,072-dimension text vectors (Google's only current text-embedding model). |
+
+Setup for a fresh BYOK user:
+
+1. Get a Google AI Studio key (`https://aistudio.google.com/apikey`).
+2. In **Settings → AI**, keep the Google Gemini defaults (or pick another
+   provider/model), paste the key, and Save. Save is blocked until each selected
+   task has a saved key, and a changed provider/model is **live-probed** with the
+   real task call before it persists — a rejected or unreachable pair rolls back.
+3. Keys are stored per provider in Electron `safeStorage`, never readable back
+   over IPC and never sent to Chronicle's backend by default.
+
+Caveats worth stating in the demo (do not overclaim): the live probe and every
+summary/embedding are **real provider calls** that leave the device and may incur
+a small charge; cost estimates (≈$0.007–0.011/annotation for Flash) are
+**approximate and dated**; and the free tier is used by Google to improve
+products, so say the *creative library* stays local while naming the AI exception
+— never "zero retention". Standalone-service defaults are configured via the
+`CHRONICLE_AI_*` variables in `.env` (see repo-root `.env.example`).
+
 ## Where app data lives
 
 Everything Chronicle persists is in Electron's per-user data directory

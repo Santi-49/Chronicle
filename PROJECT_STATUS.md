@@ -64,7 +64,9 @@ not a public contract. Change it carefully through migrations once released.
 
 1. Run the full `MVP-12` journey repeatedly using `demo-assets/workspace/`, including
    offline queue, retry, restart, deleted-source, and 50 MB skip cases.
-2. Decide and record the final demo provider/model/budget.
+2. Decide and record the final demo provider/model/budget. VALIDATE-01 validated the Gemini
+   defaults live and flagged two team sign-off items (moving `gemini-flash-latest` alias vs. a
+   pinned Flash ID; provider/retention/cost/budget approval) — see Open decisions.
 3. Team lead fills in names/task ownership and confirms branch protection; every team member
    completes the required IBM SkillsBuild activity before July 25.
 
@@ -75,7 +77,7 @@ not a public contract. Change it carefully through migrations once released.
 | MVP-09 packaging | MVP-09 / MVP-12 owner | Before MVP-12 | Live provider acceptance passed and the service is now in `services/ai/`. Still required for an installed build: bundle the Python sidecar and its provider dependency into the packaged app; this does not block the development-mode MVP flow. |
 | Team roster and task ownership | Team lead | Now | Fill `docs/challenge/CONSTRAINTS.md` and TODO owners. |
 | `dev` branch protection | Team lead | Before further implementation PRs | `dev` exists; confirm review/required-check protections for `dev` and `main`. |
-| Demo AI provider/model and budget | Unassigned | Before `MVP-12` | Gemini passed controlled live acceptance and is the configured default; formally approve provider, retention/cost assumptions, and budget. |
+| Demo AI provider/model and budget | Unassigned | Before `MVP-12` | VALIDATE-01 (2026-07-21) re-probed the defaults live: `gemini-flash-latest` (annotation) and `gemini-embedding-001` (3,072-dim embeddings) both work end-to-end with graceful error paths. Removed the retired `text-embedding-004` catalog entry (live 404). **Team sign-off still needed on:** (a) keeping the moving `gemini-flash-latest` alias vs. pinning a dated Flash ID for the demo, and (b) provider/retention/approx-cost/budget assumptions. |
 | Watcher behavior in the real demo editor | Watcher owner | Before `MVP-12` | Test actual save, temp-file, and rename behavior on the Windows demo machine. |
 | Native `better-sqlite3` setup on Windows | Foundation/database owners | During `MVP-01` | Verify Electron rebuild and document any required tools. |
 | SkillsBuild completion for every member | Each member | By July 25 | Record completion outside the repository as agreed by the team. |

@@ -221,6 +221,80 @@ first batch and allow immediate disablement. If consent is selected as the lawfu
 must change to an affirmative choice before production.
 ([GDPR Article 5](https://eur-lex.europa.eu/eli/reg/2016/679/art_17/oj/eng))
 
+### Default AI Provider/Model Validation (VALIDATE-01, 2026-07-21)
+
+Chronicle ships Google Gemini as the default AI provider (`google_genai`) with
+`gemini-flash-latest` for annotation and `gemini-embedding-001` for embeddings. This
+section records the dated research and repeatable live test that confirm those defaults
+work for a new BYOK user. A prior successful call is evidence, not proof that a *changing*
+external default still works, so the defaults were re-probed live against the committed
+demo fixtures on this date.
+
+**Toolchain verified:** `langchain-google-genai` 4.2.2, `google-genai` 1.75.0,
+LangChain 1.3.14, Python 3.13. The service resolves both tasks through LangChain's
+model-agnostic `init_chat_model` / `init_embeddings` factories (no provider wrapper).
+
+**Live results (2026-07-21, real BYOK key, three end-to-end passes):**
+
+- **`gemini-flash-latest` (annotation).** First-version description and the controlled
+  two-version diff both succeeded on every pass. The diff correctly identified the two
+  added magenta ellipses in the `before.jpg → after.jpg` fixture; the first-version pass
+  correctly described the navy Chronicle logo. Multimodal image input works through the
+  standard `image_url` data-URL block, and structured output (summary/changes/tags) parsed
+  cleanly. Observed latency ≈ 6–7 s per call; reported usage ≈ 1,230 input / 640–870 output
+  tokens (first-version) and ≈ 2,330 input / 560–800 output tokens (diff). At the configured
+  `$1.50` input / `$9.00` output per-million pricing that is ≈ **$0.007–0.011 per annotation**.
+- **`gemini-embedding-001` (embeddings).** Returned a **3,072-dimension** vector on every
+  call (matching the 2026-07-19 acceptance). Semantic ranking behaved correctly: "the
+  version with the tagline removed" and "green bottle" each ranked the intended candidate
+  first. `$0.15` input / `$0` output per million, so search embedding cost is negligible.
+- **Configuration probe.** `POST /validate-provider-model` returned VALID for both the chat
+  and embeddings tasks using the real task-specific call.
+- **Error paths (all graceful/asynchronous).** An invalid API key was rejected for both
+  tasks (`ChatGoogleGenerativeAIError` / `GoogleGenerativeAIError` → mapped to a 502 provider
+  error, no key leaked). A non-existent model was rejected. `gemini-pro-latest` (a curated
+  "highest quality" catalog option, not a default) returned **429 RESOURCE_EXHAUSTED** on the
+  demo key's free-tier quota — a valid model ID that is rate-limited, exercising the
+  unavailable/rate-limited path; it surfaces as a provider error and never blocks capture.
+
+**Documentation findings (primary sources):**
+
+- **`gemini-flash-latest` is a moving alias.** Google's model docs state `-latest` aliases
+  "get hot-swapped with every new release" of that variation, with a **2-week email notice**
+  before a breaking change to the version behind the alias. As of this date it resolves to a
+  current Gemini 3.x Flash (the models page lists Gemini 3.6 Flash as the latest). **Risk:**
+  the demo default can change under us. It works today, but for a rehearsed demo the team may
+  prefer pinning a specific dated Flash ID for reproducibility. Recorded as an open decision;
+  the default is left unchanged pending team approval.
+- **Pricing is approximate/dated.** Google's public pricing page still prominently lists
+  Gemini **2.5** Flash at `$0.30`/`$2.50`; third-party trackers put the current 3.x Flash tier
+  near `$1.50`/`$9.00`, which is what `.env.example` uses for the cost estimate. Cost figures
+  above are therefore ballpark and must not be presented as a measured/guaranteed rate.
+- **`gemini-embedding-001` is GA:** 3,072 default dimensions (also 1,536 / 768 via Matryoshka
+  truncation), 2,048-token max input, `$0.15`/M input, 100+ languages.
+- **`text-embedding-004` is retired.** Its deprecation date (2026-01-14) has passed; a live
+  request returns **404 NOT_FOUND**. It was still listed as the Gemini "lower cost" embedding
+  option in the shipped catalog, so VALIDATE-01 removed it from
+  `apps/desktop/src/shared/aiCatalog.ts` — `gemini-embedding-001` is now Google's only current
+  text-embedding model and the sole Gemini embedding choice.
+- **Data handling caveat (unchanged).** Google's Gemini *developer* API uses free-tier inputs
+  to improve products; paid-tier inputs are not used for training. Chronicle sends image and
+  text inputs to the provider on the BYOK path, so demo copy must say the *creative library*
+  stays local while naming the AI-inference exception — never claim zero retention.
+
+**Verdict:** both shipped defaults are **suitable and validated for the demo** on the current
+BYOK path. Two items need team sign-off (tracked as open decisions): (1) whether to keep the
+moving `gemini-flash-latest` alias or pin a dated Flash ID before the demo, and (2) formal
+approval of provider/retention/cost/budget assumptions. Configuration was left unchanged; only
+the confirmed-retired `text-embedding-004` catalog entry was removed.
+
+Sources:
+[Gemini API models & `-latest` aliases](https://ai.google.dev/gemini-api/docs/models) ·
+[Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) ·
+[Gemini embeddings (dimensions, GA)](https://ai.google.dev/gemini-api/docs/embeddings) ·
+[Gemini Embedding GA announcement](https://developers.googleblog.com/gemini-embedding-available-gemini-api/) ·
+[text-embedding-004 deprecation (2026-01-14)](https://github.com/simonw/llm-gemini/issues/102)
+
 ### Past Hackathon Winners (if available)
 
 BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Edition, NextGen Hackathon). No public winner list found for this specific series yet — check the hub's community/Discord for July examples. (2026-07-16)
@@ -337,3 +411,5 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - 2026-07-21 — WINDOWS APP-ICON FINDING: Chronicle's plated outline mark becomes a tiny nested-monitor glyph on the dark Windows taskbar; its dark tile merges with the shell and the green clock hand disappears. Microsoft recommends a simple singular form, at most two metaphors, a balanced 48 px grid silhouette, minimal gradients/opacity treatments, detail only on the prominent layer, and explicit exact-size exports (taskbar is 24 px at 100% scaling). At least half the icon should reach 3:1 contrast across light and dark contexts; transparent backgrounds and optional theme-specific assets are preferred. Six non-production SVG/PNG/ICO concepts plus an exact-scale comparison board live in `packages/brand/concepts/taskbar-exploration/` — [Windows app-icon design](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-design), [Windows icon construction and sizes](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-construction)
 - 2026-07-21 — AI CONFIGURATION VALIDATION DECISION: both AI task selectors require a saved provider key before Save is enabled. A changed provider/model is probed through the loopback service with the real task path (one-pixel structured vision or a short embedding); rejected/unreachable configurations are not persisted, selectors return to the previous values, and IPC implementation prefixes are removed from user-facing errors. These probes can incur a tiny provider charge and must be described honestly. Developer-mode pairs remain model-agnostic and are judged by the live probe rather than a static allowlist — team + session
 - 2026-07-21 — SEMANTIC INDEX COMPATIBILITY FIX: embedding rows and query lookup now share a provider-qualified `provider:model` identity. Changing either embedding selector queues existing annotation text for deduplicated asynchronous re-embedding without rerunning vision analysis; keyword search remains available while reindexing or provider calls are unavailable — team + session
+- 2026-07-21 — CATALOG PROVIDER AUDIT (VALIDATE-01): documentation-checked the non-default curated providers against current provider docs (no keys for live probes). Anthropic entries (`claude-haiku-4-5`/`claude-sonnet-5`/`claude-opus-4-8`) are current and vision-capable; empty Anthropic embeddings list is correct (no Anthropic embeddings API). OpenAI's GPT-4o family was superseded by the GPT-5.6 tiers, so chat entries were refreshed to `gpt-5.6-luna`/`gpt-5.6-terra`/`gpt-5.6-sol` (`text-embedding-3-small`/`-large` remain current). Amazon Bedrock's Claude 3.5 IDs moved to Legacy, so chat entries were refreshed to `anthropic.claude-haiku-4-5-20251001-v1:0`/`anthropic.claude-sonnet-4-6`/`anthropic.claude-opus-4-7` (newer Bedrock Claude is inference-profile-based and may need a region prefix like `us.anthropic.…` per account/region; Titan v2 + Cohere Embed English v3 remain active). These stay illustrative/BYOK-dependent and are live-probed before persistence — [OpenAI models](https://developers.openai.com/api/docs/models), [Amazon Bedrock model catalog 2026](https://hidekazu-konishi.com/entry/amazon_bedrock_model_catalog_2026.html), Claude API model reference — team + session
+- 2026-07-21 — DEFAULT PROVIDER VALIDATION (VALIDATE-01): re-probed the shipped Gemini defaults live against the demo fixtures (langchain-google-genai 4.2.2 / google-genai 1.75.0). `gemini-flash-latest` produced correct first-version and diff annotations with working image input and structured output (≈6–7 s, ≈$0.007–0.011/call at $1.50/$9 per-M); `gemini-embedding-001` returned 3,072-dim vectors with correct semantic ranking ($0.15/M). Invalid-key, unknown-model, and a 429-rate-limited `gemini-pro-latest` all failed gracefully as provider errors with no key leak. Findings: `gemini-flash-latest` is a hot-swapped moving alias (2-week breaking-change notice; now a Gemini 3.x Flash) so pinning a dated ID for the demo is an open decision; pricing is approximate/dated; `text-embedding-004` is retired (live 404) and was removed from the catalog. Defaults judged suitable; only the retired catalog entry was changed — configuration and both-default approval remain a team sign-off — team live test + [Gemini models](https://ai.google.dev/gemini-api/docs/models), [pricing](https://ai.google.dev/gemini-api/docs/pricing), [embeddings](https://ai.google.dev/gemini-api/docs/embeddings), [text-embedding-004 deprecation](https://github.com/simonw/llm-gemini/issues/102)
