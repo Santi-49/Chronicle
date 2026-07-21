@@ -382,7 +382,7 @@ function AccountSection() {
   const [email, setEmail] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [passphrase, setPassphrase] = useState('')
-  const [controlPlaneAvailable, setControlPlaneAvailable] = useState<boolean | null>(null)
+  const [controlPlaneAvailable, setControlPlaneAvailable] = useState(false)
   const [authBusy, setAuthBusy] = useState(false)
   const [authStatus, setAuthStatus] = useState<string | null>(null)
   const [keyStatus, setKeyStatus] = useState<string | null>(null)
@@ -394,10 +394,8 @@ function AccountSection() {
   }
 
   const checkControlPlane = async () => {
-    setControlPlaneAvailable(null)
     const available = await chronicle.checkControlPlaneHealth().catch(() => false)
     setControlPlaneAvailable(available)
-    setAuthStatus(available ? null : 'Chronicle sign-in is unavailable. Start the control plane, then retry.')
   }
 
   useEffect(() => {
@@ -463,19 +461,19 @@ function AccountSection() {
           {email ? `Signed in as ${email}${isAdmin ? ' (admin)' : ''}.` : 'Running in local mode. Local features remain available offline.'}
         </p>
         <div className="account-access-actions">
-          <button
-            className="google-button settings-google-button"
-            disabled={controlPlaneAvailable !== true || authBusy}
-            onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, email ? 'Google account linked.' : 'Signed in with Google.')}
-            type="button"
-          >
-            <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : email ? 'Link Google account' : 'Continue with Google'}</span>
-          </button>
+          {controlPlaneAvailable && (
+            <button
+              className="google-button settings-google-button"
+              disabled={authBusy}
+              onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, email ? 'Google account linked.' : 'Signed in with Google.')}
+              type="button"
+            >
+              <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : email ? 'Link Google account' : 'Continue with Google'}</span>
+            </button>
+          )}
           {email && <button className="secondary-button" disabled={authBusy} onClick={() => void runAuth(() => chronicle.logout(), 'Signed out.')} type="button">Sign out</button>}
         </div>
-        {controlPlaneAvailable === null && <span className="inline-status" role="status">Checking Chronicle sign-in…</span>}
-        {authStatus && <span className={controlPlaneAvailable === false ? 'inline-status inline-status-error' : 'inline-status'} role="status">{authStatus}</span>}
-        {controlPlaneAvailable === false && <button className="text-button account-retry" onClick={() => void checkControlPlane()} type="button">Retry connection check</button>}
+        {authStatus && <span className="inline-status" role="status">{authStatus}</span>}
       </div>
 
       {settings && (

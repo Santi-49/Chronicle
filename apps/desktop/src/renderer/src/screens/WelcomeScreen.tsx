@@ -13,13 +13,11 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenProps) {
   const [googleState, setGoogleState] = useState<string | null>(null)
   const [googleBusy, setGoogleBusy] = useState(false)
-  const [controlPlaneAvailable, setControlPlaneAvailable] = useState<boolean | null>(null)
+  const [controlPlaneAvailable, setControlPlaneAvailable] = useState(false)
 
   const checkControlPlane = async () => {
-    setControlPlaneAvailable(null)
     const available = await chronicle.checkControlPlaneHealth().catch(() => false)
     setControlPlaneAvailable(available)
-    setGoogleState(available ? null : 'Chronicle sign-in is unavailable. Start the control plane, then retry.')
   }
 
   useEffect(() => { void checkControlPlane() }, [])
@@ -85,17 +83,16 @@ export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenPro
               <Icon name="chevron-right" />
             </button>
 
-            <div className="divider" aria-hidden="true">
-              <span>or</span>
-            </div>
-
-            <button className="google-button" disabled={controlPlaneAvailable !== true || googleBusy} onClick={() => void signIn()} type="button">
-              <span className="google-button-label"><GoogleMark />{googleBusy ? 'Connecting…' : 'Continue with Google'}</span>
-            </button>
-            {controlPlaneAvailable === null && <p className="inline-status" role="status">Checking Chronicle sign-in…</p>}
-            {googleState && <p className="inline-status inline-status-error" role="status">{googleState}</p>}
-            {controlPlaneAvailable === false && (
-              <button className="text-button" onClick={() => void checkControlPlane()} type="button">Retry connection check</button>
+            {controlPlaneAvailable && (
+              <>
+                <div className="divider" aria-hidden="true">
+                  <span>or</span>
+                </div>
+                <button className="google-button" disabled={googleBusy} onClick={() => void signIn()} type="button">
+                  <span className="google-button-label"><GoogleMark />{googleBusy ? 'Connecting…' : 'Continue with Google'}</span>
+                </button>
+                {googleState && <p className="inline-status inline-status-error" role="status">{googleState}</p>}
+              </>
             )}
           </div>
 

@@ -55,7 +55,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "installerIcon": "../../packages/brand/assets/chronicle-app-icon.ico",
+      "uninstallerIcon": "../../packages/brand/assets/chronicle-app-icon.ico"
     }
   },
   "devDependencies": {

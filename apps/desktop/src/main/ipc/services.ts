@@ -769,7 +769,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     async loginWithGoogle() {
       if (!deps.googleCredential) throw new Error('Google sign-in is not configured')
       if (!(await api.checkControlPlaneHealth())) {
-        throw new Error('Chronicle sign-in is unavailable. Check the control plane and try again.')
+        throw new Error('Google sign-in is temporarily unavailable')
       }
       const account = requireAccount()
       const credential = await deps.googleCredential()
