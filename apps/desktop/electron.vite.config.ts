@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import packageJson from './package.json'
 
 export default defineConfig({
   // Runtime dependencies (better-sqlite3, chokidar) must stay external in the
@@ -14,6 +15,9 @@ export default defineConfig({
   renderer: {
     // Tailwind activates once a stylesheet imports it (e.g. `@import "tailwindcss";`);
     // until then the plugin is inert and the hand-written CSS stands alone.
-    plugins: [react(), tailwindcss()]
+    plugins: [react(), tailwindcss()],
+    define: {
+      __APP_VERSION__: JSON.stringify(packageJson.version)
+    }
   }
 })

@@ -196,7 +196,7 @@ class ValidateProviderModelResponse(StrictModel):
 class HealthResponse(StrictModel):
     status: Literal["ok"] = "ok"
     service: Literal["chronicle-ai"] = "chronicle-ai"
-    version: str = "0.1.0"
+    version: str
 
 
 class ServiceErrorDetail(StrictModel):

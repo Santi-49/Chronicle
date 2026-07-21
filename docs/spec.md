@@ -29,7 +29,7 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 | Hashing | Node.js built-in `crypto` (**SHA-256**) | Detects "did the content actually change"; no dependency |
 | AI engine | **Local Python AI service** (`services/ai/`): **FastAPI** + **LangChain (Python)**, model-agnostic, **default classes/methods only** — the Electron main process calls it on `127.0.0.1` | AI features are developed in Python (team decision 2026-07-19, replaces LangChain.js in-app); provider swappable (Anthropic, watsonx/Granite, OpenAI…); one AI codebase shared with the stretch gateway |
 | Embeddings storage | Vectors stored **in SQLite**, similarity computed in-process | Hundreds of versions ≠ vector DB territory; simplest thing that works |
-| Packaging (stretch) | **electron-builder** | Produces a Windows installer for the demo if we want one; dev mode is fine for the video |
+| Packaging (MVP-12) | **PyInstaller sidecar + electron-builder NSIS** | Produces a self-contained unsigned Windows installer; installed users do not need Python |
 
 ### Backend control plane (`services/api/` + `services/module/`) — pre-built, we extend · **lowest priority (non-essential)**
 
@@ -80,8 +80,9 @@ desktop product: no Docker, no Postgres, no account.
 Why a Python service instead of LangChain.js inside Electron: the team develops AI
 features in Python, LangChain's Python ecosystem is the reference implementation, and
 the stretch gateway reuses the code instead of maintaining a JS twin. Accepted
-trade-off: dev/demo needs a Python 3.12 runtime next to the app (a start script covers
-it); bundling the service into the installer is stretch scope.
+trade-off: development needs Python 3.12, while the Windows installer bundles a
+self-contained Gemini-capable sidecar. Additional provider integrations remain a packaging
+follow-up; capture and queued keyword/search behavior still degrade gracefully if AI is down.
 
 There is no local-model path in the MVP. “Local” refers to local storage, local
 orchestration, and the locally running AI service; inference uses an external API
@@ -298,7 +299,7 @@ Rules for everyone, regardless of experience level:
 | 5 | **Scope creep** — gateway, future formats, admin UI, landing | MVP slips past Jul 27 | Stretch labels in §4 are binding; MVP first, always |
 | 6 | **Compliance misses** — SkillsBuild per member, Bob usage undocumented, video > 3 min | Submission invalid or loses the easiest points | Deadlines in §7; bob-log.md filled continuously; script the video from VISION.md |
 | 7 | **API keys & cost** for demo/testing | Blocked AI testing | Decide provider(s) Jul 18; small shared test budget; BYOK design means any member's key works |
-| 8 | **Python AI-service friction** — the demo machine needs Python 3.12 and the local service running for AI features | AI demo beat fails; teammates stuck on setup | App degrades gracefully by design (versions capture, jobs queue, UI shows *pending*); one documented start script; health check surfaced in the status bar; bundling the service into the installer is stretch |
+| 8 | **AI sidecar health/provider packaging** — development needs Python 3.12, and an installed sidecar can fail to start or lack a selected provider integration | AI demo beat fails; teammates stuck on setup | The Windows installer bundles and health-smokes a self-contained Gemini sidecar; app still degrades gracefully (versions capture, jobs queue, UI shows *pending*); additional provider packs remain future work |
 
 ---
 
@@ -311,5 +312,5 @@ Rules for everyone, regardless of experience level:
 - **Where are past versions stored?** File bytes in Chronicle's library folder (content-addressed copies); everything else (metadata, AI text, vectors) in one local SQLite file. Not in Postgres — the backend never sees files.
 - **Is SQLite enough?** Yes — ideal for local-first single-user apps. Our scale (thousands of versions) is trivial for it; FTS5 gives us built-in keyword search; brute-force vector similarity is milliseconds at our size (`sqlite-vec` is the upgrade path if that ever changes); and its only real weakness — many concurrent writers — doesn't apply to a one-process app. File bytes stay on disk, not in the DB. Precedent: Adobe Lightroom's entire catalog is a SQLite file. Multi-user sync (future) would live in the backend's Postgres, not here.
 - **Is filesystem watching the same on Windows and macOS?** Yes for our code — chokidar abstracts the OS differences (Windows and macOS use different native mechanisms underneath). Windows is the primary dev/demo target; we smoke-test macOS.
-- **Is the desktop app easy to demo/ship?** Demo: yes — `npm run dev` runs the full app; the video needs nothing more. Installers: electron-builder produces a Windows installer easily (stretch); macOS installers without an Apple signing certificate show a security warning — acceptable, judges watch the video and clone the repo.
+- **Is the desktop app easy to demo/ship?** Demo: yes — `npm run dev` runs the full app. MVP-12 produces an unsigned, self-contained Windows NSIS installer with the Gemini sidecar; SmartScreen may warn. macOS packaging/signing and in-app auto-update remain post-MVP.
 - **Why is restore a new version instead of going back?** Never destroying history is the product's whole promise — and it's simpler to build.

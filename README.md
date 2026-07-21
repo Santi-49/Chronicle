@@ -113,8 +113,9 @@ Full detail and the reasoning behind each choice: [docs/spec.md](docs/spec.md).
 This is the MVP path and the one to use for normal Chronicle development. It does not
 require Docker, a backend, or an account.
 
-**Requires:** Node.js 20+, Python 3.12, and GNU make. The default setup uses Python only
-to prepare the demo workspace; AI summaries/embeddings also use it for the local service.
+**Development requires:** Node.js 20+, Python 3.12, and GNU make. Python runs the local
+AI service in development and builds its self-contained Windows sidecar. The installed
+Windows app bundles that sidecar and does **not** require system Python.
 On Windows, run make from Git Bash or WSL.
 
 ```bash
@@ -150,7 +151,7 @@ npm --prefix apps/desktop run package
 
 ### Enable AI summaries
 
-The app captures versions without AI. To enable summaries and semantic indexing, install
+In development, the app captures versions without AI. To enable summaries and semantic indexing, install
 the loopback AI service and its default Gemini provider, then save a provider key in
 **Settings → AI summaries**. Electron starts and health-checks the service automatically.
 
@@ -160,7 +161,7 @@ make setup-ai
 
 Chronicle stores a separate encrypted key for each configured provider, so the annotation
 and embedding providers can be switched independently without re-entering credentials.
-The predefined UI supports Google Gemini, Anthropic Claude, OpenAI, and Amazon Bedrock;
+The engine and predefined UI support Google Gemini, Anthropic Claude, OpenAI, and Amazon Bedrock;
 developer mode accepts another LangChain-supported provider/model pair. Both task selectors
 require their selected provider's key before Save is enabled. A changed model is then
 live-validated through the loopback service; this minimal real provider call may incur a tiny
@@ -237,9 +238,15 @@ Start at [docs/index.md](docs/index.md).
 The capture/storage core, secure IPC bridge, Python AI service, restore flow, hybrid search,
 and live renderer wiring are implemented on `dev`. Users can create and edit tracked-folder
 projects, choose which image files/types remain watched, configure per-provider BYOK keys,
-browse live projects/timelines/version details, and inspect queued AI work. Restore and the
-search UI still need the final end-to-end reliability/acceptance pass; installer-side AI
-service bundling and real-editor Windows smoke testing remain open.
+browse live projects/timelines/version details, and inspect queued AI work. A self-contained
+unsigned Windows installer now bundles the validated Gemini AI sidecar. The final three-pass
+clean-machine journey and real-editor Windows smoke record remain open.
+
+Known packaging limitations: the unsigned installer can trigger Windows SmartScreen; the MVP
+bundle contains the live-validated Gemini integration, while other provider integrations still
+require a development install; macOS packaging/signing and in-app auto-update remain post-MVP.
+See [release and version policy](docs/releasing.md) and the
+[MVP-12 acceptance record](docs/mvp-12-acceptance.md).
 
 See the live [project status](PROJECT_STATUS.md). Submission is due
 **July 31, 2026, 11:59 PM ET**.

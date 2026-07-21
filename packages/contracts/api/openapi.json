@@ -184,6 +184,9 @@
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "HTTPBearer": []
           }
         ]
       }
@@ -1178,7 +1181,7 @@
       "AccountSettingsRead": {
         "properties": {
           "settings": {
-            "$ref": "#/components/schemas/PortableSettings"
+            "$ref": "#/components/schemas/PortableSettings-Output"
           },
           "revision": {
             "type": "integer",
@@ -1203,7 +1206,7 @@
       "AccountSettingsUpdate": {
         "properties": {
           "settings": {
-            "$ref": "#/components/schemas/PortableSettings"
+            "$ref": "#/components/schemas/PortableSettings-Input"
           },
           "expected_revision": {
             "type": "integer",
@@ -1568,7 +1571,44 @@
         ],
         "title": "PermissionRead"
       },
-      "PortableSettings": {
+      "PortableSettings-Input": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schema Version",
+            "default": 1
+          },
+          "settings_sync_enabled": {
+            "type": "boolean",
+            "title": "Settings Sync Enabled",
+            "default": false
+          },
+          "api_key_sync_enabled": {
+            "type": "boolean",
+            "title": "Api Key Sync Enabled",
+            "default": false
+          },
+          "appearance": {
+            "$ref": "#/components/schemas/AppearancePreference"
+          },
+          "ai": {
+            "$ref": "#/components/schemas/AiPreference"
+          },
+          "telemetry": {
+            "$ref": "#/components/schemas/TelemetryPreference"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "appearance",
+          "ai",
+          "telemetry"
+        ],
+        "title": "PortableSettings"
+      },
+      "PortableSettings-Output": {
         "properties": {
           "schema_version": {
             "type": "integer",
@@ -1910,13 +1950,6 @@
           "type": {
             "type": "string",
             "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
           }
         },
         "type": "object",

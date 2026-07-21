@@ -295,6 +295,34 @@ Sources:
 [Gemini Embedding GA announcement](https://developers.googleblog.com/gemini-embedding-available-gemini-api/) ·
 [text-embedding-004 deprecation (2026-01-14)](https://github.com/simonw/llm-gemini/issues/102)
 
+### Windows Packaging, Versions, and Release Automation (MVP-12, 2026-07-21)
+
+- Electron's `app.getVersion()` reads the packaged app's `package.json`, and electron-builder uses
+  that same version for installer macros. Chronicle therefore treats
+  `apps/desktop/package.json` as the desktop product's only authored version source; the sidebar,
+  installation registration, artifact name, and release tag derive from it. The independently
+  deployed AI and control-plane packages keep independent `pyproject.toml` versions. An HTTP
+  `/api/v1` prefix is a compatibility generation, not a deployment version.
+  ([Electron app API](https://www.electronjs.org/docs/latest/api/app),
+  [electron-builder publish guide](https://www.electron.build/docs/publish/))
+- GitHub distinguishes caches from workflow artifacts: installer binaries belong in artifacts,
+  while npm/pip download state belongs in caches. Chronicle runs required CI only for PRs whose
+  base is `main`, then builds a retained unsigned installer artifact after the merge.
+  ([GitHub workflow artifacts](https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts),
+  [Node CI guidance](https://docs.github.com/en/actions/tutorials/build-and-test-code/nodejs))
+- Release Please turns Conventional Commit history into a reviewed version/changelog PR; merging
+  that PR creates the tag/release. Its documentation confirms that a separate PAT is needed when
+  Action-created PRs must trigger another workflow, because events created with the built-in
+  `GITHUB_TOKEN` do not recursively trigger Actions. Chronicle therefore requires a fine-grained
+  `RELEASE_PLEASE_TOKEN` rather than silently bypassing protected-branch CI.
+  ([Release Please Action](https://github.com/googleapis/release-please-action))
+- Local packaging evidence: a clean Python 3.12 environment built the PyInstaller Gemini sidecar
+  in about 70 seconds (25.2 MB); both the raw executable and the copy inside Electron resources
+  returned `/health` with `chronicle-ai` version `0.1.0`. electron-builder then produced a 135 MB
+  unsigned NSIS installer. Building against a polluted global Python environment spent more than
+  ten minutes inspecting unrelated installed packages, so clean, declared build environments are
+  a reproducibility requirement, not merely a CI speed optimization.
+
 ### Past Hackathon Winners (if available)
 
 BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Edition, NextGen Hackathon). No public winner list found for this specific series yet — check the hub's community/Discord for July examples. (2026-07-16)
@@ -340,6 +368,11 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
   Use strict allowlisted schemas, client-generated idempotency IDs, short raw-event retention, and
   aggregate admin views. Never claim “all data stays local”; say precisely that the creative
   library stays local and name the AI, telemetry, settings, and encrypted-secret exceptions.
+- Demonstrate release discipline as technical-execution evidence: one authored desktop version,
+  generated/runtime derivations, protected `main` PR checks, a clean Windows build, and a
+  health-smoked sidecar. Do not imply the unsigned build is signed or auto-updating. Keep the
+  validated Gemini provider in the MVP installer; add other provider packs only after measuring
+  their size/startup/build costs in isolated environments.
 
 ### What to Emphasize in the Demo
 
@@ -413,3 +446,4 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - 2026-07-21 — SEMANTIC INDEX COMPATIBILITY FIX: embedding rows and query lookup now share a provider-qualified `provider:model` identity. Changing either embedding selector queues existing annotation text for deduplicated asynchronous re-embedding without rerunning vision analysis; keyword search remains available while reindexing or provider calls are unavailable — team + session
 - 2026-07-21 — CATALOG PROVIDER AUDIT (VALIDATE-01): documentation-checked the non-default curated providers against current provider docs (no keys for live probes). Anthropic entries (`claude-haiku-4-5`/`claude-sonnet-5`/`claude-opus-4-8`) are current and vision-capable; empty Anthropic embeddings list is correct (no Anthropic embeddings API). OpenAI's GPT-4o family was superseded by the GPT-5.6 tiers, so chat entries were refreshed to `gpt-5.6-luna`/`gpt-5.6-terra`/`gpt-5.6-sol` (`text-embedding-3-small`/`-large` remain current). Amazon Bedrock's Claude 3.5 IDs moved to Legacy, so chat entries were refreshed to `anthropic.claude-haiku-4-5-20251001-v1:0`/`anthropic.claude-sonnet-4-6`/`anthropic.claude-opus-4-7` (newer Bedrock Claude is inference-profile-based and may need a region prefix like `us.anthropic.…` per account/region; Titan v2 + Cohere Embed English v3 remain active). These stay illustrative/BYOK-dependent and are live-probed before persistence — [OpenAI models](https://developers.openai.com/api/docs/models), [Amazon Bedrock model catalog 2026](https://hidekazu-konishi.com/entry/amazon_bedrock_model_catalog_2026.html), Claude API model reference — team + session
 - 2026-07-21 — DEFAULT PROVIDER VALIDATION (VALIDATE-01): re-probed the shipped Gemini defaults live against the demo fixtures (langchain-google-genai 4.2.2 / google-genai 1.75.0). `gemini-flash-latest` produced correct first-version and diff annotations with working image input and structured output (≈6–7 s, ≈$0.007–0.011/call at $1.50/$9 per-M); `gemini-embedding-001` returned 3,072-dim vectors with correct semantic ranking ($0.15/M). Invalid-key, unknown-model, and a 429-rate-limited `gemini-pro-latest` all failed gracefully as provider errors with no key leak. Findings: `gemini-flash-latest` is a hot-swapped moving alias (2-week breaking-change notice; now a Gemini 3.x Flash) so pinning a dated ID for the demo is an open decision; pricing is approximate/dated; `text-embedding-004` is retired (live 404) and was removed from the catalog. Defaults judged suitable; only the retired catalog entry was changed — configuration and both-default approval remain a team sign-off — team live test + [Gemini models](https://ai.google.dev/gemini-api/docs/models), [pricing](https://ai.google.dev/gemini-api/docs/pricing), [embeddings](https://ai.google.dev/gemini-api/docs/embeddings), [text-embedding-004 deprecation](https://github.com/simonw/llm-gemini/issues/102)
+- 2026-07-21 — MVP-12 PACKAGING/RELEASE FINDING: established independent desktop/AI/control-plane versions, `package.json`-derived desktop display/installer/tag values, PR-only required CI for `main`, per-merge Windows artifacts, and reviewed Release Please version PRs. A clean Python 3.12 PyInstaller build produced a 25.2 MB Gemini sidecar; its raw and packaged-resource health probes passed; electron-builder produced a 135 MB unsigned NSIS installer. Polluted global Python made dependency analysis exceed ten minutes, validating isolated declared build environments. Additional installed provider packs, signing, macOS, and in-app auto-update remain future work — team implementation + official Electron/electron-builder/GitHub/Release Please sources linked above

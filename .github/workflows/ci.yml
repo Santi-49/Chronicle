@@ -1,0 +1,86 @@
+name: Main PR CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-pr-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: Desktop (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+        working-directory: apps/desktop
+      - run: python scripts/check_versions.py
+      - run: npm run typecheck
+        working-directory: apps/desktop
+      - run: npm test
+        working-directory: apps/desktop
+      - run: npm run build
+        working-directory: apps/desktop
+
+  ai:
+    name: AI service and C3 contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/ai/pyproject.toml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: python -m pip install -e "services/ai[dev,google]"
+      - run: python -m pytest -q
+        working-directory: services/ai
+      - run: npm ci --ignore-scripts
+        working-directory: apps/desktop
+      - run: npm run generate-ai-types
+        working-directory: apps/desktop
+      - run: git diff --exit-code -- packages/contracts/ai/openapi.json apps/desktop/src/main/ai/generated.ts
+
+  control-plane:
+    name: Control plane and C6 contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/api/pyproject.toml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: python -m pip install -e "services/api[dev]"
+      - run: python -m pytest -q
+        working-directory: services/api
+      - run: python -m app.export_openapi
+        working-directory: services/api
+      - run: npm ci --ignore-scripts
+        working-directory: apps/desktop
+      - run: npx openapi-typescript ../../packages/contracts/api/openapi.json -o ../../packages/contracts/api/generated/index.ts
+        working-directory: apps/desktop
+      - run: git diff --exit-code -- packages/contracts/api/openapi.json packages/contracts/api/generated/index.ts

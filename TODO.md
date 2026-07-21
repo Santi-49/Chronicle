@@ -565,6 +565,13 @@ offline queue; failed/retry state; 50 MB skip; deleted source; keyboard navigati
 **Done when:** The scripted journey succeeds three consecutive times on Windows, typecheck/build/
 tests pass, critical console errors are absent, and known limitations are documented.
 
+> Packaging/automation implemented on `feat/mvp-12-reliability-release`: the Windows NSIS build
+> now bundles a health-smoked PyInstaller Gemini sidecar, version sources are checked, PR CI is
+> required only for `main`, every `main` merge uploads an installer artifact, and reviewed Release
+> Please PRs create tagged GitHub Releases. The automated gate passed three consecutive runs
+> (desktop 138 passed/1 skipped, AI 48 passed, API 41 passed per run). The task remains open until the manual journey record in
+> `docs/mvp-12-acceptance.md` passes three consecutive times on the clean demo machine.
+
 ### [x] DEMO-01 — Create and freeze the demo asset pack
 
 **Owner:** Santi R (merged into `dev` via `feat/mvp-06-ui-wire`)
@@ -1007,12 +1014,12 @@ actually send/store; and the local creative library is never uploaded.
 **Owner:** Unassigned
 **Depends on:** MVP-12 (a working, packaged app to install)
 **Goal:** Research and improve the first-run install/onboarding screen so a new user gets
-from "just installed" to "folder tracked, first version captured" with minimal friction —
-including the Python AI-service prerequisite (spec Risk #8) surfaced clearly.
+from "just installed" to "folder tracked, first version captured" with minimal friction,
+including clear AI-sidecar health and provider-availability guidance.
 
 **Required reading first:** the startup-flow section of `docs/desktop/overview.md` (Continue
-local vs. Log in / Register), and Risk #8 in `docs/spec.md` §8 (the demo machine needs Python
-3.12 + the AI service running; the app degrades gracefully and shows a health check).
+local vs. Log in / Register), and Risk #8 in `docs/spec.md` §8 (the installed Windows build
+bundles the Gemini sidecar; the app degrades gracefully and shows a health check).
 **Then research references** with the user before designing (as LAND-01 requires for the
 landing page): strong desktop-app onboarding patterns; agree direction before visual work.
 
@@ -1021,7 +1028,7 @@ affordance (`apps/desktop/**`), electron-builder installer config if packaging i
 **Must not edit:** C1/C3/C5 contracts; local capture behavior.
 
 **Required functionality:** A clear first-run flow (pick a folder, understand Continue local
-vs. account, understand and check the AI-service prerequisite) that never blocks core capture
+vs. account, understand and check AI readiness) that never blocks core capture
 when AI is unavailable; graceful empty/error/"AI pending" states; the "No AI-slop bar" quality
 standard from LAND-01 applies to the visuals.
 
@@ -1029,7 +1036,7 @@ standard from LAND-01 applies to the visuals.
 (install/run + AI-service prerequisite); one line in `docs/bob-log.md`.
 
 **Done when:** A teammate who has never seen the app can install it, understand the AI
-prerequisite, track a folder, and capture a first version without help; capture still works
+readiness state, track a folder, and capture a first version without help; capture still works
 when the AI service is down (versions show "pending").
 
 ### [ ] POST-08 — Publish the app and wire Windows auto-update `Post-MVP`
@@ -1041,6 +1048,10 @@ Releases**, using the electron-builder / electron-updater pair, **unsigned for n
 the cheap Tier 1 path only — code signing, notarization, and macOS auto-update are deferred
 to a separate follow-up task (see note below), because they are a recurring-cost and
 identity decision the team must own.
+
+> MVP-12 now supplies the build/version baseline: `main` artifacts, Release Please version PRs,
+> tagged GitHub Releases, and attached unsigned installers/checksums. POST-08 still owns
+> `electron-updater`, update metadata/UX, restart-to-apply acceptance, signing, and macOS work.
 
 > How it works (for reviewers): electron-builder produces `Chronicle-x.y.z.exe` (NSIS) plus a
 > `latest.yml` metadata file; both are published to a GitHub Release. The installed app calls

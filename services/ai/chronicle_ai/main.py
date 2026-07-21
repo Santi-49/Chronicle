@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from .routes import router
+from .version import __version__
 
 # Best-effort load the repository-root .env so `make run-ai` and standalone
 # runs pick up the CHRONICLE_AI_* defaults. Shell env always wins (override=
@@ -19,7 +20,7 @@ except ModuleNotFoundError:  # pragma: no cover - dotenv is an install-time extr
 
 app = FastAPI(
     title="Chronicle Local AI Service",
-    version="0.1.0",
+    version=__version__,
     description="Loopback-only annotation and text-embedding service.",
 )
 app.include_router(router)
