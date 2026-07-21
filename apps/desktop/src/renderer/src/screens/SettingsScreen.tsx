@@ -159,9 +159,9 @@ function AiSection() {
   const missingEmbedKey =
     embedProvider.trim() !== '' && !configuredProviders.includes(embedProvider.trim())
   const chatError = chatSelectionError ??
-    (missingChatKey ? 'No saved key for this provider yet — add one below to generate summaries.' : null)
+    (missingChatKey ? 'No saved key for this provider yet, add one below to generate summaries.' : null)
   const embedError = embedSelectionError ??
-    (missingEmbedKey ? 'No saved key for this provider yet — add one below to enable semantic search.' : null)
+    (missingEmbedKey ? 'No saved key for this provider yet, add one below to enable semantic search.' : null)
 
   const onSave = async () => {
     const validationError = chatError ?? embedError
@@ -319,7 +319,7 @@ function ApiKeyRow({
         <input
           aria-label={`${label} API key`}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder={saved ? 'Saved — type to replace it' : 'Paste API key'}
+          placeholder={saved ? 'Saved - type to replace it' : 'Paste API key'}
           type="password"
           value={draft}
         />
@@ -356,7 +356,7 @@ function ProviderModelPicker({
       <label>
         <span>Provider</span>
         <select aria-invalid={!providerValid} onChange={(event) => onProvider(event.target.value)} value={provider}>
-          {!providerValid && <option disabled value={provider}>{provider ? `Unavailable — ${provider}` : 'Select a provider'}</option>}
+          {!providerValid && <option disabled value={provider}>{provider ? `Unavailable - ${provider}` : 'Select a provider'}</option>}
           {providers.map((p) => (
             <option key={p.id} value={p.id}>{p.label}</option>
           ))}
@@ -365,9 +365,9 @@ function ProviderModelPicker({
       <label>
         <span>Model</span>
         <select aria-invalid={!modelValid} onChange={(event) => onModel(event.target.value)} value={model}>
-          {!modelValid && <option disabled value={model}>{model ? `Unavailable — ${model}` : 'Select a model'}</option>}
+          {!modelValid && <option disabled value={model}>{model ? `Unavailable - ${model}` : 'Select a model'}</option>}
           {models.map((m) => (
-            <option key={m.id} value={m.id}>{m.label} — {m.tier}</option>
+            <option key={m.id} value={m.id}>{m.label} - {m.tier}</option>
           ))}
         </select>
       </label>
