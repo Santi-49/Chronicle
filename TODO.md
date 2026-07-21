@@ -304,7 +304,7 @@ and see watcher/job/connectivity status without assistance.
 > - **Tracked folders / projects** — real `listFolders`/`pickFolder`/`addFolder`/`updateFolder`/
 >   `removeFolder`; New/Edit Project uses the native picker/scan + name/description/icon/color,
 >   enabled file types, and persistent ignored-file selection.
-> - **AI settings** — predefined **Google · Anthropic · OpenAI · Bedrock** providers with a
+> - **AI settings** — predefined **Google · Anthropic · OpenAI** providers with a
 >   curated quality/price model shortlist per task (change summaries vs. embeddings) and a
 >   **Developer mode** toggle for free-text provider/model; encrypted BYOK key with saved/clear
 >   state. Persisted via `updateSettings` + `setApiKey`; key never read back.
@@ -566,9 +566,9 @@ offline queue; failed/retry state; 50 MB skip; deleted source; keyboard navigati
 tests pass, critical console errors are absent, and known limitations are documented.
 
 > Packaging/automation implemented on `feat/mvp-12-reliability-release`: the Windows NSIS build
-> now bundles a health-smoked PyInstaller Gemini sidecar, version sources are checked, PR CI is
-> required only for `main`, every `main` merge uploads an installer artifact, and reviewed Release
-> Please PRs create tagged GitHub Releases. The automated gate passed three consecutive runs
+> now bundles a frozen-import- and health-smoked PyInstaller Gemini/OpenAI/Anthropic sidecar,
+> version sources are checked, PR CI is required only for `main`, and reviewed Release Please PRs
+> create tagged GitHub Releases with one attached installer build. The automated gate passed three consecutive runs
 > (desktop 138 passed/1 skipped, AI 48 passed, API 41 passed per run). The task remains open until the manual journey record in
 > `docs/mvp-12-acceptance.md` passes three consecutive times on the clean demo machine.
 
@@ -1019,7 +1019,7 @@ including clear AI-sidecar health and provider-availability guidance.
 
 **Required reading first:** the startup-flow section of `docs/desktop/overview.md` (Continue
 local vs. Log in / Register), and Risk #8 in `docs/spec.md` §8 (the installed Windows build
-bundles the Gemini sidecar; the app degrades gracefully and shows a health check).
+bundles the Gemini/OpenAI/Anthropic sidecar; the app degrades gracefully and shows a health check).
 **Then research references** with the user before designing (as LAND-01 requires for the
 landing page): strong desktop-app onboarding patterns; agree direction before visual work.
 

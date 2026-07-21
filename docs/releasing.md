@@ -123,24 +123,32 @@ footer and review the resulting release PR. Do not change the manifest and packa
 
 ## Packaged AI providers
 
-The MVP Windows sidecar bundles **Google Gemini only**. The source service also supports LangChain
-extras for OpenAI, Anthropic, and IBM watsonx in development, but those packages and PyInstaller
-hooks are not in the installer. Amazon Bedrock appears in the UI catalog through LangChain's AWS
-integration but likewise is not packaged. Adding a provider requires installing its Python extra,
-adding its PyInstaller metadata/hidden imports, and running a real provider plus clean-machine
-installer smoke test before the UI may promise installed support.
+The Windows sidecar bundles **Google Gemini, OpenAI, and Anthropic Claude**. Its packaging smoke
+test imports every shipped integration from the frozen executable before probing `/health`.
+Anthropic remains annotation-only because it does not expose an embeddings API. Amazon Bedrock was
+removed from the catalog because Chronicle's per-provider secret currently stores one API key,
+while AWS authentication requires a credential set and region. IBM watsonx remains a development
+extra rather than an installed provider.
 
 ## Local release verification
 
 ```powershell
-python -m pip install -e "services/ai[dev,google,bundle]"
+python -m pip install -e "services/ai[dev,providers,bundle]"
 npm ci --prefix apps/desktop
 python scripts/check_versions.py
 python scripts/mvp12_acceptance.py --package
 ```
 
-On a polluted developer Python installation, set `CHRONICLE_SIDECAR_PYTHON` to a clean Python
-3.12 environment containing `services/ai[google,bundle]`. CI uses a clean Python 3.12 runner.
+The build script creates and reuses an isolated environment under
+`apps/desktop/build/sidecar-venv/`. To override it, set `CHRONICLE_SIDECAR_PYTHON` to a clean
+Python 3.12+ environment containing `services/ai[providers,bundle]`. CI uses Python 3.12.
+
+For local iteration, `make package-unpacked` builds a runnable `dist/win-unpacked/` tree without
+compressing an NSIS installer. `make package` remains the release-equivalent check. A clean measured
+warm multi-provider build spent 6.5 seconds freezing the cached sidecar and about 7 seconds in Vite;
+most of its 255.7-second total was Electron staging and NSIS creation, not collection of global
+Python packages. The unpacked target took 177.7 seconds. electron-builder's native rebuild is
+disabled because `npm ci` already runs the pinned Electron rebuild in `postinstall`.
 
 The Windows installer is currently unsigned and may trigger SmartScreen. Do not describe a
 workflow artifact as a signed or auto-updating production release.

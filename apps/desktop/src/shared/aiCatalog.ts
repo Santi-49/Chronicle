@@ -54,24 +54,6 @@ export const AI_PROVIDERS: ProviderCatalog[] = [
       { id: 'text-embedding-3-large', label: 'Embedding 3 Large', tier: 'Higher quality' },
     ],
   },
-  {
-    id: 'bedrock',
-    label: 'Amazon Bedrock',
-    chat: [
-      // Refreshed VALIDATE-01 (2026-07-21): Claude 3.5 on Bedrock moved to Legacy;
-      // bumped to the current 4.5/4.6-era IDs. Newer Claude models on Bedrock are
-      // inference-profile-based and may require a region prefix (e.g. us.anthropic.…)
-      // depending on the user's account/region — availability is BYOK-dependent and
-      // is live-probed before a selection is saved.
-      { id: 'anthropic.claude-haiku-4-5-20251001-v1:0', label: 'Claude Haiku 4.5', tier: 'Fast · lower cost' },
-      { id: 'anthropic.claude-sonnet-4-6', label: 'Claude Sonnet 4.6', tier: 'Balanced · recommended' },
-      { id: 'anthropic.claude-opus-4-7', label: 'Claude Opus 4.7', tier: 'Highest quality · higher cost' },
-    ],
-    embeddings: [
-      { id: 'amazon.titan-embed-text-v2:0', label: 'Titan Text Embeddings v2', tier: 'Recommended' },
-      { id: 'cohere.embed-english-v3', label: 'Cohere Embed English v3', tier: 'Alternative' },
-    ],
-  },
 ]
 
 export type AiTask = 'chat' | 'embeddings'

@@ -29,7 +29,7 @@ created. Offline and service-down states leave jobs untouched. Failure handling:
 - **Retryable errors** (5xx, network) retry up to three times, then mark the
 annotation failed so the existing Retry AI action can requeue it.
 
-Installed Windows builds include a PyInstaller Gemini sidecar and canonical prompt under
+Installed Windows builds include a PyInstaller Gemini/OpenAI/Anthropic sidecar and canonical prompt under
 `resources/ai`; they do not require system Python. Development still runs uvicorn from
 `services/ai`. Either path stays loopback-only and is terminated with the Electron lifecycle.
 
