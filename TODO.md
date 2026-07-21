@@ -511,10 +511,45 @@ semantic indexing is still pending.
 
 ## Phase 5 — Integration, quality, and submission
 
+### [ ] VALIDATE-01 — Validate the default AI provider/model configuration
+
+**Owner:** Unassigned
+**Depends on:** MVP-09, DEMO-01
+**Goal:** Confirm through current documentation research and repeatable live tests that Chronicle's
+shipped default—Google Gemini with `gemini-flash-latest` for annotation and
+`gemini-embedding-001` for embeddings—works correctly for a new user and is suitable for the
+demo. A historical successful call is evidence, not proof that a changing external default still
+works.
+
+**Research first:** Verify the model IDs are currently available through the selected LangChain
+integration; support image inputs and text embeddings respectively; work with the documented API
+key/account path; and have acceptable pricing, rate limits, regional availability, data handling,
+and lifecycle/deprecation status. Record dated findings and primary-source links in
+`docs/challenge/RESEARCH.md`. If either default is unsuitable, recommend a replacement and obtain
+team approval before changing product configuration.
+
+**May edit:** Default configuration and curated model catalog in `apps/desktop/**`, `.env.example`,
+live smoke/integration tests, and provider setup documentation.
+**Must not edit:** C3 output semantics, the model-agnostic engine design, or hard-code a provider
+inside the AI service.
+
+**Validation matrix:** On a clean setup, exercise Settings' provider/model probe, a first-version
+description, the controlled two-version diff, embedding generation, semantic search, invalid-key
+feedback, unavailable/rate-limited behavior, and offline queue recovery. Capture latency, token
+usage when reported, and estimated cost using a dated pricing source; never commit a real key.
+
+**Docs to update:** `docs/challenge/RESEARCH.md`, the provider setup section of
+`apps/desktop/README.md`, `PROJECT_STATUS.md`, and one line in `docs/bob-log.md`.
+
+**Done when:** A fresh BYOK account can run the complete annotation → embedding → semantic-search
+flow three times against the demo fixtures; failures remain asynchronous and recoverable; the
+configured IDs match current provider documentation; cost/retention/availability caveats are
+written down; and the team has explicitly approved or replaced both defaults.
+
 ### [ ] MVP-12 — End-to-end integration and reliability pass
 
 **Owner:** Unassigned  
-**Depends on:** MVP-01 through MVP-11  
+**Depends on:** MVP-01 through MVP-11, VALIDATE-01
 **Goal:** Prove the complete demo journey works repeatedly on a clean machine.
 
 **May edit:** Integration wiring, tests, fixtures, and bug fixes in coordination with file owners.  
@@ -628,6 +663,7 @@ Do not claim these while any MVP task above is incomplete:
 - Control-plane telemetry and account configuration (F8/C6)
 - Hosted AI gateway and Python implementation (F9/C7)
 - Admin UI, installer/signing, or landing-page polish
+- Personal activity/cost analytics and multilingual UI
 - Future formats (SVG, BLEND, OBJ, STEP/STP, PSD, PSB), rename tracking, cloud sync,
   collaboration, branching, or visual diff
 
@@ -1011,6 +1047,83 @@ unsigned/SmartScreen caveat, macOS-not-yet note); one line in `docs/bob-log.md`.
 and apply the update on relaunch; the app launches and captures normally with no network; the
 SmartScreen/unsigned limitation and the deferred signing + macOS work are written down as a
 follow-up task.
+
+### [ ] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** MVP-09; POST-04 only for optional cross-device/server-backed history
+**Goal:** Give each user a GitHub-style view of their own Chronicle activity and, most
+importantly, a trustworthy view of AI usage and estimated spend. The local dashboard must work
+without an account or Chronicle backend; signing in may add synchronized aggregates later.
+
+**May edit:** Local usage/cost persistence, C1/C5 through an approved contract change, renderer
+dashboard components in `apps/desktop/**`, AI usage normalization in `services/ai/**`, and optional
+user-scoped aggregate endpoints in `services/api/**` plus C6.
+**Must not edit:** The local-first guarantee, telemetry consent, admin-only global aggregates, or
+upload creative content/query text to power the dashboard.
+
+**Required functionality:**
+
+1. **Activity view.** Show a contribution-style calendar and useful personal totals/trends for
+   versions captured, assets/projects active, AI summaries, searches, and restores. Provide clear
+   date range, timezone, empty, loading, offline, and partial-data states; do not turn vanity
+   metrics into fake productivity scores.
+2. **Cost gathering.** Persist provider/model/operation, timestamp, success state, latency, input
+   and output tokens when the provider exposes them, and provider-reported cost when available.
+   Keep unknown values unknown—never write zero merely because an SDK omitted usage metadata.
+3. **Cost estimation.** Maintain a versioned, dated price snapshot per provider/model and compute
+   estimates from the applicable snapshot. Clearly label **provider-reported**, **estimated**, and
+   **unavailable** amounts; show currency, pricing date, annotation vs. embedding breakdown, and
+   explain that provider invoices are authoritative. Research current official pricing and usage
+   metadata support before implementation.
+4. **Privacy and scope.** Personal on-device analytics may use local records, but any sync reuses
+   POST-04's strict content-free allowlist. A signed-in user can see only their own aggregates;
+   admins' cross-installation view remains POST-05. Cost collection and rendering must remain
+   asynchronous and must never block capture or AI jobs.
+
+**Contracts touched:** C1/C5 for local dashboard queries/preferences; optional C6 user-scoped
+aggregate endpoints. Define native schemas first and regenerate derived types where applicable.
+
+**Docs to update:** `docs/desktop/overview.md`, AI usage/cost behavior in `services/ai/README.md`,
+privacy/data wording in `docs/spec.md` if sync is added, dated provider-pricing findings in
+`docs/challenge/RESEARCH.md`, and one line in `docs/bob-log.md`.
+
+**Done when:** A local user can understand daily activity and AI spend by date/provider/model/
+operation; totals reconcile against fixture calls and known token counts; missing usage remains
+visibly unavailable; estimate tests use versioned price fixtures; another user cannot access the
+data; and the dashboard works offline without sending any new data.
+
+### [ ] POST-10 — Add multilingual UI support `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** MVP-12 (stabilized user-facing copy and flows)
+**Goal:** Internationalize Chronicle so the desktop UI can be translated without duplicating
+screens or mixing locale logic into product behavior.
+
+**Research first:** Confirm the initial target locales and translation ownership with the team;
+audit all renderer strings, validation/error mappings, dates, relative times, numbers, currencies,
+pluralization, accessibility labels, and installer/onboarding copy. Choose a maintained React i18n
+library only after comparing it with the existing stack and document the decision.
+
+**May edit:** Renderer UI and tests, locale resources, persisted locale preference through an
+approved C5 change, and desktop documentation.
+**Must not edit:** Internal error codes or stored AI annotations merely to translate the shell;
+contracts should continue to carry stable codes/data rather than localized backend strings.
+
+**Required functionality:** Externalize all user-facing strings; provide an explicit language
+selector plus system-locale default/fallback; format dates, times, numbers, and currencies with
+locale-aware APIs; support interpolation/plurals without string concatenation; lazy-load locale
+resources; fall back safely to English for missing keys; and add pseudolocalization/layout tests
+to catch clipping. AI-generated summaries stay in their original language until a separate,
+explicit annotation-language policy is researched and approved.
+
+**Docs to update:** `docs/desktop/overview.md`, `docs/spec.md` (supported locales and fallback),
+translator/contributor instructions, and one line in `docs/bob-log.md`.
+
+**Done when:** Every shipped screen is covered by the translation catalog; the team-approved
+locales can be switched without restart; preference persists; locale formatting and plurals are
+tested; pseudolocalized text remains usable at supported window sizes; and missing translations
+degrade to English without exposing raw keys.
 
 ## Decisions humans must make—not delegate blindly to an AI assistant
 
