@@ -18,9 +18,13 @@ import {
   appendVersion,
   deleteJob,
   enqueueJob,
+  getAnnotation,
   getAssetByPath,
+  getEmbedding,
+  getVersion,
   listJobs,
   saveAnnotation,
+  saveEmbedding,
   setVersionAiStatus,
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
@@ -395,6 +399,72 @@ describe('timeline and version details', () => {
     expect(logo.versionCount).toBe(2)
     expect(logo.lastSummary).toBeNull() // latest version is still pending
     expect(logo.lastCapturedAt).toBeTruthy()
+  })
+
+  it('resets the latest snapshot to a fresh v1 and queues a new initial annotation', async () => {
+    const filePath = path.join(workDir, 'reset-logo.png')
+    const captures: Array<{ id: number; contentHash: string }> = []
+    let assetId = 0
+    for (let number = 1; number <= 3; number++) {
+      fs.writeFileSync(filePath, pngBytes(30, 20, `v${number}`))
+      const result = await captureVersion(db, libraryRoot, filePath)
+      if (result.outcome !== 'captured') throw new Error(`v${number} was not captured`)
+      assetId = result.asset.id
+      captures.push({ id: result.version.id, contentHash: result.version.contentHash })
+    }
+    const latest = captures[2]!
+    saveAnnotation(db, {
+      versionId: captures[0]!.id,
+      summary: 'Initial annotation',
+      changes: [],
+      tags: ['initial'],
+      provider: 'p',
+      model: 'm',
+    })
+    saveAnnotation(db, {
+      versionId: latest.id,
+      summary: 'Diff annotation that must be discarded',
+      changes: ['changed'],
+      tags: ['diff'],
+      provider: 'p',
+      model: 'm',
+    })
+    saveEmbedding(db, {
+      versionId: latest.id,
+      vector: Float32Array.from([1, 2]),
+      sourceText: 'old diff',
+      model: 'p:m',
+    })
+    enqueueJob(db, 'embedding', { versionId: latest.id })
+
+    const reset = await services.api.resetAssetHistory(assetId)
+
+    expect(reset.versionId).not.toBe(latest.id)
+    const timeline = await services.api.getTimeline(assetId)
+    expect(timeline).toHaveLength(1)
+    expect(timeline[0]).toMatchObject({
+      id: reset.versionId,
+      versionNumber: 1,
+      aiStatus: 'pending',
+      summary: null,
+    })
+    expect((await services.api.getVersionDetails(reset.versionId)).contentHash).toBe(latest.contentHash)
+    for (const old of captures) {
+      expect(getVersion(db, old.id)).toBeUndefined()
+      expect(getAnnotation(db, old.id)).toBeUndefined()
+      expect(getEmbedding(db, old.id)).toBeUndefined()
+    }
+    expect(listJobs(db)).toHaveLength(1)
+    expect(listJobs(db)[0]).toMatchObject({
+      jobType: 'ai_annotation',
+      payload: { versionId: reset.versionId },
+    })
+    expect(eventsOf('assetHistoryReset')).toContainEqual({ assetId, versionId: reset.versionId })
+  })
+
+  it('rejects reset requests for invalid and unknown assets', async () => {
+    await expect(services.api.resetAssetHistory(0)).rejects.toThrow(TypeError)
+    await expect(services.api.resetAssetHistory(99_999)).rejects.toThrow(/Unknown asset/)
   })
 })
 

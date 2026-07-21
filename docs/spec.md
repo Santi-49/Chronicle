@@ -144,6 +144,11 @@ The heart of the product. Exact rules:
 6. Files over **50 MB** are skipped with a visible notice.
 7. **Identity = file path** (MVP): renaming or moving a file starts a new asset. Deleting a file keeps its history visible, marked "file no longer on disk". *(Known limitation — say it in the README; content-hash identity across renames is future work.)*
 8. Hashing and copying never block the UI.
+- Normal capture and restore remain append-only. The Timeline also provides an explicit,
+  destructive **Reset history to v1** maintenance action behind a typed `RESET` safeguard:
+  it keeps the latest stored snapshot as a fresh v1, removes that asset's prior timeline and
+  derived AI/search records, and queues a new initial-version annotation. Content-addressed
+  library blobs may remain until safe orphan cleanup because bytes can be shared across assets.
 - **Done when:** edit + save an image 3 times → exactly 3 versions with correct numbering; save with no visual change but identical bytes → no version; version appears < 5 s after the save settles.
 
 ### F4 — AI change summary (the "commit message") `MVP`

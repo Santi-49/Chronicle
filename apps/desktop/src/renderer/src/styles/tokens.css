@@ -21,7 +21,8 @@
   --focus: #78a9ff;
   --success: #42be65;
   --warning: #f1c21b;
-  --danger: #ff8389;
+  --danger: #ff453a;
+  --danger-strong: #c62828;
   --motion-fast: 150ms;
   --motion-standard: 220ms;
   --ease-productive: cubic-bezier(0.2, 0, 0.38, 0.9);
@@ -44,5 +45,6 @@
   --focus: #0f62fe;
   --success: #198038;
   --warning: #8e6a00;
-  --danger: #da1e28;
+  --danger: #b91c1c;
+  --danger-strong: #b91c1c;
 }

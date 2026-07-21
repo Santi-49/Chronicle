@@ -112,6 +112,12 @@ export type RestoreResult =
   | { ok: true; newVersionNumber: number }
   | { ok: false; reason: 'folder-missing' } // → UI offers "Save a copy…"
 
+/** Result of the explicit destructive history reset operation. */
+export interface ResetHistoryResult {
+  /** Fresh row for the latest snapshot, now the asset's sole version (v1). */
+  versionId: number
+}
+
 export interface AccountState {
   mode: 'local' | 'signed-in'
   email: string | null
@@ -161,6 +167,8 @@ export interface ChronicleApi {
   listAssets(): Promise<AssetSummary[]>
   getTimeline(assetId: number): Promise<VersionSummary[]>
   getVersionDetails(versionId: number): Promise<VersionDetails>
+  /** Destructive: replaces an asset's timeline with its latest snapshot as a fresh v1. */
+  resetAssetHistory(assetId: number): Promise<ResetHistoryResult>
 
   // F6 — restore
   restoreVersion(versionId: number): Promise<RestoreResult>
@@ -201,6 +209,8 @@ export interface ChronicleApi {
 export interface ChronicleEvents {
   /** A new version landed (F3) — refresh Assets/Timeline, toast. */
   versionCaptured: { assetId: number; versionId: number }
+  /** An asset now has one fresh v1; all asset/timeline/detail views must refresh. */
+  assetHistoryReset: { assetId: number; versionId: number }
   /** AI job finished or failed (F4) — update status chips. */
   annotationUpdated: { versionId: number; aiStatus: AiStatus }
   /** Anything in AppStatus changed — update the status bar. */

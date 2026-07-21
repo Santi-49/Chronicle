@@ -44,6 +44,7 @@ import {
   setSetting,
   setVersionAiStatus,
   removeTrackedFolder,
+  resetAssetHistory as resetStoredAssetHistory,
   updateTrackedFolder,
   enqueueJob,
   type JobType,
@@ -425,6 +426,14 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         restoredFromVersion: version.restoredFromVersion,
       }
       return details
+    },
+
+    async resetAssetHistory(assetId) {
+      const id = expectId(assetId, 'assetId')
+      const result = resetStoredAssetHistory(db, id)
+      emit('assetHistoryReset', { assetId: id, versionId: result.version.id })
+      pushStatus()
+      return { versionId: result.version.id }
     },
 
     // F6 — append-only restore + native save-copy fallback

@@ -134,7 +134,9 @@ Breadcrumbs Projects → project. Click an asset → its Timeline.
 
 - **Edit project** opens a dedicated screen that reuses the New Project form. It changes the
   display name, optional description, icon, color, enabled file types, and ignored files. The
-  existing folder is rescanned for the file tree, while its selector remains locked.
+  existing folder is rescanned for the file tree, while its selector remains locked. A separated
+  **Danger zone** can stop tracking the project through a two-step confirmation; stored version
+  history is retained.
 
 - A missing source file is marked on its asset card and Timeline header while every stored
   version remains available (F3.7).
@@ -148,6 +150,9 @@ One asset's history, newest first, on a vertical rail. Each row: version number,
 - Click a version → Version details.
 - Timeline rows support ↑/↓ and Home/End focus traversal plus Enter to open. Failed rows
   explain the recovery path; retry is available on Version Details.
+- A discreet **Reset history…** action sits below the Timeline. It expands to explain the
+  irreversible scope and requires typing `RESET`; the latest snapshot becomes a fresh v1 and
+  a new initial-version annotation is queued.
 - This is the demo's hero screen and the candidate for GSAP animation polish.
 
 ### 7. Version Details — F4, F5, F6
@@ -179,7 +184,7 @@ Four sections, in current order:
 | Section | Contents |
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
-| **Tracked folders** (F2) | Live project list (icon + name + path) with **Remove** (C1 `removeFolder`); **Add a project** → New project. Notes PNG/JPG scope. |
+| **Tracked folders** (F2) | Live project list (icon + name + path) with a two-step **Remove** confirmation (C1 `removeFolder`); **Add a project** → New project. Removal stops watching but retains stored history. Notes PNG/JPG scope. |
 | **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle swaps the pickers for free-text provider/model (any LangChain-supported pair). **API key** is stored encrypted on-device (Electron `safeStorage`), sent only to the chosen provider, **never readable back** and **never to our backend**; a "Saved" badge and **Remove saved key** reflect its state. Persists via C1 `updateSettings` + `setApiKey`. *(Stretch, F9: gateway switch.)* |
 | **Account** (F1 — lowest priority) | Local-mode line (from `getAccountState`); disabled **Continue with Google** ("Coming soon"); copy states an account never gates local history. *(Planned: telemetry opt-in, F8.)* |
 

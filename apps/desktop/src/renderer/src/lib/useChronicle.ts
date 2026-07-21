@@ -108,6 +108,7 @@ export function useAssets(): AsyncState<AssetSummary[]> & { assets: AssetSummary
   const state = useAsyncData<AssetSummary[]>(() => chronicle.listAssets(), [])
   // New captures and finished annotations both change the assets list.
   useChronicleEvent('versionCaptured', state.reload)
+  useChronicleEvent('assetHistoryReset', state.reload)
   useChronicleEvent('annotationUpdated', state.reload)
   return { ...state, assets: state.data ?? [] }
 }
@@ -124,6 +125,13 @@ export function useTimeline(assetId: number): AsyncState<VersionSummary[]> & { v
     [assetId, reload],
   )
   useChronicleEvent('versionCaptured', onVersion)
+  const onReset = useCallback(
+    (payload: ChronicleEvents['assetHistoryReset']) => {
+      if (payload.assetId === assetId) reload()
+    },
+    [assetId, reload],
+  )
+  useChronicleEvent('assetHistoryReset', onReset)
   useChronicleEvent('annotationUpdated', state.reload)
   return { ...state, versions: state.data ?? [] }
 }

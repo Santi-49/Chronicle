@@ -12,6 +12,7 @@ import chevronRightIcon from '@material-symbols/svg-400/outlined/chevron_right.s
 import closeIcon from '@material-symbols/svg-400/outlined/close.svg'
 import clockIcon from '@material-symbols/svg-400/outlined/history.svg'
 import editIcon from '@material-symbols/svg-400/outlined/edit.svg'
+import deleteIcon from '@material-symbols/svg-400/outlined/delete.svg'
 import folderPlusIcon from '@material-symbols/svg-400/outlined/create_new_folder.svg'
 import folderIcon from '@material-symbols/svg-400/outlined/folder.svg'
 import homeIcon from '@material-symbols/svg-400/outlined/home.svg'
@@ -41,6 +42,7 @@ export type IconName =
   | 'clock'
   | 'close'
   | 'edit'
+  | 'delete'
   | 'folder-plus'
   | 'folder'
   | 'home'
@@ -70,6 +72,7 @@ const icons: Record<IconName, string> = {
   clock: clockIcon,
   close: closeIcon,
   edit: editIcon,
+  delete: deleteIcon,
   'folder-plus': folderPlusIcon,
   folder: folderIcon,
   home: homeIcon,

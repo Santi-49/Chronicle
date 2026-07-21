@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS assets (
 CREATE TABLE IF NOT EXISTS versions (
   id                     INTEGER PRIMARY KEY,
   asset_id               INTEGER NOT NULL REFERENCES assets(id),
-  version_number         INTEGER NOT NULL,   -- 1..N per asset, append-only
+  version_number         INTEGER NOT NULL,   -- 1..N; normal capture is append-only, explicit reset rebuilds v1
   content_hash           TEXT NOT NULL,      -- sha256 hex; key into the library folder
   captured_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   size_bytes             INTEGER NOT NULL,

@@ -11,6 +11,8 @@ interface NewProjectScreenProps {
   onCreated: (projectId: number) => void
   /** When provided, the same form edits an existing project with its folder locked. */
   project?: TrackedFolder
+  /** Edit-only content rendered after the form, such as project removal controls. */
+  footer?: ReactElement
 }
 
 /** File-type toggles offered in the tree. Each maps to one or more extensions. */
@@ -70,7 +72,7 @@ function filesUnder(dir: DirNode): FolderScanEntry[] {
   return [...dir.files.map((f) => f.entry), ...dir.dirs.flatMap(filesUnder)]
 }
 
-export function NewProjectScreen({ onCancel, onCreated, project }: NewProjectScreenProps) {
+export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewProjectScreenProps) {
   const editing = project !== undefined
   const knownIcon = project ? FOLDER_ICONS.includes(project.icon as IconName) : true
   const [name, setName] = useState(project?.displayName ?? '')
@@ -512,6 +514,7 @@ export function NewProjectScreen({ onCancel, onCreated, project }: NewProjectScr
           </button>
         </div>
       </form>
+      {footer}
     </section>
   )
 }

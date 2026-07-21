@@ -57,6 +57,7 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
         <EditProjectScreen
           projectId={route.projectId}
           onCancel={() => navigate({ name: 'project', projectId: route.projectId })}
+          onRemoved={() => navigate({ name: 'projects' })}
           onSaved={(projectId) => navigate({ name: 'project', projectId })}
         />
       )

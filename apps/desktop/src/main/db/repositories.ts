@@ -318,8 +318,8 @@ function toVersion(row: VersionRow): VersionRecord {
 }
 
 /**
- * Appends the next version of an asset (1..N, never reused) and touches the
- * asset's last-seen/on-disk state in the same transaction.
+ * Appends the next version of an asset (1..N during normal capture) and
+ * touches the asset's last-seen/on-disk state in the same transaction.
  */
 export function appendVersion(db: ChronicleDb, input: NewVersion): VersionRecord {
   const id = db.transaction((v: NewVersion): number => {
@@ -374,6 +374,70 @@ export function listVersions(db: ChronicleDb, assetId: number): VersionRecord[] 
     .prepare('SELECT * FROM versions WHERE asset_id = ? ORDER BY version_number DESC')
     .all(assetId) as VersionRow[]
   return rows.map(toVersion)
+}
+
+export interface ResetAssetHistoryResult {
+  version: VersionRecord
+  removedVersionIds: number[]
+}
+
+/**
+ * Explicit destructive reset: the latest immutable snapshot becomes a fresh
+ * v1, all prior version-scoped metadata is removed, and a new initial
+ * annotation job is queued. A fresh row id isolates the baseline from any
+ * stale AI request that was already processing an old version id.
+ */
+export function resetAssetHistory(db: ChronicleDb, assetId: number): ResetAssetHistoryResult {
+  const asset = getAsset(db, assetId)
+  if (!asset) throw new Error(`Unknown asset: ${assetId}`)
+  const latest = getLatestVersion(db, assetId)
+  if (!latest) throw new Error(`Asset ${assetId} has no versions`)
+
+  return db.transaction(() => {
+    const oldVersions = listVersions(db, assetId)
+    const oldIds = new Set(oldVersions.map((version) => version.id))
+    // Insert while the old ids still exist so SQLite must allocate a genuinely
+    // fresh id. It is temporarily N+1 and becomes v1 after old rows are gone.
+    const insertedBaseline = appendVersion(db, {
+      assetId,
+      contentHash: latest.contentHash,
+      sizeBytes: latest.sizeBytes,
+      width: latest.width,
+      height: latest.height,
+      aiStatus: 'pending',
+      restoredFromVersion: null,
+    })
+
+    // Queue rows are JSON-linked rather than foreign-keyed. Remove only AI
+    // work for this asset's old version ids; unrelated telemetry is retained.
+    for (const job of listJobs(db)) {
+      if (job.jobType !== 'ai_annotation' && job.jobType !== 'embedding') continue
+      const payload = job.payload as { versionId?: unknown } | null
+      if (typeof payload?.versionId === 'number' && oldIds.has(payload.versionId)) {
+        deleteJob(db, job.id)
+      }
+    }
+
+    const deleteForVersion = {
+      search: db.prepare('DELETE FROM search_index WHERE version_id = ?'),
+      annotations: db.prepare('DELETE FROM ai_annotations WHERE version_id = ?'),
+      embeddings: db.prepare('DELETE FROM embeddings WHERE version_id = ?'),
+    }
+    for (const versionId of oldIds) {
+      deleteForVersion.search.run(versionId)
+      deleteForVersion.annotations.run(versionId)
+      deleteForVersion.embeddings.run(versionId)
+    }
+    db.prepare('DELETE FROM versions WHERE asset_id = ? AND id <> ?').run(assetId, insertedBaseline.id)
+    db.prepare('UPDATE versions SET version_number = 1 WHERE id = ?').run(insertedBaseline.id)
+    const baseline = getVersion(db, insertedBaseline.id)!
+    // appendVersion proves the snapshot is available, not that the original
+    // file still exists. Preserve the asset's prior on-disk state.
+    if (!asset.onDisk) setAssetOnDisk(db, assetId, false)
+    enqueueJob(db, 'ai_annotation', { versionId: baseline.id })
+
+    return { version: baseline, removedVersionIds: [...oldIds] }
+  })()
 }
 
 export function setVersionAiStatus(db: ChronicleDb, versionId: number, status: AiStatus): void {

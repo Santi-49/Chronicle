@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon'
 import { FolderGlyph } from '../components/FolderGlyph'
 import { GoogleMark } from '../components/GoogleMark'
 import { PageHeader } from '../components/PageHeader'
+import { ProjectRemovalControl } from '../components/ProjectRemovalControl'
 import type { ThemePreference } from '../App'
 import {
   AI_PROVIDERS,
@@ -81,11 +82,6 @@ function AppearanceSection({
 function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
   const { folders, reload } = useFolders()
 
-  const remove = async (id: number) => {
-    await chronicle.removeFolder(id)
-    reload()
-  }
-
   return (
     <section className="settings-section">
       <div className="settings-section-heading">
@@ -100,7 +96,12 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
             <div className="folder-row" key={folder.id}>
               <FolderGlyph icon={folder.icon} color={folder.color} />
               <div><strong>{folder.displayName}</strong><span>{folder.path}</span></div>
-              <button className="text-button" onClick={() => void remove(folder.id)} type="button">Remove</button>
+              <ProjectRemovalControl
+                compact
+                onRemoved={reload}
+                projectId={folder.id}
+                projectName={folder.displayName}
+              />
             </div>
           ))}
         </div>
