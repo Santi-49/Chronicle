@@ -547,12 +547,14 @@
           },
           "version": {
             "type": "string",
-            "title": "Version",
-            "default": "0.1.0"
+            "title": "Version"
           }
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "version"
+        ],
         "title": "HealthResponse"
       },
       "ImageInput": {

@@ -8,12 +8,16 @@
     "postinstall": "install-electron && electron-rebuild -f",
     "ensure-electron": "install-electron",
     "dev": "electron-vite dev",
+    "prebuild": "npm run generate-api-types",
     "build": "electron-vite build",
-    "package": "npm run build && electron-builder --win nsis --x64",
+    "build:sidecar": "python ../../scripts/build_ai_sidecar.py",
+    "package": "npm run build:sidecar && npm run build && electron-builder --win nsis --x64 --publish never",
     "preview": "electron-vite preview",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
+    "test:mvp12": "python ../../scripts/mvp12_acceptance.py",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "generate-ai-types": "cd ../../services/ai && python -m chronicle_ai.export_openapi && cd ../../apps/desktop && openapi-typescript ../../packages/contracts/ai/openapi.json -o src/main/ai/generated.ts"
+    "generate-ai-types": "cd ../../services/ai && python -m chronicle_ai.export_openapi && cd ../../apps/desktop && openapi-typescript ../../packages/contracts/ai/openapi.json -o src/main/ai/generated.ts",
+    "generate-api-types": "openapi-typescript ../../packages/contracts/api/openapi.json -o ../../packages/contracts/api/generated/index.ts"
   },
   "build": {
     "appId": "app.chronicle.desktop",
@@ -29,6 +33,14 @@
       {
         "from": "../../packages/brand/assets/png/chronicle-app-icon-dark-256.png",
         "to": "chronicle-app-icon.png"
+      },
+      {
+        "from": "build/sidecar/chronicle-ai-sidecar.exe",
+        "to": "ai/chronicle-ai-sidecar.exe"
+      },
+      {
+        "from": "../../packages/prompts/version-annotation.md",
+        "to": "ai/prompts/version-annotation.md"
       }
     ],
     "asar": true,

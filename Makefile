@@ -43,10 +43,10 @@ ensure-electron:
 setup-landing:
 	$(NPM) --prefix $(LANDING_DIR) ci
 
-# Local AI service (services/ai): dev tools + the default demo provider (Gemini).
+# Local AI service: dev tools, default Gemini provider, and Windows bundler.
 # Add other providers with, e.g., pip install -e "services/ai[anthropic]".
 setup-ai:
-	$(PYTHON) -m pip install -e "$(AI_DIR)[dev,google]"
+	$(PYTHON) -m pip install -e "$(AI_DIR)[dev,google,bundle]"
 
 setup-backend: control-plane-up
 
@@ -105,7 +105,7 @@ build-backend:
 
 package: package-desktop
 
-package-desktop: ensure-electron
+package-desktop: ensure-electron setup-ai
 	$(NPM) --prefix $(DESKTOP_DIR) run package
 	echo "Desktop app packaged in $(DESKTOP_DIR)/dist"
 

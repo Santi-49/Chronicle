@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.api.v1.router import router
 from app.core.config import settings
 from app.core.redis import get_redis_client
+from app.version import API_VERSION
 
 
 @asynccontextmanager
@@ -24,9 +25,6 @@ class HealthResponse(BaseModel):
     status: Literal["ok"] = "ok"
     service: Literal["chronicle-control-plane"] = "chronicle-control-plane"
     version: str
-
-
-API_VERSION = "0.2.0"
 
 
 app = FastAPI(

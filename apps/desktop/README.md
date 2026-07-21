@@ -29,6 +29,28 @@ npm run package    # Windows installer to dist/
 npm run typecheck  # tsc over main+preload and renderer
 ```
 
+Packaging requires Python 3.12 with `services/ai[google,bundle]` installed. `make package`
+installs that build dependency automatically. The generated installer bundles a self-contained
+Gemini-capable sidecar under Electron resources; an installed user does not need Python.
+Run `python ../../scripts/smoke_ai_sidecar.py` after packaging to probe the actual executable.
+
+The MVP installer is unsigned, so Windows SmartScreen may warn. The model-agnostic service can
+use additional integrations in development, but this MVP installer bundles only the validated
+Gemini provider package. Signing, macOS packaging, additional provider packs, and in-app
+auto-update remain future work.
+
+## CI, versions, and releases
+
+`package.json` is the desktop version source of truth; electron-builder, the sidebar, installation
+registration, artifact names, and Git tags derive from it. CI is a required check only on pull
+requests targeting `main`. Every merge to `main` builds a versioned Windows artifact. Release
+Please maintains a reviewed release PR; merging it creates `vX.Y.Z`, and the release workflow
+builds that exact tag and attaches the installer and SHA-256 checksum.
+
+Configure a fine-grained `RELEASE_PLEASE_TOKEN` repository secret with Contents and Pull requests
+write access so Release Please PRs trigger the required `main` PR CI. See
+[`docs/releasing.md`](../../docs/releasing.md) for the bump policy and repository settings.
+
 ## Native modules (better-sqlite3)
 
 `better-sqlite3` must match Electron's ABI, not system Node's. `postinstall`

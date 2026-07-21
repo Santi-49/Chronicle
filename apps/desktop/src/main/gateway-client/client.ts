@@ -5,7 +5,10 @@ import type { components } from '../../../../../packages/contracts/api/generated
 type TokenPair = components['schemas']['TokenPair']
 type User = components['schemas']['UserWithRoles']
 type AccountSettingsRead = components['schemas']['AccountSettingsRead']
-type PortableSettings = components['schemas']['PortableSettings']
+// FastAPI may emit distinct input/output component names when defaults differ.
+// Index through the operation's generated request schema instead of naming the
+// Pydantic component directly, so either valid OpenAPI representation works.
+type PortableSettings = components['schemas']['AccountSettingsUpdate']['settings']
 type EncryptedSecretRead = components['schemas']['EncryptedSecretRead']
 
 export interface TokenStore {

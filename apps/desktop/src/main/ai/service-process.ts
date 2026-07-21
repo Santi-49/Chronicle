@@ -1,4 +1,4 @@
-/** Starts and stops the local Python FastAPI AI service in development. */
+/** Starts and stops the local Python FastAPI AI service. */
 import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
 
@@ -7,32 +7,67 @@ export interface AiServiceProcess {
   stop(): Promise<void>
 }
 
-export function createAiServiceProcess(repositoryRoot: string): AiServiceProcess {
-  let child: ChildProcess | undefined
-  // The Python package lives in services/ai; running uvicorn from there puts
-  // it on sys.path so `chronicle_ai.main:app` resolves without an install.
+export interface AiServiceLocation {
+  command: string
+  args: string[]
+  cwd: string
+  environment: NodeJS.ProcessEnv
+}
+
+/** Resolve development Python or the self-contained installed sidecar. */
+export function resolveAiServiceLocation(
+  repositoryRoot: string,
+  packagedResourcesPath?: string,
+): AiServiceLocation {
+  if (packagedResourcesPath) {
+    const sidecarDir = path.join(packagedResourcesPath, 'ai')
+    return {
+      command: path.join(sidecarDir, 'chronicle-ai-sidecar.exe'),
+      args: [],
+      cwd: sidecarDir,
+      environment: {
+        ...process.env,
+        CHRONICLE_PROMPT_PATH: path.join(sidecarDir, 'prompts', 'version-annotation.md'),
+      },
+    }
+  }
+
   const serviceDir = path.join(repositoryRoot, 'services', 'ai')
+  return {
+    command: process.env['CHRONICLE_PYTHON'] || 'python',
+    args: [
+      '-m',
+      'uvicorn',
+      'chronicle_ai.main:app',
+      '--host',
+      '127.0.0.1',
+      '--port',
+      '8765',
+      '--log-level',
+      'warning',
+    ],
+    cwd: serviceDir,
+    environment: process.env,
+  }
+}
+
+export function createAiServiceProcess(
+  repositoryRoot: string,
+  packagedResourcesPath?: string,
+): AiServiceProcess {
+  let child: ChildProcess | undefined
+  const location = resolveAiServiceLocation(repositoryRoot, packagedResourcesPath)
 
   return {
     start(): void {
       if (child && child.exitCode === null) return
 
-      const python = process.env['CHRONICLE_PYTHON'] || 'python'
       child = spawn(
-        python,
-        [
-          '-m',
-          'uvicorn',
-          'chronicle_ai.main:app',
-          '--host',
-          '127.0.0.1',
-          '--port',
-          '8765',
-          '--log-level',
-          'warning',
-        ],
+        location.command,
+        location.args,
         {
-          cwd: serviceDir,
+          cwd: location.cwd,
+          env: location.environment,
           // Request bodies and BYOK credentials must never reach Electron logs.
           stdio: 'ignore',
           windowsHide: true,

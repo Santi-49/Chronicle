@@ -13,7 +13,7 @@ worker, the typed HTTP client, and the process lifecycle stay here.
 |---|---|
 | `client.ts` | Typed loopback HTTP client for the AI service (C3), generated types + `AiServiceError`. |
 | `generated.ts` | HTTP types generated from the service's OpenAPI schema. Do not hand-edit. |
-| `service-process.ts` | Starts/stops `uvicorn chronicle_ai.main:app` (cwd `services/ai`) with the app lifecycle. |
+| `service-process.ts` | Starts repository Python in development or the bundled executable from Electron resources in installed builds. |
 | `worker.ts` | FIFO worker: drains annotation/embedding jobs and persists their results. |
 | `worker.test.ts` | Provider-mocked worker behaviour tests. |
 | `worker.live.test.ts` | Opt-in live acceptance test (skipped without `GOOGLE_API_KEY`). |
@@ -27,7 +27,11 @@ created. Offline and service-down states leave jobs untouched. Failure handling:
 - **Non-retryable errors** (4xx: bad key, invalid request, invalid model output)
   fail the annotation immediately — retrying would fail identically.
 - **Retryable errors** (5xx, network) retry up to three times, then mark the
-  annotation failed so the existing Retry AI action can requeue it.
+annotation failed so the existing Retry AI action can requeue it.
+
+Installed Windows builds include a PyInstaller Gemini sidecar and canonical prompt under
+`resources/ai`; they do not require system Python. Development still runs uvicorn from
+`services/ai`. Either path stays loopback-only and is terminated with the Electron lifecycle.
 
 ## Regenerate C3 client types
 

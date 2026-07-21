@@ -21,6 +21,7 @@ from chronicle_ai.schemas import (
     ValidateProviderModelResponse,
     VersionAnnotation,
 )
+from chronicle_ai.version import __version__
 
 
 client = TestClient(app)
@@ -69,7 +70,7 @@ def test_health_does_not_require_provider_configuration() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "chronicle-ai",
-        "version": "0.1.0",
+        "version": __version__,
     }
 
 

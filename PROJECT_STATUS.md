@@ -34,7 +34,7 @@ the local Python service, restores prior versions append-only, and runs hybrid h
 | Folder watcher | Merged (MVP-03) | Chokidar watching with the 2 s settle and C4 ignore rules, 14 tests. Manual demo-editor test pending until capture is wired to the UI. |
 | Version storage | Merged (MVP-02 + MVP-04) | SQLite init + repositories, and content-addressed capture: stream hash, dedup by content, append-only versions, dimensions metadata, AI job enqueue. 38 tests. |
 | Secure IPC bridge | Merged (MVP-05); renderer now consumes it | C1 handlers, native folder picker, watcher→capture wiring, `chronicle://` image serving, encrypted BYOK storage, status/events, and input validation are implemented and tested. MVP-06 wired the renderer onto the bridge. |
-| AI summaries | Merged (MVP-09) | The Python AI service lives in `services/ai/` (package `chronicle_ai`, FastAPI + LangChain, 48 tests); the Electron queue worker, generated C3 client, and process lifecycle stay in `apps/desktop/src/main/ai/`. C3 now includes a live provider/model validation probe for chat and embeddings. Non-retryable failures fail fast. Controlled Gemini first-version, diff, and 3,072-dimension embedding calls passed through the real worker/service/SQLite flow. The sidecar is not yet bundled for an installed build. |
+| AI summaries | Merged (MVP-09); packaged in MVP-12 | The Python AI service lives in `services/ai/` (package `chronicle_ai`, FastAPI + LangChain); Electron owns its queue/client/lifecycle. The Windows installer now includes a self-contained, health-smoked Gemini sidecar and prompt, so installed users need no Python. Additional provider integrations remain a packaging follow-up. |
 | Shell, onboarding, settings | Merged (MVP-06) | Renderer wired to live C1 via `src/renderer/src/lib/{bridge,useChronicle,aiCatalog}.ts`. Status/queue UI, folder selection, project create/edit, and curated AI settings are implemented. Both AI selectors require a saved per-provider key; changed models are live-validated before persistence, rejected changes roll back with friendly feedback, and Google provider aliases migrate to `google_genai`. Typecheck, 118 desktop tests, and build are green. |
 | Assets, Timeline, Version Details | Complete (MVP-08) | Live C1 queries/events and real thumbnails; keyboard timeline traversal; explicit pending/failed/restore states; retry feedback; missing-source badges; completed restore/save-copy controls; and a typed-safeguard reset that turns the latest snapshot into a freshly annotated v1. |
 | Restore engine | Complete (MVP-07) | Selected library bytes overwrite the original path and append a provenance-marked version with no AI job. A missing original folder switches the UI to a native Save a copy dialog. Acceptance covers v2→v6, missing-folder fallback, cancellation, and validation. |
@@ -62,8 +62,9 @@ not a public contract. Change it carefully through migrations once released.
 
 ## Immediate next actions
 
-1. Run the full `MVP-12` journey repeatedly using `demo-assets/workspace/`, including
-   offline queue, retry, restart, deleted-source, and 50 MB skip cases.
+1. Complete `docs/mvp-12-acceptance.md` three times on the clean Windows demo machine using
+   the generated installer and `demo-assets/workspace/`, including offline queue, retry,
+   restart, deleted-source, 50 MB skip, and the actual demo editor.
 2. Decide and record the final demo provider/model/budget. VALIDATE-01 validated the Gemini
    defaults live and flagged two team sign-off items (moving `gemini-flash-latest` alias vs. a
    pinned Flash ID; provider/retention/cost/budget approval) — see Open decisions.
@@ -74,9 +75,9 @@ not a public contract. Change it carefully through migrations once released.
 
 | Decision or risk | Owner | Needed by | Current action |
 |---|---|---|---|
-| MVP-09 packaging | MVP-09 / MVP-12 owner | Before MVP-12 | Live provider acceptance passed and the service is now in `services/ai/`. Still required for an installed build: bundle the Python sidecar and its provider dependency into the packaged app; this does not block the development-mode MVP flow. |
+| MVP-12 clean-machine acceptance | MVP-12 owner | Before marking MVP-12 complete | The automated MVP-12 gate passed three consecutive runs (desktop 138 passed/1 skipped, AI 48 passed, API 41 passed per run). A 135 MB unsigned NSIS installer was built locally with a 25.2 MB Python 3.12/Gemini sidecar; both the build-sidecar and packaged-resource `/health` probes returned `0.1.0`. The three-pass manual journey/real-editor record is still required. |
 | Team roster and task ownership | Team lead | Now | Fill `docs/challenge/CONSTRAINTS.md` and TODO owners. |
-| `dev` branch protection | Team lead | Before further implementation PRs | `dev` exists; confirm review/required-check protections for `dev` and `main`. |
+| `main` automation/protection | Team lead | Before merging MVP-12 | Configure `RELEASE_PLEASE_TOKEN`, allow Action-created PRs, and require the three **Main PR CI** jobs only for PRs targeting `main`; keep direct pushes disabled. `dev` has no required CI by team decision. |
 | Demo AI provider/model and budget | Unassigned | Before `MVP-12` | VALIDATE-01 (2026-07-21) re-probed the defaults live: `gemini-flash-latest` (annotation) and `gemini-embedding-001` (3,072-dim embeddings) both work end-to-end with graceful error paths. Removed the retired `text-embedding-004` catalog entry (live 404). **Team sign-off still needed on:** (a) keeping the moving `gemini-flash-latest` alias vs. pinning a dated Flash ID for the demo, and (b) provider/retention/approx-cost/budget assumptions. |
 | Watcher behavior in the real demo editor | Watcher owner | Before `MVP-12` | Test actual save, temp-file, and rename behavior on the Windows demo machine. |
 | Native `better-sqlite3` setup on Windows | Foundation/database owners | During `MVP-01` | Verify Electron rebuild and document any required tools. |

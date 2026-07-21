@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 import pytest
 from httpx import AsyncClient
+from app.version import API_VERSION
 
 pytestmark = pytest.mark.asyncio
 
@@ -18,7 +19,7 @@ async def test_health_uses_chronicle_metadata(client: AsyncClient):
     assert response.json() == {
         "status": "ok",
         "service": "chronicle-control-plane",
-        "version": "0.2.0",
+        "version": API_VERSION,
     }
 
 

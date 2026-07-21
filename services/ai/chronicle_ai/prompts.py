@@ -1,15 +1,19 @@
 """Load Chronicle's versioned annotation prompt from packages/prompts."""
 
 from functools import lru_cache
+import os
 from pathlib import Path
 
 
 # services/ai/chronicle_ai/prompts.py → repository root is three levels up.
-PROMPT_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "packages"
-    / "prompts"
-    / "version-annotation.md"
+PROMPT_PATH = Path(
+    os.environ.get(
+        "CHRONICLE_PROMPT_PATH",
+        Path(__file__).resolve().parents[3]
+        / "packages"
+        / "prompts"
+        / "version-annotation.md",
+    )
 )
 
 

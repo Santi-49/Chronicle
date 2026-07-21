@@ -5,9 +5,10 @@
 > update this file in the same PR. Feature IDs (F1–F10) refer to [spec.md §4](../spec.md).
 > Parent: [System Overview](../architecture/overview.md) · Code: `apps/desktop/src/renderer/`
 >
-> **Last synced with the implemented UI: 2026-07-21.** On `dev`, the
+> **Last synced with the implemented UI: 2026-07-21.** On the MVP-12 branch, the
 > renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore and the
-> hybrid-search engine are built; the remaining work is end-to-end reliability and packaging.
+> hybrid-search engine are built; Windows packaging is self-contained and the remaining work is
+> the three-pass clean-machine/manual acceptance record.
 > Anything else not yet built is explicitly marked *planned*.
 
 ---
@@ -57,6 +58,9 @@ Launch
   Google; timeout/cancellation errors are concise inline copy rather than raw IPC exceptions.
 - If AI isn't configured yet (no key), the app still captures versions; summaries show as
   pending instead of failing.
+- In development, Electron starts the Python 3.12 service from `services/ai`. In an installed
+  Windows build it starts the bundled Gemini-capable sidecar from app resources; no system Python
+  is required. Either path is loopback-only, health-checked, and never gates local capture.
 
 ---
 
@@ -84,7 +88,7 @@ One window; regions as implemented:
   with native Window Controls Overlay on Windows/Linux and traffic lights on macOS. The
   center intentionally stays empty until a real global search/command field earns it.
 - **Sidebar** — primary navigation **Home · Projects · Search**, with **Settings** pinned
-  in the footer next to the app version. Includes a skip-to-content link; the active item
+  in the footer next to the exact `package.json` app version. Includes a skip-to-content link; the active item
   is marked with `aria-current="page"`.
 - **Content area** — exactly one page at a time; a short reduced-motion-aware transition
   plays on route change and focus moves to the main content region.

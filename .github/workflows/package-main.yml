@@ -1,0 +1,57 @@
+name: Package main
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-main
+  cancel-in-progress: true
+
+jobs:
+  windows-installer:
+    name: Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/ai/pyproject.toml
+      - run: python -m pip install -e "services/ai[google,bundle]"
+      - run: npm ci
+        working-directory: apps/desktop
+      - run: python scripts/check_versions.py
+      - run: npm run package
+        working-directory: apps/desktop
+      - run: python scripts/smoke_ai_sidecar.py
+      - name: Write installer checksum
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem apps/desktop/dist/Chronicle-Setup-*.exe -File
+          if ($installer.Count -ne 1) { throw "Expected exactly one installer" }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content apps/desktop/dist/SHA256SUMS.txt
+      - name: Read app version
+        id: version
+        shell: pwsh
+        run: |
+          "app_version=$(node -p \"require('./apps/desktop/package.json').version\")" >> $env:GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Chronicle-${{ steps.version.outputs.app_version }}-windows-${{ github.sha }}
+          path: |
+            apps/desktop/dist/Chronicle-Setup-*.exe
+            apps/desktop/dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30

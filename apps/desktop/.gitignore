@@ -1,4 +1,8 @@
 node_modules/
 out/
 dist/
+build/sidecar/
+build/sidecar-venv/
+build/pyinstaller-spec/
+build/pyinstaller-work/
 *.tsbuildinfo

@@ -36,3 +36,5 @@
 - [Contracts](contracts.md) — operation behavior, input/output boundaries, and implementation specifications
 - [Onboarding](onboarding.md) — Day-0 setup for new teammates
 - [MCP Servers](mcp-servers.md) — AI agent tooling: Postgres, Playwright, Docker, Fetch, MarkItDown
+- [Versions, CI, and Releases](releasing.md) — version rules, GitHub setup, promotion, and release runbook
+- [MVP-12 Acceptance](mvp-12-acceptance.md) — automated gate and clean-Windows manual evidence

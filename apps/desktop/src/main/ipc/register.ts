@@ -153,10 +153,13 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
 
   registerChronicleProtocol(libraryRoot)
 
-  // In development app.getAppPath() is apps/desktop; the Python module is
-  // imported from the repository root. Bundling the sidecar is stretch scope.
+  // Development runs repository Python; installed builds run the bundled,
+  // self-contained executable and therefore never require system Python.
   const repositoryRoot = path.resolve(app.getAppPath(), '..', '..')
-  const aiProcess = createAiServiceProcess(repositoryRoot)
+  const aiProcess = createAiServiceProcess(
+    repositoryRoot,
+    app.isPackaged ? process.resourcesPath : undefined,
+  )
   const aiWorker = createAiWorker({
     db,
     libraryRoot,
