@@ -69,6 +69,11 @@ desktop product: no Docker, no Postgres, no account.
   passed per-request to the local AI service, which forwards it only to the configured
   provider. The service never persists it. It stays off Chronicle's backend unless the user
   separately enables E2E-encrypted API-key sync, which uploads only an opaque envelope.
+- **Configuration validation:** Settings requires a saved key for each selected task
+  provider. Before a changed provider/model is persisted, the main process asks the local
+  service to make a minimal real task-specific call (`POST /validate-provider-model`): a
+  one-pixel structured-vision request for summaries or a short text embedding request for
+  semantic search. A rejected or unreachable configuration leaves the prior settings intact.
 - **Gateway (stretch, F9):** the control plane exposes the same operations for users
   without a key, reusing the same `services/ai/` implementation.
 
@@ -173,6 +178,8 @@ The heart of the product. Exact rules:
   Chronicle stores only an opaque authenticated-encryption envelope and cannot decrypt it.
   Switching back to a configured provider does not require re-entry. No key for the
   annotation provider → versions still capture; summaries show *pending — configure AI in Settings*.
+  Both task selectors show a missing-key error and AI settings cannot be saved until keys exist
+  for their selected providers. Changed selections are live-validated before persistence.
 - Version 1 of an asset has no predecessor → the AI writes a **description** instead of a diff.
 - The version's AI status is visible in the UI: *pending → done* or *failed (retry button)*.
 - **The UI never waits for AI.** Versions appear instantly; the summary fills in when ready.
@@ -202,6 +209,9 @@ The heart of the product. Exact rules:
   - **Semantic:** the *text* of each version's summary+tags is embedded (through the local AI service's LangChain embeddings, provider-agnostic); the query is embedded and compared by similarity — so "remove logo" finds "deleted the brand mark".
 - Results are a single ranked list of **versions** (not just files); clicking opens the version's details.
 - **Offline rule:** keyword search always works; semantic search needs embeddings that are computed asynchronously (queued like F4).
+- Embedding identity includes both provider and model. Changing either selection queues every
+  existing annotation's summary+tags for asynchronous re-embedding without repeating vision
+  annotation; pending jobs are deduplicated and incompatible vectors are never compared.
 - **Done when:** demo script queries work — "version with the tagline" and "blue background" both land on the right version.
 
 ### F8 — Telemetry & admin stats `Low` (control plane — optional)

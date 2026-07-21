@@ -50,6 +50,8 @@ product-design interchange without expanding the MVP.
 - Vision-based change summaries + text embeddings for semantic search, both defined by a
   shared functional input/output contract. Versioned prompt assets live in
   `packages/prompts/` and may evolve independently for each researched implementation.
+- Changed provider/model selections are checked through a minimal real task-specific call
+  before they are saved. Rejected configurations preserve the last working settings.
 - AI is **always async** — the UI never blocks on a model call; jobs queue offline and run
   when connectivity returns.
 
@@ -159,7 +161,10 @@ make setup-ai
 Chronicle stores a separate encrypted key for each configured provider, so the annotation
 and embedding providers can be switched independently without re-entering credentials.
 The predefined UI supports Google Gemini, Anthropic Claude, OpenAI, and Amazon Bedrock;
-developer mode accepts another LangChain-supported provider/model pair.
+developer mode accepts another LangChain-supported provider/model pair. Both task selectors
+require their selected provider's key before Save is enabled. A changed model is then
+live-validated through the loopback service; this minimal real provider call may incur a tiny
+charge. Changing the embeddings configuration queues existing annotation text for reindexing.
 
 ### Exercise the capture flow with the demo pack
 
@@ -229,12 +234,12 @@ Start at [docs/index.md](docs/index.md).
 
 ## Status
 
-The capture/storage core, secure IPC bridge, Python AI service, and live renderer wiring
-are implemented on `dev`. Users can create and edit tracked-folder
+The capture/storage core, secure IPC bridge, Python AI service, restore flow, hybrid search,
+and live renderer wiring are implemented on `dev`. Users can create and edit tracked-folder
 projects, choose which image files/types remain watched, configure per-provider BYOK keys,
 browse live projects/timelines/version details, and inspect queued AI work. Restore and the
-hybrid-search engine remain the main unfinished end-to-end MVP paths; installer-side AI
-service bundling and real-editor Windows smoke testing also remain open.
+search UI still need the final end-to-end reliability/acceptance pass; installer-side AI
+service bundling and real-editor Windows smoke testing remain open.
 
 See the live [project status](PROJECT_STATUS.md). Submission is due
 **July 31, 2026, 11:59 PM ET**.

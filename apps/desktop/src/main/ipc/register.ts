@@ -106,6 +106,7 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
   )
   const googleClientId = process.env['GOOGLE_OAUTH_CLIENT_ID'] ?? ''
   const googleClientSecret = process.env['GOOGLE_OAUTH_CLIENT_SECRET'] ?? ''
+  const aiClient = createAiClient()
   const services = createChronicleServices({
     db,
     libraryRoot,
@@ -135,6 +136,19 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
           : process.platform === 'darwin' ? 'macos'
             : process.platform === 'linux' ? 'linux' : 'other',
     },
+    setWindowTheme: (theme) => {
+      if (process.platform === 'darwin') return
+      const dark = theme === 'dark'
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.setTitleBarOverlay({
+          color: dark ? '#161616' : '#ffffff',
+          symbolColor: dark ? '#f4f4f4' : '#161616',
+          height: 48,
+        })
+      }
+    },
+    aiClient,
+    readApiKey: (provider) => readApiKey(db, provider),
   })
 
   registerChronicleProtocol(libraryRoot)
@@ -146,7 +160,7 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
   const aiWorker = createAiWorker({
     db,
     libraryRoot,
-    client: createAiClient(),
+    client: aiClient,
     emit,
     getSettings: services.api.getSettings,
     readApiKey: (provider) => readApiKey(db, provider),

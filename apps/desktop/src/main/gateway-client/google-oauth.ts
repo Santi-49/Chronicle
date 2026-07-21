@@ -7,7 +7,9 @@ const CALLBACK_PATH = '/oauth2callback'
 type CallbackTone = 'success' | 'error'
 
 function callbackPage(tone: CallbackTone, title: string, message: string): string {
-  const icon = tone === 'success' ? '✓' : '!'
+  const statusIcon = tone === 'success'
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v6M12 17h.01"/></svg>'
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -15,22 +17,56 @@ function callbackPage(tone: CallbackTone, title: string, message: string): strin
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title} · Chronicle</title>
   <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --accent: #78a9ff; --accent-strong: #0f62fe; --background: #111111;
+      --surface: #161616; --surface-raised: #202020; --border: #393939;
+      --text-primary: #f4f4f4; --text-secondary: #c6c6c6; --text-muted: #a8a8a8;
+      --success: #42be65; --danger: #ff453a;
+      --mark-highlight: #78a9ff; --mark-node-a: #a6c8ff; --mark-node-b: #78a9ff;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        color-scheme: light; --accent: #0f62fe; --accent-strong: #0f62fe;
+        --background: #f4f4f4; --surface: #ffffff; --surface-raised: #ffffff;
+        --border: #d6d6d6; --text-primary: #161616; --text-secondary: #393939;
+        --text-muted: #525252; --success: #198038; --danger: #b91c1c;
+        --mark-highlight: #0043ce; --mark-node-a: #78a9ff; --mark-node-b: #0043ce;
+      }
+    }
     * { box-sizing: border-box; }
-    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; color: #f5f3ee; background: radial-gradient(circle at 50% 0%, #27372f 0, #151917 42%, #0d0f0e 100%); }
-    main { width: min(100%, 480px); padding: 40px; border: 1px solid #34423b; border-radius: 18px; background: rgba(24, 29, 27, .94); box-shadow: 0 24px 80px rgba(0, 0, 0, .38); }
-    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; color: #d9b86c; font-size: 14px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
-    .mark { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #d9b86c; border-radius: 9px; font-family: Georgia, serif; font-size: 20px; }
-    .status { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 22px; border-radius: 50%; color: ${tone === 'error' ? '#ffc1b8' : '#162019'}; background: ${tone === 'error' ? '#63352f' : '#b9d7c2'}; font-size: 24px; font-weight: 700; }
-    h1 { margin: 0 0 12px; font: 600 28px/1.2 Georgia, serif; letter-spacing: -.02em; }
-    p { margin: 0; color: #b9c2bd; font-size: 15px; line-height: 1.65; }
-    .hint { margin-top: 24px; padding-top: 20px; border-top: 1px solid #303a35; color: #89948e; font-size: 13px; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; color: var(--text-primary); background: var(--background); }
+    main { position: relative; width: min(100%, 520px); overflow: hidden; padding: 40px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+    main::before { position: absolute; inset: 0 0 auto; height: 4px; content: ''; background: var(--accent-strong); }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 48px; color: var(--text-primary); font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+    .brand-mark { width: 32px; height: 32px; flex: 0 0 auto; }
+    .mark-path { fill: none; stroke: var(--accent-strong); stroke-width: 8; stroke-linecap: round; }
+    .mark-highlight { fill: none; stroke: var(--mark-highlight); stroke-width: 8; stroke-linecap: round; }
+    .mark-node-a { fill: var(--mark-node-a); }
+    .mark-node-b { fill: var(--mark-node-b); }
+    .eyebrow { margin: 0 0 16px; color: ${tone === 'error' ? 'var(--danger)' : 'var(--success)'}; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .status { display: grid; width: 48px; height: 48px; margin-bottom: 24px; place-items: center; color: ${tone === 'error' ? 'var(--danger)' : 'var(--success)'}; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 6px; }
+    .status svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    h1 { margin: 0 0 16px; color: var(--text-primary); font-size: clamp(32px, 7vw, 44px); font-weight: 580; letter-spacing: -.045em; line-height: 1.05; }
+    p { max-width: 420px; margin: 0; color: var(--text-secondary); font-size: 15px; line-height: 1.65; }
+    .hint { margin-top: 32px; padding-top: 24px; color: var(--text-muted); border-top: 1px solid var(--border); font-size: 12px; }
+    @media (max-width: 480px) { main { padding: 32px 24px; } .brand { margin-bottom: 40px; } }
   </style>
 </head>
 <body>
   <main>
-    <div class="brand"><span class="mark">C</span> Chronicle</div>
-    <div class="status" aria-hidden="true">${icon}</div>
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <path class="mark-path" d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7"/>
+        <path class="mark-highlight" d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2"/>
+        <circle class="mark-node-a" cx="38" cy="12" r="6"/>
+        <circle class="mark-node-b" cx="39" cy="39" r="5"/>
+      </svg>
+      <span>Chronicle</span>
+    </div>
+    <p class="eyebrow">Google sign-in</p>
+    <div class="status">${statusIcon}</div>
     <h1>${title}</h1>
     <p>${message}</p>
     <p class="hint">You can close this tab and return to the Chronicle app.</p>

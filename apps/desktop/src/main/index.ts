@@ -1,5 +1,5 @@
-import { app, BrowserWindow, Menu } from 'electron'
 import { config as loadEnv } from 'dotenv'
+import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
 import path from 'node:path'
 import { openAppDatabase, type ChronicleDb } from './db'
 import { registerChronicleScheme, startChronicleIpc, type ChronicleIpc } from './ipc/register'
@@ -17,15 +17,20 @@ loadEnv({ path: path.resolve(app.getAppPath(), '..', '..', '.env'), quiet: true 
 registerChronicleScheme()
 
 function createWindow(): void {
+  const dark = nativeTheme.shouldUseDarkColors
+  const icon = app.isPackaged
+    ? path.join(process.resourcesPath, 'chronicle-app-icon.png')
+    : path.resolve(app.getAppPath(), '..', '..', 'packages', 'brand', 'assets', 'png', 'chronicle-app-icon-dark-256.png')
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    ...(process.platform !== 'darwin' ? { icon } : {}),
     titleBarStyle: 'hidden',
     ...(process.platform !== 'darwin'
       ? {
           titleBarOverlay: {
-            color: '#161616',
-            symbolColor: '#f4f4f4',
+            color: dark ? '#161616' : '#ffffff',
+            symbolColor: dark ? '#f4f4f4' : '#161616',
             height: 48
           }
         }
@@ -52,6 +57,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'win32') app.setAppUserModelId('app.chronicle.desktop')
   ensureAppDirs()
   db = openAppDatabase()
 

@@ -7,8 +7,8 @@ Start here at the beginning of a work session. Use [TODO.md](TODO.md) to claim w
 
 ## Current stage
 
-**MVP build in progress: capture, IPC, AI, restore, and the live renderer are connected.
-Next: hybrid search and a repeatable end-to-end reliability pass.**
+**MVP build in progress: capture, IPC, AI, restore, hybrid search, and the live renderer are connected.
+Next: a repeatable end-to-end reliability and packaging pass.**
 
 ```text
 Research       Documentation       Contracts        MVP build         Demo/submission
@@ -20,8 +20,8 @@ The repository has a compiling Electron/React app and a pre-built optional backe
 bridge and live SQLite data/events. Users can create and edit projects (tracked folders),
 persist descriptions/icons/colors and file-selection rules, browse captured assets and
 versions, configure encrypted per-provider BYOK keys, and inspect pending AI jobs. The main
-process watches folders, stores deduplicated versions, and drains annotation/embedding jobs
-through the local Python service. Restore and the hybrid-search engine remain unimplemented.
+process watches folders, stores deduplicated versions, drains annotation/embedding jobs through
+the local Python service, restores prior versions append-only, and runs hybrid history search.
 
 ## Status at a glance
 
@@ -34,11 +34,11 @@ through the local Python service. Restore and the hybrid-search engine remain un
 | Folder watcher | Merged (MVP-03) | Chokidar watching with the 2 s settle and C4 ignore rules, 14 tests. Manual demo-editor test pending until capture is wired to the UI. |
 | Version storage | Merged (MVP-02 + MVP-04) | SQLite init + repositories, and content-addressed capture: stream hash, dedup by content, append-only versions, dimensions metadata, AI job enqueue. 38 tests. |
 | Secure IPC bridge | Merged (MVP-05); renderer now consumes it | C1 handlers, native folder picker, watcher→capture wiring, `chronicle://` image serving, encrypted BYOK storage, status/events, and input validation are implemented and tested. MVP-06 wired the renderer onto the bridge. |
-| AI summaries | Merged (MVP-09) | The Python AI service lives in `services/ai/` (package `chronicle_ai`, FastAPI + LangChain, 41 tests); the Electron queue worker, generated C3 client, and process lifecycle stay in `apps/desktop/src/main/ai/`. Non-retryable (4xx) failures fail fast instead of retrying three times. Controlled Gemini first-version, diff, and 3,072-dimension embedding calls passed through the real worker/service/SQLite flow. The sidecar is not yet bundled for an installed build. |
-| Shell, onboarding, settings | Merged (MVP-06) | Renderer wired to live C1 via `src/renderer/src/lib/{bridge,useChronicle,aiCatalog}.ts` — no more `demoData.ts`. Status bar and pending-jobs screen, native folder scan/selection, project create/edit (name, description, icon, color, file types, ignored files), and curated Google/Anthropic/OpenAI/Bedrock settings with per-provider encrypted BYOK are implemented. Typecheck, 86 tests, and build are green. |
+| AI summaries | Merged (MVP-09) | The Python AI service lives in `services/ai/` (package `chronicle_ai`, FastAPI + LangChain, 48 tests); the Electron queue worker, generated C3 client, and process lifecycle stay in `apps/desktop/src/main/ai/`. C3 now includes a live provider/model validation probe for chat and embeddings. Non-retryable failures fail fast. Controlled Gemini first-version, diff, and 3,072-dimension embedding calls passed through the real worker/service/SQLite flow. The sidecar is not yet bundled for an installed build. |
+| Shell, onboarding, settings | Merged (MVP-06) | Renderer wired to live C1 via `src/renderer/src/lib/{bridge,useChronicle,aiCatalog}.ts`. Status/queue UI, folder selection, project create/edit, and curated AI settings are implemented. Both AI selectors require a saved per-provider key; changed models are live-validated before persistence, rejected changes roll back with friendly feedback, and Google provider aliases migrate to `google_genai`. Typecheck, 118 desktop tests, and build are green. |
 | Assets, Timeline, Version Details | Complete (MVP-08) | Live C1 queries/events and real thumbnails; keyboard timeline traversal; explicit pending/failed/restore states; retry feedback; missing-source badges; completed restore/save-copy controls; and a typed-safeguard reset that turns the latest snapshot into a freshly annotated v1. |
 | Restore engine | Complete (MVP-07) | Selected library bytes overwrite the original path and append a provenance-marked version with no AI job. A missing original folder switches the UI to a native Save a copy dialog. Acceptance covers v2→v6, missing-folder fallback, cancellation, and validation. |
-| Search UI and engine | UI ready; engine pending | Search renders the C1 surface and clear unavailable state; hybrid keyword + embedding implementation remains MVP-10. |
+| Search UI and engine | Complete (MVP-10 and MVP-11) | FTS5 keyword and provider/model-scoped cosine semantic search return live version results and degrade to keyword-only when AI is unavailable. Embedding configuration changes queue deduplicated reindex jobs over existing annotation text, and Search explains live indexing, offline, and AI-setup states. |
 | Backend control plane | Base auth/RBAC ready | Chronicle telemetry/config/gateway additions are low priority or stretch and must not delay the MVP. |
 | Landing page | Existing optional page | Not part of the MVP; do not spend time here before the desktop app works. |
 | Demo and submission | Demo pack merged (DEMO-01) | Three approved, generated image histories and a git-ignored watched workspace are documented in `demo-assets/`; video, final README evidence, and SkillsBuild completion remain outstanding. |
@@ -51,7 +51,7 @@ decide the prompt, algorithm, provider, storage layout, tools, or internal class
 | Boundary | Source of truth | Change rule |
 |---|---|---|
 | React renderer ↔ Electron main process | `apps/desktop/src/shared/ipc.ts` | Treat as stable. Propose contract changes separately before changing handlers or UI assumptions. |
-| App ↔ AI functionality | Moving to the local AI service's OpenAPI + `packages/contracts/ai/output.schema.json` (decision 2026-07-19); `interface.ts` documents the shapes until then | Keep operation behavior and output shape stable; prompts and orchestration remain implementation-owned. |
+| App ↔ AI functionality | Local AI service OpenAPI + `packages/contracts/ai/output.schema.json`, with generated TypeScript client types | Keep annotation, embedding, and provider/model validation behavior stable; prompts and orchestration remain implementation-owned. |
 | Filesystem candidate ↔ watcher | `apps/desktop/src/main/watcher/rules.ts` | Preserve supported formats, size cap, settle guarantee, inputs, outputs, and rejection reasons. |
 | Shared settings | `apps/desktop/src/shared/settings.ts` | Never expose API keys or auth tokens through renderer-readable settings. |
 | App ↔ control-plane API | `packages/contracts/api/PLANNED.md` | Low priority. Replace planned documentation with generated OpenAPI types when implemented. |
@@ -62,12 +62,10 @@ not a public contract. Change it carefully through migrations once released.
 
 ## Immediate next actions
 
-1. Implement hybrid search (`MVP-10`), then close the remaining Search UI acceptance
-   work in `MVP-11`.
-2. Run the full `MVP-12` journey repeatedly using `demo-assets/workspace/`, including
+1. Run the full `MVP-12` journey repeatedly using `demo-assets/workspace/`, including
    offline queue, retry, restart, deleted-source, and 50 MB skip cases.
-3. Decide and record the final demo provider/model/budget.
-4. Team lead fills in names/task ownership and confirms branch protection; every team member
+2. Decide and record the final demo provider/model/budget.
+3. Team lead fills in names/task ownership and confirms branch protection; every team member
    completes the required IBM SkillsBuild activity before July 25.
 
 ## Open decisions and risks

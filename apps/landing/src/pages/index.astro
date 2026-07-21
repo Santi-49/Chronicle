@@ -1,6 +1,7 @@
 ---
 import { landingContent } from "../content";
 import "../styles/global.css";
+import chronicleMarkDark from "../../../../packages/brand/assets/chronicle-mark-dark.svg?url";
 
 const content = landingContent;
 const useExportedMockup = true;
@@ -21,7 +22,7 @@ const showMockupTuner = false;
   <body>
     <header class="site-header" aria-label="Site header">
       <a class="brand" href="#top" aria-label={`${content.productName} home`}>
-        <span class="brand__icon" aria-hidden="true">⌁</span>
+        <img class="brand__icon" src={chronicleMarkDark} alt="" />
         {content.productName}
       </a>
       <nav class="nav" aria-label="Primary navigation">

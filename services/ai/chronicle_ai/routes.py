@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
-from .engine import ConfigurationError, annotate_version, embed_text
+from .engine import ConfigurationError, annotate_version, embed_text, validate_provider_model
 from .schemas import (
     AnnotateRequest,
     AnnotateResponse,
@@ -11,6 +11,8 @@ from .schemas import (
     EmbedTextResponse,
     HealthResponse,
     ServiceErrorResponse,
+    ValidateProviderModelRequest,
+    ValidateProviderModelResponse,
 )
 
 
@@ -88,3 +90,52 @@ async def create_text_embedding(request: EmbedTextRequest) -> EmbedTextResponse:
             status_code=502,
             detail={"code": "provider_error", "message": "The embedding provider rejected the request."},
         ) from error
+
+
+@router.post("/validate-provider-model", response_model=ValidateProviderModelResponse)
+async def validate_configuration(
+    request: ValidateProviderModelRequest,
+) -> ValidateProviderModelResponse:
+    """Probe a provider/model/key with the real operation used by its task."""
+
+    values = {
+        "task": request.task,
+        "provider": request.provider,
+        "model": request.model,
+    }
+    try:
+        await validate_provider_model(request)
+        return ValidateProviderModelResponse(
+            **values,
+            valid=True,
+            reachable=True,
+            message="Provider and model are reachable.",
+        )
+    except (ConfigurationError, ValidationError):
+        return ValidateProviderModelResponse(
+            **values,
+            valid=False,
+            reachable=True,
+            message="The provider/model configuration is not valid for this task.",
+        )
+    except ImportError:
+        return ValidateProviderModelResponse(
+            **values,
+            valid=False,
+            reachable=False,
+            message="The provider integration is not installed.",
+        )
+    except TimeoutError:
+        return ValidateProviderModelResponse(
+            **values,
+            valid=False,
+            reachable=False,
+            message="The provider or model could not be reached.",
+        )
+    except Exception:
+        return ValidateProviderModelResponse(
+            **values,
+            valid=False,
+            reachable=True,
+            message="The provider rejected the API key or model configuration.",
+        )

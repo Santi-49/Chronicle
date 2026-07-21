@@ -6,8 +6,8 @@
 > Parent: [System Overview](../architecture/overview.md) · Code: `apps/desktop/src/renderer/`
 >
 > **Last synced with the implemented UI: 2026-07-21.** On `dev`, the
-> renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore is built;
-> only the hybrid-search engine remains planned in MVP-10, with a clear unavailable state.
+> renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore and the
+> hybrid-search engine are built; the remaining work is end-to-end reliability and packaging.
 > Anything else not yet built is explicitly marked *planned*.
 
 ---
@@ -184,7 +184,9 @@ results are a single ranked list of **versions** (thumbnail, asset name, version
 matched summary/tags snippet). Keyword and semantic engines run together behind the same
 box — the user never chooses a "mode". Click a result → Version details.
 
-- *Planned:* offline note when semantic indexing is still pending for recent versions.
+- A live status notice appears while recent versions still need semantic indexing. It distinguishes
+  active indexing, work paused offline, and missing AI setup; in every state it confirms that
+  keyword search remains available while meaning-based matches catch up.
 
 ### 9. Settings — F1, F2, F4/F9 config
 
@@ -194,8 +196,8 @@ Four sections, in current order:
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
-| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle swaps the pickers for free-text provider/model. Keys use Electron `safeStorage`, never enter renderer-visible settings, and stay local by default. The separate signed-in sync control uploads only a passphrase-encrypted envelope. |
-| **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting is checked by default, including a one-time migration from the unreleased pre-POST-03 false placeholder, with an explicit local-data warning and immediate off switch; choices made after migration are preserved. Portable settings sync and encrypted API-key sync are independent, signed-in-only, off-by-default checkboxes. Enabling key sync reveals a compact passphrase row with explicit **Save encrypted copy** and **Restore to this device** actions; disabling it removes the cloud envelope but keeps local keys. The passphrase is cleared after an action, cannot be recovered, and is never sent to Chronicle. Operation status/errors sit beside the related control. |
+| **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved. Portable preferences sync automatically after each saved change, with no manual sync action. The usage control includes an explicit local-data warning and immediate off switch. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. Enabling key sync reveals a compact passphrase row with explicit **Save encrypted copy** and **Restore to this device** actions; disabling it removes the cloud envelope but keeps local keys. The passphrase is cleared after an action, cannot be recovered, and is never sent to Chronicle. Operation status/errors sit beside the related control. |
+| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle permits free-text LangChain provider/model pairs. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
 online/offline, AI-ready state, and pending AI/embedding job count — refreshed from `statusChanged`.

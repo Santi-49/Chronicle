@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <title>A — Snapshot Clock</title>
+  <rect x="5" y="5" width="27" height="28" rx="6" fill="#60a5fa"/>
+  <rect x="13" y="11" width="30" height="31" rx="7" fill="#1d4ed8"/>
+  <circle cx="29" cy="27" r="9" fill="#eff6ff"/>
+  <path d="M29 21.5V27l4 2.5" stroke="#1e3a8a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

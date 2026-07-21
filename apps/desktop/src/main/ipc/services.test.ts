@@ -21,6 +21,7 @@ import {
   getAnnotation,
   getAssetByPath,
   getEmbedding,
+  getSetting,
   getVersion,
   listJobs,
   saveAnnotation,
@@ -52,7 +53,10 @@ let events: RecordedEvent[]
 let nextPick: string | null
 let nextSavePath: string | null
 let online: boolean
+let windowTheme: 'dark' | 'light' | null
 let secretKeys: Map<string, string>
+let validationCalls: Array<{ task: 'chat' | 'embeddings'; provider: string; model: string }>
+let validationValid: boolean
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ipc-'))
@@ -64,7 +68,10 @@ beforeEach(() => {
   nextPick = null
   nextSavePath = null
   online = true
+  windowTheme = null
   secretKeys = new Map()
+  validationCalls = []
+  validationValid = true
   services = createChronicleServices({
     db,
     libraryRoot,
@@ -83,6 +90,28 @@ beforeEach(() => {
       entries: () => Object.fromEntries(secretKeys),
     },
     isOnline: () => online,
+    setWindowTheme: (theme) => {
+      windowTheme = theme
+    },
+    readApiKey: (provider) => secretKeys.get(provider) ?? null,
+    aiClient: {
+      health: async () => true,
+      annotate: async () => { throw new Error('not used in IPC tests') },
+      embedText: async () => { throw new Error('not used in IPC tests') },
+      validateProviderModel: async ({ task, provider, model }) => {
+        validationCalls.push({ task, provider, model })
+        return {
+          valid: validationValid,
+          reachable: validationValid,
+          task,
+          provider,
+          model,
+          message: validationValid
+            ? 'Provider and model are reachable.'
+            : 'The provider rejected the API key or model configuration.',
+        }
+      },
+    },
     settleMs: 120, // production keeps the C4 2 s default
   })
 })
@@ -143,7 +172,8 @@ describe('C1 contract surface', () => {
   })
 
   it('pending features reject with a clear error instead of pretending', async () => {
-    await expect(services.api.search('logo')).rejects.toThrow(/not implemented/)
+    // Search is implemented (MVP-10) and degrades to keyword-only in this fixture.
+    await expect(services.api.search('logo')).resolves.toEqual([])
     await expect(services.api.register('a@b.c', 'pw')).rejects.toThrow(/control plane/)
     await expect(services.api.login('a@b.c', 'pw')).rejects.toThrow(/control plane/)
     await expect(services.api.loginWithGoogle()).rejects.toThrow(/Google sign-in/)
@@ -156,6 +186,13 @@ describe('C1 contract surface', () => {
       isAdmin: false,
     })
     await expect(services.api.logout()).resolves.toBeUndefined()
+  })
+
+  it('validates and applies the native window theme', async () => {
+    await services.api.setWindowTheme('light')
+    expect(windowTheme).toBe('light')
+    await expect(services.api.setWindowTheme('sepia' as never)).rejects.toThrow(TypeError)
+    expect(windowTheme).toBe('light')
   })
 })
 
@@ -599,30 +636,96 @@ describe('retryAnnotation', () => {
 describe('settings and the secret boundary', () => {
   it('returns defaults first, then persists validated patches', async () => {
     expect(await services.api.getSettings()).toEqual(DEFAULT_SETTINGS)
+    await services.api.setApiKey('openai', 'sk-test')
 
     const updated = await services.api.updateSettings({
       ai: {
         mode: 'local',
-        chat: { provider: 'anthropic', model: 'claude-x' },
-        embeddings: { provider: 'anthropic', model: 'embed-x' },
+        chat: { provider: 'openai', model: 'gpt-4o-mini' },
+        embeddings: { provider: 'openai', model: 'text-embedding-3-small' },
       },
     })
-    expect(updated.ai.chat.provider).toBe('anthropic')
+    expect(updated.ai.chat.provider).toBe('openai')
     expect(updated.controlPlane).toEqual(DEFAULT_SETTINGS.controlPlane) // untouched section
-    expect((await services.api.getSettings()).ai.chat.model).toBe('claude-x')
+    expect((await services.api.getSettings()).ai.chat.model).toBe('gpt-4o-mini')
   })
 
-  it('migrates the unreleased telemetry placeholder once, then preserves opt-out', async () => {
+  it('keeps portable appearance data while migrating the old Google provider alias', async () => {
     setSetting(db, 'app-settings', {
-      ...DEFAULT_SETTINGS,
-      controlPlane: { ...DEFAULT_SETTINGS.controlPlane, telemetryOptIn: false },
+      appearance: { theme: 'dark' },
+      ai: {
+        ...DEFAULT_SETTINGS.ai,
+        chat: { provider: 'google', model: 'gemini-flash-latest' },
+        embeddings: { provider: 'google', model: 'gemini-embedding-001' },
+      },
+      controlPlane: DEFAULT_SETTINGS.controlPlane,
     })
 
-    expect((await services.api.getSettings()).controlPlane.telemetryOptIn).toBe(true)
-    await services.api.updateSettings({
-      controlPlane: { ...DEFAULT_SETTINGS.controlPlane, telemetryOptIn: false },
+    const expected = {
+      ...DEFAULT_SETTINGS,
+      appearance: { theme: 'dark' as const },
+    }
+    expect(await services.api.getSettings()).toEqual(expected)
+    expect(getSetting(db, 'app-settings')).toEqual(expected)
+  })
+
+  it('queues annotation text for reindexing when the embeddings selection changes', async () => {
+    const { versionId } = await seedCapture('banner.jpg', pngBytes(10, 5))
+    saveAnnotation(db, {
+      versionId,
+      summary: 'Discount increased from 40% to 50%.',
+      changes: ['Updated discount'],
+      tags: ['discount', 'banner'],
+      provider: 'google_genai',
+      model: 'gemini-flash-latest',
     })
-    expect((await services.api.getSettings()).controlPlane.telemetryOptIn).toBe(false)
+    await services.api.setApiKey('openai', 'sk-openai')
+    await services.api.setApiKey('bedrock', 'sk-bedrock')
+
+    await services.api.updateSettings({
+      ai: {
+        ...DEFAULT_SETTINGS.ai,
+        embeddings: { provider: 'openai', model: 'text-embedding-3-small' },
+      },
+    })
+    expect(listJobs(db, 'embedding').map((job) => job.payload)).toEqual([{ versionId }])
+
+    // A second provider/model change reuses the pending job: it will read the
+    // latest settings when the asynchronous worker processes it.
+    await services.api.updateSettings({
+      ai: {
+        ...DEFAULT_SETTINGS.ai,
+        embeddings: { provider: 'bedrock', model: 'amazon.titan-embed-text-v2:0' },
+      },
+    })
+    expect(listJobs(db, 'embedding')).toHaveLength(1)
+  })
+
+  it('migrates unreleased telemetry and settings-sync placeholders once, then preserves opt-outs', async () => {
+    setSetting(db, 'app-settings', {
+      ...DEFAULT_SETTINGS,
+      controlPlane: {
+        ...DEFAULT_SETTINGS.controlPlane,
+        telemetryOptIn: false,
+        settingsSyncEnabled: false,
+      },
+    })
+
+    expect((await services.api.getSettings()).controlPlane).toMatchObject({
+      telemetryOptIn: true,
+      settingsSyncEnabled: true,
+    })
+    await services.api.updateSettings({
+      controlPlane: {
+        ...DEFAULT_SETTINGS.controlPlane,
+        telemetryOptIn: false,
+        settingsSyncEnabled: false,
+      },
+    })
+    expect((await services.api.getSettings()).controlPlane).toMatchObject({
+      telemetryOptIn: false,
+      settingsSyncEnabled: false,
+    })
   })
 
   it('rejects malformed patches', async () => {
@@ -638,6 +741,61 @@ describe('settings and the secret boundary', () => {
       } as never),
     ).rejects.toThrow(/telemetryOptIn/)
     await expect(services.api.updateSettings('nope' as never)).rejects.toThrow(TypeError)
+  })
+
+  it('rejects an invalid embeddings probe without persisting or reindexing', async () => {
+    const before = await services.api.getSettings()
+    await services.api.setApiKey('anthropic', 'sk-test')
+    validationValid = false
+    await expect(
+      services.api.updateSettings({
+        ai: {
+          ...before.ai,
+          embeddings: { provider: 'anthropic', model: 'voyage-3' },
+        },
+      }),
+    ).rejects.toThrow(/provider rejected/)
+
+    expect(await services.api.getSettings()).toEqual(before)
+    expect(listJobs(db, 'embedding')).toEqual([])
+    expect(validationCalls).toEqual([
+      { task: 'embeddings', provider: 'anthropic', model: 'voyage-3' },
+    ])
+  })
+
+  it('requires a saved key before live validation', async () => {
+    const before = await services.api.getSettings()
+    await expect(
+      services.api.updateSettings({
+        ai: {
+          ...before.ai,
+          chat: { provider: 'openai', model: 'gpt-4o-mini' },
+        },
+      }),
+    ).rejects.toThrow(/Save an API key for openai/)
+
+    expect(await services.api.getSettings()).toEqual(before)
+    expect(validationCalls).toEqual([])
+  })
+
+  it('keeps prior settings when the live provider/model probe fails', async () => {
+    const before = await services.api.getSettings()
+    await services.api.setApiKey('openai', 'sk-test')
+    validationValid = false
+
+    await expect(
+      services.api.updateSettings({
+        ai: {
+          ...before.ai,
+          chat: { provider: 'openai', model: 'gpt-4o-mini' },
+        },
+      }),
+    ).rejects.toThrow(/provider rejected/)
+
+    expect(await services.api.getSettings()).toEqual(before)
+    expect(validationCalls).toEqual([
+      { task: 'chat', provider: 'openai', model: 'gpt-4o-mini' },
+    ])
   })
 
   it('stores API keys per provider, write-only: never readable, never in settings', async () => {
@@ -681,13 +839,13 @@ describe('getAppStatus', () => {
     })
     await seedCapture('logo.png', pngBytes(3, 3)) // enqueues one AI job
     online = false
-    await services.api.setApiKey('anthropic', 'sk-x') // key saved, but chat provider is '' → not configured
+    await services.api.setApiKey('openai', 'sk-x') // key saved, but chat provider is '' → not configured
     expect((await services.api.getAppStatus()).aiConfigured).toBe(false)
     await services.api.updateSettings({
       ai: {
         mode: 'local',
-        chat: { provider: 'anthropic', model: 'claude-x' },
-        embeddings: { provider: 'anthropic', model: 'embed-x' },
+        chat: { provider: 'openai', model: 'gpt-4o-mini' },
+        embeddings: { provider: 'openai', model: 'text-embedding-3-small' },
       },
     })
 

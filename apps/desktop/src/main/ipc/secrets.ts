@@ -34,7 +34,8 @@ const SECRET_PREFIX = 'secret:ai-api-key:'
 /** Pre-per-provider single key (migrated to the default provider on first open). */
 const LEGACY_SECRET_KEY = 'secret:ai-api-key'
 /** The demo default provider a legacy single key is attributed to (spec/RESEARCH). */
-const LEGACY_DEFAULT_PROVIDER = 'google'
+const LEGACY_DEFAULT_PROVIDER = 'google_genai'
+const OLD_GOOGLE_PROVIDER = 'google'
 
 function secretKey(provider: string): string {
   return `${SECRET_PREFIX}${provider}`
@@ -47,11 +48,20 @@ function secretKey(provider: string): string {
  */
 function migrateLegacyKey(db: ChronicleDb): void {
   const legacy = getSetting<string>(db, LEGACY_SECRET_KEY)
-  if (legacy === undefined) return
-  if (getSetting<string>(db, secretKey(LEGACY_DEFAULT_PROVIDER)) === undefined) {
-    setSetting(db, secretKey(LEGACY_DEFAULT_PROVIDER), legacy)
+  if (legacy !== undefined) {
+    if (getSetting<string>(db, secretKey(LEGACY_DEFAULT_PROVIDER)) === undefined) {
+      setSetting(db, secretKey(LEGACY_DEFAULT_PROVIDER), legacy)
+    }
+    db.prepare('DELETE FROM settings WHERE key = ?').run(LEGACY_SECRET_KEY)
   }
-  db.prepare('DELETE FROM settings WHERE key = ?').run(LEGACY_SECRET_KEY)
+
+  const oldGoogle = getSetting<string>(db, secretKey(OLD_GOOGLE_PROVIDER))
+  if (oldGoogle !== undefined) {
+    if (getSetting<string>(db, secretKey(LEGACY_DEFAULT_PROVIDER)) === undefined) {
+      setSetting(db, secretKey(LEGACY_DEFAULT_PROVIDER), oldGoogle)
+    }
+    db.prepare('DELETE FROM settings WHERE key = ?').run(secretKey(OLD_GOOGLE_PROVIDER))
+  }
 }
 
 export function createSafeStorageSecretStore(db: ChronicleDb): SecretStore {

@@ -25,8 +25,15 @@
       "out/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "../../packages/brand/assets/png/chronicle-app-icon-dark-256.png",
+        "to": "chronicle-app-icon.png"
+      }
+    ],
     "asar": true,
     "win": {
+      "icon": "../../packages/brand/assets/chronicle-app-icon.ico",
       "target": [
         "nsis"
       ],

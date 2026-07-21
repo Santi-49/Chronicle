@@ -640,6 +640,35 @@ export function enqueueJob(db: ChronicleDb, jobType: JobType, payload: unknown):
   return listJobs(db).find((j) => j.id === info.lastInsertRowid)!
 }
 
+/**
+ * Queues every annotation-backed version that does not already have a pending
+ * embedding job. Used when the selected embeddings provider/model changes;
+ * the worker embeds existing text without repeating the vision annotation.
+ */
+export function enqueueEmbeddingReindexJobs(db: ChronicleDb): number {
+  return db.transaction(() => {
+    const queuedVersionIds = new Set(
+      listJobs(db, 'embedding').flatMap((job) => {
+        const payload = job.payload as { versionId?: unknown } | null
+        return typeof payload?.versionId === 'number' ? [payload.versionId] : []
+      }),
+    )
+    const annotations = db
+      .prepare('SELECT version_id FROM ai_annotations ORDER BY version_id')
+      .all() as Array<{ version_id: number }>
+    let queued = 0
+    for (const { version_id: versionId } of annotations) {
+      if (queuedVersionIds.has(versionId)) continue
+      db.prepare('INSERT INTO queue_items (job_type, payload) VALUES (?, ?)').run(
+        'embedding',
+        JSON.stringify({ versionId }),
+      )
+      queued += 1
+    }
+    return queued
+  })()
+}
+
 /** FIFO order; optionally filtered by job type. */
 export function listJobs(db: ChronicleDb, jobType?: JobType): QueueItem[] {
   const rows = (

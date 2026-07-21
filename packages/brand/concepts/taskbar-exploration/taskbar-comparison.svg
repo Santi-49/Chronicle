@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1326" height="548" viewBox="0 0 1326 548">
+  <rect width="100%" height="100%" fill="#edf0f3"/>
+  <text x="24" y="34" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700" fill="#111827">Chronicle taskbar icon exploration</text>
+  <text x="24" y="58" font-family="Segoe UI, sans-serif" font-size="12" fill="#4b5563">Large views expose form and palette; the bottom row is the Windows 11 taskbar size at 100% scaling (24 px).</text>
+  <g font-family="Segoe UI, sans-serif">
+    <g>
+      <rect x="24" y="78" width="174" height="332" rx="16" fill="#ffffff" stroke="#d8dde3"/>
+      <text x="38" y="105" font-size="18" font-weight="700" fill="#111827">Current</text>
+      <text x="38" y="126" font-size="12" font-weight="600" fill="#374151">Current icon</text>
+      <text x="38" y="145" font-size="10" fill="#6b7280">dark plate + blue/green</text>
+      <rect x="38" y="162" width="146" height="108" rx="10" fill="#20262b"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBmaWxsPSJub25lIj4NCiAgPHRpdGxlPkNocm9uaWNsZSBhcHBsaWNhdGlvbiBpY29uIGZvciBkYXJrIHN1cmZhY2VzPC90aXRsZT4NCiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iNDY0IiBoZWlnaHQ9IjQ2NCIgcng9IjEwNCIgZmlsbD0iIzE2MTYxNiIgc3Ryb2tlPSIjMzkzOTM5IiBzdHJva2Utd2lkdGg9IjgiLz4NCiAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjAgNTQpIHNjYWxlKDEzLjUpIj4NCiAgICA8ZyBzdHJva2U9IiM3OGE5ZmYiPg0KICAgICAgPHJlY3QgeD0iMiIgeT0iNSIgd2lkdGg9IjE5IiBoZWlnaHQ9IjE0IiByeD0iMi41IiBzdHJva2Utd2lkdGg9IjEuNCIgb3BhY2l0eT0iLjM1Ii8+DQogICAgICA8cmVjdCB4PSI1IiB5PSI4IiB3aWR0aD0iMTkiIGhlaWdodD0iMTQiIHJ4PSIyLjUiIHN0cm9rZS13aWR0aD0iMS40IiBvcGFjaXR5PSIuNjUiLz4NCiAgICAgIDxyZWN0IHg9IjgiIHk9IjExIiB3aWR0aD0iMTkiIGhlaWdodD0iMTQiIHJ4PSIyLjUiIHN0cm9rZS13aWR0aD0iMS44Ii8+DQogICAgICA8Y2lyY2xlIGN4PSIxNy41IiBjeT0iMTgiIHI9IjQuNSIgc3Ryb2tlLXdpZHRoPSIxLjMiLz4NCiAgICAgIDxwYXRoIGQ9Ik0xNy41IDE4di0zLjIiIHN0cm9rZS13aWR0aD0iMS4zIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4NCiAgICA8L2c+DQogICAgPHBhdGggZD0ibTE3LjUgMTggMi43IDEuNiIgc3Ryb2tlPSIjNDJiZTY1IiBzdHJva2Utd2lkdGg9IjEuMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+DQogIDwvZz4NCjwvc3ZnPg0K" x="71" y="176" width="80" height="80"/>
+      <text x="48" y="260" font-size="9" fill="#aeb7bf">dark context · 80 px</text>
+      <rect x="38" y="282" width="146" height="108" rx="10" fill="#f4f4f4" stroke="#e5e7eb"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBmaWxsPSJub25lIj4NCiAgPHRpdGxlPkNocm9uaWNsZSBhcHBsaWNhdGlvbiBpY29uIGZvciBkYXJrIHN1cmZhY2VzPC90aXRsZT4NCiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iNDY0IiBoZWlnaHQ9IjQ2NCIgcng9IjEwNCIgZmlsbD0iIzE2MTYxNiIgc3Ryb2tlPSIjMzkzOTM5IiBzdHJva2Utd2lkdGg9IjgiLz4NCiAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjAgNTQpIHNjYWxlKDEzLjUpIj4NCiAgICA8ZyBzdHJva2U9IiM3OGE5ZmYiPg0KICAgICAgPHJlY3QgeD0iMiIgeT0iNSIgd2lkdGg9IjE5IiBoZWlnaHQ9IjE0IiByeD0iMi41IiBzdHJva2Utd2lkdGg9IjEuNCIgb3BhY2l0eT0iLjM1Ii8+DQogICAgICA8cmVjdCB4PSI1IiB5PSI4IiB3aWR0aD0iMTkiIGhlaWdodD0iMTQiIHJ4PSIyLjUiIHN0cm9rZS13aWR0aD0iMS40IiBvcGFjaXR5PSIuNjUiLz4NCiAgICAgIDxyZWN0IHg9IjgiIHk9IjExIiB3aWR0aD0iMTkiIGhlaWdodD0iMTQiIHJ4PSIyLjUiIHN0cm9rZS13aWR0aD0iMS44Ii8+DQogICAgICA8Y2lyY2xlIGN4PSIxNy41IiBjeT0iMTgiIHI9IjQuNSIgc3Ryb2tlLXdpZHRoPSIxLjMiLz4NCiAgICAgIDxwYXRoIGQ9Ik0xNy41IDE4di0zLjIiIHN0cm9rZS13aWR0aD0iMS4zIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4NCiAgICA8L2c+DQogICAgPHBhdGggZD0ibTE3LjUgMTggMi43IDEuNiIgc3Ryb2tlPSIjNDJiZTY1IiBzdHJva2Utd2lkdGg9IjEuMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+DQogIDwvZz4NCjwvc3ZnPg0K" x="71" y="296" width="80" height="80"/>
+      <text x="48" y="380" font-size="9" fill="#6b7280">light context · 80 px</text>
+    </g>
+    <g>
+      <rect x="208" y="78" width="174" height="332" rx="16" fill="#ffffff" stroke="#d8dde3"/>
+      <text x="222" y="105" font-size="18" font-weight="700" fill="#111827">A</text>
+      <text x="222" y="126" font-size="12" font-weight="600" fill="#374151">Snapshot Clock</text>
+      <text x="222" y="145" font-size="10" fill="#6b7280">azure</text>
+      <rect x="222" y="162" width="146" height="108" rx="10" fill="#20262b"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkEg4oCUIFNuYXBzaG90IENsb2NrPC90aXRsZT4KICA8cmVjdCB4PSI1IiB5PSI1IiB3aWR0aD0iMjciIGhlaWdodD0iMjgiIHJ4PSI2IiBmaWxsPSIjNjBhNWZhIi8+CiAgPHJlY3QgeD0iMTMiIHk9IjExIiB3aWR0aD0iMzAiIGhlaWdodD0iMzEiIHJ4PSI3IiBmaWxsPSIjMWQ0ZWQ4Ii8+CiAgPGNpcmNsZSBjeD0iMjkiIGN5PSIyNyIgcj0iOSIgZmlsbD0iI2VmZjZmZiIvPgogIDxwYXRoIGQ9Ik0yOSAyMS41VjI3bDQgMi41IiBzdHJva2U9IiMxZTNhOGEiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" x="255" y="176" width="80" height="80"/>
+      <text x="232" y="260" font-size="9" fill="#aeb7bf">dark context · 80 px</text>
+      <rect x="222" y="282" width="146" height="108" rx="10" fill="#f4f4f4" stroke="#e5e7eb"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkEg4oCUIFNuYXBzaG90IENsb2NrPC90aXRsZT4KICA8cmVjdCB4PSI1IiB5PSI1IiB3aWR0aD0iMjciIGhlaWdodD0iMjgiIHJ4PSI2IiBmaWxsPSIjNjBhNWZhIi8+CiAgPHJlY3QgeD0iMTMiIHk9IjExIiB3aWR0aD0iMzAiIGhlaWdodD0iMzEiIHJ4PSI3IiBmaWxsPSIjMWQ0ZWQ4Ii8+CiAgPGNpcmNsZSBjeD0iMjkiIGN5PSIyNyIgcj0iOSIgZmlsbD0iI2VmZjZmZiIvPgogIDxwYXRoIGQ9Ik0yOSAyMS41VjI3bDQgMi41IiBzdHJva2U9IiMxZTNhOGEiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" x="255" y="296" width="80" height="80"/>
+      <text x="232" y="380" font-size="9" fill="#6b7280">light context · 80 px</text>
+    </g>
+    <g>
+      <rect x="392" y="78" width="174" height="332" rx="16" fill="#ffffff" stroke="#d8dde3"/>
+      <text x="406" y="105" font-size="18" font-weight="700" fill="#111827">B</text>
+      <text x="406" y="126" font-size="12" font-weight="600" fill="#374151">Rewind Frame</text>
+      <text x="406" y="145" font-size="10" fill="#6b7280">teal</text>
+      <rect x="406" y="162" width="146" height="108" rx="10" fill="#20262b"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkIg4oCUIFJld2luZCBGcmFtZTwvdGl0bGU+CiAgPHBhdGggZD0iTTM4LjUgMTcuNUExNyAxNyAwIDEgMSAyOSA4LjIiIHN0cm9rZT0iIzBmNzY2ZSIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJtMjcgMyAxMSAzLTggOFoiIGZpbGw9IiMyZGQ0YmYiLz4KICA8cmVjdCB4PSIxNiIgeT0iMTYiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxNiIgcng9IjQiIGZpbGw9IiNjY2ZiZjEiLz4KICA8cGF0aCBkPSJtMTguNSAyOSA1LTUgMy41IDMgMy0yLjUgMiA0LjVaIiBmaWxsPSIjMGY3NjZlIi8+Cjwvc3ZnPgo=" x="439" y="176" width="80" height="80"/>
+      <text x="416" y="260" font-size="9" fill="#aeb7bf">dark context · 80 px</text>
+      <rect x="406" y="282" width="146" height="108" rx="10" fill="#f4f4f4" stroke="#e5e7eb"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkIg4oCUIFJld2luZCBGcmFtZTwvdGl0bGU+CiAgPHBhdGggZD0iTTM4LjUgMTcuNUExNyAxNyAwIDEgMSAyOSA4LjIiIHN0cm9rZT0iIzBmNzY2ZSIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJtMjcgMyAxMSAzLTggOFoiIGZpbGw9IiMyZGQ0YmYiLz4KICA8cmVjdCB4PSIxNiIgeT0iMTYiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxNiIgcng9IjQiIGZpbGw9IiNjY2ZiZjEiLz4KICA8cGF0aCBkPSJtMTguNSAyOSA1LTUgMy41IDMgMy0yLjUgMiA0LjVaIiBmaWxsPSIjMGY3NjZlIi8+Cjwvc3ZnPgo=" x="439" y="296" width="80" height="80"/>
+      <text x="416" y="380" font-size="9" fill="#6b7280">light context · 80 px</text>
+    </g>
+    <g>
+      <rect x="576" y="78" width="174" height="332" rx="16" fill="#ffffff" stroke="#d8dde3"/>
+      <text x="590" y="105" font-size="18" font-weight="700" fill="#111827">C</text>
+      <text x="590" y="126" font-size="12" font-weight="600" fill="#374151">Version Cascade</text>
+      <text x="590" y="145" font-size="10" fill="#6b7280">indigo–violet</text>
+      <rect x="590" y="162" width="146" height="108" rx="10" fill="#20262b"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkMg4oCUIFZlcnNpb24gQ2FzY2FkZTwvdGl0bGU+CiAgPHJlY3QgeD0iNSIgeT0iOCIgd2lkdGg9IjI2IiBoZWlnaHQ9IjI3IiByeD0iNiIgdHJhbnNmb3JtPSJyb3RhdGUoLTEwIDUgOCkiIGZpbGw9IiNjNGI1ZmQiLz4KICA8cmVjdCB4PSIxMSIgeT0iOCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjMwIiByeD0iNyIgdHJhbnNmb3JtPSJyb3RhdGUoNCAxMSA4KSIgZmlsbD0iIzhiNWNmNiIvPgogIDxyZWN0IHg9IjE2IiB5PSIxMiIgd2lkdGg9IjI3IiBoZWlnaHQ9IjI5IiByeD0iNyIgZmlsbD0iIzQzMzhjYSIvPgogIDxwYXRoIGQ9Ik0yMiAyMGgxNU0yMiAyNmgxMU0yMiAzMmg3IiBzdHJva2U9IiNlZWYyZmYiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=" x="623" y="176" width="80" height="80"/>
+      <text x="600" y="260" font-size="9" fill="#aeb7bf">dark context · 80 px</text>
+      <rect x="590" y="282" width="146" height="108" rx="10" fill="#f4f4f4" stroke="#e5e7eb"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkMg4oCUIFZlcnNpb24gQ2FzY2FkZTwvdGl0bGU+CiAgPHJlY3QgeD0iNSIgeT0iOCIgd2lkdGg9IjI2IiBoZWlnaHQ9IjI3IiByeD0iNiIgdHJhbnNmb3JtPSJyb3RhdGUoLTEwIDUgOCkiIGZpbGw9IiNjNGI1ZmQiLz4KICA8cmVjdCB4PSIxMSIgeT0iOCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjMwIiByeD0iNyIgdHJhbnNmb3JtPSJyb3RhdGUoNCAxMSA4KSIgZmlsbD0iIzhiNWNmNiIvPgogIDxyZWN0IHg9IjE2IiB5PSIxMiIgd2lkdGg9IjI3IiBoZWlnaHQ9IjI5IiByeD0iNyIgZmlsbD0iIzQzMzhjYSIvPgogIDxwYXRoIGQ9Ik0yMiAyMGgxNU0yMiAyNmgxMU0yMiAzMmg3IiBzdHJva2U9IiNlZWYyZmYiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=" x="623" y="296" width="80" height="80"/>
+      <text x="600" y="380" font-size="9" fill="#6b7280">light context · 80 px</text>
+    </g>
+    <g>
+      <rect x="760" y="78" width="174" height="332" rx="16" fill="#ffffff" stroke="#d8dde3"/>
+      <text x="774" y="105" font-size="18" font-weight="700" fill="#111827">D</text>
+      <text x="774" y="126" font-size="12" font-weight="600" fill="#374151">Timeline Ribbon</text>
+      <text x="774" y="145" font-size="10" fill="#6b7280">orange–amber</text>
+      <rect x="774" y="162" width="146" height="108" rx="10" fill="#20262b"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkQg4oCUIFRpbWVsaW5lIFJpYmJvbjwvdGl0bGU+CiAgPHBhdGggZD0iTTEwIDEyaDE5YzcuMiAwIDExIDQgMTEgMTBzLTMuOCAxMC0xMSAxMEgxN2MtNS41IDAtOCAyLjctOCA3IiBzdHJva2U9IiNjMjQxMGMiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPHBhdGggZD0iTTEwIDEyaDE5YzQuNCAwIDcuNSAxLjUgOS4yIDQuMiIgc3Ryb2tlPSIjZjk3MzE2IiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxjaXJjbGUgY3g9IjEwIiBjeT0iMTIiIHI9IjYiIGZpbGw9IiNmYmJmMjQiLz4KICA8Y2lyY2xlIGN4PSI5IiBjeT0iMzkiIHI9IjUiIGZpbGw9IiNmYjkyM2MiLz4KPC9zdmc+Cg==" x="807" y="176" width="80" height="80"/>
+      <text x="784" y="260" font-size="9" fill="#aeb7bf">dark context · 80 px</text>
+      <rect x="774" y="282" width="146" height="108" rx="10" fill="#f4f4f4" stroke="#e5e7eb"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkQg4oCUIFRpbWVsaW5lIFJpYmJvbjwvdGl0bGU+CiAgPHBhdGggZD0iTTEwIDEyaDE5YzcuMiAwIDExIDQgMTEgMTBzLTMuOCAxMC0xMSAxMEgxN2MtNS41IDAtOCAyLjctOCA3IiBzdHJva2U9IiNjMjQxMGMiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPHBhdGggZD0iTTEwIDEyaDE5YzQuNCAwIDcuNSAxLjUgOS4yIDQuMiIgc3Ryb2tlPSIjZjk3MzE2IiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxjaXJjbGUgY3g9IjEwIiBjeT0iMTIiIHI9IjYiIGZpbGw9IiNmYmJmMjQiLz4KICA8Y2lyY2xlIGN4PSI5IiBjeT0iMzkiIHI9IjUiIGZpbGw9IiNmYjkyM2MiLz4KPC9zdmc+Cg==" x="807" y="296" width="80" height="80"/>
+      <text x="784" y="380" font-size="9" fill="#6b7280">light context · 80 px</text>
+    </g>
+    <g>
+      <rect x="944" y="78" width="174" height="332" rx="16" fill="#ffffff" stroke="#d8dde3"/>
+      <text x="958" y="105" font-size="18" font-weight="700" fill="#111827">E</text>
+      <text x="958" y="126" font-size="12" font-weight="600" fill="#374151">Before / After</text>
+      <text x="958" y="145" font-size="10" fill="#6b7280">blue–cyan</text>
+      <rect x="958" y="162" width="146" height="108" rx="10" fill="#20262b"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkUg4oCUIEJlZm9yZSAvIEFmdGVyPC90aXRsZT4KICA8cmVjdCB4PSI0IiB5PSI4IiB3aWR0aD0iMjciIGhlaWdodD0iMzEiIHJ4PSI3IiBmaWxsPSIjMDc1OTg1Ii8+CiAgPHJlY3QgeD0iMTciIHk9IjkiIHdpZHRoPSIyNyIgaGVpZ2h0PSIzMSIgcng9IjciIGZpbGw9IiMwMjg0YzciLz4KICA8cGF0aCBkPSJNMTcgMTZjNyAwIDEzIDUuNiAxMyAxMi41VjQwSDE3WiIgZmlsbD0iIzIyZDNlZSIvPgogIDxwYXRoIGQ9Im0xMiAyNCA2LTZ2NGgxMXY0SDE4djRaIiBmaWxsPSIjZWNmZWZmIi8+Cjwvc3ZnPgo=" x="991" y="176" width="80" height="80"/>
+      <text x="968" y="260" font-size="9" fill="#aeb7bf">dark context · 80 px</text>
+      <rect x="958" y="282" width="146" height="108" rx="10" fill="#f4f4f4" stroke="#e5e7eb"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkUg4oCUIEJlZm9yZSAvIEFmdGVyPC90aXRsZT4KICA8cmVjdCB4PSI0IiB5PSI4IiB3aWR0aD0iMjciIGhlaWdodD0iMzEiIHJ4PSI3IiBmaWxsPSIjMDc1OTg1Ii8+CiAgPHJlY3QgeD0iMTciIHk9IjkiIHdpZHRoPSIyNyIgaGVpZ2h0PSIzMSIgcng9IjciIGZpbGw9IiMwMjg0YzciLz4KICA8cGF0aCBkPSJNMTcgMTZjNyAwIDEzIDUuNiAxMyAxMi41VjQwSDE3WiIgZmlsbD0iIzIyZDNlZSIvPgogIDxwYXRoIGQ9Im0xMiAyNCA2LTZ2NGgxMXY0SDE4djRaIiBmaWxsPSIjZWNmZWZmIi8+Cjwvc3ZnPgo=" x="991" y="296" width="80" height="80"/>
+      <text x="968" y="380" font-size="9" fill="#6b7280">light context · 80 px</text>
+    </g>
+    <g>
+      <rect x="1128" y="78" width="174" height="332" rx="16" fill="#ffffff" stroke="#d8dde3"/>
+      <text x="1142" y="105" font-size="18" font-weight="700" fill="#111827">F</text>
+      <text x="1142" y="126" font-size="12" font-weight="600" fill="#374151">Temporal Aperture</text>
+      <text x="1142" y="145" font-size="10" fill="#6b7280">violet–magenta</text>
+      <rect x="1142" y="162" width="146" height="108" rx="10" fill="#20262b"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkYg4oCUIFRlbXBvcmFsIEFwZXJ0dXJlPC90aXRsZT4KICA8cGF0aCBkPSJNMjQgNWExOSAxOSAwIDAgMSAxNi41IDkuNUwyOSAxN1oiIGZpbGw9IiNlYzQ4OTkiLz4KICA8cGF0aCBkPSJNNDAuNSAxNC41QTE5IDE5IDAgMCAxIDQwLjUgMzNMMzIgMjRaIiBmaWxsPSIjYTg1NWY3Ii8+CiAgPHBhdGggZD0iTTQwLjUgMzNBMTkgMTkgMCAwIDEgMjQgNDJsMi0xM1oiIGZpbGw9IiM3ZTIyY2UiLz4KICA8cGF0aCBkPSJNMjQgNDJBMTkgMTkgMCAwIDEgNy41IDMyLjVMMTkgMzBaIiBmaWxsPSIjNmQyOGQ5Ii8+CiAgPHBhdGggZD0iTTcuNSAzMi41QTE5IDE5IDAgMCAxIDcuNSAxNEwxNiAyNFoiIGZpbGw9IiM4YjVjZjYiLz4KICA8cGF0aCBkPSJNNy41IDE0QTE5IDE5IDAgMCAxIDI0IDVsLTIgMTNaIiBmaWxsPSIjYzA4NGZjIi8+CiAgPGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iNSIgZmlsbD0iI2ZhZjVmZiIvPgo8L3N2Zz4K" x="1175" y="176" width="80" height="80"/>
+      <text x="1152" y="260" font-size="9" fill="#aeb7bf">dark context · 80 px</text>
+      <rect x="1142" y="282" width="146" height="108" rx="10" fill="#f4f4f4" stroke="#e5e7eb"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkYg4oCUIFRlbXBvcmFsIEFwZXJ0dXJlPC90aXRsZT4KICA8cGF0aCBkPSJNMjQgNWExOSAxOSAwIDAgMSAxNi41IDkuNUwyOSAxN1oiIGZpbGw9IiNlYzQ4OTkiLz4KICA8cGF0aCBkPSJNNDAuNSAxNC41QTE5IDE5IDAgMCAxIDQwLjUgMzNMMzIgMjRaIiBmaWxsPSIjYTg1NWY3Ii8+CiAgPHBhdGggZD0iTTQwLjUgMzNBMTkgMTkgMCAwIDEgMjQgNDJsMi0xM1oiIGZpbGw9IiM3ZTIyY2UiLz4KICA8cGF0aCBkPSJNMjQgNDJBMTkgMTkgMCAwIDEgNy41IDMyLjVMMTkgMzBaIiBmaWxsPSIjNmQyOGQ5Ii8+CiAgPHBhdGggZD0iTTcuNSAzMi41QTE5IDE5IDAgMCAxIDcuNSAxNEwxNiAyNFoiIGZpbGw9IiM4YjVjZjYiLz4KICA8cGF0aCBkPSJNNy41IDE0QTE5IDE5IDAgMCAxIDI0IDVsLTIgMTNaIiBmaWxsPSIjYzA4NGZjIi8+CiAgPGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iNSIgZmlsbD0iI2ZhZjVmZiIvPgo8L3N2Zz4K" x="1175" y="296" width="80" height="80"/>
+      <text x="1152" y="380" font-size="9" fill="#6b7280">light context · 80 px</text>
+    </g></g>
+  <rect x="0" y="444" width="1326" height="104" fill="#20262b"/>
+  <g font-family="Segoe UI, sans-serif">
+    <g>
+      <rect x="90" y="462" width="42" height="42" rx="5" fill="#ffffff" opacity=".055"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiBmaWxsPSJub25lIj4NCiAgPHRpdGxlPkNocm9uaWNsZSBhcHBsaWNhdGlvbiBpY29uIGZvciBkYXJrIHN1cmZhY2VzPC90aXRsZT4NCiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iNDY0IiBoZWlnaHQ9IjQ2NCIgcng9IjEwNCIgZmlsbD0iIzE2MTYxNiIgc3Ryb2tlPSIjMzkzOTM5IiBzdHJva2Utd2lkdGg9IjgiLz4NCiAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjAgNTQpIHNjYWxlKDEzLjUpIj4NCiAgICA8ZyBzdHJva2U9IiM3OGE5ZmYiPg0KICAgICAgPHJlY3QgeD0iMiIgeT0iNSIgd2lkdGg9IjE5IiBoZWlnaHQ9IjE0IiByeD0iMi41IiBzdHJva2Utd2lkdGg9IjEuNCIgb3BhY2l0eT0iLjM1Ii8+DQogICAgICA8cmVjdCB4PSI1IiB5PSI4IiB3aWR0aD0iMTkiIGhlaWdodD0iMTQiIHJ4PSIyLjUiIHN0cm9rZS13aWR0aD0iMS40IiBvcGFjaXR5PSIuNjUiLz4NCiAgICAgIDxyZWN0IHg9IjgiIHk9IjExIiB3aWR0aD0iMTkiIGhlaWdodD0iMTQiIHJ4PSIyLjUiIHN0cm9rZS13aWR0aD0iMS44Ii8+DQogICAgICA8Y2lyY2xlIGN4PSIxNy41IiBjeT0iMTgiIHI9IjQuNSIgc3Ryb2tlLXdpZHRoPSIxLjMiLz4NCiAgICAgIDxwYXRoIGQ9Ik0xNy41IDE4di0zLjIiIHN0cm9rZS13aWR0aD0iMS4zIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4NCiAgICA8L2c+DQogICAgPHBhdGggZD0ibTE3LjUgMTggMi43IDEuNiIgc3Ryb2tlPSIjNDJiZTY1IiBzdHJva2Utd2lkdGg9IjEuMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+DQogIDwvZz4NCjwvc3ZnPg0K" x="99" y="471" width="24" height="24"/>
+      <rect x="104" y="509" width="14" height="3" rx="1.5" fill="#fb7185"/>
+      <text x="111" y="535" text-anchor="middle" font-size="11" font-weight="700" fill="#d8dee4">Current</text>
+    </g>
+    <g>
+      <rect x="274" y="462" width="42" height="42" rx="5" fill="#ffffff" opacity=".055"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkEg4oCUIFNuYXBzaG90IENsb2NrPC90aXRsZT4KICA8cmVjdCB4PSI1IiB5PSI1IiB3aWR0aD0iMjciIGhlaWdodD0iMjgiIHJ4PSI2IiBmaWxsPSIjNjBhNWZhIi8+CiAgPHJlY3QgeD0iMTMiIHk9IjExIiB3aWR0aD0iMzAiIGhlaWdodD0iMzEiIHJ4PSI3IiBmaWxsPSIjMWQ0ZWQ4Ii8+CiAgPGNpcmNsZSBjeD0iMjkiIGN5PSIyNyIgcj0iOSIgZmlsbD0iI2VmZjZmZiIvPgogIDxwYXRoIGQ9Ik0yOSAyMS41VjI3bDQgMi41IiBzdHJva2U9IiMxZTNhOGEiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=" x="283" y="471" width="24" height="24"/>
+      <rect x="288" y="509" width="14" height="3" rx="1.5" fill="#fb7185"/>
+      <text x="295" y="535" text-anchor="middle" font-size="11" font-weight="700" fill="#d8dee4">A</text>
+    </g>
+    <g>
+      <rect x="458" y="462" width="42" height="42" rx="5" fill="#ffffff" opacity=".055"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkIg4oCUIFJld2luZCBGcmFtZTwvdGl0bGU+CiAgPHBhdGggZD0iTTM4LjUgMTcuNUExNyAxNyAwIDEgMSAyOSA4LjIiIHN0cm9rZT0iIzBmNzY2ZSIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJtMjcgMyAxMSAzLTggOFoiIGZpbGw9IiMyZGQ0YmYiLz4KICA8cmVjdCB4PSIxNiIgeT0iMTYiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxNiIgcng9IjQiIGZpbGw9IiNjY2ZiZjEiLz4KICA8cGF0aCBkPSJtMTguNSAyOSA1LTUgMy41IDMgMy0yLjUgMiA0LjVaIiBmaWxsPSIjMGY3NjZlIi8+Cjwvc3ZnPgo=" x="467" y="471" width="24" height="24"/>
+      <rect x="472" y="509" width="14" height="3" rx="1.5" fill="#fb7185"/>
+      <text x="479" y="535" text-anchor="middle" font-size="11" font-weight="700" fill="#d8dee4">B</text>
+    </g>
+    <g>
+      <rect x="642" y="462" width="42" height="42" rx="5" fill="#ffffff" opacity=".055"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkMg4oCUIFZlcnNpb24gQ2FzY2FkZTwvdGl0bGU+CiAgPHJlY3QgeD0iNSIgeT0iOCIgd2lkdGg9IjI2IiBoZWlnaHQ9IjI3IiByeD0iNiIgdHJhbnNmb3JtPSJyb3RhdGUoLTEwIDUgOCkiIGZpbGw9IiNjNGI1ZmQiLz4KICA8cmVjdCB4PSIxMSIgeT0iOCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjMwIiByeD0iNyIgdHJhbnNmb3JtPSJyb3RhdGUoNCAxMSA4KSIgZmlsbD0iIzhiNWNmNiIvPgogIDxyZWN0IHg9IjE2IiB5PSIxMiIgd2lkdGg9IjI3IiBoZWlnaHQ9IjI5IiByeD0iNyIgZmlsbD0iIzQzMzhjYSIvPgogIDxwYXRoIGQ9Ik0yMiAyMGgxNU0yMiAyNmgxMU0yMiAzMmg3IiBzdHJva2U9IiNlZWYyZmYiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=" x="651" y="471" width="24" height="24"/>
+      <rect x="656" y="509" width="14" height="3" rx="1.5" fill="#fb7185"/>
+      <text x="663" y="535" text-anchor="middle" font-size="11" font-weight="700" fill="#d8dee4">C</text>
+    </g>
+    <g>
+      <rect x="826" y="462" width="42" height="42" rx="5" fill="#ffffff" opacity=".055"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkQg4oCUIFRpbWVsaW5lIFJpYmJvbjwvdGl0bGU+CiAgPHBhdGggZD0iTTEwIDEyaDE5YzcuMiAwIDExIDQgMTEgMTBzLTMuOCAxMC0xMSAxMEgxN2MtNS41IDAtOCAyLjctOCA3IiBzdHJva2U9IiNjMjQxMGMiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPHBhdGggZD0iTTEwIDEyaDE5YzQuNCAwIDcuNSAxLjUgOS4yIDQuMiIgc3Ryb2tlPSIjZjk3MzE2IiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxjaXJjbGUgY3g9IjEwIiBjeT0iMTIiIHI9IjYiIGZpbGw9IiNmYmJmMjQiLz4KICA8Y2lyY2xlIGN4PSI5IiBjeT0iMzkiIHI9IjUiIGZpbGw9IiNmYjkyM2MiLz4KPC9zdmc+Cg==" x="835" y="471" width="24" height="24"/>
+      <rect x="840" y="509" width="14" height="3" rx="1.5" fill="#fb7185"/>
+      <text x="847" y="535" text-anchor="middle" font-size="11" font-weight="700" fill="#d8dee4">D</text>
+    </g>
+    <g>
+      <rect x="1010" y="462" width="42" height="42" rx="5" fill="#ffffff" opacity=".055"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkUg4oCUIEJlZm9yZSAvIEFmdGVyPC90aXRsZT4KICA8cmVjdCB4PSI0IiB5PSI4IiB3aWR0aD0iMjciIGhlaWdodD0iMzEiIHJ4PSI3IiBmaWxsPSIjMDc1OTg1Ii8+CiAgPHJlY3QgeD0iMTciIHk9IjkiIHdpZHRoPSIyNyIgaGVpZ2h0PSIzMSIgcng9IjciIGZpbGw9IiMwMjg0YzciLz4KICA8cGF0aCBkPSJNMTcgMTZjNyAwIDEzIDUuNiAxMyAxMi41VjQwSDE3WiIgZmlsbD0iIzIyZDNlZSIvPgogIDxwYXRoIGQ9Im0xMiAyNCA2LTZ2NGgxMXY0SDE4djRaIiBmaWxsPSIjZWNmZWZmIi8+Cjwvc3ZnPgo=" x="1019" y="471" width="24" height="24"/>
+      <rect x="1024" y="509" width="14" height="3" rx="1.5" fill="#fb7185"/>
+      <text x="1031" y="535" text-anchor="middle" font-size="11" font-weight="700" fill="#d8dee4">E</text>
+    </g>
+    <g>
+      <rect x="1194" y="462" width="42" height="42" rx="5" fill="#ffffff" opacity=".055"/>
+      <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CiAgPHRpdGxlPkYg4oCUIFRlbXBvcmFsIEFwZXJ0dXJlPC90aXRsZT4KICA8cGF0aCBkPSJNMjQgNWExOSAxOSAwIDAgMSAxNi41IDkuNUwyOSAxN1oiIGZpbGw9IiNlYzQ4OTkiLz4KICA8cGF0aCBkPSJNNDAuNSAxNC41QTE5IDE5IDAgMCAxIDQwLjUgMzNMMzIgMjRaIiBmaWxsPSIjYTg1NWY3Ii8+CiAgPHBhdGggZD0iTTQwLjUgMzNBMTkgMTkgMCAwIDEgMjQgNDJsMi0xM1oiIGZpbGw9IiM3ZTIyY2UiLz4KICA8cGF0aCBkPSJNMjQgNDJBMTkgMTkgMCAwIDEgNy41IDMyLjVMMTkgMzBaIiBmaWxsPSIjNmQyOGQ5Ii8+CiAgPHBhdGggZD0iTTcuNSAzMi41QTE5IDE5IDAgMCAxIDcuNSAxNEwxNiAyNFoiIGZpbGw9IiM4YjVjZjYiLz4KICA8cGF0aCBkPSJNNy41IDE0QTE5IDE5IDAgMCAxIDI0IDVsLTIgMTNaIiBmaWxsPSIjYzA4NGZjIi8+CiAgPGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iNSIgZmlsbD0iI2ZhZjVmZiIvPgo8L3N2Zz4K" x="1203" y="471" width="24" height="24"/>
+      <rect x="1208" y="509" width="14" height="3" rx="1.5" fill="#fb7185"/>
+      <text x="1215" y="535" text-anchor="middle" font-size="11" font-weight="700" fill="#d8dee4">F</text>
+    </g></g>
+</svg>

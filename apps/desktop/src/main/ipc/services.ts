@@ -11,8 +11,8 @@
  * the preload bridge forwards arguments verbatim, so this is the boundary
  * where untrusted renderer data is checked.
  *
- * Search remains planned in MVP-10. Account/control-plane operations are
- * optional and injected; local mode always works without them.
+ * Search and account/control-plane operations are optional and injected;
+ * local mode always works without either external service.
  */
 import path from 'node:path'
 import fs from 'node:fs/promises'
@@ -21,6 +21,7 @@ import type {
   AppStatus,
   AssetSummary,
   ChronicleApi,
+  WindowTheme,
   FolderMetaPatch,
   FolderScanEntry,
   PendingJob,
@@ -29,6 +30,7 @@ import type {
   VersionSummary,
 } from '../../shared/ipc'
 import type { AppSettings } from '../../shared/settings'
+import { aiSelectionError } from '../../shared/aiCatalog'
 import type { ChronicleDb } from '../db/database'
 import {
   addTrackedFolder,
@@ -48,6 +50,7 @@ import {
   resetAssetHistory as resetStoredAssetHistory,
   updateTrackedFolder,
   enqueueJob,
+  enqueueEmbeddingReindexJobs,
   type JobType,
   type VersionRecord,
 } from '../db/repositories'
@@ -66,12 +69,15 @@ import type { SecretStore } from './secrets'
 import type { ControlPlaneClient, InstallationDescriptor } from '../gateway-client/client'
 import { portableSettings } from '../gateway-client/client'
 import { decryptProviderKeys, encryptProviderKeys } from '../gateway-client/secret-envelope'
+import { embeddingModelIdentity, search } from '../search'
+import type { AiClient } from '../ai/client'
 
 // ── Settings defaults (implementation policy per C5, not contract) ──────
 
 const SETTINGS_KEY = 'app-settings'
 const INSTALLATION_ID_KEY = 'control-plane-installation-id'
 const TELEMETRY_DEFAULT_MIGRATION_KEY = 'post03-telemetry-default-applied'
+const SETTINGS_SYNC_DEFAULT_MIGRATION_KEY = 'post03-settings-sync-default-applied'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   appearance: { theme: 'system' },
@@ -81,13 +87,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
     // live acceptance. This is configuration, not code: the engine stays
     // model-agnostic (spec §6.4) and the user can switch provider/model in
     // Settings. AI stays inert until an API key is also configured.
-    chat: { provider: 'google', model: 'gemini-flash-latest' },
-    embeddings: { provider: 'google', model: 'gemini-embedding-001' },
+    chat: { provider: 'google_genai', model: 'gemini-flash-latest' },
+    embeddings: { provider: 'google_genai', model: 'gemini-embedding-001' },
   },
   controlPlane: {
     baseUrl: 'http://localhost:8000',
     telemetryOptIn: true,
-    settingsSyncEnabled: false,
+    settingsSyncEnabled: true,
     apiKeySyncEnabled: false,
   },
 }
@@ -110,6 +116,15 @@ export interface ChronicleServicesDeps {
   /** Initial API origin for a profile that has not persisted control-plane settings yet. */
   controlPlaneBaseUrl?: string
   installation?: Omit<InstallationDescriptor, 'installationId'>
+  /** Applies theme colors to native title-bar controls. */
+  setWindowTheme: (theme: WindowTheme) => void
+  /**
+    * MVP-10 — AI client for embedding the search query.
+   * Optional: when absent (e.g. in tests), search degrades to keyword-only.
+   */
+  aiClient?: AiClient
+  /** Decrypts the stored API key for the given provider. Injected by register.ts. */
+  readApiKey?: (provider: string) => string | null
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
   settleMs?: number
   emitInitial?: boolean
@@ -391,6 +406,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
   }
 
   const api: ChronicleApi = {
+    async setWindowTheme(theme) {
+      if (theme !== 'light' && theme !== 'dark') {
+        throw new TypeError("theme must be 'light' or 'dark'")
+      }
+      deps.setWindowTheme(theme)
+    },
+
     // F2 — tracked folders
     async listFolders() {
       return listTrackedFolders(db)
@@ -567,8 +589,33 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       await copyStoredVersion(db, libraryRoot, id, destination)
     },
 
-    // F7 — search (MVP-10)
-    search: notImplemented('Search (MVP-10)'),
+    // F7 — hybrid search (MVP-10)
+    async search(query) {
+      const q = expectString(query, 'query')
+      const settings = await api.getSettings()
+      const embeddingsModel = settings.ai.embeddings.model
+      const provider = settings.ai.embeddings.provider
+
+      // Build the embedQuery function only when all three conditions are met:
+      // an AI client is injected, a key exists for the provider, and a model is configured.
+      let embedQuery: ((text: string) => Promise<number[]>) | null = null
+      if (deps.aiClient && deps.readApiKey && embeddingsModel !== '' && provider !== '') {
+        const apiKey = deps.readApiKey(provider)
+        if (apiKey !== null) {
+          const client = deps.aiClient
+          embedQuery = async (text: string) => {
+            const response = await client.embedText({ provider, model: embeddingsModel, apiKey, text })
+            return response.embedding
+          }
+        }
+      }
+
+      return search(q, {
+        db,
+        embedQuery,
+        embeddingsModel: embeddingModelIdentity(provider, embeddingsModel),
+      })
+    },
 
     // F4 — AI retry: re-queue only; the result arrives as annotationUpdated
     // once the AI pipeline (MVP-09) processes the queue.
@@ -589,27 +636,89 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
 
     // C5 — settings (secrets live in SecretStore, never in this object)
     async getSettings() {
-      const stored = getSetting<AppSettings>(db, SETTINGS_KEY)
+      const stored = getSetting<unknown>(db, SETTINGS_KEY)
       // Merging over the defaults keeps old stored settings valid when a
       // field is added; mergeSettings also re-validates what was stored.
-      const next = stored ? mergeSettings(DEFAULT_SETTINGS, stored) : structuredClone(DEFAULT_SETTINGS)
-      if (!stored && deps.controlPlaneBaseUrl) {
-        next.controlPlane.baseUrl = deps.controlPlaneBaseUrl
+      const migratedPatch = stored === undefined ? {} : structuredClone(stored)
+      if (!isPlainObject(migratedPatch)) return mergeSettings(DEFAULT_SETTINGS, migratedPatch)
+      let needsMigration = false
+      const storedAi = migratedPatch['ai']
+      if (isPlainObject(storedAi)) {
+        for (const task of ['chat', 'embeddings']) {
+          const selected = storedAi[task]
+          if (isPlainObject(selected) && selected['provider'] === 'google') {
+            selected['provider'] = 'google_genai'
+            needsMigration = true
+          }
+        }
       }
-      // Before POST-03 shipped, telemetryOptIn existed with a false placeholder
-      // but had no user-facing control. Migrate that placeholder exactly once;
-      // subsequent user choices (including false) are preserved.
+      const settings = mergeSettings(DEFAULT_SETTINGS, migratedPatch)
+      if (stored === undefined && deps.controlPlaneBaseUrl) {
+        settings.controlPlane.baseUrl = deps.controlPlaneBaseUrl
+        needsMigration = true
+      }
+      // These fields existed as false, non-user-facing placeholders before POST-03.
+      // Migrate each once, then preserve every explicit opt-out.
       if (!getSetting<boolean>(db, TELEMETRY_DEFAULT_MIGRATION_KEY)) {
-        next.controlPlane.telemetryOptIn = true
-        setSetting(db, SETTINGS_KEY, next)
+        settings.controlPlane.telemetryOptIn = true
         setSetting(db, TELEMETRY_DEFAULT_MIGRATION_KEY, true)
+        needsMigration = true
       }
-      return next
+      if (!getSetting<boolean>(db, SETTINGS_SYNC_DEFAULT_MIGRATION_KEY)) {
+        settings.controlPlane.settingsSyncEnabled = true
+        setSetting(db, SETTINGS_SYNC_DEFAULT_MIGRATION_KEY, true)
+        needsMigration = true
+      }
+      if (needsMigration) setSetting(db, SETTINGS_KEY, settings)
+      return settings
     },
 
     async updateSettings(patch) {
-      const next = mergeSettings(await api.getSettings(), patch)
+      const current = await api.getSettings()
+      const next = mergeSettings(current, patch)
+      const changedTasks = (['chat', 'embeddings'] as const).filter(
+        (task) =>
+          current.ai[task].provider !== next.ai[task].provider ||
+          current.ai[task].model !== next.ai[task].model,
+      )
+      await Promise.all(
+        changedTasks.map(async (task) => {
+          const selected = next.ai[task]
+          // Empty provider+model explicitly disables a task.
+          if (!selected.provider && !selected.model) return
+          const selectionError = aiSelectionError(
+            task,
+            selected.provider,
+            selected.model,
+            true,
+          )
+          if (selectionError) throw new TypeError(selectionError)
+          const apiKey = deps.readApiKey?.(selected.provider)
+          if (!apiKey) {
+            throw new Error(`Save an API key for ${selected.provider} before changing this model.`)
+          }
+          if (!deps.aiClient) throw new Error('The local AI validation service is unavailable.')
+          let result
+          try {
+            result = await deps.aiClient.validateProviderModel({
+              task,
+              provider: selected.provider,
+              model: selected.model,
+              apiKey,
+            })
+          } catch {
+            throw new Error('The local AI validation service could not be reached.')
+          }
+          if (!result.valid) throw new TypeError(result.message)
+        }),
+      )
       setSetting(db, SETTINGS_KEY, next)
+      const embeddingsChanged =
+        current.ai.embeddings.provider !== next.ai.embeddings.provider ||
+        current.ai.embeddings.model !== next.ai.embeddings.model
+      if (embeddingsChanged && next.ai.embeddings.provider && next.ai.embeddings.model) {
+        enqueueEmbeddingReindexJobs(db)
+      }
       pushStatus() // ai provider/model changes flip aiConfigured
       if (next.controlPlane.settingsSyncEnabled && deps.account) {
         void pushPortableSettings(next).catch(() => {})

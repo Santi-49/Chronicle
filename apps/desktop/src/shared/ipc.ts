@@ -18,6 +18,8 @@ import type { AppSettings } from './settings'
 
 // ── Data shapes ────────────────────────────────────────────────────────
 
+export type WindowTheme = 'dark' | 'light'
+
 export type AiStatus = 'pending' | 'done' | 'failed' | 'none' // 'none' = restore versions, no AI needed
 
 export interface TrackedFolder {
@@ -150,6 +152,9 @@ export interface PendingJob {
 // ── Renderer → main (request/response) ─────────────────────────────────
 
 export interface ChronicleApi {
+  // Native window chrome — keeps Electron's caption controls aligned with the renderer theme.
+  setWindowTheme(theme: WindowTheme): Promise<void>
+
   // F2 — tracked folders
   listFolders(): Promise<TrackedFolder[]>
   /** Opens the native folder picker and returns the chosen path; null if cancelled. No side effects. */

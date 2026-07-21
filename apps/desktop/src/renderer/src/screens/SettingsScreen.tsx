@@ -7,6 +7,7 @@ import { ProjectRemovalControl } from '../components/ProjectRemovalControl'
 import type { ThemePreference } from '../App'
 import {
   AI_PROVIDERS,
+  aiSelectionError,
   findProvider,
   isPresetModel,
   providersForTask,
@@ -15,6 +16,7 @@ import {
 import { useFolders, useSettings } from '../lib/useChronicle'
 import { chronicle } from '../lib/bridge'
 import { friendlyError } from '../lib/friendlyError'
+import { friendlyIpcError } from '../lib/errors'
 
 interface SettingsScreenProps {
   themePreference: ThemePreference
@@ -118,18 +120,18 @@ function AiSection() {
   const { settings, configuredProviders, loading, save, setApiKey, clearApiKey } = useSettings()
 
   const [devMode, setDevMode] = useState(false)
-  const [chatProvider, setChatProvider] = useState('google')
+  const [chatProvider, setChatProvider] = useState('google_genai')
   const [chatModel, setChatModel] = useState('gemini-flash-latest')
-  const [embedProvider, setEmbedProvider] = useState('google')
+  const [embedProvider, setEmbedProvider] = useState('google_genai')
   const [embedModel, setEmbedModel] = useState('gemini-embedding-001')
-  const [saveState, setSaveState] = useState<string | null>(null)
+  const [saveState, setSaveState] = useState<{ message: string; error: boolean } | null>(null)
 
   // Initialize the form once settings arrive.
   useEffect(() => {
     if (!settings) return
-    setChatProvider(settings.ai.chat.provider || 'google')
+    setChatProvider(settings.ai.chat.provider || 'google_genai')
     setChatModel(settings.ai.chat.model || 'gemini-flash-latest')
-    setEmbedProvider(settings.ai.embeddings.provider || 'google')
+    setEmbedProvider(settings.ai.embeddings.provider || 'google_genai')
     setEmbedModel(settings.ai.embeddings.model || 'gemini-embedding-001')
     // Show developer mode automatically when stored values are not presets.
     const preset =
@@ -150,8 +152,24 @@ function AiSection() {
     }
   }
 
+  const chatSelectionError = aiSelectionError('chat', chatProvider, chatModel, devMode)
+  const embedSelectionError = aiSelectionError('embeddings', embedProvider, embedModel, devMode)
+  const missingChatKey =
+    chatProvider.trim() !== '' && !configuredProviders.includes(chatProvider.trim())
+  const missingEmbedKey =
+    embedProvider.trim() !== '' && !configuredProviders.includes(embedProvider.trim())
+  const chatError = chatSelectionError ??
+    (missingChatKey ? 'No saved key for this provider yet — add one below to generate summaries.' : null)
+  const embedError = embedSelectionError ??
+    (missingEmbedKey ? 'No saved key for this provider yet — add one below to enable semantic search.' : null)
+
   const onSave = async () => {
-    setSaveState('Saving…')
+    const validationError = chatError ?? embedError
+    if (validationError) {
+      setSaveState({ message: validationError, error: true })
+      return
+    }
+    setSaveState({ message: 'Saving…', error: false })
     try {
       await save({
         ai: {
@@ -160,9 +178,19 @@ function AiSection() {
           embeddings: { provider: embedProvider.trim(), model: embedModel.trim() },
         },
       })
-      setSaveState('Saved.')
+      setSaveState({ message: 'Saved.', error: false })
     } catch (err) {
-      setSaveState(err instanceof Error ? err.message : String(err))
+      const reason = friendlyIpcError(err, 'The AI configuration could not be validated.')
+      setSaveState({
+        message: `${reason} Previous settings were kept.`,
+        error: true,
+      })
+      if (settings) {
+        setChatProvider(settings.ai.chat.provider)
+        setChatModel(settings.ai.chat.model)
+        setEmbedProvider(settings.ai.embeddings.provider)
+        setEmbedModel(settings.ai.embeddings.model)
+      }
     }
   }
 
@@ -180,8 +208,6 @@ function AiSection() {
     }
     return rows
   }, [chatProvider, embedProvider])
-
-  const missingChatKey = chatProvider.trim() !== '' && !configuredProviders.includes(chatProvider.trim())
 
   return (
     <section className="settings-section">
@@ -202,30 +228,31 @@ function AiSection() {
         <legend>Change summaries (vision)</legend>
         {devMode ? (
           <div className="settings-form-grid">
-            <label><span>Provider</span><input onChange={(e) => setChatProvider(e.target.value)} placeholder="e.g. google" type="text" value={chatProvider} /></label>
-            <label><span>Model</span><input onChange={(e) => setChatModel(e.target.value)} placeholder="e.g. gemini-flash-latest" type="text" value={chatModel} /></label>
+            <label><span>Provider</span><input aria-invalid={Boolean(chatError)} onChange={(e) => setChatProvider(e.target.value)} placeholder="e.g. google_genai" type="text" value={chatProvider} /></label>
+            <label><span>Model</span><input aria-invalid={Boolean(chatError)} onChange={(e) => setChatModel(e.target.value)} placeholder="e.g. gemini-flash-latest" type="text" value={chatModel} /></label>
           </div>
         ) : (
           <ProviderModelPicker task="chat" provider={chatProvider} model={chatModel} onProvider={(p) => changeProvider('chat', p)} onModel={setChatModel} />
         )}
-        {missingChatKey && <p className="ai-task-hint">No saved key for this provider yet — add one below to generate summaries.</p>}
+        {chatError && <p className="ai-task-error" role="alert">{chatError}</p>}
       </fieldset>
 
       <fieldset className="ai-task">
         <legend>Semantic search (embeddings)</legend>
         {devMode ? (
           <div className="settings-form-grid">
-            <label><span>Provider</span><input onChange={(e) => setEmbedProvider(e.target.value)} placeholder="e.g. google" type="text" value={embedProvider} /></label>
-            <label><span>Model</span><input onChange={(e) => setEmbedModel(e.target.value)} placeholder="e.g. gemini-embedding-001" type="text" value={embedModel} /></label>
+            <label><span>Provider</span><input aria-invalid={Boolean(embedError)} onChange={(e) => setEmbedProvider(e.target.value)} placeholder="e.g. google_genai" type="text" value={embedProvider} /></label>
+            <label><span>Model</span><input aria-invalid={Boolean(embedError)} onChange={(e) => setEmbedModel(e.target.value)} placeholder="e.g. gemini-embedding-001" type="text" value={embedModel} /></label>
           </div>
         ) : (
           <ProviderModelPicker task="embeddings" provider={embedProvider} model={embedModel} onProvider={(p) => changeProvider('embeddings', p)} onModel={setEmbedModel} />
         )}
+        {embedError && <p className="ai-task-error" role="alert">{embedError}</p>}
       </fieldset>
 
       <div className="save-cluster save-cluster-end">
-        {saveState && <span className="inline-status" role="status">{saveState}</span>}
-        <button className="primary-button compact-button" disabled={loading} onClick={() => void onSave()} type="button">Save AI settings</button>
+        {saveState && <span className={`inline-status ${saveState.error ? 'inline-status-error' : ''}`} role={saveState.error ? 'alert' : 'status'}>{saveState.message}</span>}
+        <button className="primary-button compact-button" disabled={loading || Boolean(chatError ?? embedError)} onClick={() => void onSave()} type="button">Save AI settings</button>
       </div>
 
       <div className="api-keys">
@@ -320,13 +347,16 @@ function ProviderModelPicker({
   onModel: (model: string) => void
 }) {
   const providers = providersForTask(task)
-  const models = findProvider(provider)?.[task] ?? AI_PROVIDERS.find((p) => p[task].length > 0)![task]
+  const models = findProvider(provider)?.[task] ?? []
+  const providerValid = providers.some((option) => option.id === provider)
+  const modelValid = models.some((option) => option.id === model)
 
   return (
     <div className="settings-form-grid">
       <label>
         <span>Provider</span>
-        <select onChange={(event) => onProvider(event.target.value)} value={provider}>
+        <select aria-invalid={!providerValid} onChange={(event) => onProvider(event.target.value)} value={provider}>
+          {!providerValid && <option disabled value={provider}>{provider ? `Unavailable — ${provider}` : 'Select a provider'}</option>}
           {providers.map((p) => (
             <option key={p.id} value={p.id}>{p.label}</option>
           ))}
@@ -334,7 +364,8 @@ function ProviderModelPicker({
       </label>
       <label>
         <span>Model</span>
-        <select onChange={(event) => onModel(event.target.value)} value={model}>
+        <select aria-invalid={!modelValid} onChange={(event) => onModel(event.target.value)} value={model}>
+          {!modelValid && <option disabled value={model}>{model ? `Unavailable — ${model}` : 'Select a model'}</option>}
           {models.map((m) => (
             <option key={m.id} value={m.id}>{m.label} — {m.tier}</option>
           ))}
@@ -354,7 +385,6 @@ function AccountSection() {
   const [controlPlaneAvailable, setControlPlaneAvailable] = useState<boolean | null>(null)
   const [authBusy, setAuthBusy] = useState(false)
   const [authStatus, setAuthStatus] = useState<string | null>(null)
-  const [syncStatus, setSyncStatus] = useState<string | null>(null)
   const [keyStatus, setKeyStatus] = useState<string | null>(null)
 
   const refreshAccount = async () => {
@@ -392,16 +422,6 @@ function AccountSection() {
   const updateControlPlane = async (patch: Partial<NonNullable<typeof settings>['controlPlane']>) => {
     if (!settings) return
     await save({ controlPlane: { ...settings.controlPlane, ...patch } })
-  }
-
-  const runSync = async () => {
-    setSyncStatus('Syncing preferences…')
-    try {
-      await chronicle.syncSettings()
-      setSyncStatus('Preferences synced.')
-    } catch (error) {
-      setSyncStatus(friendlyError(error))
-    }
   }
 
   const toggleKeySync = async (enabled: boolean) => {
@@ -475,14 +495,8 @@ function AccountSection() {
               onChange={(event) => void updateControlPlane({ settingsSyncEnabled: event.target.checked })}
               type="checkbox"
             />
-            <span><strong>Sync preferences</strong><small>Signed-in only. Syncs AI provider/model choices and these preferences, never device paths or project metadata.</small></span>
+            <span><strong>Sync preferences</strong><small>Signed-in only. Automatically syncs changes to AI provider/model choices and these preferences, never device paths or project metadata.</small></span>
           </label>
-          {email && settings.controlPlane.settingsSyncEnabled && (
-            <div className="preference-action">
-              <button className="secondary-button compact-button" onClick={() => void runSync()} type="button">Sync preferences now</button>
-              {syncStatus && <span className="inline-status" role="status">{syncStatus}</span>}
-            </div>
-          )}
 
           <label className="toggle-field">
             <input

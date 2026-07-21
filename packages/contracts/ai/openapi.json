@@ -180,6 +180,45 @@
           }
         }
       }
+    },
+    "/validate-provider-model": {
+      "post": {
+        "summary": "Validate Configuration",
+        "description": "Probe a provider/model/key with the real operation used by its task.",
+        "operationId": "validate_configuration_validate_provider_model_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateProviderModelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateProviderModelResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -620,6 +659,89 @@
         "type": "object",
         "title": "TokenUsage",
         "description": "Token counts reported by the provider for one call (null when absent)."
+      },
+      "ValidateProviderModelRequest": {
+        "properties": {
+          "task": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "embeddings"
+            ],
+            "title": "Task"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "apiKey": {
+            "type": "string",
+            "format": "password",
+            "title": "Apikey",
+            "writeOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "task",
+          "provider",
+          "model",
+          "apiKey"
+        ],
+        "title": "ValidateProviderModelRequest",
+        "description": "A fully specified task configuration to probe against its provider."
+      },
+      "ValidateProviderModelResponse": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "reachable": {
+            "type": "boolean",
+            "title": "Reachable"
+          },
+          "task": {
+            "type": "string",
+            "enum": [
+              "chat",
+              "embeddings"
+            ],
+            "title": "Task"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "valid",
+          "reachable",
+          "task",
+          "provider",
+          "model",
+          "message"
+        ],
+        "title": "ValidateProviderModelResponse"
       },
       "ValidationError": {
         "properties": {

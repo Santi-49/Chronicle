@@ -383,9 +383,11 @@ AI states are clear, and a new teammate can answer what changed between versions
 > C3's source of truth becomes the service's OpenAPI schema + `output.schema.json`, with
 > generated TS client types.
 >
-> AI feature scope (decided 2026-07-19): the MVP service surface is exactly
+> AI feature scope (updated 2026-07-21): the MVP service surface is
 > `POST /annotate` (two-image diff; `previous: null` → first-version description),
-> `POST /embed-text` (version summaries+tags and search queries), and `GET /health`.
+> `POST /embed-text` (version summaries+tags and search queries),
+> `POST /validate-provider-model` (minimal live chat/embedding configuration probe),
+> and `GET /health`.
 > The annotation output includes an optional nullable `confidence` (0–1). **Image
 > embeddings and a history chatbot are roadmap, not MVP** — do not build `/embed-image`
 > or `/chat` before every MVP task is done.
@@ -433,8 +435,9 @@ without a separate approved change; the C1 contract; the control plane.
 loaded from the Markdown/YAML asset, provider called with the per-request BYOK key
 (taken from Electron `safeStorage`, sent only over loopback, never persisted by the
 service), output validated against the schema, status/output/provider/model/latency
-persisted, safe retries, queued jobs resumed after outages, and a health check the app
-surfaces in the status bar. A documented start script for the service.
+persisted, safe retries, queued jobs resumed after outages, a health check, and a
+task-specific provider/model reachability probe used before Settings persists a changed
+selection. A documented start script for the service.
 
 **Contracts upheld:** C3 operation functionality and schema; C5 secret boundary; all AI work async.
 
@@ -454,9 +457,9 @@ service-down behavior are tested. No local model is added.
 > mocked tests retain coverage for invalid output, missing key, retry, offline, and
 > service-down behavior.
 
-### [ ] MVP-10 — Implement hybrid keyword and semantic search
+### [x] MVP-10 — Implement hybrid keyword and semantic search
 
-**Owner:** Unassigned  
+**Owner:** Joan / Santi R · engine and C1 integration complete
 **Depends on:** MVP-02, MVP-09  
 **Goal:** Find exact and meaning-related versions in one ranked list.
 
@@ -476,9 +479,16 @@ behavior, model-identity rule); one line in `docs/bob-log.md`.
 **Done when:** “version with the tagline” and “blue background” find the expected fixtures;
 ranking, empty query, unavailable embeddings, and model changes are tested.
 
-### [~] MVP-11 — Build the Search page
+> Accepted 2026-07-21: FTS5 phrase search and cosine semantic search are merged behind
+> C1 `search`; provider-qualified embedding identities prevent incompatible vector
+> comparisons; semantic failures degrade to keyword-only. Changing the embedding provider
+> or model queues deduplicated re-embedding jobs for every existing annotation without
+> repeating vision analysis. The banner fixture regression covers meaning-based queries
+> whose words are not an exact stored phrase.
 
-**Owner:** Santi R (live C1 search UI merged into `dev`; engine blocked on MVP-10)
+### [x] MVP-11 — Build the Search page
+
+**Owner:** Santi R · complete
 
 **Depends on:** MVP-06, MVP-10; mock results may be used earlier  
 **Goal:** Present one simple search experience without exposing implementation modes.
@@ -494,17 +504,52 @@ note once built); one line in `docs/bob-log.md`.
 **Done when:** Keyboard search opens a result's version details and clearly explains when recent
 semantic indexing is still pending.
 
-> Done: Search screen with Ctrl+K now calls the real C1 `search` (debounced) and opens live
-> version details; while MVP-10's engine is unbuilt the handler rejects, and the page shows a
-> clear "search is warming up" state. Remaining for MVP-11 sign-off: real ranked results and
-> the semantic-indexing-pending affordance once MVP-10 lands.
+> Accepted 2026-07-21: Search with Ctrl+K calls the real C1 hybrid search (debounced), renders
+> ranked version results, and opens live version details. A live, screen-reader-announced notice
+> now explains when semantic indexing is running, paused offline, or waiting for AI setup while
+> confirming that keyword search remains available.
 
 ## Phase 5 — Integration, quality, and submission
+
+### [ ] VALIDATE-01 — Validate the default AI provider/model configuration
+
+**Owner:** Unassigned
+**Depends on:** MVP-09, DEMO-01
+**Goal:** Confirm through current documentation research and repeatable live tests that Chronicle's
+shipped default—Google Gemini with `gemini-flash-latest` for annotation and
+`gemini-embedding-001` for embeddings—works correctly for a new user and is suitable for the
+demo. A historical successful call is evidence, not proof that a changing external default still
+works.
+
+**Research first:** Verify the model IDs are currently available through the selected LangChain
+integration; support image inputs and text embeddings respectively; work with the documented API
+key/account path; and have acceptable pricing, rate limits, regional availability, data handling,
+and lifecycle/deprecation status. Record dated findings and primary-source links in
+`docs/challenge/RESEARCH.md`. If either default is unsuitable, recommend a replacement and obtain
+team approval before changing product configuration.
+
+**May edit:** Default configuration and curated model catalog in `apps/desktop/**`, `.env.example`,
+live smoke/integration tests, and provider setup documentation.
+**Must not edit:** C3 output semantics, the model-agnostic engine design, or hard-code a provider
+inside the AI service.
+
+**Validation matrix:** On a clean setup, exercise Settings' provider/model probe, a first-version
+description, the controlled two-version diff, embedding generation, semantic search, invalid-key
+feedback, unavailable/rate-limited behavior, and offline queue recovery. Capture latency, token
+usage when reported, and estimated cost using a dated pricing source; never commit a real key.
+
+**Docs to update:** `docs/challenge/RESEARCH.md`, the provider setup section of
+`apps/desktop/README.md`, `PROJECT_STATUS.md`, and one line in `docs/bob-log.md`.
+
+**Done when:** A fresh BYOK account can run the complete annotation → embedding → semantic-search
+flow three times against the demo fixtures; failures remain asynchronous and recoverable; the
+configured IDs match current provider documentation; cost/retention/availability caveats are
+written down; and the team has explicitly approved or replaced both defaults.
 
 ### [ ] MVP-12 — End-to-end integration and reliability pass
 
 **Owner:** Unassigned  
-**Depends on:** MVP-01 through MVP-11  
+**Depends on:** MVP-01 through MVP-11, VALIDATE-01
 **Goal:** Prove the complete demo journey works repeatedly on a clean machine.
 
 **May edit:** Integration wiring, tests, fixtures, and bug fixes in coordination with file owners.  
@@ -618,6 +663,7 @@ Do not claim these while any MVP task above is incomplete:
 - Control-plane telemetry and account configuration (F8/C6)
 - Hosted AI gateway and Python implementation (F9/C7)
 - Admin UI, installer/signing, or landing-page polish
+- Personal activity/cost analytics and multilingual UI
 - Future formats (SVG, BLEND, OBJ, STEP/STP, PSD, PSB), rename tracking, cloud sync,
   collaboration, branching, or visual diff
 
@@ -743,7 +789,8 @@ in the renderer.
 2. **Portable settings sync.** `GET/PUT /account/settings` round-trips a strictly validated,
    versioned object containing `ai.mode`, annotation provider/model, embedding provider/model,
    future portable UI preferences, `settingsSyncEnabled`, and the telemetry preference/notice
-   version/timestamp. Sync is optional and off by default. Do not sync `controlPlane.baseUrl`,
+   version/timestamp. Sync is optional, enabled by default, and runs automatically after each
+   saved change while signed in. Do not sync `controlPlane.baseUrl`,
    watched paths, exclusions, project names/descriptions, asset/version records, or whether a
    provider key exists locally. Define revision/ETag conflict behavior before wiring a second
    device; do not silently overwrite a newer settings revision.
@@ -771,8 +818,8 @@ in the renderer.
    `Error invoking remote method ...` or an unhandled IPC rejection. Align transient status with
    the related account control rather than placing it as an unrelated section-wide footer.
 6. **Settings UX.** Default usage reporting to enabled. Apply a one-time migration from the
-   pre-POST-03 false placeholder (which had no user-facing control), then preserve every explicit
-   choice made through the released toggle. Do not expose implementation-phase copy in the product
+   pre-POST-03 false placeholders for both telemetry and portable preference sync, then preserve
+   every explicit choice made through the released toggles. Do not expose implementation-phase copy in the product
    UI. Encrypted API-key sync has its own signed-in-only checkbox, independent from preference
    sync. Enabling it reveals one compact passphrase/action row with an explicit save/upload action
    plus restore; disabling it deletes the server envelope while retaining local keys. The
@@ -1027,6 +1074,83 @@ unsigned/SmartScreen caveat, macOS-not-yet note); one line in `docs/bob-log.md`.
 and apply the update on relaunch; the app launches and captures normally with no network; the
 SmartScreen/unsigned limitation and the deferred signing + macOS work are written down as a
 follow-up task.
+
+### [ ] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** MVP-09; POST-04 only for optional cross-device/server-backed history
+**Goal:** Give each user a GitHub-style view of their own Chronicle activity and, most
+importantly, a trustworthy view of AI usage and estimated spend. The local dashboard must work
+without an account or Chronicle backend; signing in may add synchronized aggregates later.
+
+**May edit:** Local usage/cost persistence, C1/C5 through an approved contract change, renderer
+dashboard components in `apps/desktop/**`, AI usage normalization in `services/ai/**`, and optional
+user-scoped aggregate endpoints in `services/api/**` plus C6.
+**Must not edit:** The local-first guarantee, telemetry consent, admin-only global aggregates, or
+upload creative content/query text to power the dashboard.
+
+**Required functionality:**
+
+1. **Activity view.** Show a contribution-style calendar and useful personal totals/trends for
+   versions captured, assets/projects active, AI summaries, searches, and restores. Provide clear
+   date range, timezone, empty, loading, offline, and partial-data states; do not turn vanity
+   metrics into fake productivity scores.
+2. **Cost gathering.** Persist provider/model/operation, timestamp, success state, latency, input
+   and output tokens when the provider exposes them, and provider-reported cost when available.
+   Keep unknown values unknown—never write zero merely because an SDK omitted usage metadata.
+3. **Cost estimation.** Maintain a versioned, dated price snapshot per provider/model and compute
+   estimates from the applicable snapshot. Clearly label **provider-reported**, **estimated**, and
+   **unavailable** amounts; show currency, pricing date, annotation vs. embedding breakdown, and
+   explain that provider invoices are authoritative. Research current official pricing and usage
+   metadata support before implementation.
+4. **Privacy and scope.** Personal on-device analytics may use local records, but any sync reuses
+   POST-04's strict content-free allowlist. A signed-in user can see only their own aggregates;
+   admins' cross-installation view remains POST-05. Cost collection and rendering must remain
+   asynchronous and must never block capture or AI jobs.
+
+**Contracts touched:** C1/C5 for local dashboard queries/preferences; optional C6 user-scoped
+aggregate endpoints. Define native schemas first and regenerate derived types where applicable.
+
+**Docs to update:** `docs/desktop/overview.md`, AI usage/cost behavior in `services/ai/README.md`,
+privacy/data wording in `docs/spec.md` if sync is added, dated provider-pricing findings in
+`docs/challenge/RESEARCH.md`, and one line in `docs/bob-log.md`.
+
+**Done when:** A local user can understand daily activity and AI spend by date/provider/model/
+operation; totals reconcile against fixture calls and known token counts; missing usage remains
+visibly unavailable; estimate tests use versioned price fixtures; another user cannot access the
+data; and the dashboard works offline without sending any new data.
+
+### [ ] POST-10 — Add multilingual UI support `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** MVP-12 (stabilized user-facing copy and flows)
+**Goal:** Internationalize Chronicle so the desktop UI can be translated without duplicating
+screens or mixing locale logic into product behavior.
+
+**Research first:** Confirm the initial target locales and translation ownership with the team;
+audit all renderer strings, validation/error mappings, dates, relative times, numbers, currencies,
+pluralization, accessibility labels, and installer/onboarding copy. Choose a maintained React i18n
+library only after comparing it with the existing stack and document the decision.
+
+**May edit:** Renderer UI and tests, locale resources, persisted locale preference through an
+approved C5 change, and desktop documentation.
+**Must not edit:** Internal error codes or stored AI annotations merely to translate the shell;
+contracts should continue to carry stable codes/data rather than localized backend strings.
+
+**Required functionality:** Externalize all user-facing strings; provide an explicit language
+selector plus system-locale default/fallback; format dates, times, numbers, and currencies with
+locale-aware APIs; support interpolation/plurals without string concatenation; lazy-load locale
+resources; fall back safely to English for missing keys; and add pseudolocalization/layout tests
+to catch clipping. AI-generated summaries stay in their original language until a separate,
+explicit annotation-language policy is researched and approved.
+
+**Docs to update:** `docs/desktop/overview.md`, `docs/spec.md` (supported locales and fallback),
+translator/contributor instructions, and one line in `docs/bob-log.md`.
+
+**Done when:** Every shipped screen is covered by the translation catalog; the team-approved
+locales can be switched without restart; preference persists; locale formatting and plurals are
+tested; pseudolocalized text remains usable at supported window sizes; and missing translations
+degrade to English without exposing raw keys.
 
 ## Decisions humans must make—not delegate blindly to an AI assistant
 
