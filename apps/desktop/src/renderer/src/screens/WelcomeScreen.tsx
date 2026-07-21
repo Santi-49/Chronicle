@@ -1,12 +1,40 @@
+import { useEffect, useState } from 'react'
 import { BrandLockup } from '../components/ChronicleMark'
 import { GoogleMark } from '../components/GoogleMark'
 import { Icon } from '../components/Icon'
+import { chronicle } from '../lib/bridge'
+import { friendlyError } from '../lib/friendlyError'
 
 interface WelcomeScreenProps {
   onContinue: () => void
+  onContinueGoogle: () => Promise<void>
 }
 
-export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
+export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenProps) {
+  const [googleState, setGoogleState] = useState<string | null>(null)
+  const [googleBusy, setGoogleBusy] = useState(false)
+  const [controlPlaneAvailable, setControlPlaneAvailable] = useState<boolean | null>(null)
+
+  const checkControlPlane = async () => {
+    setControlPlaneAvailable(null)
+    const available = await chronicle.checkControlPlaneHealth().catch(() => false)
+    setControlPlaneAvailable(available)
+    setGoogleState(available ? null : 'Chronicle sign-in is unavailable. Start the control plane, then retry.')
+  }
+
+  useEffect(() => { void checkControlPlane() }, [])
+
+  const signIn = async () => {
+    setGoogleBusy(true)
+    setGoogleState(null)
+    try {
+      await onContinueGoogle()
+    } catch (error) {
+      setGoogleState(friendlyError(error))
+    } finally {
+      setGoogleBusy(false)
+    }
+  }
   return (
     <main className="welcome-screen">
       <section className="welcome-story" aria-labelledby="welcome-title">
@@ -61,14 +89,20 @@ export function WelcomeScreen({ onContinue }: WelcomeScreenProps) {
               <span>or</span>
             </div>
 
-            <button className="google-button" disabled type="button">
-              <span className="google-button-label"><GoogleMark />Continue with Google</span>
-              <span className="soon-badge">Coming soon</span>
+            <button className="google-button" disabled={controlPlaneAvailable !== true || googleBusy} onClick={() => void signIn()} type="button">
+              <span className="google-button-label"><GoogleMark />{googleBusy ? 'Connecting…' : 'Continue with Google'}</span>
             </button>
+            {controlPlaneAvailable === null && <p className="inline-status" role="status">Checking Chronicle sign-in…</p>}
+            {googleState && <p className="inline-status inline-status-error" role="status">{googleState}</p>}
+            {controlPlaneAvailable === false && (
+              <button className="text-button" onClick={() => void checkControlPlane()} type="button">Retry connection check</button>
+            )}
           </div>
 
           <p className="privacy-note">
-            Local mode works without an account or internet connection.
+            Local mode works without an account. Chronicle registers a random installation ID
+            when online; creative files, names, paths, summaries, and searches stay out of the
+            control plane.
           </p>
         </div>
       </section>

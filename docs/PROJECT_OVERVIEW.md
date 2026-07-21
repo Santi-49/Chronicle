@@ -128,9 +128,10 @@ embedding under the new provider-qualified model identity.
 
 ### Optional backend
 
-`services/api/` already provides authentication and role-based access. Chronicle may later
-use it for account preferences, privacy-safe telemetry, and hosted AI inference. It is not
-required for the MVP and must not block the desktop app.
+`services/api/` provides authentication, role-based access, Google identity exchange,
+installation registration, portable preferences, and opaque encrypted-secret storage. It may
+later add privacy-safe telemetry and hosted AI inference. It is not required for the MVP and must
+not block the desktop app; desktop Google sign-in health-checks it before opening the browser.
 
 `services/module/` is reserved for the future hosted gateway logic. Do not implement it until
 the local/BYOK MVP works.

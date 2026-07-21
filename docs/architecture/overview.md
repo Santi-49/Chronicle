@@ -92,9 +92,11 @@ See [Module Contracts](../contracts.md) for the full workflow.
 
 | Service | Image | Internal port | Dev exposed port |
 |---|---|---|---|
-| `postgres` | postgres:16-alpine | 5432 | 5432 |
-| `redis` | redis:7-alpine | 6379 | 6379 |
-| `opa` | openpolicyagent/opa:latest-rootless | 8181 | 8181 |
+| `postgres` | postgres:16-alpine | 5432 | — |
+| `redis` | redis:7-alpine | 6379 | — |
+| `opa` | openpolicyagent/opa:latest | 8181 | — |
 | `api` | (built from `services/api`) | 8000 | 8000 |
 
-All services declare health checks. The `api` service waits for all three dependencies to be healthy before starting.
+Compose project name is `chronicle`. Postgres, Redis, and OPA declare container health checks;
+the `api` service waits for all three before starting and exposes public `GET /health` for desktop
+preflight and operator checks.

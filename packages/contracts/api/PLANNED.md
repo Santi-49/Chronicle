@@ -1,57 +1,64 @@
-# C6 — Control-Plane API Contract (minimal, low priority)
+# C6 — Control-Plane API Contract
 
-> The control plane is **non-essential** (spec F1/F8): the app runs fully without it.
-> This page fixes the *planned* shapes so the desktop `gateway-client` and the backend can
-> be built independently — whenever someone actually picks this up. On implementation the
-> shapes become Pydantic schemas, and TypeScript types are **generated** with
-> `make generate-types` (never hand-written; this page is then just documentation).
+> Implemented by POST-03. FastAPI's generated OpenAPI document and generated TypeScript types are
+> the executable source of truth; this file explains the operation guarantees and privacy bounds.
 
-Auth (`/api/v1/auth/*`: register, login, refresh, logout, me) is **pre-built** — the app
-uses it as-is. Only two additions are planned:
+The control plane remains non-essential to local capture, history, restore, and search. Every
+desktop network operation is asynchronous. An unreachable API never blocks entry to the product.
 
----
+`GET /health` is public and returns the control-plane identity and API version. Electron calls it
+with a short timeout before opening an interactive Google flow. A failed preflight starts no OAuth
+transaction; the UI remains local-first and offers an explicit connection retry.
 
-## `POST /api/v1/telemetry/events` (F8)
+## Authentication
 
-Batch upload, sent by the app's offline queue when online and signed in and opted in.
+Existing endpoints remain: `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST
+/api/v1/auth/refresh`, `POST /api/v1/auth/logout`, and `GET /api/v1/auth/me`.
 
-```jsonc
-// request
-{
-  "events": [
-    {
-      "type": "app_opened" | "version_captured" | "ai_summary_generated" | "search_performed",
-      "at": "2026-07-17T10:00:00Z",
-      // optional, type-dependent — ONLY these keys:
-      "props": { "sizeBytes": 123, "fileType": "png", "latencyMs": 900, "provider": "anthropic", "matchedBy": "semantic" }
-    }
-  ]
-}
-// response: 202 { "accepted": 3 }
-```
+- `POST /api/v1/auth/google` accepts a short-lived Google ID token in `credential`, validates its
+  signature/audience/issuer/expiry and verified email, identifies the Google account by `sub`, and
+  returns Chronicle's existing JWT pair. Google access/refresh tokens are never persisted.
+- `POST /api/v1/auth/google/link` performs the same validation for an authenticated Chronicle
+  account. An existing password account is never silently merged by matching email.
+- Electron obtains the ID token using the system browser, desktop-client loopback redirect, state,
+  nonce, and PKCE S256. “System browser” means the operating system's default external browser,
+  not an Electron `BrowserWindow` or webview. No OAuth client secret is bundled in the desktop app.
 
-**Privacy rule (hard, spec F8):** no file contents, no file names, no paths, no summaries,
-no tags, no queries — counts, sizes, types, and timings only. The backend rejects unknown
-`props` keys.
+## Installation registration
 
-## `GET /api/v1/account/config` · `PUT /api/v1/account/config` (F1)
+- `POST /api/v1/installations/register` is public and idempotently upserts a client-generated UUID,
+  app version, and OS family (`windows`, `macos`, `linux`, `other`). Extra fields are rejected.
+- `PUT /api/v1/installations/{installation_id}/link` associates the random installation with the
+  authenticated account. Installation registration is best-effort and measures installations,
+  not unique people; no hardware ID, hostname, local account name, or project metadata is accepted.
 
-Small per-user JSON blob so preferences survive reinstalls. **The BYOK API key is never
-part of it** (it never leaves the machine).
+## Portable account settings
 
-```jsonc
-// GET response / PUT request body
-{ "aiMode": "local" | "gateway", "telemetryOptIn": true }
-// PUT response: 200 with the stored config
-```
+- `GET /api/v1/account/settings` returns a strict schema-versioned settings payload, revision, and
+  update timestamp. Telemetry is enabled by the agreed 2026-07-21 default.
+- `PUT /api/v1/account/settings` requires the last observed `expected_revision`; stale writes return
+  `409 revision_conflict`. The portable object contains appearance, AI mode/provider/model
+  selections, sync preferences, and telemetry preference/notice metadata. It cannot contain paths,
+  project or asset metadata, base URLs, API-key state, or arbitrary extra fields.
 
-## RBAC
+## Optional encrypted-secret sync
 
-New OPA entries when implemented: `(telemetry, create)` for role `user`;
-`(telemetry, read)` for role `admin` (aggregates read via Swagger `/docs`, spec §3).
+- `GET/PUT/DELETE /api/v1/account/secrets` stores one versioned opaque envelope per account.
+- PUT uses the same optimistic revision rule. The envelope is encrypted and authenticated by the
+  desktop before upload. The backend never receives plaintext provider keys or a decryption key and
+  never parses/logs the envelope.
+- The desktop exposes a separate signed-in-only enable checkbox. Enabling it reveals the
+  passphrase and explicit save/restore actions; disabling it deletes the envelope while retaining
+  local keys. The passphrase remains device-side and is never part of this contract.
 
-## Stretch (F9) — not planned in detail yet
+## Authorization
 
-`POST /api/v1/ai/annotate` + `POST /api/v1/ai/embed`, proxying the module contract
-(`packages/contracts/module/interface.py`), same shapes as `packages/contracts/ai/`.
-Defined when F9 starts — not before.
+Authenticated account/settings and secret operations require OPA `(account, read)` or `(account,
+write)`, granted to `user` and `admin`. Installation registration is intentionally public;
+installation linking requires an authenticated Chronicle session.
+
+## Deferred to POST-04
+
+Content-free telemetry remains a separate change: `POST /api/v1/telemetry/events` plus project
+inventory upsert/delete. POST-03 registers installations and stores the preference but sends no
+usage events.

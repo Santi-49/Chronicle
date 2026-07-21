@@ -789,7 +789,8 @@ in the renderer.
 2. **Portable settings sync.** `GET/PUT /account/settings` round-trips a strictly validated,
    versioned object containing `ai.mode`, annotation provider/model, embedding provider/model,
    future portable UI preferences, `settingsSyncEnabled`, and the telemetry preference/notice
-   version/timestamp. Sync is optional and off by default. Do not sync `controlPlane.baseUrl`,
+   version/timestamp. Sync is optional, enabled by default, and runs automatically after each
+   saved change while signed in. Do not sync `controlPlane.baseUrl`,
    watched paths, exclusions, project names/descriptions, asset/version records, or whether a
    provider key exists locally. Define revision/ETag conflict behavior before wiring a second
    device; do not silently overwrite a newer settings revision.
@@ -809,6 +810,20 @@ in the renderer.
 5. **Desktop UX.** Sessions persist across restarts with automatic refresh (pre-built stack).
    The Google sign-in control follows Google branding (standard-color "G", approved "Continue
    with Google" wording — see `docs/challenge/RESEARCH.md`); no improvised or recolored mark.
+   Use the operating system's default external browser, not an Electron `BrowserWindow`/webview.
+   Before enabling/starting Google login, call the public control-plane health endpoint with a
+   short timeout. On failure, keep local mode available, disable the sign-in action until the user
+   explicitly retries the connection, and do not start repeated browser/auth attempts. Present
+   health, cancellation, and OAuth timeout failures as concise inline product messages; never show
+   `Error invoking remote method ...` or an unhandled IPC rejection. Align transient status with
+   the related account control rather than placing it as an unrelated section-wide footer.
+6. **Settings UX.** Default usage reporting to enabled. Apply a one-time migration from the
+   pre-POST-03 false placeholders for both telemetry and portable preference sync, then preserve
+   every explicit choice made through the released toggles. Do not expose implementation-phase copy in the product
+   UI. Encrypted API-key sync has its own signed-in-only checkbox, independent from preference
+   sync. Enabling it reveals one compact passphrase/action row with an explicit save/upload action
+   plus restore; disabling it deletes the server envelope while retaining local keys. The
+   passphrase is never synced or rendered back, and all controls have disabled/loading/error states.
 
 **Contracts touched:** Expand C6 with the Google auth/handoff surface, `POST
 /installations/register`, `GET/PUT /account/settings`, and the encrypted-secret operations;
@@ -820,12 +835,24 @@ shape. Update `packages/contracts/api/PLANNED.md` before implementation.
 (OAuth client vars), the startup-flow section of `docs/desktop/overview.md`; one line in
 `docs/bob-log.md`.
 
-**Done when:** A user can "Log in / Register" and "Continue with Google" from the app;
+**Done when:** **Continue with Google** creates or signs in to a Chronicle account; an
+unreachable API prevents the browser from opening and produces one retryable inline message; a
+cancelled/expired Google flow never leaks raw IPC error text; default telemetry renders checked
+for a new profile and after the one-time pre-POST-03 placeholder migration; encrypted key sync has
+a separate checkbox and an explicit **Save encrypted copy** action;
 portable settings round-trip without secrets or device-local paths; explicitly enabled API-key
 sync round-trips only an opaque client-encrypted envelope; a local installation registers when
 online but the full product still works before/without that response; Chronicle can report an
 honest installation count; and Google/provider/plaintext Chronicle secrets never appear in API
 logs, account settings, generated OpenAPI examples, or renderer-visible data.
+
+**Implementation status (2026-07-21):** API, migration, OPA policy, generated OpenAPI/TS types,
+desktop Google/PKCE handoff, persistent refreshable sessions, installation registration/linking,
+portable settings, and passphrase-encrypted key sync are implemented. The follow-up UX hardening
+adds an API-health preflight, recoverable timeout/cancellation messages, true absent-value
+telemetry defaulting, and explicit encrypted-key-sync enable/save controls. Automated backend and
+desktop suites pass. Final acceptance requires one interactive Google login against the team's
+configured OAuth client after restarting the desktop process.
 
 ### [ ] POST-04 — Wire the app to the control plane for usage statistics `Post-MVP`
 

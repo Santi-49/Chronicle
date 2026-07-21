@@ -16,6 +16,7 @@
 | Validation | Pydantic v2 | ^2.7 |
 | Config | pydantic-settings | ^2.3 |
 | JWT | python-jose | ^3.3 |
+| Google ID-token verification | google-auth | ^2.40 |
 | Passwords | passlib[bcrypt] | ^1.7 |
 | Token store | redis (async) | ^5.0 |
 | OPA client | httpx | ^0.27 |
@@ -30,12 +31,14 @@
 services/api/
 │
 ├── app/
-│   ├── main.py                   # App factory, CORS, lifespan hooks
+│   ├── main.py                   # Chronicle API metadata, /health, CORS, lifespan
 │   │
 │   ├── api/v1/
 │   │   ├── router.py             # Aggregates all endpoint routers
 │   │   └── endpoints/
-│   │       ├── auth.py           # register, login, logout, refresh, /me
+│   │       ├── auth.py           # password + Google auth, link, logout, refresh, /me
+│   │       ├── account.py        # revisioned settings + opaque encrypted secrets
+│   │       ├── installations.py  # random installation registration + account link
 │   │       ├── users.py          # CRUD + role assignment
 │   │       ├── roles.py          # CRUD + permission assignment
 │   │       ├── permissions.py    # CRUD
@@ -49,9 +52,9 @@ services/api/
 │   │   ├── opa.py                # OPA HTTP client
 │   │   └── dependencies.py       # get_current_user, require_permission
 │   │
-│   ├── models/                   # SQLAlchemy ORM models
-│   ├── schemas/                  # Pydantic request/response schemas
-│   └── services/                 # Business logic (called by endpoints)
+│   ├── models/                   # SQLAlchemy ORM, including control_plane.py
+│   ├── schemas/                  # Strict Pydantic schemas, including control_plane.py
+│   └── services/                 # Auth/Google/control-plane + existing business logic
 │
 ├── alembic/                      # Migrations
 ├── tests/                        # pytest (SQLite in-memory + mocked Redis/OPA)
@@ -67,13 +70,15 @@ services/api/
 ### With Docker (recommended)
 
 ```bash
-cp .env.example .env          # fill in secrets
-docker compose up --build     # starts postgres, redis, opa, api
-make migrate                  # runs alembic upgrade head (seeds data too)
+make setup-env                # create .env if missing; then fill in secrets
+make control-plane-up         # starts postgres, redis, opa, api; applies migrations
+make control-plane-health     # expects Chronicle control-plane identity/version JSON
 ```
 
 API is available at `http://localhost:8000`.  
 Interactive docs at `http://localhost:8000/docs`.
+Docker Compose uses project name `chronicle`; service names are exactly `api`, `postgres`,
+`redis`, and `opa`.
 
 ### Without Docker (tests only)
 
@@ -111,3 +116,5 @@ All variables are documented in `.env.example` at the repo root. Key ones:
 | `JWT_SECRET_KEY` | HMAC signing key (≥ 32 chars in production) |
 | `FIRST_ADMIN_EMAIL` | Seeded on first `make migrate` |
 | `FIRST_ADMIN_PASSWORD` | Seeded on first `make migrate` |
+| `GOOGLE_OAUTH_CLIENT_ID` | Desktop OAuth client ID; API validates the Google ID-token audience |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Unused by Chronicle's desktop PKCE flow; never bundle it in Electron |

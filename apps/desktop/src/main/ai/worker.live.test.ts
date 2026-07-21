@@ -60,12 +60,16 @@ live('MVP-09 live provider acceptance', () => {
       if (captured.outcome !== 'captured') return
 
       const settings: AppSettings = {
+        appearance: { theme: 'system' },
         ai: {
           mode: 'local',
           chat: { provider, model: annotateModel },
           embeddings: { provider, model: embedModel },
         },
-        controlPlane: { baseUrl: 'http://localhost:8000', telemetryOptIn: false },
+        controlPlane: {
+          baseUrl: 'http://localhost:8000', telemetryOptIn: true,
+          settingsSyncEnabled: false, apiKeySyncEnabled: false,
+        },
       }
       const worker = createAiWorker({
         db,

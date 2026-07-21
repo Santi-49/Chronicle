@@ -42,15 +42,19 @@ is still the tracked folder; there is no extra grouping layer between folders an
 Launch
   │
   ├─ First entry ─→ Welcome screen:  [ Continue local ]          ← primary, no account/backend
-  │                                  [ Continue with Google ]    ← disabled "Coming soon" (F1)
+  │                                  [ Continue with Google ]    ← API health → system-browser PKCE (F1)
   │
   └─ After continuing ─→ workspace shell, landing on Home
                           (never blocks on the network)
 ```
 
 - **Continue local** is the primary path: fully functional forever, no account required.
-- Sign-in is Google-branded (standard-color "G", approved wording — see RESEARCH.md) and
-  ships disabled as a skeleton; accounts stay control-plane scope (F1, low priority).
+- Sign-in is Google-branded (standard-color "G", approved wording — see RESEARCH.md),
+  uses the operating system's default external browser (not an Electron child window) with PKCE,
+  and exchanges the verified Google identity for the existing Chronicle JWT session; accounts
+  stay optional control-plane scope. The app first performs a short control-plane health check.
+  An unavailable API leaves the sign-in action in a retryable unavailable state without opening
+  Google; timeout/cancellation errors are concise inline copy rather than raw IPC exceptions.
 - If AI isn't configured yet (no key), the app still captures versions; summaries show as
   pending instead of failing.
 
@@ -98,8 +102,11 @@ One window; regions as implemented:
 ### 1. Welcome — F1
 
 Brand panel (stacked version-cards illustration) plus an access card: **Continue local**
-(primary) and a disabled **Continue with Google** ("Coming soon"). A privacy note states
-local mode works without an account or internet connection.
+(primary) and **Continue with Google**. A privacy note states local mode works without an
+account and that a random installation ID is registered when the control plane is reachable.
+Google sign-in is enabled only after the API health preflight succeeds. The unavailable state
+offers a connection retry; an expired browser handoff says that sign-in took too long and can be
+retried, without exposing Electron/IPC implementation text.
 
 ### 2. Home (landing) — F2, F3, F5
 
@@ -189,8 +196,8 @@ Four sections, in current order:
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
+| **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved. Portable preferences sync automatically after each saved change, with no manual sync action. The usage control includes an explicit local-data warning and immediate off switch. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. Enabling key sync reveals a compact passphrase row with explicit **Save encrypted copy** and **Restore to this device** actions; disabling it removes the cloud envelope but keeps local keys. The passphrase is cleared after an action, cannot be recovered, and is never sent to Chronicle. Operation status/errors sit beside the related control. |
 | **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle permits free-text LangChain provider/model pairs. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
-| **Account** (F1 — lowest priority) | Local-mode line (from `getAccountState`); disabled **Continue with Google** ("Coming soon"); copy states an account never gates local history. *(Planned: telemetry opt-in, F8.)* |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
 online/offline, AI-ready state, and pending AI/embedding job count — refreshed from `statusChanged`.
@@ -209,14 +216,14 @@ admin surface.
 
 | Feature (spec §4) | Where it lives |
 |---|---|
-| F1 Accounts (low) | Welcome · Settings → Account (Google skeleton, disabled) |
+| F1 Accounts (low) | Welcome · Settings → Account (Google sign-in, persistent Chronicle session; password endpoints remain API-only) |
 | F2 Tracked folders | New Project · Projects · Home · Settings → Tracked folders |
 | F3 Version capture | Background (main process); surfaces on Home, Project, Timeline, and the live status bar |
 | F4 AI summary | Timeline (status chip) · Version details · Settings → AI summaries |
 | F5 Timeline & details | Home / Project → Timeline → Version details |
 | F6 Restore | Version details (append-only restore + native save-copy fallback) |
 | F7 Hybrid search | Search (`Ctrl/Cmd+K`) |
-| F8 Telemetry (low) | *Planned:* Settings opt-in; runs only when signed in |
+| F8 Telemetry (low) | Settings preference and disclosure implemented; event delivery planned in POST-04 |
 | F9 Gateway (stretch) | Settings → AI ("Use Chronicle service") |
 | F10 Admin (stretch) | Admin page (role-gated) |
 

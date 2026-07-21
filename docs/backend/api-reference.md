@@ -6,10 +6,26 @@ Base URL: `http://localhost:8000/api/v1`
 Interactive docs (Swagger UI): `http://localhost:8000/docs`  
 OpenAPI JSON: `http://localhost:8000/openapi.json`
 
+API identity: **Chronicle Control Plane API** · version `0.2.0`
+
 **Auth column legend:**
 - `—` public
 - `JWT` valid access token required
 - `JWT + OPA` valid token **and** OPA `allow = true` for the listed resource:action
+
+---
+
+## Health
+
+### `GET /health`
+
+Public, lightweight reachability and identity preflight. The desktop calls this before opening
+Google sign-in; no Chronicle JWT is required.
+
+**Response `200`:**
+```json
+{ "status": "ok", "service": "chronicle-control-plane", "version": "0.2.0" }
+```
 
 ---
 
@@ -71,6 +87,26 @@ Create a new user. Assigns the `user` role by default.
 
 ---
 
+### `POST /auth/google`
+
+Exchange a Google ID token obtained by Electron's system-browser desktop PKCE flow for Chronicle's
+JWT pair. Google tokens are validated and discarded.
+
+**Auth:** —
+**Request:** `{ "credential": "<google-id-token>" }`
+**Response `200`:** `TokenPair`
+**Errors:** `401` invalid/unverified Google identity · `409` explicit link required · `503` OAuth not configured
+
+### `POST /auth/google/link`
+
+Link a validated Google `sub` to the current Chronicle account.
+
+**Auth:** JWT
+**Request:** `{ "credential": "<google-id-token>" }`
+**Response:** `204 No Content`
+
+---
+
 ### `POST /auth/logout`
 
 Revokes both the access and refresh tokens immediately.
@@ -98,6 +134,41 @@ Exchange a valid refresh token for a new token pair (old refresh token is rotate
 **Auth:** JWT
 
 **Response `200`:** `UserWithRoles` (same shape as register response)
+
+---
+
+## Installations
+
+### `POST /installations/register`
+
+Best-effort, idempotent registration of a random client-generated installation UUID.
+
+**Auth:** —
+**Request:** `{ "installation_id": "uuid", "app_version": "0.1.0", "os_family": "windows" }`
+**Privacy:** schema rejects hostnames, hardware IDs, paths, project metadata, and extra fields.
+
+### `PUT /installations/{installation_id}/link`
+
+Associates the random installation with the current account. **Auth:** JWT.
+
+---
+
+## Account
+
+### `GET /account/settings` · `PUT /account/settings`
+
+**Auth:** JWT + OPA `account:read` / `account:write`. Returns or updates the strict portable
+settings object plus `revision` and `updated_at`. PUT includes `expected_revision`; stale writes
+return `409 revision_conflict`. Portable fields are appearance theme, AI mode/provider/models,
+settings/key-sync preferences, and telemetry preference/notice metadata. Device paths, project
+metadata, base URLs, secrets, and unknown properties are rejected.
+
+### `GET /account/secrets` · `PUT /account/secrets` · `DELETE /account/secrets`
+
+**Auth:** JWT + OPA `account:read` / `account:write`. Stores one versioned opaque envelope. The
+desktop performs scrypt key derivation and AES-256-GCM encryption; the API never receives the
+passphrase, plaintext provider keys, or a decryption key. Missing GET returns `404`; stale PUT
+returns `409 revision_conflict`; DELETE returns `204`.
 
 ---
 

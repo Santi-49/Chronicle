@@ -11,12 +11,12 @@
  * the preload bridge forwards arguments verbatim, so this is the boundary
  * where untrusted renderer data is checked.
  *
- * Not yet implemented (handlers reject with a clear error, tracked in
- * apps/desktop/README.md): register/login (F1 — low priority; local mode
- * always works).
+ * Search and account/control-plane operations are optional and injected;
+ * local mode always works without either external service.
  */
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import type {
   AppStatus,
   AssetSummary,
@@ -66,14 +66,21 @@ import {
 import type { EmitEvent } from './channels'
 import { imageUrlForHash } from './media'
 import type { SecretStore } from './secrets'
+import type { ControlPlaneClient, InstallationDescriptor } from '../gateway-client/client'
+import { portableSettings } from '../gateway-client/client'
+import { decryptProviderKeys, encryptProviderKeys } from '../gateway-client/secret-envelope'
 import { embeddingModelIdentity, search } from '../search'
 import type { AiClient } from '../ai/client'
 
 // ── Settings defaults (implementation policy per C5, not contract) ──────
 
 const SETTINGS_KEY = 'app-settings'
+const INSTALLATION_ID_KEY = 'control-plane-installation-id'
+const TELEMETRY_DEFAULT_MIGRATION_KEY = 'post03-telemetry-default-applied'
+const SETTINGS_SYNC_DEFAULT_MIGRATION_KEY = 'post03-settings-sync-default-applied'
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  appearance: { theme: 'system' },
   ai: {
     mode: 'local',
     // Default demo provider/model (Google Gemini) — validated in RESEARCH.md's
@@ -85,7 +92,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   controlPlane: {
     baseUrl: 'http://localhost:8000',
-    telemetryOptIn: false,
+    telemetryOptIn: true,
+    settingsSyncEnabled: true,
+    apiKeySyncEnabled: false,
   },
 }
 
@@ -101,6 +110,12 @@ export interface ChronicleServicesDeps {
   pickVersionCopyPath: (suggestedName: string) => Promise<string | null>
   secrets: SecretStore
   isOnline: () => boolean
+  account?: ControlPlaneClient
+  googleCredential?: () => Promise<string>
+  googleClientConfigured?: boolean
+  /** Initial API origin for a profile that has not persisted control-plane settings yet. */
+  controlPlaneBaseUrl?: string
+  installation?: Omit<InstallationDescriptor, 'installationId'>
   /** Applies theme colors to native title-bar controls. */
   setWindowTheme: (theme: WindowTheme) => void
   /**
@@ -184,9 +199,20 @@ function expectFolderMeta(value: unknown, name: string): FolderMetaPatch {
 export function mergeSettings(current: AppSettings, patch: unknown): AppSettings {
   if (!isPlainObject(patch)) throw new TypeError('settings patch must be an object')
   for (const key of Object.keys(patch)) {
-    if (key !== 'ai' && key !== 'controlPlane') throw new TypeError(`Unknown settings key: ${key}`)
+    if (key !== 'appearance' && key !== 'ai' && key !== 'controlPlane') {
+      throw new TypeError(`Unknown settings key: ${key}`)
+    }
   }
   const next = structuredClone(current)
+
+  if (patch['appearance'] !== undefined) {
+    const appearance = patch['appearance']
+    if (!isPlainObject(appearance) ||
+      (appearance['theme'] !== 'system' && appearance['theme'] !== 'dark' && appearance['theme'] !== 'light')) {
+      throw new TypeError("settings.appearance.theme must be 'system', 'dark', or 'light'")
+    }
+    next.appearance = { theme: appearance['theme'] }
+  }
 
   if (patch['ai'] !== undefined) {
     const ai = patch['ai']
@@ -215,9 +241,23 @@ export function mergeSettings(current: AppSettings, patch: unknown): AppSettings
     if (typeof cp['telemetryOptIn'] !== 'boolean') {
       throw new TypeError('settings.controlPlane.telemetryOptIn must be a boolean')
     }
+    if (cp['settingsSyncEnabled'] !== undefined && typeof cp['settingsSyncEnabled'] !== 'boolean') {
+      throw new TypeError('settings.controlPlane.settingsSyncEnabled must be a boolean')
+    }
+    if (cp['apiKeySyncEnabled'] !== undefined && typeof cp['apiKeySyncEnabled'] !== 'boolean') {
+      throw new TypeError('settings.controlPlane.apiKeySyncEnabled must be a boolean')
+    }
     next.controlPlane = {
       baseUrl: expectString(cp['baseUrl'], 'settings.controlPlane.baseUrl'),
       telemetryOptIn: cp['telemetryOptIn'],
+      settingsSyncEnabled:
+        cp['settingsSyncEnabled'] === undefined
+          ? current.controlPlane.settingsSyncEnabled
+          : cp['settingsSyncEnabled'],
+      apiKeySyncEnabled:
+        cp['apiKeySyncEnabled'] === undefined
+          ? current.controlPlane.apiKeySyncEnabled
+          : cp['apiKeySyncEnabled'],
     }
   }
 
@@ -297,6 +337,49 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       .getAppStatus()
       .then((status) => emit('statusChanged', status))
       .catch(() => {})
+  }
+
+  function installationId(): string {
+    const existing = getSetting<string>(db, INSTALLATION_ID_KEY)
+    if (existing) return existing
+    const created = randomUUID()
+    setSetting(db, INSTALLATION_ID_KEY, created)
+    return created
+  }
+
+  function requireAccount(): ControlPlaneClient {
+    if (!deps.account) throw new Error('The Chronicle control plane is not configured')
+    return deps.account
+  }
+
+  async function pushPortableSettings(local: AppSettings): Promise<void> {
+    const account = requireAccount()
+    const remote = await account.getSettings()
+    await account.putSettings(portableSettings(local), remote.revision)
+  }
+
+  async function applyRemoteSettings(): Promise<void> {
+    if (!deps.account) return
+    const remote = await deps.account.getSettings()
+    if (!remote.settings.settings_sync_enabled) return
+    const local = await api.getSettings()
+    const next = mergeSettings(local, {
+      appearance: remote.settings.appearance,
+      ai: remote.settings.ai,
+      controlPlane: {
+        baseUrl: local.controlPlane.baseUrl,
+        telemetryOptIn: remote.settings.telemetry.enabled,
+        settingsSyncEnabled: remote.settings.settings_sync_enabled,
+        apiKeySyncEnabled: remote.settings.api_key_sync_enabled,
+      },
+    })
+    setSetting(db, SETTINGS_KEY, next)
+  }
+
+  async function afterSignIn(): Promise<void> {
+    if (!deps.account) return
+    void deps.account.linkInstallation(installationId()).catch(() => {})
+    await applyRemoteSettings()
   }
 
   function summaryTextOf(version: VersionRecord): string | null {
@@ -556,15 +639,9 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       const stored = getSetting<unknown>(db, SETTINGS_KEY)
       // Merging over the defaults keeps old stored settings valid when a
       // field is added; mergeSettings also re-validates what was stored.
-      if (stored === undefined) return structuredClone(DEFAULT_SETTINGS)
-      if (!isPlainObject(stored)) return mergeSettings(DEFAULT_SETTINGS, stored)
-
-      const migratedPatch = structuredClone(stored)
+      const migratedPatch = stored === undefined ? {} : structuredClone(stored)
+      if (!isPlainObject(migratedPatch)) return mergeSettings(DEFAULT_SETTINGS, migratedPatch)
       let needsMigration = false
-      if (Object.hasOwn(migratedPatch, 'appearance')) {
-        delete migratedPatch['appearance']
-        needsMigration = true
-      }
       const storedAi = migratedPatch['ai']
       if (isPlainObject(storedAi)) {
         for (const task of ['chat', 'embeddings']) {
@@ -576,6 +653,22 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         }
       }
       const settings = mergeSettings(DEFAULT_SETTINGS, migratedPatch)
+      if (stored === undefined && deps.controlPlaneBaseUrl) {
+        settings.controlPlane.baseUrl = deps.controlPlaneBaseUrl
+        needsMigration = true
+      }
+      // These fields existed as false, non-user-facing placeholders before POST-03.
+      // Migrate each once, then preserve every explicit opt-out.
+      if (!getSetting<boolean>(db, TELEMETRY_DEFAULT_MIGRATION_KEY)) {
+        settings.controlPlane.telemetryOptIn = true
+        setSetting(db, TELEMETRY_DEFAULT_MIGRATION_KEY, true)
+        needsMigration = true
+      }
+      if (!getSetting<boolean>(db, SETTINGS_SYNC_DEFAULT_MIGRATION_KEY)) {
+        settings.controlPlane.settingsSyncEnabled = true
+        setSetting(db, SETTINGS_SYNC_DEFAULT_MIGRATION_KEY, true)
+        needsMigration = true
+      }
       if (needsMigration) setSetting(db, SETTINGS_KEY, settings)
       return settings
     },
@@ -627,6 +720,9 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         enqueueEmbeddingReindexJobs(db)
       }
       pushStatus() // ai provider/model changes flip aiConfigured
+      if (next.controlPlane.settingsSyncEnabled && deps.account) {
+        void pushPortableSettings(next).catch(() => {})
+      }
       return next
     },
 
@@ -648,14 +744,88 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       return secrets.providers()
     },
 
-    // F1 — account (low priority; the app is fully usable in local mode)
-    async getAccountState() {
-      return { mode: 'local', email: null, isAdmin: false }
+    // F1 — account (the app is fully usable in local mode)
+    async checkControlPlaneHealth() {
+      if (!deps.account || !deps.googleClientConfigured) return false
+      return deps.account.health()
     },
-    register: notImplemented('Accounts (F1)'),
-    login: notImplemented('Accounts (F1)'),
+    async getAccountState() {
+      return deps.account?.accountState() ?? { mode: 'local', email: null, isAdmin: false }
+    },
+    async register(email, password) {
+      const state = await requireAccount().register(
+        expectString(email, 'email'), expectString(password, 'password'),
+      )
+      await afterSignIn()
+      return state
+    },
+    async login(email, password) {
+      const state = await requireAccount().login(
+        expectString(email, 'email'), expectString(password, 'password'),
+      )
+      await afterSignIn()
+      return state
+    },
+    async loginWithGoogle() {
+      if (!deps.googleCredential) throw new Error('Google sign-in is not configured')
+      if (!(await api.checkControlPlaneHealth())) {
+        throw new Error('Chronicle sign-in is unavailable. Check the control plane and try again.')
+      }
+      const account = requireAccount()
+      const credential = await deps.googleCredential()
+      const current = await account.accountState()
+      const state = current.mode === 'signed-in'
+        ? await account.linkGoogleCredential(credential)
+        : await account.loginWithGoogleCredential(credential)
+      await afterSignIn()
+      return state
+    },
     async logout() {
-      // Local mode has no session — logging out is trivially done.
+      await deps.account?.logout()
+    },
+    async syncSettings() {
+      const local = await api.getSettings()
+      const enabled = mergeSettings(local, {
+        controlPlane: { ...local.controlPlane, settingsSyncEnabled: true },
+      })
+      setSetting(db, SETTINGS_KEY, enabled)
+      await pushPortableSettings(enabled)
+    },
+    async syncApiKeys(passphrase) {
+      const phrase = expectString(passphrase, 'passphrase')
+      const entries = await secrets.entries()
+      if (Object.keys(entries).length === 0) throw new Error('No provider API keys are saved')
+      const account = requireAccount()
+      const current = await account.getEncryptedSecret()
+      await account.putEncryptedSecret(await encryptProviderKeys(entries, phrase), current?.revision ?? 0)
+      const local = await api.getSettings()
+      const enabled = mergeSettings(local, {
+        controlPlane: { ...local.controlPlane, apiKeySyncEnabled: true },
+      })
+      setSetting(db, SETTINGS_KEY, enabled)
+      if (enabled.controlPlane.settingsSyncEnabled) await pushPortableSettings(enabled)
+    },
+    async restoreApiKeys(passphrase) {
+      const account = requireAccount()
+      const synced = await account.getEncryptedSecret()
+      if (!synced) throw new Error('No synced API keys were found')
+      const entries = await decryptProviderKeys(synced.envelope, expectString(passphrase, 'passphrase'))
+      for (const [provider, key] of Object.entries(entries)) await secrets.set(provider, key)
+      const local = await api.getSettings()
+      const enabled = mergeSettings(local, {
+        controlPlane: { ...local.controlPlane, apiKeySyncEnabled: true },
+      })
+      setSetting(db, SETTINGS_KEY, enabled)
+      pushStatus()
+    },
+    async disableApiKeySync() {
+      await requireAccount().deleteEncryptedSecret()
+      const local = await api.getSettings()
+      const disabled = mergeSettings(local, {
+        controlPlane: { ...local.controlPlane, apiKeySyncEnabled: false },
+      })
+      setSetting(db, SETTINGS_KEY, disabled)
+      if (disabled.controlPlane.settingsSyncEnabled) await pushPortableSettings(disabled)
     },
 
     // Status bar
@@ -714,6 +884,12 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     api,
     start(): void {
       for (const folder of listTrackedFolders(db)) watcher.watch(folder.path)
+      if (deps.account && deps.installation) {
+        void deps.account.registerInstallation({
+          ...deps.installation,
+          installationId: installationId(),
+        }).catch(() => {})
+      }
     },
     dispose(): Promise<void> {
       return watcher.close()

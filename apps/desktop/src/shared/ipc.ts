@@ -202,10 +202,22 @@ export interface ChronicleApi {
   configuredProviders(): Promise<string[]>
 
   // F1 — account (low priority; everything above works in 'local' mode)
+  /** Reachability/configuration preflight; never throws for ordinary connection failures. */
+  checkControlPlaneHealth(): Promise<boolean>
   getAccountState(): Promise<AccountState>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
+  /** System-browser Google OAuth with desktop PKCE; returns after Chronicle JWT issuance. */
+  loginWithGoogle(): Promise<AccountState>
   logout(): Promise<void>
+  /** Push the current portable C5 preferences now (requires a signed-in account). */
+  syncSettings(): Promise<void>
+  /** Encrypt all saved provider keys client-side and upload one opaque envelope. */
+  syncApiKeys(passphrase: string): Promise<void>
+  /** Download/decrypt the opaque envelope into safeStorage; plaintext never reaches renderer. */
+  restoreApiKeys(passphrase: string): Promise<void>
+  /** Delete the server envelope and disable future API-key sync. */
+  disableApiKeySync(): Promise<void>
 
   // Status bar
   getAppStatus(): Promise<AppStatus>

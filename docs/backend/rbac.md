@@ -92,7 +92,7 @@ Seeded by [migration 001](../../services/api/alembic/versions/001_initial_schema
 | Role | Description |
 |---|---|
 | `admin` | Full access to all resources |
-| `user` | Can only call `GET /hello/protected` |
+| `user` | Protected hello plus own account settings/encrypted-secret operations |
 
 ### Permission Matrix
 
@@ -102,6 +102,7 @@ Seeded by [migration 001](../../services/api/alembic/versions/001_initial_schema
 | `roles` | admin | admin | admin |
 | `permissions` | admin | admin | admin |
 | `hello` | admin, user | — | — |
+| `account` | admin, user | admin, user | — |
 
 ---
 

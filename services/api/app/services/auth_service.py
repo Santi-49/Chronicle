@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,8 +8,10 @@ from app.core import redis as token_store
 from app.core.config import settings
 from app.core.security import create_token, hash_password, verify_password
 from app.models.role import Role
+from app.models.control_plane import ExternalIdentity
 from app.models.user import User
 from app.schemas.auth import RegisterRequest
+from app.schemas.control_plane import GoogleIdentityClaims
 from app.schemas.token import TokenPair
 
 
@@ -33,10 +37,121 @@ async def register_user(data: RegisterRequest, db: AsyncSession) -> User:
     return user
 
 
+async def _default_role(db: AsyncSession) -> Role | None:
+    result = await db.execute(select(Role).where(Role.name == "user"))
+    return result.scalar_one_or_none()
+
+
+def _google_names(claims: GoogleIdentityClaims) -> tuple[str, str]:
+    given = claims.given_name.strip()
+    family = claims.family_name.strip()
+    if not given and claims.display_name.strip():
+        parts = claims.display_name.strip().split(maxsplit=1)
+        given = parts[0]
+        family = parts[1] if len(parts) > 1 else ""
+    return given or "Google", family or "User"
+
+
+async def authenticate_google(claims: GoogleIdentityClaims, db: AsyncSession) -> User:
+    result = await db.execute(
+        select(User)
+        .join(ExternalIdentity, ExternalIdentity.user_id == User.id)
+        .where(
+            ExternalIdentity.provider == "google",
+            ExternalIdentity.provider_subject == claims.subject,
+        )
+    )
+    user = result.scalar_one_or_none()
+    if user is not None:
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account inactive")
+        identity_result = await db.execute(
+            select(ExternalIdentity).where(
+                ExternalIdentity.provider == "google",
+                ExternalIdentity.provider_subject == claims.subject,
+            )
+        )
+        identity_result.scalar_one().last_login_at = datetime.now(timezone.utc)
+        await db.commit()
+        return user
+
+    existing = await db.execute(select(User).where(User.email == claims.email))
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "account_link_required",
+                "message": "Sign in to the existing Chronicle account before linking Google",
+            },
+        )
+
+    name, surname = _google_names(claims)
+    user = User(
+        email=claims.email,
+        name=name,
+        surname=surname,
+        hashed_password=None,
+    )
+    role = await _default_role(db)
+    if role:
+        user.roles.append(role)
+    db.add(user)
+    await db.flush()
+    db.add(ExternalIdentity(
+        user_id=user.id,
+        provider="google",
+        provider_subject=claims.subject,
+        last_login_at=datetime.now(timezone.utc),
+    ))
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def link_google_identity(
+    user: User, claims: GoogleIdentityClaims, db: AsyncSession
+) -> None:
+    result = await db.execute(
+        select(ExternalIdentity).where(
+            ExternalIdentity.provider == "google",
+            ExternalIdentity.provider_subject == claims.subject,
+        )
+    )
+    identity = result.scalar_one_or_none()
+    if identity is not None and identity.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Google account is already linked to another Chronicle account",
+        )
+
+    own_result = await db.execute(
+        select(ExternalIdentity).where(
+            ExternalIdentity.user_id == user.id,
+            ExternalIdentity.provider == "google",
+        )
+    )
+    own_identity = own_result.scalar_one_or_none()
+    if own_identity is not None and own_identity.provider_subject != claims.subject:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Chronicle account already has a different Google identity",
+        )
+    if identity is None:
+        db.add(ExternalIdentity(
+            user_id=user.id,
+            provider="google",
+            provider_subject=claims.subject,
+            last_login_at=datetime.now(timezone.utc),
+        ))
+    else:
+        identity.last_login_at = datetime.now(timezone.utc)
+    await db.commit()
+
+
 async def authenticate_user(email: str, password: str, db: AsyncSession) -> User:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
-    if not user or not verify_password(password, user.hashed_password):
+    if not user or user.hashed_password is None or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )

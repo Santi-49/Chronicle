@@ -87,6 +87,7 @@ beforeEach(() => {
         secretKeys.delete(provider)
       },
       providers: () => [...secretKeys.keys()],
+      entries: () => Object.fromEntries(secretKeys),
     },
     isOnline: () => online,
     setWindowTheme: (theme) => {
@@ -171,10 +172,11 @@ describe('C1 contract surface', () => {
   })
 
   it('pending features reject with a clear error instead of pretending', async () => {
-    // search is now implemented (MVP-10) — it returns [] for this empty-ish DB
+    // Search is implemented (MVP-10) and degrades to keyword-only in this fixture.
     await expect(services.api.search('logo')).resolves.toEqual([])
-    await expect(services.api.register('a@b.c', 'pw')).rejects.toThrow(/not implemented/)
-    await expect(services.api.login('a@b.c', 'pw')).rejects.toThrow(/not implemented/)
+    await expect(services.api.register('a@b.c', 'pw')).rejects.toThrow(/control plane/)
+    await expect(services.api.login('a@b.c', 'pw')).rejects.toThrow(/control plane/)
+    await expect(services.api.loginWithGoogle()).rejects.toThrow(/Google sign-in/)
   })
 
   it('account state is local mode; logout is a safe no-op', async () => {
@@ -648,7 +650,7 @@ describe('settings and the secret boundary', () => {
     expect((await services.api.getSettings()).ai.chat.model).toBe('gpt-4o-mini')
   })
 
-  it('migrates retired appearance data and the old Google provider alias', async () => {
+  it('keeps portable appearance data while migrating the old Google provider alias', async () => {
     setSetting(db, 'app-settings', {
       appearance: { theme: 'dark' },
       ai: {
@@ -659,8 +661,12 @@ describe('settings and the secret boundary', () => {
       controlPlane: DEFAULT_SETTINGS.controlPlane,
     })
 
-    expect(await services.api.getSettings()).toEqual(DEFAULT_SETTINGS)
-    expect(getSetting(db, 'app-settings')).toEqual(DEFAULT_SETTINGS)
+    const expected = {
+      ...DEFAULT_SETTINGS,
+      appearance: { theme: 'dark' as const },
+    }
+    expect(await services.api.getSettings()).toEqual(expected)
+    expect(getSetting(db, 'app-settings')).toEqual(expected)
   })
 
   it('queues annotation text for reindexing when the embeddings selection changes', async () => {
@@ -693,6 +699,33 @@ describe('settings and the secret boundary', () => {
       },
     })
     expect(listJobs(db, 'embedding')).toHaveLength(1)
+  })
+
+  it('migrates unreleased telemetry and settings-sync placeholders once, then preserves opt-outs', async () => {
+    setSetting(db, 'app-settings', {
+      ...DEFAULT_SETTINGS,
+      controlPlane: {
+        ...DEFAULT_SETTINGS.controlPlane,
+        telemetryOptIn: false,
+        settingsSyncEnabled: false,
+      },
+    })
+
+    expect((await services.api.getSettings()).controlPlane).toMatchObject({
+      telemetryOptIn: true,
+      settingsSyncEnabled: true,
+    })
+    await services.api.updateSettings({
+      controlPlane: {
+        ...DEFAULT_SETTINGS.controlPlane,
+        telemetryOptIn: false,
+        settingsSyncEnabled: false,
+      },
+    })
+    expect((await services.api.getSettings()).controlPlane).toMatchObject({
+      telemetryOptIn: false,
+      settingsSyncEnabled: false,
+    })
   })
 
   it('rejects malformed patches', async () => {
