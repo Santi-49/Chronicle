@@ -375,10 +375,11 @@
 .api-keys-heading h3 { margin: 0; font-size: 14px; font-weight: 620; }
 .api-keys-heading p { margin: 7px 0 0; max-width: 560px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
 .api-key-row { display: grid; margin-top: 16px; grid-template-columns: 150px minmax(0, 1fr) auto; align-items: center; gap: 14px; }
-.api-key-label { display: flex; align-items: center; gap: 8px; }
-.api-key-label strong { font-size: 12px; }
-.api-key-label .inline-status { font-size: 10px; }
+.api-key-label { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.api-key-label strong { min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.api-key-label .key-saved-badge { margin-left: 0; }
 .api-key-actions { display: flex; align-items: center; gap: 8px; }
+.api-key-status { min-width: 0; margin-top: -8px; grid-column: 2 / -1; overflow-wrap: anywhere; }
 .api-key-row .input-with-icon input { width: 100%; height: 40px; padding: 0 12px 0 40px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 4px; outline: 0; }
 .api-key-row .input-with-icon input:focus { border-color: var(--focus); }
 .api-key-row .input-with-icon .icon { top: 11px; }
@@ -538,6 +539,7 @@
   .ai-task .settings-form-grid { margin-left: 0; }
   .api-key-row { grid-template-columns: 1fr; gap: 8px; }
   .api-key-actions { justify-content: flex-start; }
+  .api-key-status { margin-top: 0; grid-column: 1; }
   .settings-action-row { align-items: stretch; flex-direction: column; }
 }
 

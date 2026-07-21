@@ -284,7 +284,6 @@ function ApiKeyRow({
       <div className="api-key-label">
         <strong>{label}</strong>
         {saved && <em className="key-saved-badge">Saved</em>}
-        {status && <span className="inline-status" role="status">{status}</span>}
       </div>
       <div className="input-with-icon">
         <Icon name="key" />
@@ -300,6 +299,7 @@ function ApiKeyRow({
         <button className="secondary-button compact-button" disabled={!draft.trim()} onClick={() => void save()} type="button">Save</button>
         {saved && <button className="text-button" onClick={() => void clear()} type="button">Remove</button>}
       </div>
+      {status && <span className="api-key-status inline-status" role="status">{status}</span>}
     </div>
   )
 }
