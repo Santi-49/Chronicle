@@ -486,9 +486,9 @@ ranking, empty query, unavailable embeddings, and model changes are tested.
 > repeating vision analysis. The banner fixture regression covers meaning-based queries
 > whose words are not an exact stored phrase.
 
-### [~] MVP-11 — Build the Search page
+### [x] MVP-11 — Build the Search page
 
-**Owner:** Santi R (live C1 search UI and engine integration merged; final UX acceptance pending)
+**Owner:** Santi R · complete
 
 **Depends on:** MVP-06, MVP-10; mock results may be used earlier  
 **Goal:** Present one simple search experience without exposing implementation modes.
@@ -504,9 +504,10 @@ note once built); one line in `docs/bob-log.md`.
 **Done when:** Keyboard search opens a result's version details and clearly explains when recent
 semantic indexing is still pending.
 
-> Done: Search screen with Ctrl+K calls the real C1 hybrid search (debounced), renders ranked
-> version results, and opens live version details. Remaining for MVP-11 sign-off: explicit
-> semantic-indexing-pending feedback while reindex jobs are queued.
+> Accepted 2026-07-21: Search with Ctrl+K calls the real C1 hybrid search (debounced), renders
+> ranked version results, and opens live version details. A live, screen-reader-announced notice
+> now explains when semantic indexing is running, paused offline, or waiting for AI setup while
+> confirming that keyword search remains available.
 
 ## Phase 5 — Integration, quality, and submission
 

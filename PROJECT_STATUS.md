@@ -38,7 +38,7 @@ the local Python service, restores prior versions append-only, and runs hybrid h
 | Shell, onboarding, settings | Merged (MVP-06) | Renderer wired to live C1 via `src/renderer/src/lib/{bridge,useChronicle,aiCatalog}.ts`. Status/queue UI, folder selection, project create/edit, and curated AI settings are implemented. Both AI selectors require a saved per-provider key; changed models are live-validated before persistence, rejected changes roll back with friendly feedback, and Google provider aliases migrate to `google_genai`. Typecheck, 118 desktop tests, and build are green. |
 | Assets, Timeline, Version Details | Complete (MVP-08) | Live C1 queries/events and real thumbnails; keyboard timeline traversal; explicit pending/failed/restore states; retry feedback; missing-source badges; completed restore/save-copy controls; and a typed-safeguard reset that turns the latest snapshot into a freshly annotated v1. |
 | Restore engine | Complete (MVP-07) | Selected library bytes overwrite the original path and append a provenance-marked version with no AI job. A missing original folder switches the UI to a native Save a copy dialog. Acceptance covers v2→v6, missing-folder fallback, cancellation, and validation. |
-| Search UI and engine | Implemented (MVP-10; MVP-11 final acceptance pending) | FTS5 keyword and provider/model-scoped cosine semantic search return live version results and degrade to keyword-only when AI is unavailable. Embedding configuration changes queue deduplicated reindex jobs over existing annotation text. |
+| Search UI and engine | Complete (MVP-10 and MVP-11) | FTS5 keyword and provider/model-scoped cosine semantic search return live version results and degrade to keyword-only when AI is unavailable. Embedding configuration changes queue deduplicated reindex jobs over existing annotation text, and Search explains live indexing, offline, and AI-setup states. |
 | Backend control plane | Base auth/RBAC ready | Chronicle telemetry/config/gateway additions are low priority or stretch and must not delay the MVP. |
 | Landing page | Existing optional page | Not part of the MVP; do not spend time here before the desktop app works. |
 | Demo and submission | Demo pack merged (DEMO-01) | Three approved, generated image histories and a git-ignored watched workspace are documented in `demo-assets/`; video, final README evidence, and SkillsBuild completion remain outstanding. |
@@ -62,12 +62,10 @@ not a public contract. Change it carefully through migrations once released.
 
 ## Immediate next actions
 
-1. Close the remaining Search UI acceptance work in `MVP-11`, including explicit
-   semantic-indexing-pending feedback.
-2. Run the full `MVP-12` journey repeatedly using `demo-assets/workspace/`, including
+1. Run the full `MVP-12` journey repeatedly using `demo-assets/workspace/`, including
    offline queue, retry, restart, deleted-source, and 50 MB skip cases.
-3. Decide and record the final demo provider/model/budget.
-4. Team lead fills in names/task ownership and confirms branch protection; every team member
+2. Decide and record the final demo provider/model/budget.
+3. Team lead fills in names/task ownership and confirms branch protection; every team member
    completes the required IBM SkillsBuild activity before July 25.
 
 ## Open decisions and risks

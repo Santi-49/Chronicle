@@ -491,6 +491,9 @@
 .search-field input { min-width: 0; height: 100%; flex: 1; color: var(--text-primary); background: transparent; border: 0; outline: 0; font-size: 15px; }
 .search-field input::placeholder { color: var(--text-muted); }
 .search-field kbd { padding: 4px 7px; color: var(--text-muted); background: var(--surface-hover); border: 1px solid var(--border); border-radius: 3px; font-family: inherit; font-size: 10px; }
+.search-indexing-notice { margin-top: 16px; }
+.search-indexing-notice strong { display: block; color: var(--text-primary); font-size: 12px; }
+.search-indexing-notice p { margin: 3px 0 0; }
 .search-start-state { display: flex; max-width: 620px; margin: 72px auto 0; align-items: flex-start; gap: 20px; }
 .search-start-state > .icon { width: 28px; height: 28px; color: var(--accent); }
 .search-start-state h2,

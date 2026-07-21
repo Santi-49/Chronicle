@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { AssetPreview } from '../components/AssetPreview'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
-import { relativeTime, useSearch } from '../lib/useChronicle'
+import { relativeTime, useAppStatus, useSearch } from '../lib/useChronicle'
+import { getSearchIndexingNotice } from './searchIndexing'
 
 interface SearchScreenProps {
   onOpenVersion: (assetId: number, versionId: number) => void
@@ -13,6 +14,7 @@ const suggestions = ['blue background', 'tagline removed', 'logo']
 export function SearchScreen({ onOpenVersion }: SearchScreenProps) {
   const [query, setQuery] = useState('')
   const { results, loading, unavailable } = useSearch(query)
+  const indexingNotice = getSearchIndexingNotice(useAppStatus())
   const hasQuery = query.trim() !== ''
 
   return (
@@ -35,6 +37,16 @@ export function SearchScreen({ onOpenVersion }: SearchScreenProps) {
         />
         <kbd>Ctrl K</kbd>
       </label>
+
+      {indexingNotice && (
+        <div className="inline-notice search-indexing-notice" role="status" aria-live="polite">
+          <Icon name="refresh" />
+          <div>
+            <strong>{indexingNotice.title}</strong>
+            <p>{indexingNotice.description}</p>
+          </div>
+        </div>
+      )}
 
       {!hasQuery ? (
         <div className="search-start-state">
