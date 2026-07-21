@@ -86,10 +86,14 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
     case 'version':
       return (
         <VersionDetailsScreen
+          key={route.versionId}
           assetId={route.assetId}
           projectId={route.projectId}
           versionId={route.versionId}
           onBack={() => navigate({ name: 'timeline', assetId: route.assetId, projectId: route.projectId })}
+          onOpenVersion={(versionId) =>
+            navigate({ name: 'version', versionId, assetId: route.assetId, projectId: route.projectId })
+          }
           onOpenProject={(projectId) =>
             projectId === undefined ? navigate({ name: 'projects' }) : navigate({ name: 'project', projectId })
           }

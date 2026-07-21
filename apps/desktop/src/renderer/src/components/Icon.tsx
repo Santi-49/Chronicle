@@ -1,6 +1,8 @@
 import type { CSSProperties } from 'react'
 import archiveIcon from '@material-symbols/svg-400/outlined/inventory_2.svg'
 import arrowLeftIcon from '@material-symbols/svg-400/outlined/arrow_back.svg'
+import arrowDownIcon from '@material-symbols/svg-400/outlined/arrow_downward.svg'
+import arrowUpIcon from '@material-symbols/svg-400/outlined/arrow_upward.svg'
 import brushIcon from '@material-symbols/svg-400/outlined/brush.svg'
 import cameraIcon from '@material-symbols/svg-400/outlined/photo_camera.svg'
 import campaignIcon from '@material-symbols/svg-400/outlined/campaign.svg'
@@ -28,6 +30,8 @@ import themeLightIcon from '@material-symbols/svg-400/outlined/light_mode.svg'
 export type IconName =
   | 'archive'
   | 'arrow-left'
+  | 'arrow-down'
+  | 'arrow-up'
   | 'brush'
   | 'camera'
   | 'campaign'
@@ -55,6 +59,8 @@ export type IconName =
 const icons: Record<IconName, string> = {
   archive: archiveIcon,
   'arrow-left': arrowLeftIcon,
+  'arrow-down': arrowDownIcon,
+  'arrow-up': arrowUpIcon,
   brush: brushIcon,
   camera: cameraIcon,
   campaign: campaignIcon,

@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { AssetPreview } from '../components/AssetPreview'
 import { Icon } from '../components/Icon'
 import { chronicle } from '../lib/bridge'
-import { folderForAsset, formatBytes, relativeTime, useAssets, useFolders, useVersionDetails } from '../lib/useChronicle'
+import { folderForAsset, formatBytes, relativeTime, useAssets, useFolders, useTimeline, useVersionDetails } from '../lib/useChronicle'
 
 interface VersionDetailsScreenProps {
   assetId: number
   projectId?: number
   versionId: number
   onBack: () => void
+  onOpenVersion: (versionId: number) => void
   onOpenProject: (projectId?: number) => void
   onOpenProjects: () => void
 }
@@ -18,12 +19,14 @@ export function VersionDetailsScreen({
   projectId,
   versionId,
   onBack,
+  onOpenVersion,
   onOpenProject,
   onOpenProjects,
 }: VersionDetailsScreenProps) {
   const { data: version, loading, error } = useVersionDetails(versionId)
   const { assets } = useAssets()
   const { folders } = useFolders()
+  const { versions } = useTimeline(assetId)
   const [actionState, setActionState] = useState<{ kind: 'status' | 'error'; message: string } | null>(null)
   const [originalFolderMissing, setOriginalFolderMissing] = useState(false)
   const [actionPending, setActionPending] = useState(false)
@@ -33,6 +36,9 @@ export function VersionDetailsScreen({
   const folder = asset ? folderForAsset(asset, folders) : undefined
   const folderId = projectId ?? folder?.id
   const format = asset?.displayName.split('.').pop()?.toUpperCase()
+  const currentIndex = versions.findIndex((item) => item.id === versionId)
+  const newerVersion = currentIndex > 0 ? versions[currentIndex - 1] : undefined
+  const olderVersion = currentIndex >= 0 ? versions[currentIndex + 1] : undefined
 
   const handleRestore = async () => {
     setActionPending(true)
@@ -113,15 +119,37 @@ export function VersionDetailsScreen({
           <h1 id="version-title">{relativeTime(version.capturedAt)}</h1>
         </div>
         <div className="version-header-actions">
-          <button
-            className="secondary-button"
-            disabled={actionPending}
-            onClick={originalFolderMissing ? handleSaveCopy : handleRestore}
-            type="button"
-          >
-            <Icon name="restore" />
-            {actionPending ? 'Working…' : originalFolderMissing ? 'Save a copy…' : 'Restore this version'}
-          </button>
+          <div className="version-header-controls">
+            <div className="version-navigation" role="group" aria-label="Navigate asset versions">
+              <button
+                aria-label={newerVersion ? `Open newer version ${newerVersion.versionNumber}` : 'Already at the newest version'}
+                disabled={!newerVersion}
+                onClick={() => newerVersion && onOpenVersion(newerVersion.id)}
+                title={newerVersion ? `Newer: version ${newerVersion.versionNumber}` : 'Newest version'}
+                type="button"
+              >
+                <Icon name="arrow-up" />
+              </button>
+              <button
+                aria-label={olderVersion ? `Open older version ${olderVersion.versionNumber}` : 'Already at the oldest version'}
+                disabled={!olderVersion}
+                onClick={() => olderVersion && onOpenVersion(olderVersion.id)}
+                title={olderVersion ? `Older: version ${olderVersion.versionNumber}` : 'Oldest version'}
+                type="button"
+              >
+                <Icon name="arrow-down" />
+              </button>
+            </div>
+            <button
+              className="secondary-button"
+              disabled={actionPending}
+              onClick={originalFolderMissing ? handleSaveCopy : handleRestore}
+              type="button"
+            >
+              <Icon name="restore" />
+              {actionPending ? 'Working…' : originalFolderMissing ? 'Save a copy…' : 'Restore this version'}
+            </button>
+          </div>
           {actionState && (
             <p className={`inline-status ${actionState.kind === 'error' ? 'inline-status-error' : ''}`} role={actionState.kind === 'error' ? 'alert' : 'status'}>
               {actionState.message}

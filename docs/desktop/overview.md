@@ -155,6 +155,8 @@ One asset's history, newest first, on a vertical rail. Each row: version number,
 Everything about one version: large preview, the full AI output (summary, changes list,
 tags), metadata, and actions:
 
+- **Newer / older arrows** — move directly through the asset's version history in the
+  same newest-first order as the Timeline; each end disables its unavailable direction.
 - **Restore this version** (F6) — writes the bytes back to the
   original path; history is never rewritten (a new version "Restored from version N"
   appears and no AI job is queued). If the original folder is gone, the button becomes

@@ -396,6 +396,13 @@
 
 /* Version details — restore action + inline status */
 .version-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.version-header-controls { display: flex; align-items: center; gap: 10px; }
+.version-navigation { display: flex; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 4px; }
+.version-navigation button { display: grid; width: 44px; height: 44px; padding: 0; place-items: center; color: var(--text-secondary); background: var(--surface); border: 0; cursor: pointer; transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease; }
+.version-navigation button + button { border-left: 1px solid var(--border-strong); }
+.version-navigation button:hover:not(:disabled) { color: var(--accent); background: var(--surface-hover); }
+.version-navigation button:disabled { color: var(--text-muted); }
+.version-navigation .icon { width: 18px; height: 18px; }
 .inline-status { margin: 0; color: var(--text-secondary); font-size: 12px; }
 .inline-status-error { color: var(--danger); }
 .provider-note { margin-top: 8px; color: var(--text-muted); font-size: 11px; }
@@ -539,6 +546,8 @@
   .timeline-row { grid-template-columns: 28px 50px minmax(0, 1fr) 20px; }
   .version-size { display: none; }
   .version-header { align-items: flex-start; flex-direction: column; }
+  .version-header-actions { width: 100%; align-items: stretch; }
+  .version-header-controls { justify-content: space-between; }
   .settings-form-grid { grid-template-columns: 1fr; }
   .project-list-row { grid-template-columns: 44px minmax(0, 1fr) 100px 20px; }
   .project-stat { display: none; }
