@@ -189,6 +189,9 @@ make control-plane-health   # verify Chronicle API identity/version
 make control-plane-down     # stop backend services
 ```
 
+The desktop reads `CHRONICLE_CONTROL_PLANE_URL` from `.env` (default
+`http://localhost:8000`). Use the API origin only; do not append `/api/v1`.
+
 Swagger UI is available at `http://localhost:8000/docs`. Smoke test:
 
 ```bash

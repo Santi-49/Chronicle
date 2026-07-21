@@ -52,6 +52,7 @@ git clone <repo-url> && cd AI-Builders-Bob
 make setup-env
 # Open .env and set JWT_SECRET_KEY (any string ≥32 chars)
 # Set FIRST_ADMIN_EMAIL and FIRST_ADMIN_PASSWORD
+# Set CHRONICLE_CONTROL_PLANE_URL (normally http://localhost:8000)
 # Set GOOGLE_OAUTH_CLIENT_ID for Google desktop sign-in
 
 # 3. Start the optional control plane and run migrations

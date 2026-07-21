@@ -107,6 +107,8 @@ export interface ChronicleServicesDeps {
   account?: ControlPlaneClient
   googleCredential?: () => Promise<string>
   googleClientConfigured?: boolean
+  /** Initial API origin for a profile that has not persisted control-plane settings yet. */
+  controlPlaneBaseUrl?: string
   installation?: Omit<InstallationDescriptor, 'installationId'>
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
   settleMs?: number
@@ -591,6 +593,9 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       // Merging over the defaults keeps old stored settings valid when a
       // field is added; mergeSettings also re-validates what was stored.
       const next = stored ? mergeSettings(DEFAULT_SETTINGS, stored) : structuredClone(DEFAULT_SETTINGS)
+      if (!stored && deps.controlPlaneBaseUrl) {
+        next.controlPlane.baseUrl = deps.controlPlaneBaseUrl
+      }
       // Before POST-03 shipped, telemetryOptIn existed with a false placeholder
       // but had no user-facing control. Migrate that placeholder exactly once;
       // subsequent user choices (including false) are preserved.
