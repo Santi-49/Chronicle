@@ -141,7 +141,8 @@ describe('C1 contract surface', () => {
   })
 
   it('pending features reject with a clear error instead of pretending', async () => {
-    await expect(services.api.search('logo')).rejects.toThrow(/not implemented/)
+    // search is now implemented (MVP-10) — it returns [] for this empty-ish DB
+    await expect(services.api.search('logo')).resolves.toEqual([])
     await expect(services.api.register('a@b.c', 'pw')).rejects.toThrow(/not implemented/)
     await expect(services.api.login('a@b.c', 'pw')).rejects.toThrow(/not implemented/)
   })

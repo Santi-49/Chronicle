@@ -12,8 +12,8 @@
  * where untrusted renderer data is checked.
  *
  * Not yet implemented (handlers reject with a clear error, tracked in
- * apps/desktop/README.md): search (MVP-10) and register/login (F1 — low
- * priority; local mode always works).
+ * apps/desktop/README.md): register/login (F1 — low priority; local mode
+ * always works).
  */
 import path from 'node:path'
 import fs from 'node:fs/promises'
@@ -63,6 +63,8 @@ import {
 import type { EmitEvent } from './channels'
 import { imageUrlForHash } from './media'
 import type { SecretStore } from './secrets'
+import { search } from '../search'
+import type { AiClient } from '../ai/client'
 
 // ── Settings defaults (implementation policy per C5, not contract) ──────
 
@@ -96,6 +98,13 @@ export interface ChronicleServicesDeps {
   pickVersionCopyPath: (suggestedName: string) => Promise<string | null>
   secrets: SecretStore
   isOnline: () => boolean
+  /**
+   * MVP-10 — AI client for embedding the search query.
+   * Optional: when absent (e.g. in tests), search degrades to keyword-only.
+   */
+  aiClient?: AiClient
+  /** Decrypts the stored API key for the given provider. Injected by register.ts. */
+  readApiKey?: (provider: string) => string | null
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
   settleMs?: number
   emitInitial?: boolean
@@ -485,8 +494,29 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       await copyStoredVersion(db, libraryRoot, id, destination)
     },
 
-    // F7 — search (MVP-10)
-    search: notImplemented('Search (MVP-10)'),
+    // F7 — hybrid search (MVP-10)
+    async search(query) {
+      const q = expectString(query, 'query')
+      const settings = await api.getSettings()
+      const embeddingsModel = settings.ai.embeddings.model
+      const provider = settings.ai.embeddings.provider
+
+      // Build the embedQuery function only when all three conditions are met:
+      // an AI client is injected, a key exists for the provider, and a model is configured.
+      let embedQuery: ((text: string) => Promise<number[]>) | null = null
+      if (deps.aiClient && deps.readApiKey && embeddingsModel !== '' && provider !== '') {
+        const apiKey = deps.readApiKey(provider)
+        if (apiKey !== null) {
+          const client = deps.aiClient
+          embedQuery = async (text: string) => {
+            const response = await client.embedText({ provider, model: embeddingsModel, apiKey, text })
+            return response.embedding
+          }
+        }
+      }
+
+      return search(q, { db, embedQuery, embeddingsModel })
+    },
 
     // F4 — AI retry: re-queue only; the result arrives as annotationUpdated
     // once the AI pipeline (MVP-09) processes the queue.
