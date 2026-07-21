@@ -1,11 +1,14 @@
 ---
 import { landingContent } from "../content";
 import "../styles/global.css";
-import chronicleMarkDark from "../../../../packages/brand/assets/chronicle-mark-dark.svg?url";
 
 const content = landingContent;
-const useExportedMockup = true;
+const useExportedMockup = false;
 const showMockupTuner = false;
+
+// Inline the SVG mark as a data URI so we don't need the brand package path at build time
+const chronicleMarkSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none"><path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/><path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/><circle cx="38" cy="12" r="6" fill="#a6c8ff"/><circle cx="39" cy="39" r="5" fill="#78a9ff"/></svg>`;
+const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkSvg)}`;
 ---
 
 <!doctype html>
@@ -15,14 +18,14 @@ const showMockupTuner = false;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="A dark landing page template for optimization software with a tilted app dashboard and demo CTA."
+      content="Chronicle — version history for creative files. Auto-capture every save, AI-powered change summaries, and semantic search over your entire design history."
     />
-    <title>{content.productName} | Optimization Landing Template</title>
+    <title>{content.productName} — Version history for creative files</title>
   </head>
   <body>
     <header class="site-header" aria-label="Site header">
-      <a class="brand" href="#top" aria-label={`${content.productName} home`}>
-        <img class="brand__icon" src={chronicleMarkDark} alt="" />
+      <a class="brand" href="#top" aria-label="Chronicle home">
+        <img class="brand__icon" src={chronicleMarkUrl} alt="" width="26" height="26" />
         {content.productName}
       </a>
       <nav class="nav" aria-label="Primary navigation">
@@ -31,15 +34,17 @@ const showMockupTuner = false;
         ))}
       </nav>
       <div class="nav-actions">
-        <a class="login" href={content.appUrl}>Log in</a>
-        <a class="book" href={content.appUrl}>Try the app</a>
+        <a class="login" href={content.githubUrl}>GitHub</a>
+        <a class="book" href={content.appUrl}>{content.primaryCta}</a>
       </div>
     </header>
 
     <main id="top">
+      <!-- ── HERO ─────────────────────────────────────────────────────────── -->
       <div class="hero-stage">
         <section class="hero" aria-labelledby="hero-title">
           <div class="hero-copy">
+            <div class="hero-badge">Free · Local-first · Works with every creative tool</div>
             <h1 id="hero-title">{content.headline}</h1>
             <p>{content.subheadline}</p>
             <div class="hero-actions">
@@ -49,54 +54,180 @@ const showMockupTuner = false;
           </div>
         </section>
 
-        <section class="mockup-section" aria-label="Tilted app dashboard preview">
-          <div class="hero-mockup hero-mockup--exported" hidden={!useExportedMockup}>
-            <img class="mockup-export" src="/exports/tilted-app-mockup.png" alt="Optima app dashboard preview" />
-          </div>
+        <!-- ── BEFORE / AFTER COMPARISON ─────────────────────────────────── -->
+        <section class="compare-section" aria-label="Before and after Chronicle comparison">
+          <div class="compare-wrap">
 
-          <div class="hero-mockup hero-mockup--live" hidden={useExportedMockup}>
-            <div class="mockup-plane">
-              <img src="/app.png" alt="Optima app dashboard preview" />
-            </div>
-          </div>
+            <!-- ══ LEFT PANEL — WITHOUT CHRONICLE ══ -->
+            <div class="compare-panel compare-panel--before" aria-label="Without Chronicle">
+              <div class="compare-label compare-label--before">Without Chronicle</div>
 
-          {showMockupTuner && (
-            <aside class="debug-panel debug-panel--hero" aria-labelledby="debug-title">
-              <h2 id="debug-title">3D Tuner</h2>
-              <p>Adjust the mockup live and copy the printed values.</p>
-              <div class="debug-grid">
-                <label>Width vw <input data-var="--mockup-width-vw" type="range" min="40" max="100" step="1" value="85" /></label>
-                <label>Max width px <input data-var="--mockup-max-width" type="range" min="700" max="1600" step="10" value="1260" /></label>
-                <label>Bottom px <input data-var="--mockup-bottom" type="range" min="-80" max="260" step="1" value="131" /></label>
-                <label>Perspective <input data-var="--mockup-perspective" type="range" min="600" max="2400" step="10" value="1200" /></label>
-                <label>Rotate X <input data-var="--mockup-rotate-x" type="range" min="-45" max="45" step="0.5" value="37" /></label>
-                <label>Rotate Y <input data-var="--mockup-rotate-y" type="range" min="-45" max="45" step="0.5" value="12" /></label>
-                <label>Rotate Z <input data-var="--mockup-rotate-z" type="range" min="-18" max="18" step="0.1" value="-2.7" /></label>
-                <label>Shadow Y <input data-var="--mockup-shadow-y" type="range" min="0" max="90" step="1" value="34" /></label>
-                <label>Shadow blur <input data-var="--mockup-shadow-blur" type="range" min="0" max="160" step="1" value="106" /></label>
-                <label>Shadow opacity <input data-var="--mockup-shadow-opacity" type="range" min="0" max="1" step="0.01" value="0.56" /></label>
-                <label>Border width <input data-var="--mockup-border-width" type="range" min="0" max="6" step="0.05" value="0.05" /></label>
-                <label>Lighting <input data-var="--mockup-lighting-intensity" type="range" min="0" max="0.35" step="0.01" value="0" /></label>
-                <label>Hero height <input data-var="--hero-height" type="range" min="700" max="1800" step="10" value="1500" /></label>
+              <!-- file explorer chaos -->
+              <div class="cmp-explorer">
+                <div class="cmp-explorer-bar">
+                  <span class="cmp-explorer-title">📁 ~/Designs/logo</span>
+                </div>
+                <div class="cmp-file-list">
+                  <div class="cmp-file cmp-file--dim">logo_final.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_final_v2.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_final_REAL.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_v3_use_this.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_v3_approved.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_approved_FINAL.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_approved_FINAL2.png</div>
+                  <div class="cmp-file cmp-file--red">logo_FINAL_v8_USE_THIS_ONE.png</div>
+                </div>
               </div>
-              <pre class="debug-output" aria-live="polite"></pre>
-            </aside>
-          )}
+
+              <!-- pain points -->
+              <div class="cmp-pain-list">
+                <div class="cmp-pain">
+                  <span class="cmp-pain-icon">✗</span>
+                  <span>Which one is actually current?</span>
+                </div>
+                <div class="cmp-pain">
+                  <span class="cmp-pain-icon">✗</span>
+                  <span>What changed between v3 and v5?</span>
+                </div>
+                <div class="cmp-pain">
+                  <span class="cmp-pain-icon">✗</span>
+                  <span>Where's the one with the tagline?</span>
+                </div>
+                <div class="cmp-pain">
+                  <span class="cmp-pain-icon">✗</span>
+                  <span>Open both. Zoom in. Compare manually.</span>
+                </div>
+              </div>
+
+              <!-- time cost badge -->
+              <div class="cmp-cost">
+                <span class="cmp-cost-num">~45 min</span>
+                <span class="cmp-cost-label">wasted per review session</span>
+              </div>
+            </div>
+
+            <!-- ══ DIVIDER — CHRONICLE LOGO ══ -->
+            <div class="compare-divider" aria-hidden="true">
+              <div class="cmp-divider-line"></div>
+              <div class="cmp-logo-badge">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                  <path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/>
+                  <path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/>
+                  <circle cx="38" cy="12" r="6" fill="#a6c8ff"/>
+                  <circle cx="39" cy="39" r="5" fill="#78a9ff"/>
+                </svg>
+              </div>
+              <div class="cmp-divider-line"></div>
+            </div>
+
+            <!-- ══ RIGHT PANEL — WITH CHRONICLE ══ -->
+            <div class="compare-panel compare-panel--after" aria-label="With Chronicle">
+              <div class="compare-label compare-label--after">With Chronicle</div>
+
+              <!-- clean timeline -->
+              <div class="cmp-timeline">
+                <div class="cmp-tl-header">
+                  <span class="cmp-tl-filename">logo.png</span>
+                  <span class="cmp-tl-badge">8 versions · watching</span>
+                </div>
+                <div class="cmp-tl-rows">
+                  <div class="cmp-tl-row cmp-tl-row--current">
+                    <div class="cmp-tl-dot cmp-tl-dot--current"></div>
+                    <div class="cmp-tl-info">
+                      <span class="cmp-tl-ver">v8 <span class="cmp-tl-now">now</span></span>
+                      <span class="cmp-tl-diff">Background → teal · tagline removed</span>
+                    </div>
+                    <span class="cmp-tl-time">2m ago</span>
+                  </div>
+                  <div class="cmp-tl-row">
+                    <div class="cmp-tl-dot"></div>
+                    <div class="cmp-tl-info">
+                      <span class="cmp-tl-ver">v7</span>
+                      <span class="cmp-tl-diff">Mark scaled up 12%</span>
+                    </div>
+                    <span class="cmp-tl-time">yesterday</span>
+                  </div>
+                  <div class="cmp-tl-row">
+                    <div class="cmp-tl-dot"></div>
+                    <div class="cmp-tl-info">
+                      <span class="cmp-tl-ver">v6</span>
+                      <span class="cmp-tl-diff">Tagline font weight → 700</span>
+                    </div>
+                    <span class="cmp-tl-time">3d ago</span>
+                  </div>
+                  <div class="cmp-tl-row">
+                    <div class="cmp-tl-dot"></div>
+                    <div class="cmp-tl-info">
+                      <span class="cmp-tl-ver">v5</span>
+                      <span class="cmp-tl-diff">Exposure +0.8 EV · bg desaturated</span>
+                    </div>
+                    <span class="cmp-tl-time">5d ago</span>
+                  </div>
+                </div>
+                <!-- search bar -->
+                <div class="cmp-search">
+                  <span class="cmp-search-icon">⌕</span>
+                  <span class="cmp-search-text">"version with the tagline" → v6 found instantly</span>
+                </div>
+              </div>
+
+              <!-- gains -->
+              <div class="cmp-gain-list">
+                <div class="cmp-gain">
+                  <span class="cmp-gain-icon">✓</span>
+                  <span>Every version auto-captured on save</span>
+                </div>
+                <div class="cmp-gain">
+                  <span class="cmp-gain-icon">✓</span>
+                  <span>AI explains exactly what changed</span>
+                </div>
+                <div class="cmp-gain">
+                  <span class="cmp-gain-icon">✓</span>
+                  <span>Search by meaning, not filename</span>
+                </div>
+                <div class="cmp-gain">
+                  <span class="cmp-gain-icon">✓</span>
+                  <span>One-click restore any version</span>
+                </div>
+              </div>
+
+              <!-- time saved badge -->
+              <div class="cmp-cost cmp-cost--saved">
+                <span class="cmp-cost-num">~2 sec</span>
+                <span class="cmp-cost-label">to find any version, ever</span>
+              </div>
+            </div>
+
+          </div>
         </section>
       </div>
 
+      <!-- ── PROOF BAR ───────────────────────────────────────────────────── -->
+      <div class="proof-bar" aria-label="Key facts">
+        <span>For <strong>photographers</strong></span>
+        <span class="proof-divider" aria-hidden="true"></span>
+        <span>For <strong>video editors</strong></span>
+        <span class="proof-divider" aria-hidden="true"></span>
+        <span>For <strong>design teams</strong></span>
+        <span class="proof-divider" aria-hidden="true"></span>
+        <span><strong>100%</strong> local · zero uploads</span>
+        <span class="proof-divider" aria-hidden="true"></span>
+        <span><strong>Any</strong> creative tool</span>
+      </div>
+
+      <!-- ── WHY ────────────────────────────────────────────────────────── -->
       <section class="why section-reveal" id="why" aria-labelledby="why-title">
-        <p class="pill">Why choose us</p>
+        <p class="pill">Why Chronicle</p>
         <h2 id="why-title">{content.whyTitle}</h2>
         <p class="section-copy">{content.whySubtitle}</p>
         <div class="why-grid">
           {content.cards.map((card) => (
             <article class="why-card">
-              <span class="card-icon" aria-hidden="true">⌁</span>
+              <span class="card-icon" aria-hidden="true">{card.icon}</span>
               <h3>{card.title}</h3>
               <p>{card.text}</p>
               <div class="card-meter">
-                <span>Performance</span>
+                <span>Reliability</span>
                 <strong>100%</strong>
                 <i></i>
               </div>
@@ -105,10 +236,13 @@ const showMockupTuner = false;
         </div>
       </section>
 
+      <!-- ── FEATURES BENTO ────────────────────────────────────────────── -->
       <section class="power section-reveal" id="features" aria-labelledby="power-title">
         <h2 id="power-title">{content.featuresTitle}</h2>
         <p class="section-copy">{content.featuresSubtitle}</p>
         <div class="bento">
+
+          <!-- Panel 1 — Asset Timeline (large) -->
           <article class="panel panel--large">
             <div class="panel-heading">
               <span aria-hidden="true">▧</span>
@@ -119,44 +253,45 @@ const showMockupTuner = false;
                 <div class="dashboard dashboard--compact">
                   <div class="dash-main">
                     <div class="dash-top">
-                      <h3>Overview</h3>
-                      <div class="search">Search scenarios...</div>
+                      <h3>Assets</h3>
+                      <div class="search">Search versions…</div>
                     </div>
-                    <h4>Recent Optimizations</h4>
+                    <h4>logo-brand.png</h4>
                     <div class="stat-grid">
-                      <div><span>Total Runs</span><strong>6</strong></div>
-                      <div><span>Successful Plans</span><strong>3</strong></div>
-                      <div><span>Failed Plans</span><strong>1</strong></div>
-                      <div><span>Avg Solve Time</span><strong>5m 32s</strong></div>
+                      <div><span>Versions</span><strong>8</strong></div>
+                      <div><span>Last saved</span><strong>2m ago</strong></div>
+                      <div><span>Size</span><strong>246 KB</strong></div>
+                      <div><span>Status</span><strong>Watching</strong></div>
                     </div>
                     <div class="table">
-                      <span>Name</span><span>Status</span><span>Updated</span><span>Version</span>
-                      <b>capacity-review</b><i>Process</i><em>26/01/2026</em><small>v1.2.3</small>
-                      <b>demand-shift</b><i>Ready</i><em>06/05/2026</em><small>v1.2.0</small>
+                      <span>Version</span><span>Changed</span><span>Date</span><span>Size</span>
+                      <b>v8 (current)</b><i>AI diff ready</i><em>Today 11:42</em><small>246 KB</small>
+                      <b>v7</b><i>AI diff ready</i><em>Yesterday</em><small>251 KB</small>
                     </div>
                   </div>
                 </div>
               </div>
               <div class="score-panel">
                 <div class="tabs">
-                  <span>Performance</span>
-                  <span>Accessibility</span>
-                  <span>Best Practices</span>
-                  <span>SEO</span>
+                  <span>Summary</span>
+                  <span>Tags</span>
+                  <span>Diff</span>
+                  <span>Restore</span>
                 </div>
-                <div class="score-row">
-                  <b>100</b><b>100</b><b>100</b><b>100</b>
+                <div class="ai-diff-card">
+                  <div class="ai-diff-label">AI Summary · v7 → v8</div>
+                  <p class="ai-diff-text">"Background changed from navy to teal. Tagline text removed from lower-left. Logo mark scaled up 12%."</p>
+                  <div class="ai-tags">
+                    <span>background-change</span>
+                    <span>text-removed</span>
+                    <span>scale</span>
+                  </div>
                 </div>
-                <ul class="audit-list">
-                  <li><span>First Contentful Paint</span><strong>0.8s</strong></li>
-                  <li><span>Largest Contentful Paint</span><strong>1.2s</strong></li>
-                  <li><span>Total Blocking Time</span><strong>0ms</strong></li>
-                  <li><span>Decision Index</span><strong>Fast</strong></li>
-                </ul>
               </div>
             </div>
           </article>
 
+          <!-- Panel 2 — AI Diff terminal -->
           <article class="panel panel--deploy">
             <div class="panel-heading">
               <span aria-hidden="true">▧</span>
@@ -164,27 +299,31 @@ const showMockupTuner = false;
             </div>
             <div class="terminal">
               <span></span><span></span><span></span>
-              <pre>&gt; optimize run demo</pre>
+              <pre>&gt; chronicle diff v7 v8</pre>
+              <pre class="term-out">- tagline: "Your brand story"<br/>+ tagline: (removed)<br/>~ bg: #0a3161 → #008080<br/>~ mark: scale 1.0 → 1.12</pre>
             </div>
             <div class="pipeline">
-              <b>✓</b><b>✓</b><b>3</b><b>4</b>
+              <b>✓</b><b>✓</b><b>✓</b><b>4</b>
             </div>
           </article>
 
+          <!-- Panel 3 — File tree -->
           <article class="panel">
             <div class="panel-heading">
               <span aria-hidden="true">▧</span>
               <h3>{content.featurePanels[2]}</h3>
             </div>
             <div class="tree">
-              <p>src</p>
-              <p>├ components</p>
-              <p>├ scenarios</p>
-              <p>├ constraints</p>
-              <p>└ demo.tsx</p>
+              <p>~/Designs</p>
+              <p>├ logo-brand.png</p>
+              <p>│ ├ v8 ← current</p>
+              <p>│ └ v1–v7</p>
+              <p>├ banner-social.png</p>
+              <p>└ hero-shot.jpg</p>
             </div>
           </article>
 
+          <!-- Panel 4 — Version count chart -->
           <article class="panel">
             <div class="panel-heading">
               <span aria-hidden="true">▧</span>
@@ -195,35 +334,110 @@ const showMockupTuner = false;
               <span style="--h: 45%"></span>
               <span style="--h: 66%"></span>
               <span style="--h: 53%"></span>
+              <span style="--h: 82%"></span>
               <span style="--h: 38%"></span>
+              <span style="--h: 71%"></span>
             </div>
           </article>
 
+          <!-- Panel 5 — Semantic search globe -->
           <article class="panel panel--wide">
             <div class="panel-heading">
               <span aria-hidden="true">▧</span>
               <h3>{content.featurePanels[4]}</h3>
             </div>
-            <div class="globe">
-              <span></span>
-              <span></span>
-              <span></span>
-              <div class="globe-stat globe-stat--one">1094<br /><small>runs</small></div>
-              <div class="globe-stat globe-stat--two">99.8%<br /><small>uptime</small></div>
+            <div class="search-demo">
+              <div class="search-query">"version with the tagline"</div>
+              <div class="search-results">
+                <div class="search-result search-result--match">
+                  <span class="result-name">logo-brand.png</span>
+                  <span class="result-version">v6</span>
+                  <span class="result-score">98%</span>
+                </div>
+                <div class="search-result">
+                  <span class="result-name">logo-brand.png</span>
+                  <span class="result-version">v5</span>
+                  <span class="result-score">91%</span>
+                </div>
+                <div class="search-result">
+                  <span class="result-name">banner-social.png</span>
+                  <span class="result-version">v3</span>
+                  <span class="result-score">74%</span>
+                </div>
+              </div>
             </div>
           </article>
+
         </div>
       </section>
 
-      <section class="templates section-reveal" id="demo" aria-labelledby="templates-title">
-        <h2 id="templates-title">Built to become your final demo shell.</h2>
-        <p>
-          Keep the visual system. Replace the product name, dashboard labels, and app link when the hackathon direction is clear.
-        </p>
-        <a class="button button--primary" href={content.appUrl}>Open app frontend</a>
+      <!-- ── FORMATS ────────────────────────────────────────────────────── -->
+      <section class="formats-section section-reveal" id="formats" aria-labelledby="formats-title">
+        <p class="pill">Format support</p>
+        <h2 id="formats-title">{content.formatsTitle}</h2>
+        <p class="section-copy">{content.formatsSubtitle}</p>
+        <div class="formats-grid">
+          {content.formats.available.map((fmt) => (
+            <div class={`format-card ${fmt.live ? "format-card--live" : "format-card--soon"}`}>
+              <span class="format-ext">.{fmt.ext.toLowerCase().split(" / ")[0]}</span>
+              <span class="format-label">{fmt.label}</span>
+              <span class="format-desc">{fmt.desc}</span>
+              <span class={`format-badge ${fmt.live ? "format-badge--live" : "format-badge--soon"}`}>
+                {fmt.live ? "Available now" : "Coming soon"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div class="formats-callout">
+          <p>
+            <strong>More on the roadmap:</strong> audio project files, video timelines, layout packages, and tool-specific project formats.
+            Each format uses safe structure extraction and a normalised preview — never a one-size-fits-all vision model.
+          </p>
+        </div>
+      </section>
+
+      <!-- ── HOW IT WORKS ────────────────────────────────────────────────── -->
+      <section class="how section-reveal" aria-labelledby="how-title">
+        <p class="pill">How it works</p>
+        <h2 id="how-title">Three steps. Permanent history.</h2>
+        <div class="steps">
+          <div class="step">
+            <span class="step-num">01</span>
+            <h3>Point at a folder</h3>
+            <p>Select the folders where you save your creative work. Chronicle starts watching immediately — nothing else to configure.</p>
+          </div>
+          <div class="step-arrow" aria-hidden="true">→</div>
+          <div class="step">
+            <span class="step-num">02</span>
+            <h3>Keep working</h3>
+            <p>Every file save is silently captured as a new version. Hash deduplication means duplicate saves cost nothing.</p>
+          </div>
+          <div class="step-arrow" aria-hidden="true">→</div>
+          <div class="step">
+            <span class="step-num">03</span>
+            <h3>Search and restore</h3>
+            <p>Browse the AI-annotated timeline, search by meaning, and restore any version in one click — all without leaving the app.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── DOWNLOAD ───────────────────────────────────────────────────── -->
+      <section class="templates section-reveal" id="download" aria-labelledby="download-title">
+        <h2 id="download-title">{content.downloadTitle}</h2>
+        <p>{content.downloadSubtitle}</p>
+        <div class="hero-actions">
+          <a class="button button--primary" href={content.appUrl}>{content.downloadCta}</a>
+          <a class="button button--secondary" href={content.githubUrl}>{content.downloadSecondaryCta}</a>
+        </div>
       </section>
 
     </main>
+
+    <footer class="site-footer">
+      <span>Chronicle · Local-first creative version control</span>
+      <span class="footer-muted">Built with IBM Bob · Open source</span>
+    </footer>
 
     <script>
       import gsap from "gsap";
@@ -247,7 +461,7 @@ const showMockupTuner = false;
             ease: "power3.out",
           });
 
-          gsap.from(".hero-copy > *, .hero-mockup", {
+          gsap.from(".hero-badge, .hero-copy > *, .hero-mockup", {
             autoAlpha: 0,
             y: 28,
             duration: 0.8,
@@ -255,23 +469,38 @@ const showMockupTuner = false;
             stagger: 0.08,
           });
 
+          gsap.from(".proof-bar span", {
+            autoAlpha: 0,
+            y: 12,
+            duration: 0.5,
+            ease: "power3.out",
+            stagger: 0.06,
+            scrollTrigger: { trigger: ".proof-bar", start: "top 88%" },
+          });
+
           gsap.utils.toArray(".section-reveal").forEach((section) => {
-            gsap.from(section.querySelectorAll("h2, .pill, .section-copy, .why-card, .panel, .button"), {
-              autoAlpha: 0,
-              y: 26,
-              duration: 0.62,
-              ease: "power3.out",
-              stagger: 0.05,
-              scrollTrigger: {
-                trigger: section,
-                start: "top 74%",
-              },
-            });
+            gsap.from(
+              (section as Element).querySelectorAll(
+                "h2, .pill, .section-copy, .why-card, .panel, .format-card, .step, .button, .formats-callout, .step-arrow"
+              ),
+              {
+                autoAlpha: 0,
+                y: 26,
+                duration: 0.62,
+                ease: "power3.out",
+                stagger: 0.05,
+                scrollTrigger: {
+                  trigger: section as Element,
+                  start: "top 74%",
+                },
+              }
+            );
           });
         },
       );
 
-      const unitMap = {
+      // Debug tuner (only active when showMockupTuner = true)
+      const unitMap: Record<string, string> = {
         "--mockup-width-vw": "vw",
         "--mockup-max-width": "px",
         "--mockup-bottom": "px",
@@ -287,24 +516,21 @@ const showMockupTuner = false;
         "--hero-height": "px",
       };
 
-      const controls = Array.from(document.querySelectorAll(".debug-panel input"));
+      const controls = Array.from(document.querySelectorAll<HTMLInputElement>(".debug-panel input"));
       const output = document.querySelector(".debug-output");
-      const mockupDashboard = document.querySelector(".hero-mockup > .mockup-plane");
+      const mockupDashboard = document.querySelector<HTMLElement>(".hero-mockup > .mockup-plane");
 
       function updateDebugOutput() {
         if (!output || !mockupDashboard || controls.length === 0) return;
-
         const values = controls.map((control) => {
-          const name = control.dataset.var;
+          const name = control.dataset.var ?? "";
           const unit = unitMap[name] ?? "";
           document.documentElement.style.setProperty(name, `${control.value}${unit}`);
           return `${name}: ${control.value}${unit};`;
         });
-
         const current = Object.fromEntries(
           controls.map((control) => [control.dataset.var, Number(control.value)]),
         );
-
         gsap.set(mockupDashboard, {
           rotationX: current["--mockup-rotate-x"],
           rotationY: current["--mockup-rotate-y"],
@@ -312,7 +538,6 @@ const showMockupTuner = false;
           y: 0,
           transformPerspective: current["--mockup-perspective"],
         });
-
         output.textContent = `:root {\n  ${values.join("\n  ")}\n}`;
       }
 
