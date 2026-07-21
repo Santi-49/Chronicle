@@ -48,6 +48,7 @@ import {
   resetAssetHistory as resetStoredAssetHistory,
   updateTrackedFolder,
   enqueueJob,
+  enqueueEmbeddingReindexJobs,
   type JobType,
   type VersionRecord,
 } from '../db/repositories'
@@ -63,7 +64,7 @@ import {
 import type { EmitEvent } from './channels'
 import { imageUrlForHash } from './media'
 import type { SecretStore } from './secrets'
-import { search } from '../search'
+import { embeddingModelIdentity, search } from '../search'
 import type { AiClient } from '../ai/client'
 
 // ── Settings defaults (implementation policy per C5, not contract) ──────
@@ -515,7 +516,11 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         }
       }
 
-      return search(q, { db, embedQuery, embeddingsModel })
+      return search(q, {
+        db,
+        embedQuery,
+        embeddingsModel: embeddingModelIdentity(provider, embeddingsModel),
+      })
     },
 
     // F4 — AI retry: re-queue only; the result arrives as annotationUpdated
@@ -544,8 +549,15 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
 
     async updateSettings(patch) {
-      const next = mergeSettings(await api.getSettings(), patch)
+      const current = await api.getSettings()
+      const next = mergeSettings(current, patch)
       setSetting(db, SETTINGS_KEY, next)
+      const embeddingsChanged =
+        current.ai.embeddings.provider !== next.ai.embeddings.provider ||
+        current.ai.embeddings.model !== next.ai.embeddings.model
+      if (embeddingsChanged && next.ai.embeddings.provider && next.ai.embeddings.model) {
+        enqueueEmbeddingReindexJobs(db)
+      }
       pushStatus() // ai provider/model changes flip aiConfigured
       return next
     },

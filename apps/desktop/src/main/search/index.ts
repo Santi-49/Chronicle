@@ -3,3 +3,4 @@
  */
 export { search } from './engine'
 export type { SearchDependencies } from './engine'
+export { embeddingModelIdentity } from './modelIdentity'

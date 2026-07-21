@@ -151,6 +151,31 @@ describe('AI queue worker', () => {
     expect(state.jobs).toHaveLength(0)
   })
 
+  it('stores embeddings under the requested provider and model identity', async () => {
+    state.jobs = [{ ...state.jobs[0]!, jobType: 'embedding' }]
+    state.annotations.set(2, {
+      versionId: 2,
+      summary: 'Discount increased.',
+      changes: [],
+      tags: ['discount'],
+      provider: 'google_genai',
+      model: 'gemini-flash-latest',
+      latencyMs: null,
+      createdAt: new Date().toISOString(),
+    })
+    const { worker, client } = workerWith()
+    client.embedText.mockResolvedValue({
+      embedding: [1, 0],
+      provider: 'canonical-openai-name',
+      model: 'canonical-model-name',
+      dimensions: 2,
+    })
+
+    await worker.runOnce()
+
+    expect(state.savedEmbedding?.model).toBe('openai:text-embedding-3-small')
+  })
+
   it('keeps jobs untouched while offline', async () => {
     const { worker, client } = workerWith({ isOnline: () => false })
 

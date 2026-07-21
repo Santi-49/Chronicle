@@ -610,6 +610,36 @@ describe('settings and the secret boundary', () => {
     expect((await services.api.getSettings()).ai.chat.model).toBe('claude-x')
   })
 
+  it('queues annotation text for reindexing when the embeddings selection changes', async () => {
+    const { versionId } = await seedCapture('banner.jpg', pngBytes(10, 5))
+    saveAnnotation(db, {
+      versionId,
+      summary: 'Discount increased from 40% to 50%.',
+      changes: ['Updated discount'],
+      tags: ['discount', 'banner'],
+      provider: 'google_genai',
+      model: 'gemini-flash-latest',
+    })
+
+    await services.api.updateSettings({
+      ai: {
+        ...DEFAULT_SETTINGS.ai,
+        embeddings: { provider: 'openai', model: 'text-embedding-3-small' },
+      },
+    })
+    expect(listJobs(db, 'embedding').map((job) => job.payload)).toEqual([{ versionId }])
+
+    // A second provider/model change reuses the pending job: it will read the
+    // latest settings when the asynchronous worker processes it.
+    await services.api.updateSettings({
+      ai: {
+        ...DEFAULT_SETTINGS.ai,
+        embeddings: { provider: 'anthropic', model: 'voyage-3' },
+      },
+    })
+    expect(listJobs(db, 'embedding')).toHaveLength(1)
+  })
+
   it('rejects malformed patches', async () => {
     await expect(
       services.api.updateSettings({ bogus: true } as never),
