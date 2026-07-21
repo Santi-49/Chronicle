@@ -65,6 +65,7 @@ export function HomeScreen({ onAddProject, onOpenProject, onOpenAsset, onViewPro
                   <FolderGlyph icon={project.icon} color={project.color} />
                   <span className="project-card-copy">
                     <strong>{project.displayName}</strong>
+                    {project.description && <p title={project.description}>{project.description}</p>}
                     <small>{project.path}</small>
                     <span>{projectAssets.length} {projectAssets.length === 1 ? 'asset' : 'assets'} · {totalVersions(projectAssets)} versions</span>
                   </span>

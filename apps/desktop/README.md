@@ -51,7 +51,7 @@ provider**, are never readable back over IPC, and never appear in `getSettings()
 
 | C1 surface | Status |
 |---|---|
-| `listFolders` / `pickFolder` / `scanFolder` / `addFolder` / `updateFolder` / `removeFolder` (F2) | ✅ native picker, folder scan preview, presentation fields (displayName/icon/color), per-folder tracking selection (`excludedPaths`/`allowedExtensions`, enforced by the watcher), live watching |
+| `listFolders` / `pickFolder` / `scanFolder` / `addFolder` / `updateFolder` / `removeFolder` (F2) | ✅ native picker, folder scan preview, presentation fields (displayName/description/icon/color), per-folder tracking selection (`excludedPaths`/`allowedExtensions`, enforced by the watcher), live watching |
 | `listAssets` / `getTimeline` / `getVersionDetails` (F5) | ✅ |
 | `retryAnnotation` (F4) | ✅ re-queues; the AI worker itself is MVP-09 |
 | `getSettings` / `updateSettings` / `setApiKey(provider,key)` / `clearApiKey(provider)` / `configuredProviders` (C5) | ✅ per-provider BYOK keys (switch a task's provider without re-entering) |

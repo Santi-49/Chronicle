@@ -33,6 +33,7 @@ import {
   setAssetOnDisk,
   setSetting,
   setVersionAiStatus,
+  updateTrackedFolder,
 } from './repositories'
 
 let dir: string
@@ -84,7 +85,7 @@ describe('startup', () => {
     }
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
-    expect(db.pragma('user_version', { simple: true })).toBe(3)
+    expect(db.pragma('user_version', { simple: true })).toBe(4)
   })
 
   it('repeat startup is idempotent and keeps existing data', () => {
@@ -101,11 +102,19 @@ describe('startup', () => {
 
 describe('tracked folders', () => {
   it('adds, lists, and removes folders', () => {
-    const folder = addTrackedFolder(db, 'C:\\Designs')
+    const folder = addTrackedFolder(db, 'C:\\Designs', { description: 'Brand exploration' })
     expect(folder.path).toBe('C:\\Designs')
+    expect(folder.description).toBe('Brand exploration')
     expect(folder.addedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     removeTrackedFolder(db, folder.id)
     expect(listTrackedFolders(db)).toHaveLength(0)
+  })
+
+  it('defaults descriptions to empty and allows them to be updated', () => {
+    const folder = addTrackedFolder(db, 'C:\\Designs')
+    expect(folder.description).toBe('')
+    expect(updateTrackedFolder(db, folder.id, { description: 'Campaign concepts' })?.description)
+      .toBe('Campaign concepts')
   })
 
   it('rejects a duplicate folder path', () => {

@@ -91,6 +91,7 @@ interface TrackedFolderRow {
   path: string
   added_at: string
   display_name: string
+  description: string
   icon: string
   color: string
   excluded_paths: string
@@ -120,6 +121,7 @@ function toTrackedFolder(row: TrackedFolderRow): TrackedFolder {
     // Older rows (or default column values) may carry an empty name — fall
     // back to the base name so the renderer always has something to show.
     displayName: row.display_name || path.basename(row.path),
+    description: row.description || '',
     icon: row.icon,
     color: row.color,
     excludedPaths: parseStringArray(row.excluded_paths),
@@ -150,12 +152,13 @@ export function addTrackedFolder(
   const info = db
     .prepare(
       `INSERT INTO tracked_folders
-         (path, display_name, icon, color, excluded_paths, allowed_extensions)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+         (path, display_name, description, icon, color, excluded_paths, allowed_extensions)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       folderPath,
       meta.displayName ?? path.basename(folderPath),
+      meta.description ?? '',
       meta.icon ?? 'folder',
       meta.color ?? '#4589ff',
       JSON.stringify(meta.excludedPaths ?? []),
@@ -176,6 +179,10 @@ export function updateTrackedFolder(
   if (patch.displayName !== undefined) {
     sets.push('display_name = ?')
     values.push(patch.displayName)
+  }
+  if (patch.description !== undefined) {
+    sets.push('description = ?')
+    values.push(patch.description)
   }
   if (patch.icon !== undefined) {
     sets.push('icon = ?')

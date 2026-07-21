@@ -82,10 +82,50 @@
 .project-folder .icon { width: 22px; height: 22px; }
 .project-card-copy { display: grid; min-width: 0; align-content: start; gap: 7px; }
 .project-card-copy strong { font-size: 14px; }
+.project-card-copy p,
+.project-list-copy p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .project-card-copy small,
 .project-list-copy small { overflow: hidden; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .project-card-copy > span { color: var(--text-secondary); font-size: 11px; }
 .project-updated { grid-column: 2; color: var(--text-muted); font-size: 10px; }
+
+/* Pending AI jobs */
+.jobs-summary {
+  display: inline-flex;
+  min-height: 44px;
+  margin-top: 36px;
+  padding: 0 16px;
+  align-items: center;
+  gap: 8px;
+  color: var(--warning);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.jobs-summary .icon { width: 17px; height: 17px; }
+.jobs-summary strong { color: var(--text-primary); font-size: 16px; }
+.jobs-list { margin-top: 16px; border-top: 1px solid var(--border); }
+.job-row {
+  display: grid;
+  min-height: 112px;
+  padding: 16px 8px 16px 0;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.job-preview { width: 96px; min-height: 78px; height: 78px; }
+.job-copy { min-width: 0; }
+.job-kind { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.job-kind .icon { width: 14px; height: 14px; }
+.job-copy h2 { margin: 7px 0 0; overflow: hidden; color: var(--text-primary); font-size: 15px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
+.job-copy p { margin: 6px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
+.job-meta { display: grid; min-width: 116px; justify-items: end; gap: 5px; color: var(--text-muted); font-size: 10px; }
+.job-meta strong { color: var(--text-secondary); font-size: 11px; font-weight: 600; }
+.jobs-message { margin: 24px 0 0; color: var(--text-secondary); font-size: 13px; }
+.jobs-error { display: flex; align-items: center; gap: 12px; color: var(--danger); }
+.jobs-empty { margin-top: 24px; }
 
 .activity-list { margin-top: 18px; border-top: 1px solid var(--border); }
 .activity-row {
@@ -145,8 +185,10 @@
 .project-detail-header { display: flex; padding-bottom: 30px; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--border); }
 .project-heading-lockup { display: flex; min-width: 0; align-items: center; gap: 18px; }
 .project-heading-lockup h1 { margin: 0; font-size: clamp(32px, 3.3vw, 44px); font-weight: 620; letter-spacing: -.045em; line-height: 1.05; }
+.project-description { max-width: 680px; margin: 10px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
 .project-folder-large { width: 62px; height: 62px; flex: 0 0 auto; }
 .project-folder-large .icon { width: 30px; height: 30px; }
+.project-edit-button { flex: 0 0 auto; }
 .project-overview { display: flex; min-height: 92px; align-items: stretch; border-bottom: 1px solid var(--border); }
 .project-overview > div { display: grid; min-width: 150px; padding: 22px 32px 20px 0; align-content: center; gap: 5px; }
 .project-overview > div + div { padding-left: 32px; border-left: 1px solid var(--border); }
@@ -488,6 +530,7 @@
   .asset-detail-header { grid-template-columns: 86px minmax(0, 1fr); }
   .asset-header-preview { min-height: 76px; height: 76px; }
   .timeline-count { display: none; }
+  .project-detail-header { align-items: flex-start; flex-direction: column; }
   .timeline-row { grid-template-columns: 28px 50px minmax(0, 1fr) 20px; }
   .version-size { display: none; }
   .version-header { align-items: flex-start; flex-direction: column; }
@@ -524,6 +567,9 @@
   .search-result { grid-template-columns: 76px minmax(0, 1fr); }
   .search-result .asset-preview { min-height: 68px; height: 68px; }
   .search-result > .icon { display: none; }
+  .job-row { grid-template-columns: 72px minmax(0, 1fr); gap: 12px; }
+  .job-preview { width: 72px; min-height: 64px; height: 64px; }
+  .job-meta { min-width: 0; grid-column: 2; justify-items: start; }
   .settings-section { padding: 22px; }
   .folder-list,
   .settings-empty,
@@ -548,11 +594,19 @@
 .form-section { display: grid; gap: 22px; }
 .form-section + .form-section { padding-top: 30px; border-top: 1px solid var(--border); }
 .new-project-form .field { display: grid; gap: 8px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
-.new-project-form input[type='text'] { width: 100%; height: 44px; padding: 0 12px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 4px; outline: 0; }
-.new-project-form input[type='text']:focus { border-color: var(--focus); }
+.new-project-form input[type='text'],
+.new-project-form textarea { width: 100%; padding: 0 12px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 4px; outline: 0; font: inherit; }
+.new-project-form input[type='text'] { height: 44px; }
+.new-project-form textarea { min-height: 88px; padding-top: 11px; padding-bottom: 11px; resize: vertical; line-height: 1.5; }
+.new-project-form input[type='text']:focus,
+.new-project-form textarea:focus { border-color: var(--focus); outline: 1px solid var(--focus); }
+.new-project-form .field > span { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.new-project-form .field > span em { color: var(--text-muted); font-size: 9px; font-style: normal; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.new-project-form .field > small { color: var(--text-muted); font-size: 10px; font-weight: 400; line-height: 1.45; }
 .new-project-form .input-with-icon input[type='text'] { padding-left: 42px; }
 .folder-picker { display: flex; gap: 10px; }
 .folder-picker .input-with-icon { flex: 1; }
+.folder-picker:has(button:disabled) input { color: var(--text-muted); background: var(--background); }
 
 .picker-fieldset { padding: 0; margin: 0; border: 0; }
 .picker-fieldset legend { padding: 0; margin-bottom: 10px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }

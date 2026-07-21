@@ -4,11 +4,13 @@ import { FOLDER_COLORS, FOLDER_ICONS } from '../components/FolderGlyph'
 import { PageHeader } from '../components/PageHeader'
 import { chronicle } from '../lib/bridge'
 import { formatBytes } from '../lib/useChronicle'
-import type { FolderScanEntry } from '../../../shared/ipc'
+import type { FolderScanEntry, TrackedFolder } from '../../../shared/ipc'
 
 interface NewProjectScreenProps {
   onCancel: () => void
   onCreated: (projectId: number) => void
+  /** When provided, the same form edits an existing project with its folder locked. */
+  project?: TrackedFolder
 }
 
 /** File-type toggles offered in the tree. Each maps to one or more extensions. */
@@ -68,21 +70,34 @@ function filesUnder(dir: DirNode): FolderScanEntry[] {
   return [...dir.files.map((f) => f.entry), ...dir.dirs.flatMap(filesUnder)]
 }
 
-export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps) {
-  const [name, setName] = useState('')
-  const [icon, setIcon] = useState<IconName | 'custom'>('folder')
-  const [customIcon, setCustomIcon] = useState('')
-  const [color, setColor] = useState(FOLDER_COLORS[0]!)
-  const [customColor, setCustomColor] = useState<string | null>(null)
-  const [folderPath, setFolderPath] = useState('')
+export function NewProjectScreen({ onCancel, onCreated, project }: NewProjectScreenProps) {
+  const editing = project !== undefined
+  const knownIcon = project ? FOLDER_ICONS.includes(project.icon as IconName) : true
+  const [name, setName] = useState(project?.displayName ?? '')
+  const [description, setDescription] = useState(project?.description ?? '')
+  const [icon, setIcon] = useState<IconName | 'custom'>(
+    project && !knownIcon ? 'custom' : (project?.icon as IconName | undefined) ?? 'folder',
+  )
+  const [customIcon, setCustomIcon] = useState(project && !knownIcon ? project.icon : '')
+  const [color, setColor] = useState(project?.color ?? FOLDER_COLORS[0]!)
+  const [customColor, setCustomColor] = useState<string | null>(
+    project && !FOLDER_COLORS.includes(project.color) ? project.color : null,
+  )
+  const [folderPath, setFolderPath] = useState(project?.path ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Folder scan + selection state.
   const [scan, setScan] = useState<FolderScanEntry[] | null>(null)
   const [scanning, setScanning] = useState(false)
-  const [excluded, setExcluded] = useState<Set<string>>(new Set())
-  const [enabledTypes, setEnabledTypes] = useState<Set<'png' | 'jpg'>>(new Set(['png', 'jpg']))
+  const [excluded, setExcluded] = useState<Set<string>>(new Set(project?.excludedPaths ?? []))
+  const [enabledTypes, setEnabledTypes] = useState<Set<'png' | 'jpg'>>(() => {
+    if (!project) return new Set(['png', 'jpg'])
+    const enabled = new Set<'png' | 'jpg'>()
+    if (project.allowedExtensions.includes('.png')) enabled.add('png')
+    if (project.allowedExtensions.includes('.jpg') || project.allowedExtensions.includes('.jpeg')) enabled.add('jpg')
+    return enabled
+  })
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const activeColor = customColor ?? color
@@ -101,6 +116,25 @@ export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps)
   const allTracked = eligible.length > 0 && eligible.every((e) => !excluded.has(e.path))
 
   const tree = useMemo(() => (scan ? buildTree(scan) : null), [scan])
+
+  useEffect(() => {
+    if (!project) return
+    let cancelled = false
+    setScanning(true)
+    void chronicle.scanFolder(project.path)
+      .then((entries) => {
+        if (!cancelled) setScan(entries)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
+      .finally(() => {
+        if (!cancelled) setScanning(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [project])
 
   const toggleExpand = (relPath: string) => {
     setExpanded((prev) => {
@@ -245,20 +279,31 @@ export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps)
       setError('Choose a folder to watch first.')
       return
     }
+    const allowedExtensions = FILE_TYPES.filter((type) => enabledTypes.has(type.id))
+      .flatMap((type) => type.extensions)
+    if (allowedExtensions.length === 0) {
+      setError('Choose at least one file type to track.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
-      const allowedExtensions = FILE_TYPES.filter((t) => enabledTypes.has(t.id)).flatMap((t) => t.extensions)
       // Only record deselections for files whose type is enabled — files of a
       // disabled type are already covered by allowedExtensions.
-      const excludedPaths = eligible.filter((e) => excluded.has(e.path)).map((e) => e.path)
-      const folder = await chronicle.addFolder(folderPath, {
+      const excludedPaths = scan === null
+        ? [...excluded]
+        : eligible.filter((e) => excluded.has(e.path)).map((e) => e.path)
+      const meta = {
         displayName: name.trim() || baseName(folderPath),
+        description: description.trim(),
         icon: icon === 'custom' ? customIcon || 'folder' : icon,
         color: activeColor,
         allowedExtensions,
         excludedPaths,
-      })
+      }
+      const folder = project
+        ? await chronicle.updateFolder(project.id, meta)
+        : await chronicle.addFolder(folderPath, meta)
       onCreated(folder.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -267,17 +312,19 @@ export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps)
   }
 
   return (
-    <section className="page new-project-page" aria-labelledby="new-project-title">
+    <section className="page new-project-page">
       <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <button onClick={onCancel} type="button">Projects</button>
+        <button onClick={onCancel} type="button">{editing ? project.displayName : 'Projects'}</button>
         <Icon name="chevron-right" />
-        <span aria-current="page">New project</span>
+        <span aria-current="page">{editing ? 'Edit project' : 'New project'}</span>
       </nav>
 
       <PageHeader
         eyebrow="Tracked folder"
-        title="New project"
-        description="Point Chronicle at a folder. Every save inside it becomes a version automatically."
+        title={editing ? 'Edit project' : 'New project'}
+        description={editing
+          ? 'Update project details and choose which creative files Chronicle should track.'
+          : 'Point Chronicle at a folder. Every save inside it becomes a version automatically.'}
       />
 
       <form className="new-project-form" onSubmit={handleSubmit}>
@@ -293,15 +340,30 @@ export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps)
           </label>
 
           <label className="field">
+            <span>Project description <em>Optional</em></span>
+            <textarea
+              aria-describedby="project-description-help"
+              maxLength={280}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Add a short note about this project"
+              rows={3}
+              value={description}
+            />
+            <small id="project-description-help">Give the project context your future self will recognize.</small>
+          </label>
+
+          <label className="field">
             <span>Folder to watch</span>
             <div className="folder-picker">
               <div className="input-with-icon">
                 <Icon name="folder" />
                 <input placeholder="Choose a folder…" readOnly type="text" value={folderPath} />
               </div>
-              <button className="secondary-button" onClick={handleBrowse} type="button">
-                Browse…
-              </button>
+              {editing ? (
+                <button className="secondary-button" disabled type="button">Locked</button>
+              ) : (
+                <button className="secondary-button" onClick={handleBrowse} type="button">Browse…</button>
+              )}
             </div>
           </label>
         </div>
@@ -445,8 +507,8 @@ export function NewProjectScreen({ onCancel, onCreated }: NewProjectScreenProps)
         <div className="form-actions">
           <button className="text-button" onClick={onCancel} type="button">Cancel</button>
           <button className="primary-button" disabled={busy || !folderPath} type="submit">
-            <Icon name="folder-plus" />
-            {busy ? 'Creating…' : 'Create project'}
+            <Icon name={editing ? 'check' : 'folder-plus'} />
+            {busy ? (editing ? 'Saving…' : 'Creating…') : (editing ? 'Save changes' : 'Create project')}
           </button>
         </div>
       </form>

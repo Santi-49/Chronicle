@@ -26,6 +26,8 @@ export interface TrackedFolder {
   addedAt: string // ISO 8601, like all dates here
   /** User-facing name; defaults to the folder's base name when first tracked. */
   displayName: string
+  /** Optional user-authored project context; empty when no description was provided. */
+  description: string
   /** Icon identifier the renderer interprets — a Material Symbol name or a 1–2 char glyph. */
   icon: string
   /** Accent color as a hex string (e.g. "#4589ff"). */
@@ -47,6 +49,7 @@ export interface TrackedFolder {
 /** Partial update of a tracked folder's presentation + tracking fields (all optional). */
 export interface FolderMetaPatch {
   displayName?: string
+  description?: string
   icon?: string
   color?: string
   excludedPaths?: string[]
@@ -122,6 +125,19 @@ export interface AppStatus {
   aiConfigured: boolean // false → UI shows "configure AI in Settings"
 }
 
+/** Renderer-safe view of an AI queue item. Raw internal payloads never cross IPC. */
+export interface PendingJob {
+  id: number
+  jobType: 'ai_annotation' | 'embedding'
+  queuedAt: string
+  retryCount: number
+  versionId: number | null
+  assetId: number | null
+  assetName: string | null
+  versionNumber: number | null
+  thumbnailUrl: string | null
+}
+
 // ── Renderer → main (request/response) ─────────────────────────────────
 
 export interface ChronicleApi {
@@ -176,6 +192,8 @@ export interface ChronicleApi {
 
   // Status bar
   getAppStatus(): Promise<AppStatus>
+  /** FIFO list backing the status bar's pending AI-job count. */
+  listPendingJobs(): Promise<PendingJob[]>
 }
 
 // ── Main → renderer (push events) ──────────────────────────────────────

@@ -8,7 +8,7 @@ import { chronicle } from '../lib/bridge'
  * live C1 AppStatus and updates from the `statusChanged` event. The trailing
  * slot shows real account state (local vs. signed in) rather than static branding.
  */
-export function StatusBar() {
+export function StatusBar({ onOpenJobs }: { onOpenJobs: () => void }) {
   const status = useAppStatus()
   const pendingAi = (status?.pendingJobs.ai ?? 0) + (status?.pendingJobs.embedding ?? 0)
 
@@ -35,10 +35,15 @@ export function StatusBar() {
       </span>
 
       {pendingAi > 0 && (
-        <span className="status-item status-item-busy" aria-live="polite">
+        <button
+          aria-label={`View ${pendingAi} pending ${pendingAi === 1 ? 'job' : 'jobs'}`}
+          className="status-item status-item-busy status-item-button"
+          onClick={onOpenJobs}
+          type="button"
+        >
           <Icon name="refresh" />
-          {pendingAi} {pendingAi === 1 ? 'job' : 'jobs'} pending
-        </span>
+          <span aria-live="polite">{pendingAi} {pendingAi === 1 ? 'job' : 'jobs'} pending</span>
+        </button>
       )}
 
       <span className="status-spacer" />

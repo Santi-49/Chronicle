@@ -23,6 +23,7 @@ import type {
   ChronicleApi,
   FolderMetaPatch,
   FolderScanEntry,
+  PendingJob,
   TrackedFolder,
   VersionDetails,
   VersionSummary,
@@ -31,6 +32,7 @@ import type { AppSettings } from '../../shared/settings'
 import type { ChronicleDb } from '../db/database'
 import {
   addTrackedFolder,
+  getAsset,
   getAnnotation,
   getVersion,
   listAssets,
@@ -127,7 +129,7 @@ function expectFolderMeta(value: unknown, name: string): FolderMetaPatch {
   if (!isPlainObject(value)) throw new TypeError(`${name} must be an object`)
   const patch: FolderMetaPatch = {}
   for (const key of Object.keys(value)) {
-    if (key === 'displayName' || key === 'icon' || key === 'color') {
+    if (key === 'displayName' || key === 'description' || key === 'icon' || key === 'color') {
       patch[key] = expectString(value[key], `${name}.${key}`)
     } else if (key === 'excludedPaths') {
       patch.excludedPaths = expectStringArray(value[key], `${name}.excludedPaths`).map((p) =>
@@ -506,6 +508,34 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           (await secrets.has(settings.ai.chat.provider)),
       }
       return status
+    },
+
+    async listPendingJobs() {
+      const pending: PendingJob[] = []
+      for (const job of listJobs(db)) {
+        if (job.jobType !== 'ai_annotation' && job.jobType !== 'embedding') continue
+
+        const payload = isPlainObject(job.payload) ? job.payload : undefined
+        const candidateVersionId = payload?.['versionId']
+        const versionId =
+          typeof candidateVersionId === 'number' && Number.isInteger(candidateVersionId) && candidateVersionId > 0
+            ? candidateVersionId
+            : null
+        const version = versionId === null ? undefined : getVersion(db, versionId)
+        const asset = version ? getAsset(db, version.assetId) : undefined
+        pending.push({
+          id: job.id,
+          jobType: job.jobType,
+          queuedAt: job.createdAt,
+          retryCount: job.retryCount,
+          versionId,
+          assetId: version?.assetId ?? null,
+          assetName: asset?.displayName ?? null,
+          versionNumber: version?.versionNumber ?? null,
+          thumbnailUrl: version ? imageUrlForHash(version.contentHash) : null,
+        })
+      }
+      return pending
     },
   }
 

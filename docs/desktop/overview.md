@@ -25,11 +25,11 @@ and stretch hosted inference; no core local-storage workflow depends on it.
 ## Terminology: a "Project" is a tracked folder
 
 The UI presents each tracked folder (F2) as a **project** with a user-chosen display
-name, icon, and color. "Project" is presentation language only — the underlying entity
+name, optional description, icon, and color. "Project" is presentation language only — the underlying entity
 is still the tracked folder; there is no extra grouping layer between folders and assets.
 
 > ✅ Contract alignment resolved (MVP-06): the C1 `TrackedFolder` shape (`src/shared/ipc.ts`)
-> was extended to `{ id, path, addedAt, displayName, icon, color }` and the main process now
+> includes `{ id, path, addedAt, displayName, description, icon, color }` and the main process now
 > persists those fields. `addFolder(path, meta?)` and `updateFolder(id, patch)` set them, and
 > `pickFolder()` opens the native directory picker without side effects. An asset belongs to
 > the tracked folder whose path is the longest prefix of the asset's path.
@@ -117,7 +117,7 @@ Grid of all projects (tracked folders) with the same card treatment. Header acti
 
 ### 4. New Project — F2
 
-Creates a tracked folder: display name, **folder picker** (*Browse… planned — needs the
+Creates a tracked folder: display name, optional description, **folder picker** (*Browse… planned — needs the
 native dialog over IPC*), icon picker (bundled Material Symbols + custom glyph), color
 picker (palette + custom), **Include subfolders** toggle, and file-type chips — PNG and
 JPG/JPEG active; **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB** marked "Coming soon".
@@ -127,6 +127,10 @@ Breadcrumb back to Projects.
 
 One project's assets: thumbnail, file name, version count, last-change summary.
 Breadcrumbs Projects → project. Click an asset → its Timeline.
+
+- **Edit project** opens a dedicated screen that reuses the New Project form. It changes the
+  display name, optional description, icon, color, enabled file types, and ignored files. The
+  existing folder is rescanned for the file tree, while its selector remains locked.
 
 - *Planned:* "file no longer on disk" badge (F3.7).
 
@@ -172,6 +176,8 @@ Four sections, in current order:
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
 online/offline, AI-ready state, and pending AI/embedding job count — refreshed from `statusChanged`.
+When work is queued, the pending-job count is a button that opens a live FIFO queue screen with
+the job type, asset/version, queued time, retry count, and loading/error/empty states.
 
 ### 10. Admin `Stretch` — F10
 

@@ -43,7 +43,11 @@ export function openChronicleDb(filePath: string): ChronicleDb {
     excluded_paths: "TEXT NOT NULL DEFAULT '[]'",
     allowed_extensions: "TEXT NOT NULL DEFAULT '[]'",
   })
-  db.pragma('user_version = 3')
+  // v4: optional user-authored project description.
+  ensureColumns(db, 'tracked_folders', {
+    description: "TEXT NOT NULL DEFAULT ''",
+  })
+  db.pragma('user_version = 4')
   return db
 }
 

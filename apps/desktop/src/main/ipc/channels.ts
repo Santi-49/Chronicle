@@ -37,6 +37,7 @@ const API_METHODS = {
   login: true,
   logout: true,
   getAppStatus: true,
+  listPendingJobs: true,
 } as const satisfies Record<keyof ChronicleApi, true>
 
 const EVENTS = {

@@ -3,7 +3,9 @@ import { AppShell } from './components/AppShell'
 import { ThemeToggle } from './components/ThemeToggle'
 import { WindowTitleBar } from './components/WindowTitleBar'
 import { HomeScreen } from './screens/HomeScreen'
+import { EditProjectScreen } from './screens/EditProjectScreen'
 import { NewProjectScreen } from './screens/NewProjectScreen'
+import { PendingJobsScreen } from './screens/PendingJobsScreen'
 import { ProjectScreen } from './screens/ProjectScreen'
 import { ProjectsScreen } from './screens/ProjectsScreen'
 import { SearchScreen } from './screens/SearchScreen'
@@ -12,6 +14,7 @@ import { TimelineScreen } from './screens/TimelineScreen'
 import { VersionDetailsScreen } from './screens/VersionDetailsScreen'
 import { WelcomeScreen } from './screens/WelcomeScreen'
 import type { AppRoute } from './types/navigation'
+import { getPrimaryRoute } from './types/navigation'
 
 export type Theme = 'dark' | 'light'
 export type ThemePreference = Theme | 'system'
@@ -21,9 +24,10 @@ interface WorkspaceScreenProps {
   themePreference: ThemePreference
   navigate: (route: AppRoute) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
+  onCloseJobs: () => void
 }
 
-function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceChange }: WorkspaceScreenProps) {
+function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceChange, onCloseJobs }: WorkspaceScreenProps) {
   switch (route.name) {
     case 'home':
       return (
@@ -48,11 +52,20 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
           onCreated={(projectId) => navigate({ name: 'project', projectId })}
         />
       )
+    case 'edit-project':
+      return (
+        <EditProjectScreen
+          projectId={route.projectId}
+          onCancel={() => navigate({ name: 'project', projectId: route.projectId })}
+          onSaved={(projectId) => navigate({ name: 'project', projectId })}
+        />
+      )
     case 'project':
       return (
         <ProjectScreen
           projectId={route.projectId}
           onBack={() => navigate({ name: 'projects' })}
+          onEdit={() => navigate({ name: 'edit-project', projectId: route.projectId })}
           onOpenAsset={(assetId) => navigate({ name: 'timeline', assetId, projectId: route.projectId })}
         />
       )
@@ -97,12 +110,15 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
           onThemePreferenceChange={onThemePreferenceChange}
         />
       )
+    case 'jobs':
+      return <PendingJobsScreen onBack={onCloseJobs} />
   }
 }
 
 export default function App() {
   const [hasEnteredWorkspace, setHasEnteredWorkspace] = useState(false)
   const [route, setRoute] = useState<AppRoute>({ name: 'home' })
+  const [jobsReturnRoute, setJobsReturnRoute] = useState<AppRoute>({ name: 'home' })
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
     // 'chronicle-theme' (pre-"system" builds) is intentionally ignored so System is the default.
     const saved = localStorage.getItem('chronicle-theme-preference')
@@ -152,6 +168,12 @@ export default function App() {
     setThemePreference(theme === 'dark' ? 'light' : 'dark')
   }
 
+  const openJobs = () => {
+    if (route.name === 'jobs') return
+    setJobsReturnRoute(route)
+    setRoute({ name: 'jobs', from: getPrimaryRoute(route) })
+  }
+
   return (
     <div className="window-layout">
       <WindowTitleBar />
@@ -164,13 +186,14 @@ export default function App() {
             <WelcomeScreen onContinue={() => setHasEnteredWorkspace(true)} />
           </div>
         ) : (
-          <AppShell route={route} onNavigate={setRoute}>
+          <AppShell route={route} onNavigate={setRoute} onOpenJobs={openJobs}>
             <div className="screen-transition" key={JSON.stringify(route)}>
               <WorkspaceScreen
                 route={route}
                 themePreference={themePreference}
                 navigate={setRoute}
                 onThemePreferenceChange={setThemePreference}
+                onCloseJobs={() => setRoute(jobsReturnRoute)}
               />
             </div>
           </AppShell>

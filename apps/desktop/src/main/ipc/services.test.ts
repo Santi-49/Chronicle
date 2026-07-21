@@ -17,6 +17,7 @@ import { DATABASE_FILE_NAME, openChronicleDb, type ChronicleDb } from '../db/dat
 import {
   appendVersion,
   deleteJob,
+  enqueueJob,
   getAssetByPath,
   listJobs,
   saveAnnotation,
@@ -166,6 +167,7 @@ describe('tracked folders and capture events', () => {
     const folder = await services.api.addFolder(workDir)
     expect(folder.path).toBe(path.resolve(workDir))
     expect(folder.displayName).toBe(path.basename(workDir))
+    expect(folder.description).toBe('')
     expect(folder.icon).toBe('folder')
     expect(folder.color).toMatch(/^#/)
     expect(folder.excludedPaths).toEqual([])
@@ -178,10 +180,12 @@ describe('tracked folders and capture events', () => {
   it('addFolder stores provided presentation metadata', async () => {
     const folder = await services.api.addFolder(workDir, {
       displayName: 'Aurora launch',
+      description: 'Spring campaign explorations',
       icon: 'campaign',
       color: '#ee5396',
     })
     expect(folder.displayName).toBe('Aurora launch')
+    expect(folder.description).toBe('Spring campaign explorations')
     expect(folder.icon).toBe('campaign')
     expect(folder.color).toBe('#ee5396')
   })
@@ -191,6 +195,9 @@ describe('tracked folders and capture events', () => {
     await expect(
       services.api.addFolder(workDir, { bogus: 'x' } as never),
     ).rejects.toThrow(/Unknown meta field/)
+    await expect(
+      services.api.addFolder(workDir, { description: 42 } as never),
+    ).rejects.toThrow(/meta\.description must be a string/)
   })
 
   it('adding the same folder twice returns the existing row', async () => {
@@ -202,10 +209,20 @@ describe('tracked folders and capture events', () => {
 
   it('updateFolder changes presentation fields; unknown ids reject', async () => {
     const folder = await services.api.addFolder(workDir)
-    const updated = await services.api.updateFolder(folder.id, { displayName: 'Renamed', color: '#42be65' })
+    const ignored = path.join(workDir, 'ignored.png')
+    const updated = await services.api.updateFolder(folder.id, {
+      displayName: 'Renamed',
+      description: 'Updated project context',
+      color: '#42be65',
+      excludedPaths: [ignored],
+      allowedExtensions: ['.png'],
+    })
     expect(updated.displayName).toBe('Renamed')
+    expect(updated.description).toBe('Updated project context')
     expect(updated.color).toBe('#42be65')
     expect(updated.icon).toBe('folder') // untouched
+    expect(updated.excludedPaths).toEqual([ignored])
+    expect(updated.allowedExtensions).toEqual(['.png'])
     expect((await services.api.listFolders())[0]!.displayName).toBe('Renamed')
     await expect(services.api.updateFolder(999, { displayName: 'x' })).rejects.toThrow(/Unknown folder/)
     await expect(services.api.updateFolder(1.5, {})).rejects.toThrow(TypeError)
@@ -508,6 +525,25 @@ describe('getAppStatus', () => {
     expect(after.online).toBe(false)
     expect(after.pendingJobs.ai).toBe(1)
     expect(after.aiConfigured).toBe(true)
+  })
+
+  it('returns renderer-safe pending AI jobs in FIFO order', async () => {
+    const capture = await seedCapture('queued-logo.png', pngBytes(8, 6))
+    enqueueJob(db, 'embedding', { versionId: capture.versionId })
+    enqueueJob(db, 'telemetry', { event: 'version_captured', secret: 'internal' })
+
+    const jobs = await services.api.listPendingJobs()
+    expect(jobs).toHaveLength(2)
+    expect(jobs.map((job) => job.jobType)).toEqual(['ai_annotation', 'embedding'])
+    expect(jobs[0]).toMatchObject({
+      versionId: capture.versionId,
+      assetId: capture.assetId,
+      assetName: 'queued-logo.png',
+      versionNumber: 1,
+      retryCount: 0,
+    })
+    expect(jobs[0]?.thumbnailUrl).toBe((await services.api.getVersionDetails(capture.versionId)).thumbnailUrl)
+    expect(JSON.stringify(jobs)).not.toContain('internal')
   })
 })
 

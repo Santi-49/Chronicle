@@ -9,13 +9,14 @@
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
--- F2 — folders the user watches. display_name/icon/color are renderer
+-- F2 — folders the user watches. display_name/description/icon/color are renderer
 -- presentation fields (C1 TrackedFolder); watching behavior ignores them.
 CREATE TABLE IF NOT EXISTS tracked_folders (
   id            INTEGER PRIMARY KEY,
   path          TEXT NOT NULL UNIQUE,
   added_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   display_name  TEXT NOT NULL DEFAULT '',
+  description   TEXT NOT NULL DEFAULT '',
   icon          TEXT NOT NULL DEFAULT 'folder',
   color         TEXT NOT NULL DEFAULT '#4589ff',
   -- JSON arrays. excluded_paths: absolute file paths the watcher must skip.

@@ -12,6 +12,7 @@ import type {
   AssetSummary,
   ChronicleEventName,
   ChronicleEvents,
+  PendingJob,
   SearchResult,
   TrackedFolder,
   VersionDetails,
@@ -82,6 +83,12 @@ export function useAppStatus(): AppStatus | undefined {
     return chronicle.on('statusChanged', setStatus)
   }, [])
   return status
+}
+
+export function usePendingJobs(): AsyncState<PendingJob[]> & { jobs: PendingJob[] } {
+  const state = useAsyncData<PendingJob[]>(() => chronicle.listPendingJobs(), [])
+  useChronicleEvent('statusChanged', state.reload)
+  return { ...state, jobs: state.data ?? [] }
 }
 
 // ── Tracked folders (projects) ──────────────────────────────────────────

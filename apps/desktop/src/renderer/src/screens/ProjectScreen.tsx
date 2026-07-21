@@ -14,15 +14,16 @@ import {
 interface ProjectScreenProps {
   projectId: number
   onBack: () => void
+  onEdit: () => void
   onOpenAsset: (assetId: number) => void
 }
 
-export function ProjectScreen({ projectId, onBack, onOpenAsset }: ProjectScreenProps) {
+export function ProjectScreen({ projectId, onBack, onEdit, onOpenAsset }: ProjectScreenProps) {
   const { folders, loading: foldersLoading } = useFolders()
   const { assets } = useAssets()
   const [activeFolder, setActiveFolder] = useState<string | null | 'all'>('all')
 
-  const project = folders.find((f) => f.id === projectId)
+  const project = folders.find((folder) => folder.id === projectId)
 
   if (!project) {
     return (
@@ -54,8 +55,17 @@ export function ProjectScreen({ projectId, onBack, onOpenAsset }: ProjectScreenP
       <header className="project-detail-header">
         <div className="project-heading-lockup">
           <FolderGlyph icon={project.icon} color={project.color} className="project-folder-large" />
-          <div><p className="eyebrow">Tracked folder</p><h1 id="project-title">{project.displayName}</h1><p className="file-path">{project.path}</p></div>
+          <div>
+            <p className="eyebrow">Tracked folder</p>
+            <h1 id="project-title">{project.displayName}</h1>
+            {project.description && <p className="project-description">{project.description}</p>}
+            <p className="file-path">{project.path}</p>
+          </div>
         </div>
+        <button className="secondary-button project-edit-button" onClick={onEdit} type="button">
+          <Icon name="edit" />
+          Edit project
+        </button>
       </header>
 
       <div className="project-overview">

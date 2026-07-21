@@ -47,7 +47,11 @@ export function ProjectsScreen({ onAddProject, onOpenProject }: ProjectsScreenPr
               return (
                 <button className="project-list-row" key={project.id} onClick={() => onOpenProject(project.id)} type="button">
                   <FolderGlyph icon={project.icon} color={project.color} />
-                  <span className="project-list-copy"><strong>{project.displayName}</strong><small>{project.path}</small></span>
+                  <span className="project-list-copy">
+                    <strong>{project.displayName}</strong>
+                    {project.description && <p title={project.description}>{project.description}</p>}
+                    <small>{project.path}</small>
+                  </span>
                   <span className="project-stat"><strong>{projectAssets.length}</strong><small>Assets</small></span>
                   <span className="project-stat"><strong>{totalVersions(projectAssets)}</strong><small>Versions</small></span>
                   <span className="project-last-change"><small>Last change</small><span>{relativeTime(lastChange)}</span></span>
