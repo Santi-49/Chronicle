@@ -14,6 +14,7 @@ import {
   bumpJobRetry,
   createAsset,
   deleteJob,
+  deleteProjectHistory,
   enqueueJob,
   getAnnotation,
   getAsset,
@@ -120,6 +121,42 @@ describe('tracked folders', () => {
   it('rejects a duplicate folder path', () => {
     addTrackedFolder(db, 'C:\\Designs')
     expect(() => addTrackedFolder(db, 'C:\\Designs')).toThrow(/UNIQUE/)
+  })
+
+  it('deletes only the selected project history and reports safe orphan blobs', () => {
+    const rootPath = path.join(dir, 'designs')
+    const nestedPath = path.join(rootPath, 'nested')
+    const otherPath = path.join(dir, 'other')
+    const root = addTrackedFolder(db, rootPath)
+    const nested = addTrackedFolder(db, nestedPath)
+    addTrackedFolder(db, otherPath)
+
+    const rootAsset = createAsset(db, path.join(rootPath, 'logo.png'))
+    const nestedAsset = createAsset(db, path.join(nestedPath, 'child.png'))
+    const otherAsset = createAsset(db, path.join(otherPath, 'shared.png'))
+    const sharedHash = 'a'.repeat(64)
+    const orphanHash = 'b'.repeat(64)
+    const rootVersion = appendVersion(db, {
+      assetId: rootAsset.id, contentHash: sharedHash, sizeBytes: 1,
+    })
+    appendVersion(db, { assetId: rootAsset.id, contentHash: orphanHash, sizeBytes: 2 })
+    appendVersion(db, { assetId: nestedAsset.id, contentHash: 'c'.repeat(64), sizeBytes: 3 })
+    appendVersion(db, { assetId: otherAsset.id, contentHash: sharedHash, sizeBytes: 1 })
+    enqueueJob(db, 'ai_annotation', { versionId: rootVersion.id })
+
+    const result = deleteProjectHistory(db, root.id)
+
+    expect(result).toEqual({
+      deletedAssets: 1,
+      deletedVersions: 2,
+      orphanedContentHashes: [orphanHash],
+    })
+    expect(getAsset(db, rootAsset.id)).toBeUndefined()
+    expect(getAsset(db, nestedAsset.id)).toBeDefined()
+    expect(getAsset(db, otherAsset.id)).toBeDefined()
+    expect(listTrackedFolders(db).map((folder) => folder.id)).toContain(nested.id)
+    expect(listTrackedFolders(db).map((folder) => folder.id)).not.toContain(root.id)
+    expect(listJobs(db)).toHaveLength(0)
   })
 })
 

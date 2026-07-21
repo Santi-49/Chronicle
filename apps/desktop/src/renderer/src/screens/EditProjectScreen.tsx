@@ -39,7 +39,7 @@ export function EditProjectScreen({ projectId, onCancel, onSaved, onRemoved }: E
           <div>
             <p className="section-label">Danger zone</p>
             <h2 id="project-danger-title">Remove this project</h2>
-            <p>Stop watching this folder without deleting Chronicle’s stored version history.</p>
+            <p>Delete this project from Chronicle, with the option to keep or permanently delete its stored version history.</p>
           </div>
           <ProjectRemovalControl
             onRemoved={onRemoved}

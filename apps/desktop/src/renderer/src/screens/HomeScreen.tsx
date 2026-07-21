@@ -23,7 +23,11 @@ export function HomeScreen({ onAddProject, onOpenProject, onOpenAsset, onViewPro
   const { assets } = useAssets()
 
   const recentProjects = folders.slice(0, 6)
-  const recentChanges = assets.slice(0, 5)
+  // Retained history from a removed project stays on-device, but it is no
+  // longer an active project and must not linger in the Home activity feed.
+  const recentChanges = assets
+    .filter((asset) => folderForAsset(asset, folders) !== undefined)
+    .slice(0, 5)
 
   return (
     <section className="page home-page" aria-labelledby="home-title">

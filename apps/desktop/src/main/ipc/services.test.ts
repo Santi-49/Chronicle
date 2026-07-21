@@ -28,7 +28,7 @@ import {
   setVersionAiStatus,
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
-import { captureVersion } from '../versioning'
+import { captureVersion, libraryFilePathFor } from '../versioning'
 import { API_METHOD_NAMES } from './channels'
 import { chronicleUrlToHash, imageUrlForHash, sniffImageContentType } from './media'
 import {
@@ -233,13 +233,35 @@ describe('tracked folders and capture events', () => {
     await expect(services.api.updateFolder(1.5, {})).rejects.toThrow(TypeError)
   })
 
-  it('removeFolder stops watching; unknown ids are a no-op', async () => {
-    const folder = await services.api.addFolder(workDir)
+  it('removeFolder stops watching and keeps history by default', async () => {
+    const capture = await seedCapture('kept.png', pngBytes(20, 20))
+    const capturedPath = path.join(workDir, 'kept.png')
+    const folder = await services.api.addFolder(workDir, { excludedPaths: [capturedPath] })
     await services.api.removeFolder(folder.id)
     expect(await services.api.listFolders()).toHaveLength(0)
+    expect((await services.api.listAssets()).map((asset) => asset.id)).toContain(capture.assetId)
     expect((await services.api.getAppStatus()).watchedFolders).toBe(0)
     await expect(services.api.removeFolder(999)).resolves.toBeUndefined()
     await expect(services.api.removeFolder(1.5)).rejects.toThrow(TypeError)
+  })
+
+  it('removeFolder can permanently delete project history and orphaned blobs', async () => {
+    const capture = await seedCapture('deleted.png', pngBytes(24, 24))
+    const capturedPath = path.join(workDir, 'deleted.png')
+    const folder = await services.api.addFolder(workDir, { excludedPaths: [capturedPath] })
+    const version = getVersion(db, capture.versionId)!
+    const blobPath = libraryFilePathFor(libraryRoot, version.contentHash)
+    expect(fs.existsSync(blobPath)).toBe(true)
+
+    await services.api.removeFolder(folder.id, 'delete-history')
+
+    expect(await services.api.listFolders()).toHaveLength(0)
+    expect(await services.api.listAssets()).toHaveLength(0)
+    expect(getVersion(db, capture.versionId)).toBeUndefined()
+    expect(fs.existsSync(blobPath)).toBe(false)
+    await expect(
+      services.api.removeFolder(1, 'invalid' as never),
+    ).rejects.toThrow(/mode must be/)
   })
 
   it('scanFolder lists supported files with sizes, skipping temp/hidden/unsupported', async () => {

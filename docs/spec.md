@@ -122,6 +122,11 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
 ### F2 — Tracked folders `MVP`
 
 - The user adds/removes folders to track from a Settings screen; the list persists locally.
+- Removing a project offers two explicit outcomes: **Stop tracking** keeps its local history,
+  while **Delete project and history** permanently removes its assets, versions, AI/search
+  metadata, queued AI work, and any content blobs not shared by another version. Neither option
+  deletes the user's original working files. The confirmation presents both outcomes as peer
+  actions, with permanent history deletion carrying the stronger danger treatment.
 - The UI presents a tracked folder as a project with a persisted display name, optional
   description, icon, and accent color; this is presentation metadata, not a grouping layer.
 - Before adding a project, a read-only recursive scan previews supported files. The user may

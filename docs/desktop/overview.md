@@ -105,7 +105,7 @@ local mode works without an account or internet connection.
 
 The workspace landing page: **Recent projects** (project cards: icon/color, name,
 optional description, path,
-asset + version counts, last-updated) and **Recent changes** across all projects (latest
+asset + version counts, last-updated) and **Recent changes** across active tracked projects (latest
 versions with thumbnail, version number, summary). Header action: **Add project**.
 
 - Click a project → Project page. Click a change → Version details.
@@ -135,8 +135,10 @@ Breadcrumbs Projects → project. Click an asset → its Timeline.
 - **Edit project** opens a dedicated screen that reuses the New Project form. It changes the
   display name, optional description, icon, color, enabled file types, and ignored files. The
   existing folder is rescanned for the file tree, while its selector remains locked. A separated
-  **Danger zone** can stop tracking the project through a two-step confirmation; stored version
-  history is retained.
+  **Danger zone** offers two confirmed removal paths: stop tracking while retaining history, or
+  permanently delete the project and all associated local history. The two choices are presented
+  as peer delete actions, with the history-deleting choice visually stronger; original working
+  files are never deleted.
 
 - A missing source file is marked on its asset card and Timeline header while every stored
   version remains available (F3.7).
@@ -184,7 +186,7 @@ Four sections, in current order:
 | Section | Contents |
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
-| **Tracked folders** (F2) | Live project list (icon + name + path) with a two-step **Remove** confirmation (C1 `removeFolder`); **Add a project** → New project. Removal stops watching but retains stored history. Notes PNG/JPG scope. |
+| **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
 | **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle swaps the pickers for free-text provider/model (any LangChain-supported pair). **API key** is stored encrypted on-device (Electron `safeStorage`), sent only to the chosen provider, **never readable back** and **never to our backend**; a "Saved" badge and **Remove saved key** reflect its state. Persists via C1 `updateSettings` + `setApiKey`. *(Stretch, F9: gateway switch.)* |
 | **Account** (F1 — lowest priority) | Local-mode line (from `getAccountState`); disabled **Continue with Google** ("Coming soon"); copy states an account never gates local history. *(Planned: telemetry opt-in, F8.)* |
 

@@ -43,6 +43,7 @@ import {
   getSetting,
   setSetting,
   setVersionAiStatus,
+  deleteProjectHistory,
   removeTrackedFolder,
   resetAssetHistory as resetStoredAssetHistory,
   updateTrackedFolder,
@@ -57,6 +58,7 @@ import {
   markFileMissing,
   restoreVersion as restoreStoredVersion,
   saveVersionCopy as copyStoredVersion,
+  libraryFilePathFor,
 } from '../versioning'
 import type { EmitEvent } from './channels'
 import { imageUrlForHash } from './media'
@@ -118,6 +120,12 @@ function expectId(value: unknown, name: string): number {
 function expectString(value: unknown, name: string): string {
   if (typeof value !== 'string') throw new TypeError(`${name} must be a string`)
   return value
+}
+
+function expectProjectRemovalMode(value: unknown): 'keep-history' | 'delete-history' {
+  if (value === undefined || value === 'keep-history') return 'keep-history'
+  if (value === 'delete-history') return value
+  throw new TypeError("mode must be 'keep-history' or 'delete-history'")
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -374,12 +382,32 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       return updated
     },
 
-    async removeFolder(folderId) {
+    async removeFolder(folderId, mode) {
       const id = expectId(folderId, 'folderId')
+      const validatedMode = expectProjectRemovalMode(mode)
       const folder = listTrackedFolders(db).find((f) => f.id === id)
       if (!folder) return // already gone — removing twice is not an error
-      removeTrackedFolder(db, id)
       await watcher.unwatch(folder.path)
+      try {
+        if (validatedMode === 'delete-history') {
+          const deleted = deleteProjectHistory(db, id)
+          await Promise.all(
+            deleted.orphanedContentHashes.map((hash) =>
+              fs.rm(libraryFilePathFor(libraryRoot, hash), { force: true }).catch((error) => {
+                // Metadata is already gone and the blob is unreferenced. An
+                // undeletable orphan is safe to leave for later maintenance.
+                console.warn('[chronicle] could not remove orphaned library blob:', hash, error)
+              }),
+            ),
+          )
+        } else {
+          removeTrackedFolder(db, id)
+        }
+      } catch (error) {
+        // Keep the in-memory watcher consistent if persistence failed.
+        if (listTrackedFolders(db).some((item) => item.id === id)) watcher.watch(folder.path)
+        throw error
+      }
       pushStatus()
     },
 

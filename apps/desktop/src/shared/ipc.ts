@@ -118,6 +118,9 @@ export interface ResetHistoryResult {
   versionId: number
 }
 
+/** Whether removing a project retains or permanently erases its local history. */
+export type ProjectRemovalMode = 'keep-history' | 'delete-history'
+
 export interface AccountState {
   mode: 'local' | 'signed-in'
   email: string | null
@@ -161,7 +164,8 @@ export interface ChronicleApi {
   addFolder(folderPath: string, meta?: FolderMetaPatch): Promise<TrackedFolder>
   /** Updates a tracked folder's presentation fields. */
   updateFolder(folderId: number, patch: FolderMetaPatch): Promise<TrackedFolder>
-  removeFolder(folderId: number): Promise<void>
+  /** Stops tracking a folder; permanent deletion also erases its assets and version history. */
+  removeFolder(folderId: number, mode?: ProjectRemovalMode): Promise<void>
 
   // F5 — assets, timeline, details
   listAssets(): Promise<AssetSummary[]>

@@ -211,6 +211,84 @@ export function removeTrackedFolder(db: ChronicleDb, folderId: number): void {
   db.prepare('DELETE FROM tracked_folders WHERE id = ?').run(folderId)
 }
 
+export interface DeleteProjectHistoryResult {
+  deletedAssets: number
+  deletedVersions: number
+  /** Blobs no remaining version references; callers may safely remove these from the library. */
+  orphanedContentHashes: string[]
+}
+
+/** True when `candidate` is a file below `root` (not a similarly-prefixed sibling). */
+function isInsideFolder(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate)
+  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
+}
+
+/**
+ * Permanently removes one project's local metadata. Assets owned by a more
+ * specific nested tracked folder are deliberately excluded. File bytes are
+ * returned as orphan hashes because filesystem deletion belongs to the caller.
+ */
+export function deleteProjectHistory(
+  db: ChronicleDb,
+  folderId: number,
+): DeleteProjectHistoryResult {
+  const folders = listTrackedFolders(db)
+  const folder = folders.find((item) => item.id === folderId)
+  if (!folder) return { deletedAssets: 0, deletedVersions: 0, orphanedContentHashes: [] }
+
+  const ownedAssets = listAssets(db).filter((asset) => {
+    if (!isInsideFolder(folder.path, asset.path)) return false
+    const owner = folders
+      .filter((candidate) => isInsideFolder(candidate.path, asset.path))
+      .sort((a, b) => b.path.length - a.path.length)[0]
+    return owner?.id === folderId
+  })
+  const assetIds = new Set(ownedAssets.map((asset) => asset.id))
+  const versions = ownedAssets.flatMap((asset) => listVersions(db, asset.id))
+  const versionIds = new Set(versions.map((version) => version.id))
+  const candidateHashes = new Set(versions.map((version) => version.contentHash))
+
+  return db.transaction((): DeleteProjectHistoryResult => {
+    // Queue payloads are JSON-linked, so remove only work targeting deleted versions.
+    for (const job of listJobs(db)) {
+      if (job.jobType !== 'ai_annotation' && job.jobType !== 'embedding') continue
+      const payload = job.payload as { versionId?: unknown } | null
+      if (typeof payload?.versionId === 'number' && versionIds.has(payload.versionId)) {
+        deleteJob(db, job.id)
+      }
+    }
+
+    const deleteForVersion = {
+      search: db.prepare('DELETE FROM search_index WHERE version_id = ?'),
+      annotations: db.prepare('DELETE FROM ai_annotations WHERE version_id = ?'),
+      embeddings: db.prepare('DELETE FROM embeddings WHERE version_id = ?'),
+    }
+    for (const versionId of versionIds) {
+      deleteForVersion.search.run(versionId)
+      deleteForVersion.annotations.run(versionId)
+      deleteForVersion.embeddings.run(versionId)
+    }
+    const deleteVersions = db.prepare('DELETE FROM versions WHERE asset_id = ?')
+    const deleteAsset = db.prepare('DELETE FROM assets WHERE id = ?')
+    for (const assetId of assetIds) {
+      deleteVersions.run(assetId)
+      deleteAsset.run(assetId)
+    }
+    removeTrackedFolder(db, folderId)
+
+    const stillReferenced = db.prepare('SELECT 1 FROM versions WHERE content_hash = ? LIMIT 1')
+    const orphanedContentHashes = [...candidateHashes].filter(
+      (hash) => stillReferenced.get(hash) === undefined,
+    )
+    return {
+      deletedAssets: assetIds.size,
+      deletedVersions: versionIds.size,
+      orphanedContentHashes,
+    }
+  })()
+}
+
 // ── Assets (identity = path, spec F3.7) ─────────────────────────────────
 
 interface AssetRow {

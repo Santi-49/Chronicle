@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { chronicle } from '../lib/bridge'
 import { Icon } from './Icon'
+import type { ProjectRemovalMode } from '../../../shared/ipc'
 
 interface ProjectRemovalControlProps {
   projectId: number
@@ -9,7 +10,7 @@ interface ProjectRemovalControlProps {
   compact?: boolean
 }
 
-/** Two-step, keyboard-safe removal. Removing a project never deletes stored history. */
+/** Keyboard-safe choice between untracking and permanent local deletion. */
 export function ProjectRemovalControl({
   projectId,
   projectName,
@@ -19,6 +20,7 @@ export function ProjectRemovalControl({
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingMode, setPendingMode] = useState<ProjectRemovalMode | null>(null)
   const descriptionId = useId()
   const cancelRef = useRef<HTMLButtonElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -33,15 +35,17 @@ export function ProjectRemovalControl({
     }
   }, [confirming])
 
-  const remove = async () => {
+  const remove = async (mode: ProjectRemovalMode) => {
     setBusy(true)
+    setPendingMode(mode)
     setError(null)
     try {
-      await chronicle.removeFolder(projectId)
+      await chronicle.removeFolder(projectId, mode)
       onRemoved()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setBusy(false)
+      setPendingMode(null)
     }
   }
 
@@ -70,12 +74,12 @@ export function ProjectRemovalControl({
       role="group"
     >
       <div>
-        <strong>Stop tracking “{projectName}”?</strong>
-        <p id={descriptionId}>The folder will no longer be watched. Stored version history stays on this device.</p>
+        <strong>Remove “{projectName}”?</strong>
+        <p id={descriptionId}>Both options stop tracking the folder. Choose whether to keep or permanently delete Chronicle’s stored version history. Your original files are never deleted.</p>
       </div>
       <div className="project-removal-actions">
         <button
-          className="secondary-button compact-button"
+          className="secondary-button compact-button project-removal-cancel"
           disabled={busy}
           onClick={() => setConfirming(false)}
           ref={cancelRef}
@@ -83,9 +87,23 @@ export function ProjectRemovalControl({
         >
           Cancel
         </button>
-        <button className="danger-button compact-button" disabled={busy} onClick={() => void remove()} type="button">
+        <button
+          className="secondary-button compact-button project-delete-history-button"
+          disabled={busy}
+          onClick={() => void remove('delete-history')}
+          type="button"
+        >
           <Icon name="delete" />
-          {busy ? 'Removing…' : 'Stop tracking'}
+          {pendingMode === 'delete-history' ? 'Deleting…' : 'Delete project and history'}
+        </button>
+        <button
+          className="secondary-button compact-button"
+          disabled={busy}
+          onClick={() => void remove('keep-history')}
+          type="button"
+        >
+          <Icon name="delete" />
+          {pendingMode === 'keep-history' ? 'Deleting…' : 'Delete project, keep history'}
         </button>
       </div>
       {error && <p className="project-removal-error" role="alert">Could not remove the project: {error}</p>}

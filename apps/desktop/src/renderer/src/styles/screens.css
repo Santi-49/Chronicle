@@ -527,18 +527,23 @@
 .folder-row strong { font-size: 12px; }
 .folder-row span { color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; }
 .folder-row > div:nth-child(2) { min-width: 0; flex: 1; }
-.folder-row:has(.project-removal-confirmation) { padding: 14px 0; align-items: flex-start; }
+.folder-row:has(> .project-removal-confirmation) { display: grid; padding: 14px 0; align-items: start; grid-template-columns: 32px minmax(0, 1fr); }
+.folder-row > .project-removal-confirmation { width: 100%; max-width: none; grid-column: 1 / -1; }
 .project-removal-confirmation { display: grid; width: min(100%, 620px); padding: 20px; gap: 16px; background: var(--surface); border: 1px solid var(--danger); border-radius: 8px; }
 .project-removal-confirmation strong { color: var(--text-primary); font-size: 13px; }
 .project-removal-confirmation p { margin: 7px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
-.project-removal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.project-removal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.project-removal-cancel { margin-right: auto; }
+.project-delete-history-button { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 65%, var(--border-strong)); }
+.project-delete-history-button:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 10%, var(--surface-hover)); border-color: var(--danger); }
 .project-removal-error { color: var(--danger) !important; }
-.project-removal-compact { width: min(100%, 430px); padding: 14px; }
+.project-removal-compact { padding: 16px; }
 .project-danger-zone { display: flex; max-width: 640px; margin-top: 44px; padding: 24px 0 0; align-items: flex-start; justify-content: space-between; gap: 28px; border-top: 1px solid var(--border); }
+.project-danger-zone:has(> .project-removal-confirmation) { flex-direction: column; }
 .project-danger-zone .section-label { color: var(--danger); }
 .project-danger-zone h2 { margin: 0; color: var(--text-primary); font-size: 16px; }
 .project-danger-zone > div > p:last-child { max-width: 390px; margin: 8px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
-.project-danger-zone > .project-removal-confirmation { flex: 1; }
+.project-danger-zone > .project-removal-confirmation { width: 100%; max-width: none; }
 .settings-section > .secondary-button { margin-left: 44px; }
 .settings-form-grid { display: grid; margin: 24px 0 0 44px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .settings-form-grid label { display: grid; gap: 8px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
@@ -627,8 +632,8 @@
   .api-key-actions { justify-content: flex-start; }
   .api-key-status { margin-top: 0; grid-column: 1; }
   .settings-action-row { align-items: stretch; flex-direction: column; }
-  .folder-row:has(.project-removal-confirmation) { flex-wrap: wrap; }
-  .folder-row .project-removal-compact { width: 100%; }
+  .project-removal-actions { align-items: stretch; flex-direction: column; }
+  .project-removal-cancel { margin-right: 0; }
   .project-danger-zone { flex-direction: column; }
 }
 
