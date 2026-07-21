@@ -46,6 +46,7 @@ let events: RecordedEvent[]
 let nextPick: string | null
 let online: boolean
 let secretValue: string | null
+let windowTheme: 'dark' | 'light' | null
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ipc-'))
@@ -57,6 +58,7 @@ beforeEach(() => {
   nextPick = null
   online = true
   secretValue = null
+  windowTheme = null
   services = createChronicleServices({
     db,
     libraryRoot,
@@ -72,6 +74,9 @@ beforeEach(() => {
       },
     },
     isOnline: () => online,
+    setWindowTheme: (theme) => {
+      windowTheme = theme
+    },
     settleMs: 120, // production keeps the C4 2 s default
   })
 })
@@ -146,6 +151,13 @@ describe('C1 contract surface', () => {
       isAdmin: false,
     })
     await expect(services.api.logout()).resolves.toBeUndefined()
+  })
+
+  it('validates and applies the native window theme', async () => {
+    await services.api.setWindowTheme('light')
+    expect(windowTheme).toBe('light')
+    await expect(services.api.setWindowTheme('sepia' as never)).rejects.toThrow(TypeError)
+    expect(windowTheme).toBe('light')
   })
 })
 

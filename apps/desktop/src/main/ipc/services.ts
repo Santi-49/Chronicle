@@ -20,6 +20,7 @@ import type {
   AppStatus,
   AssetSummary,
   ChronicleApi,
+  WindowTheme,
   VersionDetails,
   VersionSummary,
 } from '../../shared/ipc'
@@ -76,6 +77,8 @@ export interface ChronicleServicesDeps {
   pickFolder: () => Promise<string | null>
   secrets: SecretStore
   isOnline: () => boolean
+  /** Applies theme colors to native title-bar controls. */
+  setWindowTheme: (theme: WindowTheme) => void
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
   settleMs?: number
   emitInitial?: boolean
@@ -221,6 +224,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
   }
 
   const api: ChronicleApi = {
+    async setWindowTheme(theme) {
+      if (theme !== 'light' && theme !== 'dark') {
+        throw new TypeError("theme must be 'light' or 'dark'")
+      }
+      deps.setWindowTheme(theme)
+    },
+
     // F2 — tracked folders
     async listFolders() {
       return listTrackedFolders(db)

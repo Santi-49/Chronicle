@@ -27,15 +27,15 @@ body {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border-top: 1px solid #393939;
+  border-top: 1px solid var(--border);
 }
 
 .window-titlebar {
   position: relative;
   z-index: 1000;
   height: 48px;
-  color: #f4f4f4;
-  background: #161616;
+  color: var(--text-primary);
+  background: var(--surface);
   user-select: none;
   -webkit-app-region: drag;
 }
@@ -55,7 +55,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #f4f4f4;
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -64,7 +64,6 @@ body {
 .window-titlebar-brand .brand-mark {
   width: 22px;
   height: 22px;
-  stroke: #78a9ff;
 }
 
 button,
@@ -249,13 +248,22 @@ button:disabled {
 }
 
 .brand-mark {
-  width: 36px;
-  height: 36px;
-  stroke: var(--accent);
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  display: inline-block;
+  width: var(--brand-mark-size, 36px);
+  height: var(--brand-mark-size, 36px);
+  flex: 0 0 auto;
 }
+
+.brand-mark-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.brand-mark-image-light { display: none; }
+
+:root[data-theme='light'] .brand-mark-image-dark { display: none; }
+:root[data-theme='light'] .brand-mark-image-light { display: block; }
 
 @keyframes screen-enter {
   from { opacity: 0; transform: translateY(7px); }
