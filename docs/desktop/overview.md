@@ -5,7 +5,7 @@
 > update this file in the same PR. Feature IDs (F1–F10) refer to [spec.md §4](../spec.md).
 > Parent: [System Overview](../architecture/overview.md) · Code: `apps/desktop/src/renderer/`
 >
-> **Last synced with the implemented UI: 2026-07-21.** On `feat/mvp-06-ui-wire`, the
+> **Last synced with the implemented UI: 2026-07-21.** On `dev`, the
 > renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore and the
 > hybrid-search engine remain planned in MVP-07/MVP-10; their screens already expose clear
 > unavailable states. Anything else not yet built is explicitly marked *planned*.

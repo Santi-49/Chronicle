@@ -225,7 +225,7 @@ Start at [docs/index.md](docs/index.md).
 ## Status
 
 The capture/storage core, secure IPC bridge, Python AI service, and live renderer wiring
-are implemented. On the current feature branch, users can create and edit tracked-folder
+are implemented on `dev`. Users can create and edit tracked-folder
 projects, choose which image files/types remain watched, configure per-provider BYOK keys,
 browse live projects/timelines/version details, and inspect queued AI work. Restore and the
 hybrid-search engine remain the main unfinished end-to-end MVP paths; installer-side AI
