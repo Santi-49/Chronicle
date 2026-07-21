@@ -1,12 +1,27 @@
-import type { PreviewVariant } from '../data/demoData'
+import { Icon } from './Icon'
 
-export function AssetPreview({ variant, className = '' }: { variant: PreviewVariant; className?: string }) {
+/**
+ * Renders a version/asset thumbnail from its chronicle:// image URL. Falls back
+ * to a neutral placeholder while a capture has no image yet or fails to load.
+ */
+export function AssetPreview({
+  src,
+  alt = '',
+  className = '',
+}: {
+  src?: string
+  alt?: string
+  className?: string
+}) {
   return (
-    <div className={`asset-preview asset-preview-${variant} ${className}`} aria-hidden="true">
-      {variant === 'campaign' && <><span className="preview-kicker">AURORA</span><strong>Move with<br />the light.</strong><i /></>}
-      {variant === 'editorial' && <><span className="preview-issue">ISSUE 08</span><strong>FIELD<br />NOTES</strong><i /></>}
-      {variant === 'packaging' && <><i /><strong>NORTH</strong><span>ROASTED SLOWLY</span></>}
-      {variant === 'poster' && <><strong>KINETIC</strong><span>FORM / TYPE / SOUND</span><i>24</i></>}
+    <div className={`asset-preview ${className}`}>
+      {src ? (
+        <img alt={alt} loading="lazy" src={src} />
+      ) : (
+        <span className="asset-preview-placeholder" aria-hidden="true">
+          <Icon name="image" />
+        </span>
+      )}
     </div>
   )
 }

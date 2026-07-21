@@ -6,7 +6,8 @@
  * SQLite — versions reference the content-addressed library by hash.
  */
 import path from 'node:path'
-import type { AiStatus, TrackedFolder } from '../../shared/ipc'
+import type { AiStatus, FolderMetaPatch, TrackedFolder } from '../../shared/ipc'
+import { WATCHED_EXTENSIONS } from '../watcher/rules'
 import type { ChronicleDb } from './database'
 
 // ── Domain records (snake_case rows mapped to camelCase) ────────────────
@@ -85,23 +86,207 @@ export interface QueueItem {
 
 // ── Tracked folders (F2) ────────────────────────────────────────────────
 
-export function listTrackedFolders(db: ChronicleDb): TrackedFolder[] {
-  const rows = db
-    .prepare('SELECT id, path, added_at FROM tracked_folders ORDER BY id')
-    .all() as Array<{ id: number; path: string; added_at: string }>
-  return rows.map((r) => ({ id: r.id, path: r.path, addedAt: r.added_at }))
+interface TrackedFolderRow {
+  id: number
+  path: string
+  added_at: string
+  display_name: string
+  description: string
+  icon: string
+  color: string
+  excluded_paths: string
+  allowed_extensions: string
 }
 
-export function addTrackedFolder(db: ChronicleDb, folderPath: string): TrackedFolder {
-  const info = db.prepare('INSERT INTO tracked_folders (path) VALUES (?)').run(folderPath)
-  const row = db
-    .prepare('SELECT id, path, added_at FROM tracked_folders WHERE id = ?')
-    .get(info.lastInsertRowid) as { id: number; path: string; added_at: string }
-  return { id: row.id, path: row.path, addedAt: row.added_at }
+/** Every extension Chronicle can capture today (the default enabled set). */
+const SUPPORTED_EXTENSIONS: string[] = [...WATCHED_EXTENSIONS]
+
+/** Parse a JSON string-array column, tolerating null/garbage from older rows. */
+function parseStringArray(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function toTrackedFolder(row: TrackedFolderRow): TrackedFolder {
+  const allowed = parseStringArray(row.allowed_extensions)
+  return {
+    id: row.id,
+    path: row.path,
+    addedAt: row.added_at,
+    // Older rows (or default column values) may carry an empty name — fall
+    // back to the base name so the renderer always has something to show.
+    displayName: row.display_name || path.basename(row.path),
+    description: row.description || '',
+    icon: row.icon,
+    color: row.color,
+    excludedPaths: parseStringArray(row.excluded_paths),
+    // Empty stored set means "all supported types" (default / legacy rows).
+    allowedExtensions: allowed.length > 0 ? allowed : [...SUPPORTED_EXTENSIONS],
+  }
+}
+
+export function listTrackedFolders(db: ChronicleDb): TrackedFolder[] {
+  const rows = db
+    .prepare('SELECT * FROM tracked_folders ORDER BY id')
+    .all() as TrackedFolderRow[]
+  return rows.map(toTrackedFolder)
+}
+
+export function getTrackedFolder(db: ChronicleDb, folderId: number): TrackedFolder | undefined {
+  const row = db.prepare('SELECT * FROM tracked_folders WHERE id = ?').get(folderId) as
+    | TrackedFolderRow
+    | undefined
+  return row && toTrackedFolder(row)
+}
+
+export function addTrackedFolder(
+  db: ChronicleDb,
+  folderPath: string,
+  meta: FolderMetaPatch = {},
+): TrackedFolder {
+  const info = db
+    .prepare(
+      `INSERT INTO tracked_folders
+         (path, display_name, description, icon, color, excluded_paths, allowed_extensions)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      folderPath,
+      meta.displayName ?? path.basename(folderPath),
+      meta.description ?? '',
+      meta.icon ?? 'folder',
+      meta.color ?? '#4589ff',
+      JSON.stringify(meta.excludedPaths ?? []),
+      // '[]' is fine — toTrackedFolder expands it to all supported types.
+      JSON.stringify(meta.allowedExtensions ?? []),
+    )
+  return getTrackedFolder(db, info.lastInsertRowid as number)!
+}
+
+/** Updates presentation fields; only provided keys change. Returns the updated row. */
+export function updateTrackedFolder(
+  db: ChronicleDb,
+  folderId: number,
+  patch: FolderMetaPatch,
+): TrackedFolder | undefined {
+  const sets: string[] = []
+  const values: unknown[] = []
+  if (patch.displayName !== undefined) {
+    sets.push('display_name = ?')
+    values.push(patch.displayName)
+  }
+  if (patch.description !== undefined) {
+    sets.push('description = ?')
+    values.push(patch.description)
+  }
+  if (patch.icon !== undefined) {
+    sets.push('icon = ?')
+    values.push(patch.icon)
+  }
+  if (patch.color !== undefined) {
+    sets.push('color = ?')
+    values.push(patch.color)
+  }
+  if (patch.excludedPaths !== undefined) {
+    sets.push('excluded_paths = ?')
+    values.push(JSON.stringify(patch.excludedPaths))
+  }
+  if (patch.allowedExtensions !== undefined) {
+    sets.push('allowed_extensions = ?')
+    values.push(JSON.stringify(patch.allowedExtensions))
+  }
+  if (sets.length > 0) {
+    values.push(folderId)
+    db.prepare(`UPDATE tracked_folders SET ${sets.join(', ')} WHERE id = ?`).run(...values)
+  }
+  return getTrackedFolder(db, folderId)
 }
 
 export function removeTrackedFolder(db: ChronicleDb, folderId: number): void {
   db.prepare('DELETE FROM tracked_folders WHERE id = ?').run(folderId)
+}
+
+export interface DeleteProjectHistoryResult {
+  deletedAssets: number
+  deletedVersions: number
+  /** Blobs no remaining version references; callers may safely remove these from the library. */
+  orphanedContentHashes: string[]
+}
+
+/** True when `candidate` is a file below `root` (not a similarly-prefixed sibling). */
+function isInsideFolder(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate)
+  return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
+}
+
+/**
+ * Permanently removes one project's local metadata. Assets owned by a more
+ * specific nested tracked folder are deliberately excluded. File bytes are
+ * returned as orphan hashes because filesystem deletion belongs to the caller.
+ */
+export function deleteProjectHistory(
+  db: ChronicleDb,
+  folderId: number,
+): DeleteProjectHistoryResult {
+  const folders = listTrackedFolders(db)
+  const folder = folders.find((item) => item.id === folderId)
+  if (!folder) return { deletedAssets: 0, deletedVersions: 0, orphanedContentHashes: [] }
+
+  const ownedAssets = listAssets(db).filter((asset) => {
+    if (!isInsideFolder(folder.path, asset.path)) return false
+    const owner = folders
+      .filter((candidate) => isInsideFolder(candidate.path, asset.path))
+      .sort((a, b) => b.path.length - a.path.length)[0]
+    return owner?.id === folderId
+  })
+  const assetIds = new Set(ownedAssets.map((asset) => asset.id))
+  const versions = ownedAssets.flatMap((asset) => listVersions(db, asset.id))
+  const versionIds = new Set(versions.map((version) => version.id))
+  const candidateHashes = new Set(versions.map((version) => version.contentHash))
+
+  return db.transaction((): DeleteProjectHistoryResult => {
+    // Queue payloads are JSON-linked, so remove only work targeting deleted versions.
+    for (const job of listJobs(db)) {
+      if (job.jobType !== 'ai_annotation' && job.jobType !== 'embedding') continue
+      const payload = job.payload as { versionId?: unknown } | null
+      if (typeof payload?.versionId === 'number' && versionIds.has(payload.versionId)) {
+        deleteJob(db, job.id)
+      }
+    }
+
+    const deleteForVersion = {
+      search: db.prepare('DELETE FROM search_index WHERE version_id = ?'),
+      annotations: db.prepare('DELETE FROM ai_annotations WHERE version_id = ?'),
+      embeddings: db.prepare('DELETE FROM embeddings WHERE version_id = ?'),
+    }
+    for (const versionId of versionIds) {
+      deleteForVersion.search.run(versionId)
+      deleteForVersion.annotations.run(versionId)
+      deleteForVersion.embeddings.run(versionId)
+    }
+    const deleteVersions = db.prepare('DELETE FROM versions WHERE asset_id = ?')
+    const deleteAsset = db.prepare('DELETE FROM assets WHERE id = ?')
+    for (const assetId of assetIds) {
+      deleteVersions.run(assetId)
+      deleteAsset.run(assetId)
+    }
+    removeTrackedFolder(db, folderId)
+
+    const stillReferenced = db.prepare('SELECT 1 FROM versions WHERE content_hash = ? LIMIT 1')
+    const orphanedContentHashes = [...candidateHashes].filter(
+      (hash) => stillReferenced.get(hash) === undefined,
+    )
+    return {
+      deletedAssets: assetIds.size,
+      deletedVersions: versionIds.size,
+      orphanedContentHashes,
+    }
+  })()
 }
 
 // ── Assets (identity = path, spec F3.7) ─────────────────────────────────
@@ -211,8 +396,8 @@ function toVersion(row: VersionRow): VersionRecord {
 }
 
 /**
- * Appends the next version of an asset (1..N, never reused) and touches the
- * asset's last-seen/on-disk state in the same transaction.
+ * Appends the next version of an asset (1..N during normal capture) and
+ * touches the asset's last-seen/on-disk state in the same transaction.
  */
 export function appendVersion(db: ChronicleDb, input: NewVersion): VersionRecord {
   const id = db.transaction((v: NewVersion): number => {
@@ -267,6 +452,70 @@ export function listVersions(db: ChronicleDb, assetId: number): VersionRecord[] 
     .prepare('SELECT * FROM versions WHERE asset_id = ? ORDER BY version_number DESC')
     .all(assetId) as VersionRow[]
   return rows.map(toVersion)
+}
+
+export interface ResetAssetHistoryResult {
+  version: VersionRecord
+  removedVersionIds: number[]
+}
+
+/**
+ * Explicit destructive reset: the latest immutable snapshot becomes a fresh
+ * v1, all prior version-scoped metadata is removed, and a new initial
+ * annotation job is queued. A fresh row id isolates the baseline from any
+ * stale AI request that was already processing an old version id.
+ */
+export function resetAssetHistory(db: ChronicleDb, assetId: number): ResetAssetHistoryResult {
+  const asset = getAsset(db, assetId)
+  if (!asset) throw new Error(`Unknown asset: ${assetId}`)
+  const latest = getLatestVersion(db, assetId)
+  if (!latest) throw new Error(`Asset ${assetId} has no versions`)
+
+  return db.transaction(() => {
+    const oldVersions = listVersions(db, assetId)
+    const oldIds = new Set(oldVersions.map((version) => version.id))
+    // Insert while the old ids still exist so SQLite must allocate a genuinely
+    // fresh id. It is temporarily N+1 and becomes v1 after old rows are gone.
+    const insertedBaseline = appendVersion(db, {
+      assetId,
+      contentHash: latest.contentHash,
+      sizeBytes: latest.sizeBytes,
+      width: latest.width,
+      height: latest.height,
+      aiStatus: 'pending',
+      restoredFromVersion: null,
+    })
+
+    // Queue rows are JSON-linked rather than foreign-keyed. Remove only AI
+    // work for this asset's old version ids; unrelated telemetry is retained.
+    for (const job of listJobs(db)) {
+      if (job.jobType !== 'ai_annotation' && job.jobType !== 'embedding') continue
+      const payload = job.payload as { versionId?: unknown } | null
+      if (typeof payload?.versionId === 'number' && oldIds.has(payload.versionId)) {
+        deleteJob(db, job.id)
+      }
+    }
+
+    const deleteForVersion = {
+      search: db.prepare('DELETE FROM search_index WHERE version_id = ?'),
+      annotations: db.prepare('DELETE FROM ai_annotations WHERE version_id = ?'),
+      embeddings: db.prepare('DELETE FROM embeddings WHERE version_id = ?'),
+    }
+    for (const versionId of oldIds) {
+      deleteForVersion.search.run(versionId)
+      deleteForVersion.annotations.run(versionId)
+      deleteForVersion.embeddings.run(versionId)
+    }
+    db.prepare('DELETE FROM versions WHERE asset_id = ? AND id <> ?').run(assetId, insertedBaseline.id)
+    db.prepare('UPDATE versions SET version_number = 1 WHERE id = ?').run(insertedBaseline.id)
+    const baseline = getVersion(db, insertedBaseline.id)!
+    // appendVersion proves the snapshot is available, not that the original
+    // file still exists. Preserve the asset's prior on-disk state.
+    if (!asset.onDisk) setAssetOnDisk(db, assetId, false)
+    enqueueJob(db, 'ai_annotation', { versionId: baseline.id })
+
+    return { version: baseline, removedVersionIds: [...oldIds] }
+  })()
 }
 
 export function setVersionAiStatus(db: ChronicleDb, versionId: number, status: AiStatus): void {

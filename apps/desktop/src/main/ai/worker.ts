@@ -37,7 +37,8 @@ export interface AiWorkerDependencies {
   client: AiClient
   emit: EmitEvent
   getSettings: () => Promise<AppSettings>
-  readApiKey: () => string | null
+  /** Resolve the saved key for a specific provider (per-task BYOK). */
+  readApiKey: (provider: string) => string | null
   isOnline: () => boolean
   ensureService: () => void
   onQueueChanged: () => void
@@ -61,8 +62,9 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
   async function providerConfig(kind: 'chat' | 'embeddings'): Promise<ProviderRequest | null> {
     const settings = await deps.getSettings()
     const selected = settings.ai[kind]
-    const apiKey = deps.readApiKey()
-    if (!apiKey || !selected.provider || !selected.model) return null
+    if (!selected.provider || !selected.model) return null
+    const apiKey = deps.readApiKey(selected.provider)
+    if (!apiKey) return null
     return { provider: selected.provider, model: selected.model, apiKey }
   }
 

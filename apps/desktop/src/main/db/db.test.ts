@@ -14,6 +14,7 @@ import {
   bumpJobRetry,
   createAsset,
   deleteJob,
+  deleteProjectHistory,
   enqueueJob,
   getAnnotation,
   getAsset,
@@ -33,6 +34,7 @@ import {
   setAssetOnDisk,
   setSetting,
   setVersionAiStatus,
+  updateTrackedFolder,
 } from './repositories'
 
 let dir: string
@@ -84,7 +86,7 @@ describe('startup', () => {
     }
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
-    expect(db.pragma('user_version', { simple: true })).toBe(1)
+    expect(db.pragma('user_version', { simple: true })).toBe(4)
   })
 
   it('repeat startup is idempotent and keeps existing data', () => {
@@ -101,16 +103,60 @@ describe('startup', () => {
 
 describe('tracked folders', () => {
   it('adds, lists, and removes folders', () => {
-    const folder = addTrackedFolder(db, 'C:\\Designs')
+    const folder = addTrackedFolder(db, 'C:\\Designs', { description: 'Brand exploration' })
     expect(folder.path).toBe('C:\\Designs')
+    expect(folder.description).toBe('Brand exploration')
     expect(folder.addedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     removeTrackedFolder(db, folder.id)
     expect(listTrackedFolders(db)).toHaveLength(0)
   })
 
+  it('defaults descriptions to empty and allows them to be updated', () => {
+    const folder = addTrackedFolder(db, 'C:\\Designs')
+    expect(folder.description).toBe('')
+    expect(updateTrackedFolder(db, folder.id, { description: 'Campaign concepts' })?.description)
+      .toBe('Campaign concepts')
+  })
+
   it('rejects a duplicate folder path', () => {
     addTrackedFolder(db, 'C:\\Designs')
     expect(() => addTrackedFolder(db, 'C:\\Designs')).toThrow(/UNIQUE/)
+  })
+
+  it('deletes only the selected project history and reports safe orphan blobs', () => {
+    const rootPath = path.join(dir, 'designs')
+    const nestedPath = path.join(rootPath, 'nested')
+    const otherPath = path.join(dir, 'other')
+    const root = addTrackedFolder(db, rootPath)
+    const nested = addTrackedFolder(db, nestedPath)
+    addTrackedFolder(db, otherPath)
+
+    const rootAsset = createAsset(db, path.join(rootPath, 'logo.png'))
+    const nestedAsset = createAsset(db, path.join(nestedPath, 'child.png'))
+    const otherAsset = createAsset(db, path.join(otherPath, 'shared.png'))
+    const sharedHash = 'a'.repeat(64)
+    const orphanHash = 'b'.repeat(64)
+    const rootVersion = appendVersion(db, {
+      assetId: rootAsset.id, contentHash: sharedHash, sizeBytes: 1,
+    })
+    appendVersion(db, { assetId: rootAsset.id, contentHash: orphanHash, sizeBytes: 2 })
+    appendVersion(db, { assetId: nestedAsset.id, contentHash: 'c'.repeat(64), sizeBytes: 3 })
+    appendVersion(db, { assetId: otherAsset.id, contentHash: sharedHash, sizeBytes: 1 })
+    enqueueJob(db, 'ai_annotation', { versionId: rootVersion.id })
+
+    const result = deleteProjectHistory(db, root.id)
+
+    expect(result).toEqual({
+      deletedAssets: 1,
+      deletedVersions: 2,
+      orphanedContentHashes: [orphanHash],
+    })
+    expect(getAsset(db, rootAsset.id)).toBeUndefined()
+    expect(getAsset(db, nestedAsset.id)).toBeDefined()
+    expect(getAsset(db, otherAsset.id)).toBeDefined()
+    expect(listTrackedFolders(db).map((folder) => folder.id)).toContain(nested.id)
+    expect(listTrackedFolders(db).map((folder) => folder.id)).not.toContain(root.id)
+    expect(listJobs(db)).toHaveLength(0)
   })
 })
 

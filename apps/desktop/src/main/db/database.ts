@@ -19,8 +19,10 @@ export const DATABASE_FILE_NAME = 'chronicle.db'
  * Opens (creating if needed) the database at `filePath` and applies the schema.
  *
  * Migration decision (MVP): schema.sql is fully idempotent (`IF NOT EXISTS`),
- * so it is re-applied on every startup. `PRAGMA user_version = 1` marks the
- * revision so a post-MVP release can switch to stepwise migrations.
+ * so it is re-applied on every startup. `CREATE TABLE IF NOT EXISTS` does not
+ * add columns to a table that already exists, so additive columns are applied
+ * separately by `ensureColumns` (also idempotent). `PRAGMA user_version` marks
+ * the revision so a post-MVP release can switch to stepwise migrations.
  */
 export function openChronicleDb(filePath: string): ChronicleDb {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
@@ -29,6 +31,32 @@ export function openChronicleDb(filePath: string): ChronicleDb {
   // not only inside schema.sql.
   db.pragma('foreign_keys = ON')
   db.exec(schemaSql)
-  db.pragma('user_version = 1')
+  // v2: presentation fields for tracked folders (C1 TrackedFolder). Existing
+  // databases created at v1 lack these columns; add them without data loss.
+  ensureColumns(db, 'tracked_folders', {
+    display_name: "TEXT NOT NULL DEFAULT ''",
+    icon: "TEXT NOT NULL DEFAULT 'folder'",
+    color: "TEXT NOT NULL DEFAULT '#4589ff'",
+  })
+  // v3: per-folder tracking selection (C1 TrackedFolder excludedPaths/allowedExtensions).
+  ensureColumns(db, 'tracked_folders', {
+    excluded_paths: "TEXT NOT NULL DEFAULT '[]'",
+    allowed_extensions: "TEXT NOT NULL DEFAULT '[]'",
+  })
+  // v4: optional user-authored project description.
+  ensureColumns(db, 'tracked_folders', {
+    description: "TEXT NOT NULL DEFAULT ''",
+  })
+  db.pragma('user_version = 4')
   return db
+}
+
+/** Adds any missing columns to a table (idempotent). SQLite has no ADD COLUMN IF NOT EXISTS. */
+function ensureColumns(db: ChronicleDb, table: string, columns: Record<string, string>): void {
+  const existing = new Set(
+    (db.pragma(`table_info(${table})`) as Array<{ name: string }>).map((c) => c.name),
+  )
+  for (const [name, definition] of Object.entries(columns)) {
+    if (!existing.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`)
+  }
 }

@@ -20,10 +20,13 @@ ENV_FILE := .env
 	backend run-backend dev stop restart \
 	build build-desktop build-all build-landing build-backend package package-desktop installer \
 	typecheck test test-local test-ai smoke-ai lint \
-	migrate makemigration seed generate-types generate-ai-types clean
+	migrate makemigration seed generate-types generate-ai-types clean \
+	demo-assets demo-reset demo-set demo-next demo-status demo-clean
 
 # --- Setup -----------------------------------------------------------------
-setup: setup-desktop
+# demo-reset (not demo-assets) so setup needs no Pillow: sources are committed,
+# this just copies v1 of each into the git-ignored workspace/.
+setup: setup-desktop demo-reset
 
 setup-all: setup setup-landing setup-backend setup-ai
 
@@ -148,6 +151,34 @@ generate-types:
 generate-ai-types:
 	$(NPM) --prefix $(DESKTOP_DIR) run generate-ai-types
 
+# --- Demo assets -----------------------------------------------------------
+# A git-ignored pack of creative files for exercising capture + AI diffs.
+# sources/ holds untouched version variants; workspace/ is what you point
+# Chronicle at. See scripts/demo_assets.py for the full story.
+DEMO := $(PYTHON) scripts/demo_assets.py
+ASSET ?=
+V ?=
+
+demo-assets:
+	$(DEMO) generate
+
+demo-reset:
+	$(DEMO) reset
+
+# Put a specific version in the workspace: make demo-set ASSET=logo V=3
+demo-set:
+	$(DEMO) set $(ASSET) $(V)
+
+# Advance one asset (ASSET=logo) or all assets to the next version, wrapping.
+demo-next:
+	$(DEMO) next $(ASSET)
+
+demo-status:
+	$(DEMO) status
+
+demo-clean:
+	$(DEMO) clean
+
 # --- Cleanup ---------------------------------------------------------------
 clean:
 	$(DOCKER_COMPOSE) down --remove-orphans
@@ -170,6 +201,14 @@ help:
 	$(info   make test-ai        Run provider-mocked AI service tests)
 	$(info   make smoke-ai       Live smoke test the annotation pipeline (needs a real key))
 	$(info   make generate-ai-types Regenerate the C3 AI client types)
+	$(info )
+	$(info Demo assets (git-ignored creative files for testing capture + AI):)
+	$(info   make demo-assets    Generate the source versions + reset workspace to v1)
+	$(info   make demo-status    Show the current workspace version of each asset)
+	$(info   make demo-next ASSET=logo   Swap in the next version (omit ASSET for all))
+	$(info   make demo-set ASSET=logo V=3   Put a specific version in the workspace)
+	$(info   make demo-reset     Reset every workspace file back to v1)
+	$(info   make demo-clean     Delete workspace/ + .state.json; preserve source versions)
 	$(info )
 	$(info Landing page (apps/landing):)
 	$(info   make setup-landing  Install landing page deps)

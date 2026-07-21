@@ -131,8 +131,10 @@ button:disabled {
 
 .primary-button,
 .secondary-button,
+.danger-button,
 .icon-button,
 .text-button,
+.danger-text-button,
 .back-button {
   border-radius: 6px;
   cursor: pointer;
@@ -140,7 +142,8 @@ button:disabled {
 }
 
 .primary-button,
-.secondary-button {
+.secondary-button,
+.danger-button {
   display: inline-flex;
   min-height: 44px;
   padding: 0 16px;
@@ -172,6 +175,14 @@ button:disabled {
   background: var(--surface-hover);
 }
 
+.danger-button {
+  color: #ffffff;
+  background: var(--danger-strong);
+  border: 1px solid var(--danger-strong);
+}
+
+.danger-button:hover:not(:disabled) { filter: brightness(1.1); }
+
 .compact-button {
   min-height: 42px;
   padding: 0 14px;
@@ -195,6 +206,7 @@ button:disabled {
 }
 
 .text-button,
+.danger-text-button,
 .back-button {
   display: inline-flex;
   min-height: 36px;
@@ -211,6 +223,9 @@ button:disabled {
 .back-button:hover {
   color: var(--accent);
 }
+
+.danger-text-button { color: var(--danger); }
+.danger-text-button:hover:not(:disabled) { color: var(--danger); text-decoration: underline; }
 
 .theme-toggle {
   display: grid;

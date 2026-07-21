@@ -1,12 +1,18 @@
 import type { CSSProperties } from 'react'
 import archiveIcon from '@material-symbols/svg-400/outlined/inventory_2.svg'
 import arrowLeftIcon from '@material-symbols/svg-400/outlined/arrow_back.svg'
+import arrowDownIcon from '@material-symbols/svg-400/outlined/arrow_downward.svg'
+import arrowUpIcon from '@material-symbols/svg-400/outlined/arrow_upward.svg'
 import brushIcon from '@material-symbols/svg-400/outlined/brush.svg'
 import cameraIcon from '@material-symbols/svg-400/outlined/photo_camera.svg'
 import campaignIcon from '@material-symbols/svg-400/outlined/campaign.svg'
 import categoryIcon from '@material-symbols/svg-400/outlined/category.svg'
+import checkIcon from '@material-symbols/svg-400/outlined/check.svg'
 import chevronRightIcon from '@material-symbols/svg-400/outlined/chevron_right.svg'
+import closeIcon from '@material-symbols/svg-400/outlined/close.svg'
 import clockIcon from '@material-symbols/svg-400/outlined/history.svg'
+import editIcon from '@material-symbols/svg-400/outlined/edit.svg'
+import deleteIcon from '@material-symbols/svg-400/outlined/delete.svg'
 import folderPlusIcon from '@material-symbols/svg-400/outlined/create_new_folder.svg'
 import folderIcon from '@material-symbols/svg-400/outlined/folder.svg'
 import homeIcon from '@material-symbols/svg-400/outlined/home.svg'
@@ -25,12 +31,18 @@ import themeLightIcon from '@material-symbols/svg-400/outlined/light_mode.svg'
 export type IconName =
   | 'archive'
   | 'arrow-left'
+  | 'arrow-down'
+  | 'arrow-up'
   | 'brush'
   | 'camera'
   | 'campaign'
   | 'category'
+  | 'check'
   | 'chevron-right'
   | 'clock'
+  | 'close'
+  | 'edit'
+  | 'delete'
   | 'folder-plus'
   | 'folder'
   | 'home'
@@ -49,12 +61,18 @@ export type IconName =
 const icons: Record<IconName, string> = {
   archive: archiveIcon,
   'arrow-left': arrowLeftIcon,
+  'arrow-down': arrowDownIcon,
+  'arrow-up': arrowUpIcon,
   brush: brushIcon,
   camera: cameraIcon,
   campaign: campaignIcon,
   category: categoryIcon,
+  check: checkIcon,
   'chevron-right': chevronRightIcon,
   clock: clockIcon,
+  close: closeIcon,
+  edit: editIcon,
+  delete: deleteIcon,
   'folder-plus': folderPlusIcon,
   folder: folderIcon,
   home: homeIcon,

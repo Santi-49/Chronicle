@@ -249,7 +249,8 @@ new version; duplicate content is stored once; 50 MB and missing-file cases are 
 > `channels.ts` (compile-time-exhaustive channel map shared with preload), plus the
 > watcher → capture → events wiring MVP-03/04 left open. Preload now exposes exactly
 > `ChronicleBridge`. Pending inside C1 (handlers reject clearly, see
-> `apps/desktop/README.md`): restore/save-copy (MVP-07), search (MVP-10), register/login (F1).
+> `apps/desktop/README.md`): search (MVP-10), register/login (F1). Restore/save-copy
+> landed in MVP-07.
 
 **May edit:** `apps/desktop/src/preload/index.ts`, new `apps/desktop/src/main/ipc/**`, and
 IPC-focused tests.  
@@ -270,9 +271,10 @@ access Node APIs, filesystem paths outside returned metadata, API keys, or auth 
 
 ## Phase 3 — User interface and restore
 
-### [~] MVP-06 — Build the application shell, onboarding, and settings
+### [x] MVP-06 — Build the application shell, onboarding, and settings
 
-**Owner:** Santi R (UI built on `dev`; IPC wiring blocked on MVP-05)  
+**Owner:** Santi R (merged into `dev` via `feat/mvp-06-ui-wire`)
+
 **Depends on:** MVP-01, MVP-05  
 **Goal:** Provide understandable navigation and let users start tracking folders/configure AI.
 
@@ -292,22 +294,30 @@ same PR as any screen/navigation change; one line in `docs/bob-log.md`.
 **Done when:** A new user can launch, choose local mode, add a folder, understand AI setup,
 and see watcher/job/connectivity status without assistance.
 
-> Done so far (on `dev`): custom window title bar with native caption controls, app shell
-> with left navigation, welcome/onboarding screen, dark/light/system theme with persistence,
-> Settings screen, Ctrl+K search shortcut, focus management on route change. All screens run
-> on mock data from `src/renderer/src/data/demoData.ts`.
-> Remaining: wire everything to the real C1 bridge once MVP-05 lands (tracked-folder
-> controls, AI provider/model/key controls, watcher/job/connectivity status), and the
-> "Continue local" vs "Log in" startup choice.
-> ⚠️ Alignment needed: the UI presents each tracked folder as a **"project"** with a
-> display name, icon, and color (see `docs/desktop/overview.md` — Terminology). The C1
-> `TrackedFolder` shape is `{ id, path, addedAt }` and has no display fields. Before
-> MVP-05 wiring, either extend the shape via a contract-change PR or keep name/icon/color
-> renderer-local.
+> Merged into `dev` via `feat/mvp-06-ui-wire`:
+> app shell + status bar, welcome/onboarding, theme persistence, and Ctrl+K remain, and the
+> whole renderer is now wired to the live C1 bridge (no more `demoData.ts`) via
+> `src/renderer/src/lib/{bridge,useChronicle,aiCatalog}.ts`:
+> - **Tracked folders / projects** — real `listFolders`/`pickFolder`/`addFolder`/`updateFolder`/
+>   `removeFolder`; New/Edit Project uses the native picker/scan + name/description/icon/color,
+>   enabled file types, and persistent ignored-file selection.
+> - **AI settings** — predefined **Google · Anthropic · OpenAI · Bedrock** providers with a
+>   curated quality/price model shortlist per task (change summaries vs. embeddings) and a
+>   **Developer mode** toggle for free-text provider/model; encrypted BYOK key with saved/clear
+>   state. Persisted via `updateSettings` + `setApiKey`; key never read back.
+> - **Status bar / queue** — live `getAppStatus` + `statusChanged` (watched folders, online,
+>   AI ready, pending jobs) and a renderer-safe FIFO pending-jobs screen.
+> ✅ Contract-alignment resolved: C1 `TrackedFolder` extended to
+> `{ id, path, addedAt, displayName, description, icon, color, excludedPaths,
+> allowedExtensions }` (idempotent schema migrations + repositories + services + tests);
+> `pickFolder()`/`scanFolder(path)`/`addFolder(path, meta?)`/`updateFolder(id, patch)` added.
+> Per-provider `setApiKey`/`clearApiKey` and `configuredProviders()` replace the legacy global key.
+> The "Log in / Register" startup path stays F1 (low priority) coming-soon. Real-editor
+> Windows smoke coverage remains part of the MVP-12 reliability pass.
 
-### [ ] MVP-07 — Implement restore and save-copy behavior
+### [x] MVP-07 — Implement restore and save-copy behavior
 
-**Owner:** Unassigned  
+**Owner:** Team (completed 2026-07-21)
 **Depends on:** MVP-04, MVP-05  
 **Goal:** Restore an old version without rewriting history.
 
@@ -327,9 +337,10 @@ one line in `docs/bob-log.md`.
 
 **Done when:** Restoring v2 from v5 writes v2 bytes and creates v6; missing-folder save-copy works.
 
-### [~] MVP-08 — Build Assets, Timeline, and Version Details pages
+### [x] MVP-08 — Build Assets, Timeline, and Version Details pages
 
-**Owner:** Santi R (UI built on `dev` against mock data; real-data wiring blocked on MVP-05)  
+**Owner:** Santi R (live-data UI merged into `dev` via `feat/mvp-06-ui-wire`)
+
 **Depends on:** MVP-05, MVP-06; usable mock data may be used earlier  
 **Goal:** Make the complete version history understandable to a first-time user.
 
@@ -346,10 +357,13 @@ this task delivers); one line in `docs/bob-log.md`.
 **Done when:** New captures appear without reload, keyboard navigation works, pending/failed
 AI states are clear, and a new teammate can answer what changed between versions.
 
-> Done so far (on `dev`): Home, Projects/Project (asset browsing), Timeline, and Version
-> Details screens with previews, AI-status states, and back navigation — all rendering
-> `demoData.ts`. Remaining: replace mock data with C1 queries/events (live capture updates,
-> restore button wiring, real thumbnails) once MVP-05 lands.
+> Done: Home, Projects/Project, Timeline, and Version Details now render **live C1 data**
+> (wired alongside MVP-06 and merged into `dev`): real thumbnails via
+> `chronicle://`, live capture/annotation refresh from `versionCaptured`/`annotationUpdated`,
+> and the Restore button calls the completed MVP-07 flow. Timeline rows support
+> Arrow Up/Down, Home/End, and Enter; pending/failed/restore states have explicit copy,
+> failed details can be retried, and missing source files are visibly marked. Restore
+> falls back to the native Save a copy dialog when the original folder is gone.
 
 ## Phase 4 — AI and search
 
@@ -461,7 +475,8 @@ ranking, empty query, unavailable embeddings, and model changes are tested.
 
 ### [~] MVP-11 — Build the Search page
 
-**Owner:** Santi R (UI built on `dev` against mock data; blocked on MVP-05/MVP-10)  
+**Owner:** Santi R (live C1 search UI merged into `dev`; engine blocked on MVP-10)
+
 **Depends on:** MVP-06, MVP-10; mock results may be used earlier  
 **Goal:** Present one simple search experience without exposing implementation modes.
 
@@ -476,9 +491,10 @@ note once built); one line in `docs/bob-log.md`.
 **Done when:** Keyboard search opens a result's version details and clearly explains when recent
 semantic indexing is still pending.
 
-> Done so far (on `dev`): Search screen with Ctrl+K shortcut, result list opening version
-> details — on mock data. Remaining: real C1 search calls and the semantic-indexing-pending
-> state once MVP-10 exists.
+> Done: Search screen with Ctrl+K now calls the real C1 `search` (debounced) and opens live
+> version details; while MVP-10's engine is unbuilt the handler rejects, and the page shows a
+> clear "search is warming up" state. Remaining for MVP-11 sign-off: real ranked results and
+> the semantic-indexing-pending affordance once MVP-10 lands.
 
 ## Phase 5 — Integration, quality, and submission
 
@@ -501,9 +517,10 @@ offline queue; failed/retry state; 50 MB skip; deleted source; keyboard navigati
 **Done when:** The scripted journey succeeds three consecutive times on Windows, typecheck/build/
 tests pass, critical console errors are absent, and known limitations are documented.
 
-### [ ] DEMO-01 — Create and freeze the demo asset pack
+### [x] DEMO-01 — Create and freeze the demo asset pack
 
-**Owner:** Unassigned  
+**Owner:** Santi R (merged into `dev` via `feat/mvp-06-ui-wire`)
+
 **Depends on:** Human design decision; can begin immediately  
 **May edit:** A new clearly documented demo-fixtures folder and related test references.  
 **Must not use:** Copyrighted or private assets without permission.
@@ -513,6 +530,12 @@ the expected annotation/search outcomes); one line in `docs/bob-log.md`.
 
 **Done when:** Logo, banner, and product-image histories include controlled color/text/layout edits,
 have expected annotation/search outcomes, and are approved by the team for public distribution.
+
+> Merged and approved for public distribution: committed v1/v2/v3 PNG/JPG sources for logo, banner,
+> and product stories; a git-ignored `demo-assets/workspace/`; deterministic
+> `reset`/`set`/`next`/`status`/`clean` commands in `scripts/demo_assets.py`; Make targets;
+> and [demo-assets/README.md](demo-assets/README.md) with expected diffs. Full search/restore
+> journey acceptance remains in MVP-12 rather than in the asset-pack task.
 
 ### [ ] SUBMIT-01 — Prepare the judged submission
 

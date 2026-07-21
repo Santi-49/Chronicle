@@ -5,10 +5,10 @@
 > update this file in the same PR. Feature IDs (F1–F10) refer to [spec.md §4](../spec.md).
 > Parent: [System Overview](../architecture/overview.md) · Code: `apps/desktop/src/renderer/`
 >
-> **Last synced with the implemented UI: 2026-07-17.** The full screen set below is built
-> and navigable on `dev` as a UI skeleton running on mock data
-> (`src/renderer/src/data/demoData.ts`); wiring to real data is blocked on the IPC bridge
-> (TODO MVP-05). Anything not yet built is explicitly marked *planned*.
+> **Last synced with the implemented UI: 2026-07-21.** On `dev`, the
+> renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore is built;
+> only the hybrid-search engine remains planned in MVP-10, with a clear unavailable state.
+> Anything else not yet built is explicitly marked *planned*.
 
 ---
 
@@ -25,12 +25,14 @@ and stretch hosted inference; no core local-storage workflow depends on it.
 ## Terminology: a "Project" is a tracked folder
 
 The UI presents each tracked folder (F2) as a **project** with a user-chosen display
-name, icon, and color. "Project" is presentation language only — the underlying entity
+name, optional description, icon, and color. "Project" is presentation language only — the underlying entity
 is still the tracked folder; there is no extra grouping layer between folders and assets.
 
-> ⚠️ Contract alignment pending: the C1 `TrackedFolder` shape (`src/shared/ipc.ts`) is
-> `{ id, path, addedAt }` and carries no name/icon/color. Before MVP-05 wiring, either
-> extend the shape via a contract-change PR or keep the display fields renderer-local.
+> ✅ Contract alignment resolved (MVP-06): the C1 `TrackedFolder` shape (`src/shared/ipc.ts`)
+> includes `{ id, path, addedAt, displayName, description, icon, color }` and the main process now
+> persists those fields. `addFolder(path, meta?)` and `updateFolder(id, patch)` set them, and
+> `pickFolder()` opens the native directory picker without side effects. An asset belongs to
+> the tracked folder whose path is the longest prefix of the asset's path.
 
 ---
 
@@ -70,7 +72,7 @@ One window; regions as implemented:
 │  Settings│                                             │
 │  v0.1    │                                             │
 ├──────────┴─────────────────────────────────────────────┤
-│ Status bar (PLANNED): ● watching · AI queue · offline  │
+│ Status bar: ● watched folders · AI state · pending jobs │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -82,8 +84,9 @@ One window; regions as implemented:
   is marked with `aria-current="page"`.
 - **Content area** — exactly one page at a time; a short reduced-motion-aware transition
   plays on route change and focus moves to the main content region.
-- **Status bar** — *planned, not yet built*: watcher state, AI queue depth, connectivity
-  (offline = "queued", never an error), account state. Required before MVP-06 is done.
+- **Status bar** — live watched-folder count, connectivity, AI readiness, and pending
+  annotation/embedding count from C1 `AppStatus`. Clicking a non-zero job count opens the
+  live FIFO pending-jobs screen; offline work remains queued rather than becoming a UI error.
 - **Theme** — dark / light / system (default), persisted; toggle available pre-workspace
   and in Settings → Appearance.
 - **Global shortcut** — `Ctrl/Cmd+K` opens Search from anywhere in the workspace.
@@ -100,13 +103,14 @@ local mode works without an account or internet connection.
 
 ### 2. Home (landing) — F2, F3, F5
 
-The workspace landing page: **Recent projects** (project cards: icon/color, name, path,
-asset + version counts, last-updated) and **Recent changes** across all projects (latest
+The workspace landing page: **Recent projects** (project cards: icon/color, name,
+optional description, path,
+asset + version counts, last-updated) and **Recent changes** across active tracked projects (latest
 versions with thumbnail, version number, summary). Header action: **Add project**.
 
 - Click a project → Project page. Click a change → Version details.
-- *Planned:* live updates as new versions are captured; empty state doubling as onboarding
-  ("Add a folder to start tracking").
+- Live C1 events refresh captures/annotations without a reload. With no projects, the empty
+  state doubles as onboarding ("Add a folder to start tracking").
 
 ### 3. Projects — F2
 
@@ -115,10 +119,12 @@ Grid of all projects (tracked folders) with the same card treatment. Header acti
 
 ### 4. New Project — F2
 
-Creates a tracked folder: display name, **folder picker** (*Browse… planned — needs the
-native dialog over IPC*), icon picker (bundled Material Symbols + custom glyph), color
-picker (palette + custom), **Include subfolders** toggle, and file-type chips — PNG and
-JPG/JPEG active; **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB** marked "Coming soon".
+Creates a tracked folder: display name, optional description, native **folder picker**,
+icon picker (bundled Material Symbols + custom glyph), and color picker (palette + custom).
+After selection, C1 `scanFolder()` supplies a recursive file tree. The user can select all,
+exclude individual PNG/JPG/JPEG files, and enable/disable supported file types while a live
+count shows how many files will be tracked. Those rules persist and apply to initial capture
+and future saves. **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB** are marked "Coming soon".
 Breadcrumb back to Projects.
 
 ### 5. Project — F2, F5
@@ -126,7 +132,16 @@ Breadcrumb back to Projects.
 One project's assets: thumbnail, file name, version count, last-change summary.
 Breadcrumbs Projects → project. Click an asset → its Timeline.
 
-- *Planned:* "file no longer on disk" badge (F3.7).
+- **Edit project** opens a dedicated screen that reuses the New Project form. It changes the
+  display name, optional description, icon, color, enabled file types, and ignored files. The
+  existing folder is rescanned for the file tree, while its selector remains locked. A separated
+  **Danger zone** offers two confirmed removal paths: stop tracking while retaining history, or
+  permanently delete the project and all associated local history. The two choices are presented
+  as peer delete actions, with the history-deleting choice visually stronger; original working
+  files are never deleted.
+
+- A missing source file is marked on its asset card and Timeline header while every stored
+  version remains available (F3.7).
 
 ### 6. Asset Timeline — F3, F5
 
@@ -135,7 +150,11 @@ One asset's history, newest first, on a vertical rail. Each row: version number,
 *Summary ready · pending · failed*. Breadcrumbs Projects → project → asset.
 
 - Click a version → Version details.
-- *Planned:* full keyboard traversal (↑/↓ + Enter), failed-state retry from the row.
+- Timeline rows support ↑/↓ and Home/End focus traversal plus Enter to open. Failed rows
+  explain the recovery path; retry is available on Version Details.
+- A discreet **Reset history…** action sits below the Timeline. It expands to explain the
+  irreversible scope and requires typing `RESET`; the latest snapshot becomes a fresh v1 and
+  a new initial-version annotation is queued.
 - This is the demo's hero screen and the candidate for GSAP animation polish.
 
 ### 7. Version Details — F4, F5, F6
@@ -143,9 +162,12 @@ One asset's history, newest first, on a vertical rail. Each row: version number,
 Everything about one version: large preview, the full AI output (summary, changes list,
 tags), metadata, and actions:
 
-- **Restore this version** (F6) — *planned wiring (MVP-07):* writes the bytes back to the
+- **Newer / older arrows** — move directly through the asset's version history in the
+  same newest-first order as the Timeline; each end disables its unavailable direction.
+- **Restore this version** (F6) — writes the bytes back to the
   original path; history is never rewritten (a new version "Restored from version N"
-  appears). If the original folder is gone, the button becomes **Save a copy…**
+  appears and no AI job is queued). If the original folder is gone, the button becomes
+  **Save a copy…** and opens the native save dialog.
 - **Retry AI** — visible when the summary failed.
 
 ### 8. Search — F7
@@ -164,9 +186,14 @@ Four sections, in current order:
 | Section | Contents |
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
-| **Tracked folders** (F2) | Project list (name + path) with remove; **Add a project** → New project. Notes PNG/JPG scope. |
-| **AI summaries** (F4) | **Provider** (watsonx/Granite · Anthropic · OpenAI), **model** name, **API key** — stored encrypted on-device (Electron `safeStorage`), sent only to the chosen provider, **never to our backend**. *Save is planned wiring (C5).* *(Stretch, F9: "Use Chronicle service" gateway switch.)* |
-| **Account** (F1 — lowest priority) | Disabled **Continue with Google** ("Coming soon"); copy states an account never gates local history. *(Planned: telemetry opt-in, F8.)* |
+| **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
+| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle swaps the pickers for free-text provider/model (any LangChain-supported pair). **API key** is stored encrypted on-device (Electron `safeStorage`), sent only to the chosen provider, **never readable back** and **never to our backend**; a "Saved" badge and **Remove saved key** reflect its state. Persists via C1 `updateSettings` + `setApiKey`. *(Stretch, F9: gateway switch.)* |
+| **Account** (F1 — lowest priority) | Local-mode line (from `getAccountState`); disabled **Continue with Google** ("Coming soon"); copy states an account never gates local history. *(Planned: telemetry opt-in, F8.)* |
+
+The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
+online/offline, AI-ready state, and pending AI/embedding job count — refreshed from `statusChanged`.
+When work is queued, the pending-job count is a button that opens a live FIFO queue screen with
+the job type, asset/version, queued time, retry count, and loading/error/empty states.
 
 ### 10. Admin `Stretch` — F10
 
@@ -182,10 +209,10 @@ admin surface.
 |---|---|
 | F1 Accounts (low) | Welcome · Settings → Account (Google skeleton, disabled) |
 | F2 Tracked folders | New Project · Projects · Home · Settings → Tracked folders |
-| F3 Version capture | Background (main process); surfaces on Home, Project, Timeline, *planned* status bar |
+| F3 Version capture | Background (main process); surfaces on Home, Project, Timeline, and the live status bar |
 | F4 AI summary | Timeline (status chip) · Version details · Settings → AI summaries |
 | F5 Timeline & details | Home / Project → Timeline → Version details |
-| F6 Restore | Version details *(wiring planned — MVP-07)* |
+| F6 Restore | Version details (append-only restore + native save-copy fallback) |
 | F7 Hybrid search | Search (`Ctrl/Cmd+K`) |
 | F8 Telemetry (low) | *Planned:* Settings opt-in; runs only when signed in |
 | F9 Gateway (stretch) | Settings → AI ("Use Chronicle service") |
