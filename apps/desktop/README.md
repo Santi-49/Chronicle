@@ -58,7 +58,7 @@ provider**, are never readable back over IPC, and never appear in `getSettings()
 | `getAppStatus` / `listPendingJobs` + all five events (`versionCaptured`, `assetHistoryReset`, `annotationUpdated`, `statusChanged`, `fileSkipped`) | ✅ live status bar + renderer-safe FIFO queue |
 | `getAccountState` / `logout` | ✅ always local mode for now |
 | `restoreVersion` / `saveVersionCopy` (F6) | ✅ append-only restore, no restore AI job, native save-copy fallback when the original folder is gone |
-| `search` (F7) | ⏳ MVP-10 — rejects "not implemented yet" |
+| `search` (F7) | ✅ MVP-10 — hybrid FTS5 keyword + cosine-similarity semantic search, degrades gracefully to keyword-only when AI is unavailable |
 | `register` / `login` (F1) | ⏳ low priority — rejects "not implemented yet" |
 
 Unparseable image dimensions surface as `0×0` in `VersionDetails` (C1 declares
