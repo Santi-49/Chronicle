@@ -58,6 +58,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/validate-provider-model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate Configuration
+         * @description Probe a provider/model/key with the real operation used by its task.
+         */
+        post: operations["validate_configuration_validate_provider_model_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -196,6 +216,44 @@ export interface components {
             output_tokens?: number | null;
             /** Total Tokens */
             total_tokens?: number | null;
+        };
+        /**
+         * ValidateProviderModelRequest
+         * @description A fully specified task configuration to probe against its provider.
+         */
+        ValidateProviderModelRequest: {
+            /**
+             * Task
+             * @enum {string}
+             */
+            task: "chat" | "embeddings";
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /**
+             * Apikey
+             * Format: password
+             */
+            apiKey: string;
+        };
+        /** ValidateProviderModelResponse */
+        ValidateProviderModelResponse: {
+            /** Valid */
+            valid: boolean;
+            /** Reachable */
+            reachable: boolean;
+            /**
+             * Task
+             * @enum {string}
+             */
+            task: "chat" | "embeddings";
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Message */
+            message: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -369,6 +427,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+        };
+    };
+    validate_configuration_validate_provider_model_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateProviderModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateProviderModelResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

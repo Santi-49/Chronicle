@@ -15,6 +15,7 @@ import {
   createAsset,
   deleteJob,
   deleteProjectHistory,
+  enqueueEmbeddingReindexJobs,
   enqueueJob,
   getAnnotation,
   getAsset,
@@ -364,6 +365,37 @@ describe('settings', () => {
     setSetting(db, 'app', { ...value, controlPlane: { ...value.controlPlane, telemetryOptIn: true } })
     expect(getSetting<typeof value>(db, 'app')?.controlPlane.telemetryOptIn).toBe(true)
     expect(getSetting(db, 'missing')).toBeUndefined()
+  })
+})
+
+describe('embedding reindex queue', () => {
+  it('queues each annotated version once and ignores unannotated versions', () => {
+    const { version } = seedAssetWithVersion()
+    saveAnnotation(db, {
+      versionId: version.id,
+      summary: 'Discount changed.',
+      changes: ['40% to 50%'],
+      tags: ['discount'],
+      provider: 'google_genai',
+      model: 'gemini-flash-latest',
+    })
+    saveEmbedding(db, {
+      versionId: version.id,
+      vector: Float32Array.from([1, 0]),
+      sourceText: 'Discount changed.\ndiscount',
+      model: 'google_genai:gemini-embedding-001',
+    })
+    appendVersion(db, {
+      assetId: version.assetId,
+      contentHash: 'c'.repeat(64),
+      sizeBytes: 3,
+    })
+
+    expect(enqueueEmbeddingReindexJobs(db)).toBe(1)
+    expect(enqueueEmbeddingReindexJobs(db)).toBe(0)
+    expect(listJobs(db, 'embedding').map((job) => job.payload)).toEqual([
+      { versionId: version.id },
+    ])
   })
 })
 

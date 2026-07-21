@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <title>E — Before / After</title>
+  <rect x="4" y="8" width="27" height="31" rx="7" fill="#075985"/>
+  <rect x="17" y="9" width="27" height="31" rx="7" fill="#0284c7"/>
+  <path d="M17 16c7 0 13 5.6 13 12.5V40H17Z" fill="#22d3ee"/>
+  <path d="m12 24 6-6v4h11v4H18v4Z" fill="#ecfeff"/>
+</svg>

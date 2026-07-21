@@ -89,6 +89,30 @@ class EmbedTextRequest(ProviderConfig):
         return value
 
 
+class ValidateProviderModelRequest(StrictModel):
+    """A fully specified task configuration to probe against its provider."""
+
+    task: Literal["chat", "embeddings"]
+    provider: ProviderName
+    model: ModelName
+    api_key: SecretStr = Field(alias="apiKey")
+
+    @field_validator("provider", "model")
+    @classmethod
+    def text_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("provider and model must not be blank")
+        return value
+
+    @field_validator("api_key")
+    @classmethod
+    def key_must_not_be_blank(cls, value: SecretStr) -> SecretStr:
+        if not value.get_secret_value().strip():
+            raise ValueError("apiKey must not be blank")
+        return value
+
+
 class VersionAnnotation(StrictModel):
     """Exact C3 annotation output shared with the Electron app."""
 
@@ -158,6 +182,15 @@ class EmbedTextResponse(StrictModel):
     # standard LangChain embedding interface does not, so this is usually null.
     usage: TokenUsage | None = None
     cost: CostEstimate | None = None
+
+
+class ValidateProviderModelResponse(StrictModel):
+    valid: bool
+    reachable: bool
+    task: Literal["chat", "embeddings"]
+    provider: str
+    model: str
+    message: str
 
 
 class HealthResponse(StrictModel):

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <title>D — Timeline Ribbon</title>
+  <path d="M10 12h19c7.2 0 11 4 11 10s-3.8 10-11 10H17c-5.5 0-8 2.7-8 7" stroke="#c2410c" stroke-width="8" stroke-linecap="round"/>
+  <path d="M10 12h19c4.4 0 7.5 1.5 9.2 4.2" stroke="#f97316" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="10" cy="12" r="6" fill="#fbbf24"/>
+  <circle cx="9" cy="39" r="5" fill="#fb923c"/>
+</svg>

@@ -93,6 +93,7 @@ const emit: EmitEvent = (event, payload) => {
 
 /** Call once after `app.whenReady()`; returns the live api and a disposer. */
 export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): ChronicleIpc {
+  const aiClient = createAiClient()
   const services = createChronicleServices({
     db,
     libraryRoot,
@@ -111,6 +112,19 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
     },
     secrets: createSafeStorageSecretStore(db),
     isOnline: () => net.isOnline(),
+    setWindowTheme: (theme) => {
+      if (process.platform === 'darwin') return
+      const dark = theme === 'dark'
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.setTitleBarOverlay({
+          color: dark ? '#161616' : '#ffffff',
+          symbolColor: dark ? '#f4f4f4' : '#161616',
+          height: 48,
+        })
+      }
+    },
+    aiClient,
+    readApiKey: (provider) => readApiKey(db, provider),
   })
 
   registerChronicleProtocol(libraryRoot)
@@ -122,7 +136,7 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
   const aiWorker = createAiWorker({
     db,
     libraryRoot,
-    client: createAiClient(),
+    client: aiClient,
     emit,
     getSettings: services.api.getSettings,
     readApiKey: (provider) => readApiKey(db, provider),

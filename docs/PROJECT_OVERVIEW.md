@@ -120,7 +120,11 @@ uses one prompt, several steps, tools, OCR, or deterministic assistance.
 Prompt assets are Markdown files with YAML metadata in `packages/prompts/`. They are
 implementation assets that can improve through testing without changing the AI contract.
 BYOK credentials remain write-only from the renderer and are encrypted separately for each
-provider, allowing annotation and embedding providers to be changed independently.
+provider, allowing annotation and embedding providers to be changed independently. Settings
+requires the relevant saved key and live-validates changed provider/model pairs through a
+minimal task-specific provider call before persisting them. Failed validation keeps the prior
+configuration. Changing the embedding provider or model re-queues existing annotation text for
+embedding under the new provider-qualified model identity.
 
 ### Optional backend
 

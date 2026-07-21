@@ -6,8 +6,8 @@
 > Parent: [System Overview](../architecture/overview.md) · Code: `apps/desktop/src/renderer/`
 >
 > **Last synced with the implemented UI: 2026-07-21.** On `dev`, the
-> renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore is built;
-> only the hybrid-search engine remains planned in MVP-10, with a clear unavailable state.
+> renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore and the
+> hybrid-search engine are built; the remaining work is end-to-end reliability and packaging.
 > Anything else not yet built is explicitly marked *planned*.
 
 ---
@@ -177,7 +177,9 @@ results are a single ranked list of **versions** (thumbnail, asset name, version
 matched summary/tags snippet). Keyword and semantic engines run together behind the same
 box — the user never chooses a "mode". Click a result → Version details.
 
-- *Planned:* offline note when semantic indexing is still pending for recent versions.
+- A live status notice appears while recent versions still need semantic indexing. It distinguishes
+  active indexing, work paused offline, and missing AI setup; in every state it confirms that
+  keyword search remains available while meaning-based matches catch up.
 
 ### 9. Settings — F1, F2, F4/F9 config
 
@@ -187,7 +189,7 @@ Four sections, in current order:
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
-| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle swaps the pickers for free-text provider/model (any LangChain-supported pair). **API key** is stored encrypted on-device (Electron `safeStorage`), sent only to the chosen provider, **never readable back** and **never to our backend**; a "Saved" badge and **Remove saved key** reflect its state. Persists via C1 `updateSettings` + `setApiKey`. *(Stretch, F9: gateway switch.)* |
+| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Providers: **Google Gemini · Anthropic Claude · OpenAI · Amazon Bedrock**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle permits free-text LangChain provider/model pairs. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
 | **Account** (F1 — lowest priority) | Local-mode line (from `getAccountState`); disabled **Continue with Google** ("Coming soon"); copy states an account never gates local history. *(Planned: telemetry opt-in, F8.)* |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,

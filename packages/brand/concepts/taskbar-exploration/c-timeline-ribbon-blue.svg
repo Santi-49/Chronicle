@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <title>C — Timeline Ribbon (Chronicle blue)</title>
+  <path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/>
+  <path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="38" cy="12" r="6" fill="#a6c8ff"/>
+  <circle cx="39" cy="39" r="5" fill="#78a9ff"/>
+</svg>
