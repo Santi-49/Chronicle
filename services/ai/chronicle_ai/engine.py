@@ -29,6 +29,7 @@ from .schemas import (
     EmbedTextResponse,
     ImageInput,
     TokenUsage,
+    ValidateProviderModelRequest,
     VersionAnnotation,
 )
 
@@ -208,4 +209,43 @@ async def embed_text(
         dimensions=len(vector),
         usage=usage,
         cost=_estimate_cost(usage, config.embed),
+    )
+
+
+# A real one-pixel PNG lets validation prove that chat models support the
+# multimodal path Chronicle uses, not merely text completion.
+_VALIDATION_PNG = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+
+
+async def validate_provider_model(
+    request: ValidateProviderModelRequest,
+    model_factory: Callable[..., Any] = init_chat_model,
+    embeddings_factory: Callable[..., Any] = init_embeddings,
+) -> None:
+    """Make a minimal real provider call for the selected Chronicle task."""
+
+    common = {
+        "provider": request.provider,
+        "model": request.model,
+        "apiKey": request.api_key.get_secret_value(),
+    }
+    if request.task == "embeddings":
+        await embed_text(
+            EmbedTextRequest.model_validate({**common, "text": "Chronicle configuration check"}),
+            embeddings_factory=embeddings_factory,
+        )
+        return
+
+    await annotate_version(
+        AnnotateRequest.model_validate(
+            {
+                **common,
+                "fileName": "configuration-check.png",
+                "previous": None,
+                "current": {"base64": _VALIDATION_PNG, "mediaType": "image/png"},
+            }
+        ),
+        model_factory=model_factory,
     )

@@ -551,6 +551,9 @@
 .settings-form-grid select { width: 100%; height: 44px; padding: 0 12px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 4px; outline: 0; }
 .settings-form-grid input:focus,
 .settings-form-grid select:focus { border-color: var(--focus); }
+.settings-form-grid input[aria-invalid="true"],
+.settings-form-grid select[aria-invalid="true"] { border-color: var(--danger); }
+.ai-task-error { margin: 8px 0 0; color: var(--danger); font-size: 11px; line-height: 1.4; }
 .full-field { grid-column: 1 / -1; }
 .input-with-icon { position: relative; }
 .input-with-icon .icon { position: absolute; top: 12px; left: 12px; width: 18px; height: 18px; color: var(--text-muted); }

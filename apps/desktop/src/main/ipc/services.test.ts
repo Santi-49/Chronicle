@@ -21,10 +21,12 @@ import {
   getAnnotation,
   getAssetByPath,
   getEmbedding,
+  getSetting,
   getVersion,
   listJobs,
   saveAnnotation,
   saveEmbedding,
+  setSetting,
   setVersionAiStatus,
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
@@ -52,6 +54,8 @@ let nextPick: string | null
 let nextSavePath: string | null
 let online: boolean
 let secretKeys: Map<string, string>
+let validationCalls: Array<{ task: 'chat' | 'embeddings'; provider: string; model: string }>
+let validationValid: boolean
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ipc-'))
@@ -64,6 +68,8 @@ beforeEach(() => {
   nextSavePath = null
   online = true
   secretKeys = new Map()
+  validationCalls = []
+  validationValid = true
   services = createChronicleServices({
     db,
     libraryRoot,
@@ -81,6 +87,25 @@ beforeEach(() => {
       providers: () => [...secretKeys.keys()],
     },
     isOnline: () => online,
+    readApiKey: (provider) => secretKeys.get(provider) ?? null,
+    aiClient: {
+      health: async () => true,
+      annotate: async () => { throw new Error('not used in IPC tests') },
+      embedText: async () => { throw new Error('not used in IPC tests') },
+      validateProviderModel: async ({ task, provider, model }) => {
+        validationCalls.push({ task, provider, model })
+        return {
+          valid: validationValid,
+          reachable: validationValid,
+          task,
+          provider,
+          model,
+          message: validationValid
+            ? 'Provider and model are reachable.'
+            : 'The provider rejected the API key or model configuration.',
+        }
+      },
+    },
     settleMs: 120, // production keeps the C4 2 s default
   })
 })
@@ -597,17 +622,33 @@ describe('retryAnnotation', () => {
 describe('settings and the secret boundary', () => {
   it('returns defaults first, then persists validated patches', async () => {
     expect(await services.api.getSettings()).toEqual(DEFAULT_SETTINGS)
+    await services.api.setApiKey('openai', 'sk-test')
 
     const updated = await services.api.updateSettings({
       ai: {
         mode: 'local',
-        chat: { provider: 'anthropic', model: 'claude-x' },
-        embeddings: { provider: 'anthropic', model: 'embed-x' },
+        chat: { provider: 'openai', model: 'gpt-4o-mini' },
+        embeddings: { provider: 'openai', model: 'text-embedding-3-small' },
       },
     })
-    expect(updated.ai.chat.provider).toBe('anthropic')
+    expect(updated.ai.chat.provider).toBe('openai')
     expect(updated.controlPlane).toEqual(DEFAULT_SETTINGS.controlPlane) // untouched section
-    expect((await services.api.getSettings()).ai.chat.model).toBe('claude-x')
+    expect((await services.api.getSettings()).ai.chat.model).toBe('gpt-4o-mini')
+  })
+
+  it('migrates retired appearance data and the old Google provider alias', async () => {
+    setSetting(db, 'app-settings', {
+      appearance: { theme: 'dark' },
+      ai: {
+        ...DEFAULT_SETTINGS.ai,
+        chat: { provider: 'google', model: 'gemini-flash-latest' },
+        embeddings: { provider: 'google', model: 'gemini-embedding-001' },
+      },
+      controlPlane: DEFAULT_SETTINGS.controlPlane,
+    })
+
+    expect(await services.api.getSettings()).toEqual(DEFAULT_SETTINGS)
+    expect(getSetting(db, 'app-settings')).toEqual(DEFAULT_SETTINGS)
   })
 
   it('queues annotation text for reindexing when the embeddings selection changes', async () => {
@@ -620,6 +661,8 @@ describe('settings and the secret boundary', () => {
       provider: 'google_genai',
       model: 'gemini-flash-latest',
     })
+    await services.api.setApiKey('openai', 'sk-openai')
+    await services.api.setApiKey('bedrock', 'sk-bedrock')
 
     await services.api.updateSettings({
       ai: {
@@ -634,7 +677,7 @@ describe('settings and the secret boundary', () => {
     await services.api.updateSettings({
       ai: {
         ...DEFAULT_SETTINGS.ai,
-        embeddings: { provider: 'anthropic', model: 'voyage-3' },
+        embeddings: { provider: 'bedrock', model: 'amazon.titan-embed-text-v2:0' },
       },
     })
     expect(listJobs(db, 'embedding')).toHaveLength(1)
@@ -653,6 +696,61 @@ describe('settings and the secret boundary', () => {
       } as never),
     ).rejects.toThrow(/telemetryOptIn/)
     await expect(services.api.updateSettings('nope' as never)).rejects.toThrow(TypeError)
+  })
+
+  it('rejects an invalid embeddings probe without persisting or reindexing', async () => {
+    const before = await services.api.getSettings()
+    await services.api.setApiKey('anthropic', 'sk-test')
+    validationValid = false
+    await expect(
+      services.api.updateSettings({
+        ai: {
+          ...before.ai,
+          embeddings: { provider: 'anthropic', model: 'voyage-3' },
+        },
+      }),
+    ).rejects.toThrow(/provider rejected/)
+
+    expect(await services.api.getSettings()).toEqual(before)
+    expect(listJobs(db, 'embedding')).toEqual([])
+    expect(validationCalls).toEqual([
+      { task: 'embeddings', provider: 'anthropic', model: 'voyage-3' },
+    ])
+  })
+
+  it('requires a saved key before live validation', async () => {
+    const before = await services.api.getSettings()
+    await expect(
+      services.api.updateSettings({
+        ai: {
+          ...before.ai,
+          chat: { provider: 'openai', model: 'gpt-4o-mini' },
+        },
+      }),
+    ).rejects.toThrow(/Save an API key for openai/)
+
+    expect(await services.api.getSettings()).toEqual(before)
+    expect(validationCalls).toEqual([])
+  })
+
+  it('keeps prior settings when the live provider/model probe fails', async () => {
+    const before = await services.api.getSettings()
+    await services.api.setApiKey('openai', 'sk-test')
+    validationValid = false
+
+    await expect(
+      services.api.updateSettings({
+        ai: {
+          ...before.ai,
+          chat: { provider: 'openai', model: 'gpt-4o-mini' },
+        },
+      }),
+    ).rejects.toThrow(/provider rejected/)
+
+    expect(await services.api.getSettings()).toEqual(before)
+    expect(validationCalls).toEqual([
+      { task: 'chat', provider: 'openai', model: 'gpt-4o-mini' },
+    ])
   })
 
   it('stores API keys per provider, write-only: never readable, never in settings', async () => {
@@ -696,13 +794,13 @@ describe('getAppStatus', () => {
     })
     await seedCapture('logo.png', pngBytes(3, 3)) // enqueues one AI job
     online = false
-    await services.api.setApiKey('anthropic', 'sk-x') // key saved, but chat provider is '' → not configured
+    await services.api.setApiKey('openai', 'sk-x') // key saved, but chat provider is '' → not configured
     expect((await services.api.getAppStatus()).aiConfigured).toBe(false)
     await services.api.updateSettings({
       ai: {
         mode: 'local',
-        chat: { provider: 'anthropic', model: 'claude-x' },
-        embeddings: { provider: 'anthropic', model: 'embed-x' },
+        chat: { provider: 'openai', model: 'gpt-4o-mini' },
+        embeddings: { provider: 'openai', model: 'text-embedding-3-small' },
       },
     })
 

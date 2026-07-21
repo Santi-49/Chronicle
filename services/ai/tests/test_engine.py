@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from chronicle_ai.engine import annotate_version, embed_text
-from chronicle_ai.schemas import AnnotateRequest, EmbedTextRequest
+from chronicle_ai.engine import annotate_version, embed_text, validate_provider_model
+from chronicle_ai.schemas import AnnotateRequest, EmbedTextRequest, ValidateProviderModelRequest
 
 
 IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png"}
@@ -256,6 +256,43 @@ async def test_embed_text_returns_model_identity_and_dimensions() -> None:
     # The standard embedding interface exposes no token usage.
     assert result.usage is None
     assert result.cost is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("task", ["chat", "embeddings"])
+async def test_validate_provider_model_makes_a_real_task_probe(task: str) -> None:
+    structured = FakeStructuredModel(
+        {
+            "summary": "Configuration check succeeded.",
+            "changes": ["Configuration check succeeded"],
+            "tags": ["configuration", "check", "success"],
+        }
+    )
+    embedded_text: list[str] = []
+
+    class ValidationEmbeddings:
+        async def aembed_query(self, text: str) -> list[float]:
+            embedded_text.append(text)
+            return [1.0]
+
+    await validate_provider_model(
+        ValidateProviderModelRequest.model_validate(
+            {
+                "task": task,
+                "provider": "test-provider",
+                "model": "test-model",
+                "apiKey": "secret",
+            }
+        ),
+        model_factory=lambda **_: FakeChatModel(structured),
+        embeddings_factory=lambda **_: ValidationEmbeddings(),
+    )
+
+    if task == "chat":
+        assert structured.messages is not None
+        assert structured.messages[1]["content"][-1]["type"] == "image_url"
+    else:
+        assert embedded_text == ["Chronicle configuration check"]
 
 
 # ---------------------------------------------------------------------------

@@ -29,6 +29,7 @@ import type {
   VersionSummary,
 } from '../../shared/ipc'
 import type { AppSettings } from '../../shared/settings'
+import { aiSelectionError } from '../../shared/aiCatalog'
 import type { ChronicleDb } from '../db/database'
 import {
   addTrackedFolder,
@@ -78,8 +79,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     // live acceptance. This is configuration, not code: the engine stays
     // model-agnostic (spec §6.4) and the user can switch provider/model in
     // Settings. AI stays inert until an API key is also configured.
-    chat: { provider: 'google', model: 'gemini-flash-latest' },
-    embeddings: { provider: 'google', model: 'gemini-embedding-001' },
+    chat: { provider: 'google_genai', model: 'gemini-flash-latest' },
+    embeddings: { provider: 'google_genai', model: 'gemini-embedding-001' },
   },
   controlPlane: {
     baseUrl: 'http://localhost:8000',
@@ -542,15 +543,72 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
 
     // C5 — settings (secrets live in SecretStore, never in this object)
     async getSettings() {
-      const stored = getSetting<AppSettings>(db, SETTINGS_KEY)
+      const stored = getSetting<unknown>(db, SETTINGS_KEY)
       // Merging over the defaults keeps old stored settings valid when a
       // field is added; mergeSettings also re-validates what was stored.
-      return stored ? mergeSettings(DEFAULT_SETTINGS, stored) : structuredClone(DEFAULT_SETTINGS)
+      if (stored === undefined) return structuredClone(DEFAULT_SETTINGS)
+      if (!isPlainObject(stored)) return mergeSettings(DEFAULT_SETTINGS, stored)
+
+      const migratedPatch = structuredClone(stored)
+      let needsMigration = false
+      if (Object.hasOwn(migratedPatch, 'appearance')) {
+        delete migratedPatch['appearance']
+        needsMigration = true
+      }
+      const storedAi = migratedPatch['ai']
+      if (isPlainObject(storedAi)) {
+        for (const task of ['chat', 'embeddings']) {
+          const selected = storedAi[task]
+          if (isPlainObject(selected) && selected['provider'] === 'google') {
+            selected['provider'] = 'google_genai'
+            needsMigration = true
+          }
+        }
+      }
+      const settings = mergeSettings(DEFAULT_SETTINGS, migratedPatch)
+      if (needsMigration) setSetting(db, SETTINGS_KEY, settings)
+      return settings
     },
 
     async updateSettings(patch) {
       const current = await api.getSettings()
       const next = mergeSettings(current, patch)
+      const changedTasks = (['chat', 'embeddings'] as const).filter(
+        (task) =>
+          current.ai[task].provider !== next.ai[task].provider ||
+          current.ai[task].model !== next.ai[task].model,
+      )
+      await Promise.all(
+        changedTasks.map(async (task) => {
+          const selected = next.ai[task]
+          // Empty provider+model explicitly disables a task.
+          if (!selected.provider && !selected.model) return
+          const selectionError = aiSelectionError(
+            task,
+            selected.provider,
+            selected.model,
+            true,
+          )
+          if (selectionError) throw new TypeError(selectionError)
+          const apiKey = deps.readApiKey?.(selected.provider)
+          if (!apiKey) {
+            throw new Error(`Save an API key for ${selected.provider} before changing this model.`)
+          }
+          if (!deps.aiClient) throw new Error('The local AI validation service is unavailable.')
+          let result
+          try {
+            result = await deps.aiClient.validateProviderModel({
+              task,
+              provider: selected.provider,
+              model: selected.model,
+              apiKey,
+            })
+          } catch {
+            throw new Error('The local AI validation service could not be reached.')
+          }
+          if (!result.valid) throw new TypeError(result.message)
+        }),
+      )
       setSetting(db, SETTINGS_KEY, next)
       const embeddingsChanged =
         current.ai.embeddings.provider !== next.ai.embeddings.provider ||

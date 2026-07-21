@@ -106,6 +106,14 @@ function workerWith(overrides: Record<string, unknown> = {}) {
       model: 'text-embedding-3-small',
       dimensions: 2,
     }),
+    validateProviderModel: vi.fn().mockResolvedValue({
+      valid: true,
+      reachable: true,
+      task: 'embeddings',
+      provider: 'openai',
+      model: 'text-embedding-3-small',
+      message: 'Provider and model are reachable.',
+    }),
   }
   const worker = createAiWorker({
     db: {} as ChronicleDb,

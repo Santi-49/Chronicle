@@ -18,6 +18,7 @@ from chronicle_ai.schemas import (
     CostEstimate,
     EmbedTextResponse,
     TokenUsage,
+    ValidateProviderModelResponse,
     VersionAnnotation,
 )
 
@@ -237,3 +238,59 @@ def test_embed_text_returns_vector_and_metadata(mock_embed: AsyncMock) -> None:
     assert body["dimensions"] == 3
     assert body["provider"] == "openai"
     mock_embed.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# /validate-provider-model
+# ---------------------------------------------------------------------------
+
+
+@patch("chronicle_ai.routes.validate_provider_model", new_callable=AsyncMock)
+def test_validate_provider_model_reports_reachable_configuration(mock_validate: AsyncMock) -> None:
+    response = client.post(
+        "/validate-provider-model",
+        json={
+            "task": "embeddings",
+            "provider": "openai",
+            "model": "text-embedding-3-small",
+            "apiKey": "secret",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == ValidateProviderModelResponse(
+        valid=True,
+        reachable=True,
+        task="embeddings",
+        provider="openai",
+        model="text-embedding-3-small",
+        message="Provider and model are reachable.",
+    ).model_dump()
+    mock_validate.assert_awaited_once()
+
+
+@patch("chronicle_ai.routes.validate_provider_model", new_callable=AsyncMock)
+def test_validate_provider_model_sanitizes_rejected_config(mock_validate: AsyncMock) -> None:
+    mock_validate.side_effect = RuntimeError("provider leaked secret-key")
+    response = client.post(
+        "/validate-provider-model",
+        json={
+            "task": "chat",
+            "provider": "google",
+            "model": "missing-model",
+            "apiKey": "secret-key",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+    assert "secret-key" not in response.text
+
+
+def test_validate_provider_model_requires_api_key() -> None:
+    response = client.post(
+        "/validate-provider-model",
+        json={"task": "chat", "provider": "google", "model": "gemini-flash-latest"},
+    )
+
+    assert response.status_code == 422
