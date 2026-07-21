@@ -22,6 +22,21 @@ def main() -> None:
     if not executable.is_file():
         raise SystemExit(f"Sidecar executable not found: {executable}")
 
+    provider_check = subprocess.run(
+        [str(executable), "--check-provider-imports"],
+        cwd=executable.parent,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    if provider_check.returncode != 0:
+        raise RuntimeError(
+            "Packaged provider import check failed: "
+            + (provider_check.stderr.strip() or provider_check.stdout.strip())
+        )
+    print(provider_check.stdout.strip())
+
     process = subprocess.Popen(
         [str(executable)],
         cwd=executable.parent,

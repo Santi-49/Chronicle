@@ -161,7 +161,7 @@ make setup-ai
 
 Chronicle stores a separate encrypted key for each configured provider, so the annotation
 and embedding providers can be switched independently without re-entering credentials.
-The engine and predefined UI support Google Gemini, Anthropic Claude, OpenAI, and Amazon Bedrock;
+The engine, packaged sidecar, and predefined UI support Google Gemini, Anthropic Claude, and OpenAI;
 developer mode accepts another LangChain-supported provider/model pair. Both task selectors
 require their selected provider's key before Save is enabled. A changed model is then
 live-validated through the loopback service; this minimal real provider call may incur a tiny

@@ -12,7 +12,9 @@ describe('friendlyError', () => {
     )
   })
 
-  it('turns connection failures into an actionable control-plane message', () => {
-    expect(friendlyError(new TypeError('fetch failed'))).toMatch(/Start the control plane/)
+  it('keeps infrastructure details out of connection failure copy', () => {
+    expect(friendlyError(new TypeError('fetch failed'))).toBe(
+      'That account action could not be completed. Continue locally and try again later.',
+    )
   })
 })

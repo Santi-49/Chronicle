@@ -26,24 +26,29 @@ npm run dev        # start Electron with hot reload
 npm test           # Vitest, run under Electron's Node (same ABI as the app)
 npm run build      # production bundle to out/
 npm run package    # Windows installer to dist/
+npm run package:unpacked # faster runnable build without creating the NSIS installer
 npm run typecheck  # tsc over main+preload and renderer
 ```
 
-Packaging requires Python 3.12 with `services/ai[google,bundle]` installed. `make package`
+Packaging requires Python 3.12 or newer; the build creates an isolated
+`services/ai[providers,bundle]` environment automatically. `make package`
 installs that build dependency automatically. The generated installer bundles a self-contained
-Gemini-capable sidecar under Electron resources; an installed user does not need Python.
+Gemini/OpenAI/Anthropic sidecar under Electron resources; an installed user does not need Python.
 Run `python ../../scripts/smoke_ai_sidecar.py` after packaging to probe the actual executable.
+For normal implementation work, use `make package-unpacked`; reserve `make package` for testing the
+actual installer. The installer build must restage Electron and create the NSIS archive, so it is
+substantially slower even when the Python bundle cache is warm.
 
-The MVP installer is unsigned, so Windows SmartScreen may warn. The model-agnostic service can
-use additional integrations in development, but this MVP installer bundles only the validated
-Gemini provider package. Signing, macOS packaging, additional provider packs, and in-app
-auto-update remain future work.
+The MVP installer is unsigned, so Windows SmartScreen may warn. Amazon Bedrock is not offered
+because AWS requires multiple credential fields and a region rather than Chronicle's current
+single encrypted key per provider. Signing, macOS packaging, and in-app auto-update remain future
+work.
 
 ## CI, versions, and releases
 
 `package.json` is the desktop version source of truth; electron-builder, the sidebar, installation
 registration, artifact names, and Git tags derive from it. CI is a required check only on pull
-requests targeting `main`. Every merge to `main` builds a versioned Windows artifact. Release
+requests targeting `main`. Tagged releases build and attach the versioned Windows artifact. Release
 Please maintains a reviewed release PR; merging it creates `vX.Y.Z`, and the release workflow
 builds that exact tag and attaches the installer and SHA-256 checksum.
 

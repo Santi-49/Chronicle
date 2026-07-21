@@ -8,8 +8,8 @@ export function friendlyError(error: unknown): string {
   if (/Google sign-in timed out/i.test(message)) {
     return 'Google sign-in timed out. Nothing changed—try again when you are ready.'
   }
-  if (/Chronicle sign-in is unavailable|fetch failed|ECONNREFUSED/i.test(message)) {
-    return 'Chronicle sign-in is unavailable. Start the control plane and retry the connection check.'
+  if (/Google sign-in is temporarily unavailable|fetch failed|ECONNREFUSED/i.test(message)) {
+    return 'That account action could not be completed. Continue locally and try again later.'
   }
   if (/Google sign-in was cancelled|access_denied/i.test(message)) {
     return 'Google sign-in was cancelled. Nothing changed.'

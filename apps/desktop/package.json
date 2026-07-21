@@ -12,6 +12,7 @@
     "build": "electron-vite build",
     "build:sidecar": "python ../../scripts/build_ai_sidecar.py",
     "package": "npm run build:sidecar && npm run build && electron-builder --win nsis --x64 --publish never",
+    "package:unpacked": "npm run build:sidecar && npm run build && electron-builder --win --x64 --dir --publish never",
     "preview": "electron-vite preview",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
     "test:mvp12": "python ../../scripts/mvp12_acceptance.py",
@@ -22,6 +23,7 @@
   "build": {
     "appId": "app.chronicle.desktop",
     "productName": "Chronicle",
+    "npmRebuild": false,
     "directories": {
       "output": "dist"
     },
@@ -55,7 +57,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "installerIcon": "../../packages/brand/assets/chronicle-app-icon.ico",
+      "uninstallerIcon": "../../packages/brand/assets/chronicle-app-icon.ico"
     }
   },
   "devDependencies": {

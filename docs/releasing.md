@@ -43,11 +43,13 @@ like any other `main` PR; no workflow writes a version directly onto `main`.
 
 1. `.github/workflows/ci.yml` runs **only** for pull requests whose base is `main`. Configure its
    three jobs as required branch-protection checks. PRs to `dev` do not run required CI.
-2. A merge to `main` runs `package-main.yml`: Windows builds the Gemini sidecar, type-safe Electron
-   bundle, NSIS installer, health smoke, and SHA-256 checksum, then retains them as a 30-day
-   workflow artifact.
-3. The same merge runs `release.yml`. Release Please creates or updates a release PR from merged
+2. A merge to `main` runs `release.yml`. Release Please creates or updates a release PR from merged
    Conventional Commits.
+3. Release Please PRs carrying its `autorelease: pending` label retain the required
+   `Desktop (Windows)` check, but run only the version consistency guard. The AI and control-plane
+   jobs are skipped successfully because the bot PR changes release metadata rather than
+   implementation or contracts. Ordinary PRs still run all three complete jobs; a lookalike branch
+   without the Release Please label also receives the full suite.
 4. Merging the release PR creates `vX.Y.Z`. The workflow checks the tag equals the desktop
    `package.json` version, rebuilds that exact tagged commit, health-checks the sidecar, and attaches
    the installer/checksum to the GitHub Release.
@@ -61,9 +63,11 @@ Repository setup:
 - Allow GitHub Actions to create pull requests.
 - Keep direct pushes to `main` disabled.
 
-Every `main` commit is buildable, but only a reviewed release PR produces a durable version tag.
-The action attaches release files; POST-08 still owns `electron-updater`, `latest.yml`, update UI,
-code signing, and macOS publication.
+Every ordinary `main` PR proves that the application builds, but the expensive Windows installer is
+built only once for a durable version tag. `package-main.yml` remains available through
+**Actions → Package Windows snapshot → Run workflow** when an intermediate installer is genuinely
+needed. The release action attaches release files; POST-08 still owns `electron-updater`,
+`latest.yml`, update UI, code signing, and macOS publication.
 
 ## One-time GitHub setup (repository administrator)
 
@@ -98,8 +102,8 @@ The normal promotion flow is:
    branch; never push a fix directly to `main`.
 4. Squash-merge or merge the PR. Preserve a Conventional Commit title such as `feat: ...` or
    `fix: ...`, because Release Please determines the next desktop version from commits on `main`.
-5. Check the **Actions** tab. `Package main` should upload an installable workflow artifact, while
-   `Release desktop` creates or refreshes the Release Please PR.
+5. Check the **Actions** tab. `Release desktop` should create or refresh the Release Please PR.
+   Do not run the manual snapshot packager unless someone needs to test an intermediate installer.
 
 ## Creating a new public version
 
@@ -107,7 +111,8 @@ Do not edit `apps/desktop/package.json`, create a tag, or draft a GitHub Release
 the normal flow.
 
 1. Review the automated `chore(main): release ...` PR. Confirm its proposed version and changelog.
-2. Let the same three PR checks pass, approve it, and merge it into `main`.
+2. Wait for the lightweight `Desktop (Windows)` version guard; the implementation jobs appear as
+   successful skips. Approve and merge the release PR into `main`.
 3. Release Please creates `vX.Y.Z` and the GitHub Release. `Release desktop` then rebuilds the exact
    tag, verifies it matches `package.json`, and attaches the Windows installer and checksum.
 4. Download the installer from the Release, verify the checksum, and complete the release smoke
@@ -118,24 +123,32 @@ footer and review the resulting release PR. Do not change the manifest and packa
 
 ## Packaged AI providers
 
-The MVP Windows sidecar bundles **Google Gemini only**. The source service also supports LangChain
-extras for OpenAI, Anthropic, and IBM watsonx in development, but those packages and PyInstaller
-hooks are not in the installer. Amazon Bedrock appears in the UI catalog through LangChain's AWS
-integration but likewise is not packaged. Adding a provider requires installing its Python extra,
-adding its PyInstaller metadata/hidden imports, and running a real provider plus clean-machine
-installer smoke test before the UI may promise installed support.
+The Windows sidecar bundles **Google Gemini, OpenAI, and Anthropic Claude**. Its packaging smoke
+test imports every shipped integration from the frozen executable before probing `/health`.
+Anthropic remains annotation-only because it does not expose an embeddings API. Amazon Bedrock was
+removed from the catalog because Chronicle's per-provider secret currently stores one API key,
+while AWS authentication requires a credential set and region. IBM watsonx remains a development
+extra rather than an installed provider.
 
 ## Local release verification
 
 ```powershell
-python -m pip install -e "services/ai[dev,google,bundle]"
+python -m pip install -e "services/ai[dev,providers,bundle]"
 npm ci --prefix apps/desktop
 python scripts/check_versions.py
 python scripts/mvp12_acceptance.py --package
 ```
 
-On a polluted developer Python installation, set `CHRONICLE_SIDECAR_PYTHON` to a clean Python
-3.12 environment containing `services/ai[google,bundle]`. CI uses a clean Python 3.12 runner.
+The build script creates and reuses an isolated environment under
+`apps/desktop/build/sidecar-venv/`. To override it, set `CHRONICLE_SIDECAR_PYTHON` to a clean
+Python 3.12+ environment containing `services/ai[providers,bundle]`. CI uses Python 3.12.
+
+For local iteration, `make package-unpacked` builds a runnable `dist/win-unpacked/` tree without
+compressing an NSIS installer. `make package` remains the release-equivalent check. A clean measured
+warm multi-provider build spent 6.5 seconds freezing the cached sidecar and about 7 seconds in Vite;
+most of its 255.7-second total was Electron staging and NSIS creation, not collection of global
+Python packages. The unpacked target took 177.7 seconds. electron-builder's native rebuild is
+disabled because `npm ci` already runs the pinned Electron rebuild in `postinstall`.
 
 The Windows installer is currently unsigned and may trigger SmartScreen. Do not describe a
 workflow artifact as a signed or auto-updating production release.

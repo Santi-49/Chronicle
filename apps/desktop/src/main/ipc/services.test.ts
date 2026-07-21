@@ -680,7 +680,7 @@ describe('settings and the secret boundary', () => {
       model: 'gemini-flash-latest',
     })
     await services.api.setApiKey('openai', 'sk-openai')
-    await services.api.setApiKey('bedrock', 'sk-bedrock')
+    await services.api.setApiKey('google_genai', 'google-test-key')
 
     await services.api.updateSettings({
       ai: {
@@ -695,7 +695,7 @@ describe('settings and the secret boundary', () => {
     await services.api.updateSettings({
       ai: {
         ...DEFAULT_SETTINGS.ai,
-        embeddings: { provider: 'bedrock', model: 'amazon.titan-embed-text-v2:0' },
+        embeddings: { provider: 'google_genai', model: 'gemini-embedding-001' },
       },
     })
     expect(listJobs(db, 'embedding')).toHaveLength(1)

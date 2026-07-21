@@ -18,7 +18,7 @@ ENV_FILE := .env
 	setup setup-all setup-env setup-desktop setup-landing setup-backend setup-ai ensure-electron \
 	run run-desktop run-all run-ai app ai \
 	backend run-backend dev stop restart control-plane-up control-plane-down control-plane-health \
-	build build-desktop build-all build-landing build-backend package package-desktop installer \
+	build build-desktop build-all build-landing build-backend package package-desktop package-unpacked installer \
 	typecheck test test-local test-desktop test-ai smoke-ai lint check \
 	migrate makemigration seed generate-types generate-ai-types clean \
 	demo-assets demo-reset demo-set demo-next demo-status demo-clean
@@ -43,10 +43,9 @@ ensure-electron:
 setup-landing:
 	$(NPM) --prefix $(LANDING_DIR) ci
 
-# Local AI service: dev tools, default Gemini provider, and Windows bundler.
-# Add other providers with, e.g., pip install -e "services/ai[anthropic]".
+# Local AI service: dev tools, all shipped providers, and Windows bundler.
 setup-ai:
-	$(PYTHON) -m pip install -e "$(AI_DIR)[dev,google,bundle]"
+	$(PYTHON) -m pip install -e "$(AI_DIR)[dev,providers,bundle]"
 
 setup-backend: control-plane-up
 
@@ -105,9 +104,13 @@ build-backend:
 
 package: package-desktop
 
-package-desktop: ensure-electron setup-ai
+package-desktop: ensure-electron
 	$(NPM) --prefix $(DESKTOP_DIR) run package
 	echo "Desktop app packaged in $(DESKTOP_DIR)/dist"
+
+package-unpacked: ensure-electron
+	$(NPM) --prefix $(DESKTOP_DIR) run package:unpacked
+	echo "Unpacked desktop app built in $(DESKTOP_DIR)/dist/win-unpacked"
 
 installer: package-desktop
 
