@@ -6,7 +6,10 @@ registration, revisioned portable-settings sync, and opaque encrypted-secret CRU
 
 Google sign-in first calls the public Chronicle `GET /health` endpoint with a short
 timeout, then uses the operating system's default external browser, a random loopback
-callback, state, nonce, and PKCE S256. An unhealthy control plane starts no browser flow.
+callback, state, nonce, and PKCE S256. The callback renders a branded, no-store result
+page and does not claim success until Google's token exchange succeeds. The optional
+desktop-client secret is included when configured, and safe Google error codes are
+translated into actionable app messages. An unhealthy control plane starts no browser flow.
 The app persists Chronicle tokens with Electron `safeStorage`; it
 does not persist Google tokens. API keys remain in the main process and are only
 uploaded after explicit opt-in as an AES-256-GCM envelope derived from a user

@@ -105,6 +105,7 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
     createSessionStore(db),
   )
   const googleClientId = process.env['GOOGLE_OAUTH_CLIENT_ID'] ?? ''
+  const googleClientSecret = process.env['GOOGLE_OAUTH_CLIENT_SECRET'] ?? ''
   const services = createChronicleServices({
     db,
     libraryRoot,
@@ -124,7 +125,7 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
     secrets: createSafeStorageSecretStore(db),
     isOnline: () => net.isOnline(),
     account,
-    googleCredential: () => obtainGoogleIdToken(googleClientId),
+    googleCredential: () => obtainGoogleIdToken(googleClientId, googleClientSecret),
     googleClientConfigured: googleClientId.length > 0,
     controlPlaneBaseUrl,
     installation: {
