@@ -1,0 +1,184 @@
+---
+import { landingContent } from "../content";
+import PlatformAvailability from "../components/PlatformAvailability.astro";
+import SeoHead from "../components/SeoHead.astro";
+import "../styles/global.css";
+
+const chronicleMarkSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none"><path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/><path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/><circle cx="38" cy="12" r="6" fill="#a6c8ff"/><circle cx="39" cy="39" r="5" fill="#78a9ff"/></svg>`;
+const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkSvg)}`;
+const description = "Chronicle is a desktop application that automatically saves versions of creative files, explains changes, and helps users find and restore their work.";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <SeoHead
+      title="Chronicle | Official app homepage"
+      description={description}
+      pathname="/about/"
+      pageType="about"
+    />
+    <title>Chronicle | Official app homepage</title>
+  </head>
+  <body class="legal-body about-body">
+    <a class="skip-link" href="#about-content">Skip to content</a>
+
+    <header class="site-header legal-header" aria-label="Site header">
+      <a class="brand" href="/" aria-label="Chronicle landing page">
+        <img class="brand__icon" src={chronicleMarkUrl} alt="" width="26" height="26" />
+        Chronicle
+      </a>
+      <nav class="legal-nav" aria-label="Information navigation">
+        <a href="/about/" aria-current="page">About</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms-and-services/">Terms</a>
+      </nav>
+      <a class="legal-back legal-back--light" href="/">Visit landing page</a>
+    </header>
+
+    <main id="about-content" class="legal-shell about-shell">
+      <header class="legal-hero about-hero">
+        <p class="pill">Official app homepage</p>
+        <h1>Chronicle</h1>
+        <p class="legal-intro">{description}</p>
+        <PlatformAvailability />
+        <div class="hero-actions about-actions">
+          <a class="button button--primary" href={landingContent.appUrl} target="_blank" rel="noopener noreferrer">Download Chronicle</a>
+          <a class="button button--secondary" href="/">Explore the product</a>
+        </div>
+      </header>
+
+      <div class="legal-layout">
+        <aside class="legal-aside" aria-label="On this page">
+          <p>On this page</p>
+          <nav>
+            <a href="#purpose">Purpose</a>
+            <a href="#functionality">Functionality</a>
+            <a href="#google-sign-in">Google Sign-In</a>
+            <a href="#data-boundaries">Data boundaries</a>
+            <a href="#policies">Policies</a>
+          </nav>
+        </aside>
+
+        <article class="legal-document about-document">
+          <section id="purpose">
+            <span class="legal-section-number">01</span>
+            <h2>Automatic version history for creative work</h2>
+            <p>
+              Chronicle is a desktop application for creative professionals. It watches folders the user
+              selects and records a new version when a supported creative file changes. Chronicle then helps
+              the user understand, search, and restore that history without changing how they save files in
+              their existing creative tools.
+            </p>
+            <div class="legal-callout">
+              <strong>Core purpose</strong>
+              <p>Save normally. Chronicle keeps the history and helps you find the version you need.</p>
+            </div>
+          </section>
+
+          <section id="functionality">
+            <span class="legal-section-number">02</span>
+            <h2>What Chronicle does</h2>
+            <div class="about-feature-grid">
+              <article>
+                <strong>Captures versions</strong>
+                <p>Records meaningful changes to supported files in folders chosen by the user.</p>
+              </article>
+              <article>
+                <strong>Explains changes</strong>
+                <p>Uses optional AI to describe visible differences between versions in plain English.</p>
+              </article>
+              <article>
+                <strong>Finds old work</strong>
+                <p>Searches file history using filenames, generated descriptions, tags, and meaning.</p>
+              </article>
+              <article>
+                <strong>Restores safely</strong>
+                <p>Restores a selected snapshot as a new version so the previous timeline remains intact.</p>
+              </article>
+            </div>
+          </section>
+
+          <section id="google-sign-in">
+            <span class="legal-section-number">03</span>
+            <h2>Why Chronicle uses Google Sign-In</h2>
+            <p>
+              Google Sign-In is optional. Chronicle requests only the <code>openid</code>, <code>email</code>,
+              and <code>profile</code> scopes. These provide a stable Google account identifier, verified email
+              address, given name, and family name.
+            </p>
+            <p>
+              Chronicle uses this information only to authenticate the user, create or identify their
+              Chronicle account, maintain a secure Chronicle session, and provide account-backed features.
+              Those features include portable preference sync and a separately enabled encrypted provider-key
+              backup. Users can use Chronicle's core local versioning features without Google Sign-In.
+            </p>
+            <div class="oauth-boundary" aria-label="Google data access boundaries">
+              <strong>Chronicle does not use Google Sign-In to access:</strong>
+              <ul>
+                <li>Google Drive files</li>
+                <li>Gmail messages</li>
+                <li>Google Calendar</li>
+                <li>Google contacts</li>
+                <li>creative files stored on the user's computer</li>
+              </ul>
+            </div>
+            <p>
+              Chronicle does not sell Google user data or use it for advertising. Authentication takes place
+              in the user's system browser, and Chronicle does not store Google access tokens or Google refresh
+              tokens. Full handling details are provided in the <a href="/privacy/">Privacy Policy</a>.
+            </p>
+          </section>
+
+          <section id="data-boundaries">
+            <span class="legal-section-number">04</span>
+            <h2>Local files and optional online features</h2>
+            <p>
+              The creative version library, watched-folder paths, thumbnails, local database, annotations,
+              and keyword index stay on the user's device. Chronicle does not provide cloud storage for the
+              creative version library.
+            </p>
+            <p>
+              AI summaries and semantic search are optional. When configured, Chronicle sends only the inputs
+              needed for the selected task to the AI provider chosen by the user. Account and sync features are
+              separate from the local creative workflow.
+            </p>
+          </section>
+
+          <section id="policies">
+            <span class="legal-section-number">05</span>
+            <h2>Policies and support</h2>
+            <p>Review the policies that govern Chronicle and explain its data handling:</p>
+            <div class="about-policy-links">
+              <a href="/privacy/">
+                <strong>Privacy Policy</strong>
+                <span>How Chronicle accesses, uses, stores, shares, and deletes data.</span>
+              </a>
+              <a href="/terms-and-services/">
+                <strong>Terms of Service</strong>
+                <span>The terms that apply to the desktop app, website, and optional services.</span>
+              </a>
+            </div>
+            <p>
+              For support, use the <a href={`${landingContent.githubUrl}/issues`} target="_blank" rel="noopener noreferrer">Chronicle project issue tracker</a>.
+              Do not include passwords, provider keys, tokens, file contents, or other sensitive information in
+              a public issue.
+            </p>
+          </section>
+        </article>
+      </div>
+    </main>
+
+    <footer class="site-footer legal-footer">
+      <span>Chronicle · Local-first creative version control</span>
+      <nav aria-label="Footer navigation">
+        <a href="/about/">About Chronicle</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms-and-services/">Terms of Service</a>
+        <a href={landingContent.githubUrl}>GitHub</a>
+      </nav>
+    </footer>
+  </body>
+</html>

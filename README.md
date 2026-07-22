@@ -20,9 +20,9 @@
   ·
   <a href="https://github.com/Santi-49/Chronicle/releases/latest"><strong>Download Chronicle</strong></a>
   ·
-  <a href="https://chronicle.quick2query.com/privacy">Privacy</a>
+  <a href="https://chronicle.quick2query.com/privacy/">Privacy</a>
   ·
-  <a href="https://chronicle.quick2query.com/terms-and-services">Terms of Service</a>
+  <a href="https://chronicle.quick2query.com/terms-and-services/">Terms of Service</a>
 </p>
 
 <p align="center">
@@ -323,8 +323,9 @@ require a development install; signing, Apple notarization, and in-app auto-upda
 See [release and version policy](docs/releasing.md) and the
 [MVP-12 acceptance record](docs/mvp-12-acceptance.md).
 
-- [Privacy Policy](https://chronicle.quick2query.com/privacy)
-- [Terms of Service](https://chronicle.quick2query.com/terms-and-services)
+- [Official app homepage](https://chronicle.quick2query.com/about/)
+- [Privacy Policy](https://chronicle.quick2query.com/privacy/)
+- [Terms of Service](https://chronicle.quick2query.com/terms-and-services/)
 - [Support and issue tracker](https://github.com/Santi-49/Chronicle/issues)
 
 Do not post API keys, tokens, private files, or other sensitive information in a public issue.
