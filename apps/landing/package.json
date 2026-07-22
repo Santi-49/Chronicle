@@ -10,7 +10,7 @@
     "export:mockup": "node scripts/export-mockup.mjs"
   },
   "dependencies": {
-    "astro": "^5.8.0",
+    "astro": "^7.1.3",
     "gsap": "^3.13.0"
   },
   "devDependencies": {
