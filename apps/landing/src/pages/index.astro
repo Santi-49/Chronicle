@@ -3,21 +3,19 @@ import { landingContent } from "../content";
 import "../styles/global.css";
 
 const content = landingContent;
-const useExportedMockup = false;
-
 // Inline the SVG mark as a data URI so we don't need the brand package path at build time
 const chronicleMarkSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none"><path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/><path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/><circle cx="38" cy="12" r="6" fill="#a6c8ff"/><circle cx="39" cy="39" r="5" fill="#78a9ff"/></svg>`;
 const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkSvg)}`;
 
 const formatShowcase = [
-  { ext: "PNG", filename: "campaign.png", kind: "image", detail: "Transparent campaign artwork", change: "Palette, crop, and lockup refined", live: true },
-  { ext: "JPG", filename: "hero-shoot.jpg", kind: "photo", detail: "Rendered photo export", change: "Light, grade, and framing evolved", live: true },
-  { ext: "PSD", filename: "launch-poster.psd", kind: "layers", detail: "Layered Photoshop document", change: "Five passes from layout to final", live: false },
-  { ext: "PSB", filename: "expo-wall.psb", kind: "canvas", detail: "Large-format layered canvas", change: "Composition built panel by panel", live: false },
-  { ext: "SVG", filename: "brand-mark.svg", kind: "vector", detail: "Editable vector artwork", change: "Geometry simplified across revisions", live: false },
-  { ext: "BLEND", filename: "studio-scene.blend", kind: "scene", detail: "Blender scene and render", change: "Model, material, lights, camera", live: false },
-  { ext: "OBJ", filename: "chair-study.obj", kind: "mesh", detail: "3D polygon mesh", change: "Silhouette and topology refined", live: false },
-  { ext: "STEP", filename: "enclosure.step", kind: "cad", detail: "CAD interchange model", change: "Body, ports, fillets, fasteners", live: false },
+  { ext: "PNG", filename: "campaign.png", kind: "image", profession: "Graphic designer", detail: "Campaign artwork", change: "Palette, crop, and lockup refined" },
+  { ext: "JPG", filename: "hero-shoot.jpg", kind: "photo", profession: "Photographer", detail: "Photography export", change: "Light, colour, and framing evolved" },
+  { ext: "PSD", filename: "launch-poster.psd", kind: "layers", profession: "Visual designer", detail: "Layered design document", change: "Five passes from layout to final" },
+  { ext: "PSB", filename: "expo-wall.psb", kind: "canvas", profession: "Exhibition designer", detail: "Large-format canvas", change: "Composition built panel by panel" },
+  { ext: "SVG", filename: "brand-mark.svg", kind: "vector", profession: "Brand designer", detail: "Editable vector artwork", change: "Geometry simplified across revisions" },
+  { ext: "BLEND", filename: "studio-scene.blend", kind: "scene", profession: "Game environment artist", detail: "Blender scene", change: "Model, materials, lights, and camera" },
+  { ext: "OBJ", filename: "chair-study.obj", kind: "mesh", profession: "3D artist", detail: "3D model", change: "Shape and surface refined" },
+  { ext: "STEP", filename: "enclosure.step", kind: "cad", profession: "Architect or product designer", detail: "CAD model", change: "Body, ports, edges, and fasteners" },
 ];
 
 const versions = [1, 2, 3, 4, 5];
@@ -30,9 +28,9 @@ const versions = [1, 2, 3, 4, 5];
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Chronicle — version history for creative files. Auto-capture every save, AI-powered change summaries, and semantic search over your entire design history."
+      content="Chronicle keeps a clear history of your creative images, explains what changed in plain English, and helps you find or restore any version."
     />
-    <title>{content.productName} — Version history for creative files</title>
+    <title>{content.productName} | Version history for creative work</title>
   </head>
   <body>
     <header class="site-header" aria-label="Site header">
@@ -46,7 +44,7 @@ const versions = [1, 2, 3, 4, 5];
         ))}
       </nav>
       <div class="nav-actions">
-        <a class="login" href={content.githubUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="login" href={content.githubUrl} target="_blank" rel="noopener noreferrer">Star on GitHub</a>
         <a class="book" href={content.appUrl} target="_blank" rel="noopener noreferrer">Download</a>
       </div>
     </header>
@@ -56,30 +54,44 @@ const versions = [1, 2, 3, 4, 5];
       <div class="hero-stage">
         <section class="hero" aria-labelledby="hero-title">
           <div class="hero-copy">
-            <div class="hero-badge">Free · Local-first · Works with every creative tool</div>
+            <div class="hero-badge">{content.eyebrow}</div>
             <h1 id="hero-title">{content.headline}</h1>
             <p>{content.subheadline}</p>
             <div class="hero-actions">
               <a class="button button--primary" href={content.appUrl} target="_blank" rel="noopener noreferrer">{content.primaryCta}</a>
-              <a class="button button--secondary" href="#why">{content.secondaryCta}</a>
+              <a class="button button--secondary" href="#how">{content.secondaryCta}</a>
             </div>
 
-            <figure class="hero-mockup" aria-label="Chronicle desktop app home screen">
-              <div class="mockup-plane">
-                <img
-                  src="/chronicle-home.png"
-                  alt="Chronicle desktop app showing a workspace, recent projects, and AI-generated change summaries"
+            <figure class="hero-mockup" aria-labelledby="product-demo-caption">
+              <button class="mockup-plane" type="button" aria-label="Open the Chronicle demo video in full screen" data-fullscreen-trigger>
+                <video
+                  src="/landing-video.mp4"
+                  poster="/chronicle-home.png"
                   width="1919"
                   height="1029"
-                  decoding="async"
-                />
-              </div>
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                  preload="metadata"
+                  aria-label="Chronicle capturing, explaining, finding, and restoring versions in a demo project"
+                  data-product-demo
+                ></video>
+                <span class="mockup-fullscreen">Open full screen</span>
+              </button>
+              <figcaption id="product-demo-caption">A real Chronicle workflow using demo project data. Select the video to watch full screen.</figcaption>
             </figure>
           </div>
         </section>
+      </div>
 
-        <!-- ── BEFORE / AFTER COMPARISON ─────────────────────────────────── -->
-        <section class="compare-section" aria-label="Before and after Chronicle comparison">
+      <!-- ── PROBLEM / OUTCOME ──────────────────────────────────────────── -->
+        <section class="compare-section section-reveal" id="why" aria-labelledby="why-title">
+          <div class="compare-heading">
+            <p class="pill">Why Chronicle</p>
+            <h2 id="why-title">{content.whyTitle}</h2>
+            <p class="section-copy">{content.whySubtitle}</p>
+          </div>
           <div class="compare-wrap">
 
             <!-- ══ LEFT PANEL — WITHOUT CHRONICLE ══ -->
@@ -89,7 +101,7 @@ const versions = [1, 2, 3, 4, 5];
               <!-- file explorer chaos -->
               <div class="cmp-explorer">
                 <div class="cmp-explorer-bar">
-                  <span class="cmp-explorer-title">📁 ~/Designs/logo</span>
+                  <span class="cmp-explorer-title">Designs / logo</span>
                 </div>
                 <div class="cmp-file-list">
                   <div class="cmp-file cmp-file--dim">logo_final.png</div>
@@ -123,10 +135,9 @@ const versions = [1, 2, 3, 4, 5];
                 </div>
               </div>
 
-              <!-- time cost badge -->
               <div class="cmp-cost">
-                <span class="cmp-cost-num">~45 min</span>
-                <span class="cmp-cost-label">wasted per review session</span>
+                <span class="cmp-cost-num">Manual</span>
+                <span class="cmp-cost-label">Open files one by one and compare them yourself</span>
               </div>
             </div>
 
@@ -215,53 +226,44 @@ const versions = [1, 2, 3, 4, 5];
                 </div>
               </div>
 
-              <!-- time saved badge -->
               <div class="cmp-cost cmp-cost--saved">
-                <span class="cmp-cost-num">~2 sec</span>
-                <span class="cmp-cost-label">to find any version, ever</span>
+                <span class="cmp-cost-num">Clear</span>
+                <span class="cmp-cost-label">Find the right version from what you remember</span>
               </div>
             </div>
 
           </div>
         </section>
-      </div>
 
       <!-- ── PROOF BAR ───────────────────────────────────────────────────── -->
       <div class="proof-bar" aria-label="Key facts">
-        <span>For <strong>photographers</strong></span>
+        <span><strong>8 creative formats</strong> targeted for the challenge release</span>
         <span class="proof-divider" aria-hidden="true"></span>
-        <span>For <strong>video editors</strong></span>
+        <span><strong>Local</strong> version library</span>
         <span class="proof-divider" aria-hidden="true"></span>
-        <span>For <strong>design teams</strong></span>
+        <span><strong>No account</strong> required</span>
         <span class="proof-divider" aria-hidden="true"></span>
-        <span><strong>100%</strong> local · zero uploads</span>
-        <span class="proof-divider" aria-hidden="true"></span>
-        <span><strong>Any</strong> creative tool</span>
+        <span>Changes explained in <strong>plain English</strong></span>
       </div>
 
-      <!-- ── WHY ────────────────────────────────────────────────────────── -->
-      <section class="why section-reveal" id="why" aria-labelledby="why-title">
-        <p class="pill">Why Chronicle</p>
-        <h2 id="why-title">{content.whyTitle}</h2>
-        <p class="section-copy">{content.whySubtitle}</p>
+      <!-- ── HOW IT WORKS ──────────────────────────────────────────────── -->
+      <section class="why section-reveal" id="how" aria-labelledby="how-title">
+        <p class="pill">How it works</p>
+        <h2 id="how-title">Choose a folder. Keep creating.</h2>
+        <p class="section-copy">Chronicle works in the background, so a clear history does not require a new creative process.</p>
         <div class="why-grid">
           {content.cards.map((card) => (
             <article class="why-card">
               <span class="card-icon" aria-hidden="true">{card.icon}</span>
               <h3>{card.title}</h3>
               <p>{card.text}</p>
-              <div class="card-meter">
-                <span>Reliability</span>
-                <strong>100%</strong>
-                <i></i>
-              </div>
             </article>
           ))}
         </div>
       </section>
 
-      <!-- ── FEATURES BENTO ────────────────────────────────────────────── -->
-      <section class="power section-reveal" id="features" aria-labelledby="power-title">
+      <!-- ── DISTINCTIVE WORKFLOW ──────────────────────────────────────── -->
+      <section class="power section-reveal" id="innovation" aria-labelledby="power-title">
         <h2 id="power-title">{content.featuresTitle}</h2>
         <p class="section-copy">{content.featuresSubtitle}</p>
         <div class="bento">
@@ -269,7 +271,7 @@ const versions = [1, 2, 3, 4, 5];
           <!-- Panel 1 — Asset Timeline (large) -->
           <article class="panel panel--large">
             <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
+              <span aria-hidden="true">01</span>
               <h3>{content.featurePanels[0]}</h3>
             </div>
             <div class="metrics-panel">
@@ -278,7 +280,7 @@ const versions = [1, 2, 3, 4, 5];
                   <div class="dash-main">
                     <div class="dash-top">
                       <h3>Assets</h3>
-                      <div class="search">Search versions…</div>
+                      <div class="search">Search your history...</div>
                     </div>
                     <h4>logo-brand.png</h4>
                     <div class="stat-grid">
@@ -289,8 +291,8 @@ const versions = [1, 2, 3, 4, 5];
                     </div>
                     <div class="table">
                       <span>Version</span><span>Changed</span><span>Date</span><span>Size</span>
-                      <b>v8 (current)</b><i>AI diff ready</i><em>Today 11:42</em><small>246 KB</small>
-                      <b>v7</b><i>AI diff ready</i><em>Yesterday</em><small>251 KB</small>
+                      <b>v8 (current)</b><i>Summary ready</i><em>Today 11:42</em><small>246 KB</small>
+                      <b>v7</b><i>Summary ready</i><em>Yesterday</em><small>251 KB</small>
                     </div>
                   </div>
                 </div>
@@ -299,11 +301,11 @@ const versions = [1, 2, 3, 4, 5];
                 <div class="tabs">
                   <span>Summary</span>
                   <span>Tags</span>
-                  <span>Diff</span>
+                  <span>Changes</span>
                   <span>Restore</span>
                 </div>
                 <div class="ai-diff-card">
-                  <div class="ai-diff-label">AI Summary · v7 → v8</div>
+                  <div class="ai-diff-label">What changed · v7 to v8</div>
                   <p class="ai-diff-text">"Background changed from navy to teal. Tagline text removed from lower-left. Logo mark scaled up 12%."</p>
                   <div class="ai-tags">
                     <span>background-change</span>
@@ -315,59 +317,35 @@ const versions = [1, 2, 3, 4, 5];
             </div>
           </article>
 
-          <!-- Panel 2 — AI Diff terminal -->
+          <!-- Panel 2: plain-English explanation -->
           <article class="panel panel--deploy">
             <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
+              <span aria-hidden="true">02</span>
               <h3>{content.featurePanels[1]}</h3>
             </div>
-            <div class="terminal">
-              <span></span><span></span><span></span>
-              <pre>&gt; chronicle diff v7 v8</pre>
-              <pre class="term-out">- tagline: "Your brand story"<br/>+ tagline: (removed)<br/>~ bg: #0a3161 → #008080<br/>~ mark: scale 1.0 → 1.12</pre>
-            </div>
-            <div class="pipeline">
-              <b>✓</b><b>✓</b><b>✓</b><b>4</b>
+            <div class="change-story">
+              <span>Version 7 to version 8</span>
+              <blockquote>“Background changed from navy to teal. The tagline was removed and the logo was made larger.”</blockquote>
             </div>
           </article>
 
-          <!-- Panel 3 — File tree -->
-          <article class="panel">
+          <!-- Panel 3: restoration -->
+          <article class="panel panel--restore">
             <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
+              <span aria-hidden="true">03</span>
               <h3>{content.featurePanels[2]}</h3>
             </div>
-            <div class="tree">
-              <p>~/Designs</p>
-              <p>├ logo-brand.png</p>
-              <p>│ ├ v8 ← current</p>
-              <p>│ └ v1–v7</p>
-              <p>├ banner-social.png</p>
-              <p>└ hero-shot.jpg</p>
+            <div class="restore-demo">
+              <span>Selected version</span>
+              <strong>v6 · Original tagline</strong>
+              <button type="button" disabled>Restore this version</button>
             </div>
           </article>
 
-          <!-- Panel 4 — Version count chart -->
-          <article class="panel">
-            <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
-              <h3>{content.featurePanels[3]}</h3>
-            </div>
-            <div class="usage-chart">
-              <span style="--h: 28%"></span>
-              <span style="--h: 45%"></span>
-              <span style="--h: 66%"></span>
-              <span style="--h: 53%"></span>
-              <span style="--h: 82%"></span>
-              <span style="--h: 38%"></span>
-              <span style="--h: 71%"></span>
-            </div>
-          </article>
-
-          <!-- Panel 5 — Semantic search globe -->
+          <!-- Panel 4: natural search -->
           <article class="panel panel--wide">
             <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
+              <span aria-hidden="true">04</span>
               <h3>{content.featurePanels[4]}</h3>
             </div>
             <div class="search-demo">
@@ -400,7 +378,7 @@ const versions = [1, 2, 3, 4, 5];
         <div class="formats-heading">
           <p class="pill">Format support</p>
           <h2 id="formats-title">{content.formatsTitle}</h2>
-          <p class="section-copy">Every file has a story. Chronicle turns five scattered saves into one readable evolution.</p>
+          <p class="section-copy">{content.formatsSubtitle}</p>
         </div>
 
         <div class="format-marquee" aria-label="Creative file formats shown across five versions">
@@ -412,11 +390,9 @@ const versions = [1, 2, 3, 4, 5];
                     <header class="format-story__header">
                       <div>
                         <span class="format-story__ext">.{fmt.ext.toLowerCase()}</span>
-                        <strong>{fmt.filename}</strong>
+                        <strong class="format-story__profession">{fmt.profession}</strong>
+                        <small class="format-story__filename">{fmt.filename}</small>
                       </div>
-                      <span class={`format-badge ${fmt.live ? "format-badge--live" : "format-badge--soon"}`}>
-                        {fmt.live ? "Available" : "Roadmap"}
-                      </span>
                     </header>
 
                     <div class="format-version-strip" aria-label="Versions 1 through 5">
@@ -492,47 +468,38 @@ const versions = [1, 2, 3, 4, 5];
           </div>
         </div>
 
-        <div class="formats-callout">
-          <p>
-            <strong>More on the roadmap:</strong> audio project files, video timelines, layout packages, and tool-specific project formats.
-            Each format uses safe structure extraction and a normalised preview — never a one-size-fits-all vision model.
-          </p>
-        </div>
       </section>
 
-      <!-- ── HOW IT WORKS ────────────────────────────────────────────────── -->
-      <section class="how section-reveal" aria-labelledby="how-title">
-        <p class="pill">How it works</p>
-        <h2 id="how-title">Three steps. Permanent history.</h2>
-        <div class="steps">
-          <div class="step">
-            <span class="step-num">01</span>
-            <h3>Point at a folder</h3>
-            <p>Select the folders where you save your creative work. Chronicle starts watching immediately — nothing else to configure.</p>
-          </div>
-          <div class="step-arrow" aria-hidden="true">→</div>
-          <div class="step">
-            <span class="step-num">02</span>
-            <h3>Keep working</h3>
-            <p>Every file save is silently captured as a new version. Hash deduplication means duplicate saves cost nothing.</p>
-          </div>
-          <div class="step-arrow" aria-hidden="true">→</div>
-          <div class="step">
-            <span class="step-num">03</span>
-            <h3>Search and restore</h3>
-            <p>Browse the AI-annotated timeline, search by meaning, and restore any version in one click — all without leaving the app.</p>
-          </div>
+      <!-- ── TRUST AND EXECUTION ───────────────────────────────────────── -->
+      <section class="trust section-reveal" aria-labelledby="trust-title">
+        <div class="trust-copy">
+          <p class="pill">Made for real work</p>
+          <h2 id="trust-title">Your creative history stays yours.</h2>
+          <p class="section-copy">Chronicle keeps your version library on your computer and works without requiring an account. AI is optional, and you can connect your own AI provider using a key stored securely on your device. Only the images needed to explain a change are sent to that provider.</p>
+        </div>
+        <div class="bob-story">
+          <span class="bob-story__label">Built with IBM Bob</span>
+          <h3>From first plan to working product.</h3>
+          <p>We used IBM Bob to plan Chronicle, build its core features, test real creative workflows, solve integration problems, and prepare the app for release.</p>
+          <a href={content.githubUrl} target="_blank" rel="noopener noreferrer">Explore the public project on GitHub</a>
         </div>
       </section>
 
       <!-- ── DOWNLOAD ───────────────────────────────────────────────────── -->
       <section class="templates section-reveal" id="download" aria-labelledby="download-title">
+        <p class="pill">Start your history</p>
         <h2 id="download-title">{content.downloadTitle}</h2>
         <p>{content.downloadSubtitle}</p>
         <div class="hero-actions">
           <a class="button button--primary" href={content.appUrl} target="_blank" rel="noopener noreferrer">{content.downloadCta}</a>
-          <a class="button button--secondary" href={content.githubUrl} target="_blank" rel="noopener noreferrer">{content.downloadSecondaryCta}</a>
+          <a class="button button--secondary button--github" href={content.githubUrl} target="_blank" rel="noopener noreferrer" aria-label="Star Chronicle on GitHub and support the project">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+              <path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3-4.6-4.4 6.3-.9Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+            </svg>
+            {content.downloadSecondaryCta}
+          </a>
         </div>
+        <p class="github-support">A star helps more creators and judges discover the project.</p>
       </section>
 
     </main>
@@ -553,13 +520,43 @@ const versions = [1, 2, 3, 4, 5];
       gsap.registerPlugin(ScrollTrigger);
 
       const mm = gsap.matchMedia();
+      const productDemo = document.querySelector("[data-product-demo]") as HTMLVideoElement | null;
+      const fullscreenTrigger = document.querySelector("[data-fullscreen-trigger]") as HTMLButtonElement | null;
+
+      fullscreenTrigger?.addEventListener("click", async () => {
+        if (!productDemo) return;
+
+        if (productDemo.requestFullscreen) {
+          try {
+            await productDemo.requestFullscreen();
+          } catch {
+            productDemo.controls = true;
+          }
+          return;
+        }
+
+        const iosVideo = productDemo as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+        iosVideo.webkitEnterFullscreen?.();
+      });
+
+      document.addEventListener("fullscreenchange", () => {
+        if (productDemo) productDemo.controls = document.fullscreenElement === productDemo;
+      });
+
       mm.add(
         {
           reduceMotion: "(prefers-reduced-motion: reduce)",
           animate: "(prefers-reduced-motion: no-preference)",
         },
         (context) => {
-          if (context.conditions.reduceMotion) return;
+          if (context.conditions.reduceMotion) {
+            productDemo?.pause();
+            return;
+          }
+
+          productDemo?.play().catch(() => {
+            // The poster remains visible if the browser blocks autoplay.
+          });
 
           gsap.from(".site-header", {
             autoAlpha: 0,
@@ -588,7 +585,7 @@ const versions = [1, 2, 3, 4, 5];
           gsap.utils.toArray(".section-reveal").forEach((section) => {
             gsap.from(
               (section as Element).querySelectorAll(
-                "h2, .pill, .section-copy, .why-card, .panel, .format-marquee, .step, .button, .formats-callout, .step-arrow"
+                "h2, h3, .pill, .section-copy, .compare-wrap, .why-card, .panel, .format-marquee, .bob-story"
               ),
               {
                 autoAlpha: 0,
@@ -598,7 +595,7 @@ const versions = [1, 2, 3, 4, 5];
                 stagger: 0.05,
                 scrollTrigger: {
                   trigger: section as Element,
-                  start: "top 74%",
+                  start: "clamp(top 74%)",
                 },
               }
             );
