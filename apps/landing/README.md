@@ -1,5 +1,11 @@
 # Landing Page
 
+## Production URL and social metadata
+
+The landing page includes canonical, Open Graph, Twitter Card, structured-data, favicon, and web
+manifest metadata. Set `PUBLIC_SITE_URL` to the public custom domain for production builds. On
+Cloudflare Pages, `CF_PAGES_URL` is used automatically when `PUBLIC_SITE_URL` is not set.
+
 ## Hero Mockup Export
 
 The hero uses a rasterized PNG by default for better compatibility across devices and browsers:

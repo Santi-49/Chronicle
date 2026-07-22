@@ -25,8 +25,8 @@ import { landingContent } from "../content";
     <span class="legal-section-number">01</span>
     <h2>Your agreement with Chronicle</h2>
     <p>
-      These Terms of Service (the “Terms”) govern your download, access, and use of Chronicle, including the
-      desktop application, website, and optional online services (together, the “Service”). By using the
+      These Terms of Service (the "Terms") govern your download, access, and use of Chronicle, including the
+      desktop application, website, and optional online services (together, the "Service"). By using the
       Service, you agree to these Terms and our{" "}<a href="/privacy">Privacy Policy</a>. If you do not agree, do
       not use the Service.
     </p>
@@ -44,7 +44,15 @@ import { landingContent } from "../content";
       Chronicle is a local-first tool that watches folders you select, captures changed versions of supported
       creative files, stores a local history, and helps you search and restore that history. Optional AI
       features can describe changes and create semantic-search embeddings. Core local features do not require
-      an account, while Google Sign-In enables optional account-backed features such as portable settings.
+      an account or Chronicle's online service. Google Sign-In enables account-backed features such as portable
+      settings. Encrypted provider-key sync is separate and requires you to enable it and save an encrypted copy.
+      Chronicle does not provide cloud storage for your creative version library.
+    </p>
+    <p>
+      The current release can register a random installation identifier when its configured service is
+      reachable, including in local mode. Its usage-reporting preference starts enabled, but transmission of
+      usage events and the related admin analytics view are not implemented in the current release. The
+      Privacy Policy explains these boundaries and will be updated before those capabilities materially change.
     </p>
     <p>
       Chronicle is under active development. Supported formats, compatibility, limits, and features may change.
@@ -67,6 +75,12 @@ import { landingContent } from "../content";
       undermines security, or attempt to bypass authentication or account controls. We may suspend or deactivate
       access when reasonably necessary to protect the Service, comply with law, or address a material breach of
       these Terms.
+    </p>
+    <p>
+      Portable settings sync can be disabled in Settings. The current control starts enabled but cannot sync
+      anything until you choose to sign in. Provider keys stay encrypted on your device by default. If you
+      separately enable key sync, Chronicle stores only the passphrase-encrypted envelope created on your
+      device, not your passphrase, plaintext provider keys, or decryption key.
     </p>
   </section>
 
@@ -100,6 +114,10 @@ import { landingContent } from "../content";
       permitted. Chronicle is not responsible for a third-party provider's availability, output, retention, or
       handling of data sent at your direction.
     </p>
+    <p>
+      AI work may queue while you are offline and be processed when the selected provider becomes reachable.
+      You can continue capturing and browsing local versions without enabling AI.
+    </p>
   </section>
 
   <section id="software">
@@ -132,7 +150,7 @@ import { landingContent } from "../content";
     <span class="legal-section-number">08</span>
     <h2>Disclaimers</h2>
     <p>
-      To the fullest extent permitted by law, the Service is provided “as is” and “as available.” We disclaim
+      To the fullest extent permitted by law, the Service is provided "as is" and "as available." We disclaim
       implied warranties of merchantability, fitness for a particular purpose, non-infringement, and uninterrupted
       or error-free operation. We do not warrant that Chronicle will capture every save, preserve every file,
       work with every editor, or produce accurate AI output. Nothing in these Terms excludes warranties that
@@ -157,10 +175,13 @@ import { landingContent } from "../content";
     <h2>Ending use of Chronicle</h2>
     <p>
       You may stop using Chronicle at any time. Uninstalling the app or signing out does not necessarily remove
-      local app data, synced settings, or your Chronicle account; use the available deletion controls or contact
-      us for an account request. We may suspend or end online access for a serious or repeated breach, security
-      risk, legal requirement, or discontinuation of the Service. Provisions that by their nature should survive
-      termination—including ownership, disclaimers, and liability limits—will survive.
+      local app data, synced settings, or your Chronicle account. You can delete an encrypted key-sync copy from
+      Settings. A self-service account-deletion button is not implemented in the current release, so contact us
+      to request deletion of the account and its associated server-side data. Account deletion does not delete
+      local version history unless you separately remove it on your device. We may suspend or end online access
+      for a serious or repeated breach, security risk, legal requirement, or discontinuation of the Service.
+      Provisions that by their nature should survive termination, including ownership, disclaimers, and liability
+      limits, will survive.
     </p>
   </section>
 

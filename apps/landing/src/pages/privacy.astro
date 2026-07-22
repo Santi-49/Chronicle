@@ -25,14 +25,14 @@ import { landingContent } from "../content";
     <span class="legal-section-number">01</span>
     <h2>Privacy, without the fine-print fog.</h2>
     <p>
-      Chronicle is a local-first desktop application for versioning creative files. Core features—including
-      capture, history, restore, and keyword search—work without a Chronicle account. Your watched files,
+      Chronicle is a local-first desktop application for versioning creative files. Core features, including
+      capture, history, restore, and keyword search, work without a Chronicle account. Your watched files,
       stored versions, local database, AI summaries, tags, and search index remain on your device unless a
       feature described below requires you to send specific data elsewhere.
     </p>
     <div class="legal-callout">
       <strong>The short version</strong>
-      <p>We can understand product usage when reporting is enabled. We cannot see your creative work.</p>
+      <p>Your version library is not uploaded to Chronicle. Online accounts, sync, and AI features are separate from local versioning.</p>
     </div>
   </section>
 
@@ -54,19 +54,33 @@ import { landingContent } from "../content";
     </p>
     <h3>Installation and settings information</h3>
     <p>
-      When the Chronicle service is reachable, the app registers a random installation identifier together
-      with the app version, operating-system family, and first- and last-seen timestamps. This identifier is
-      not a hardware ID and does not include your hostname, paths, or project data. If you sign in and enable
-      settings sync, we may also store portable preferences such as appearance, selected AI providers and
-      models, and sync or reporting choices. Local paths and creative history are excluded.
+      In the current desktop build, when the Chronicle service is configured and reachable, the app makes a
+      best-effort registration of a random installation identifier together with the app version,
+      operating-system family, and first- and last-seen timestamps. This can occur in local mode and does not
+      create an account. The identifier is not a hardware ID and does not include your hostname, paths,
+      project names, or creative data.
+    </p>
+    <p>
+      If you choose to sign in, Chronicle can store portable preferences such as appearance, selected AI
+      providers and models, and sync or reporting choices. Local paths, project metadata, files, and version
+      history are excluded. The current desktop control for portable settings sync starts enabled, but it has
+      no effect until you sign in and can be switched off in Settings. Encrypted provider-key sync is a
+      separate control and stays off until you enable it and save an encrypted copy.
     </p>
     <h3>Optional usage reporting</h3>
     <p>
-      Usage reporting is enabled by default and can be switched off in Chronicle's settings. When enabled,
-      Chronicle may report allowlisted operational events such as app opens, counts of projects, files, and
-      versions, supported file types, timings, AI provider and latency, and whether a search occurred. Reports
-      never contain file contents, file names, paths, AI summaries, tags, or search queries. Events may queue
-      locally while offline before being sent.
+      The current build includes a usage-reporting preference that starts enabled and can be switched off,
+      but usage-event delivery is not implemented in the current release. Chronicle therefore does not
+      currently send the planned usage events or provide the planned analytics dashboard. Before such
+      reporting is released, this policy and the in-product notice will be updated to match the final data,
+      retention period, and user choice.
+    </p>
+    <p>
+      The planned reporting contract is restricted to operational information such as random telemetry IDs,
+      app version, operating-system family, coarse counts and size ranges, supported file types, timings,
+      provider and model identifiers, outcomes, and whether a search occurred. It excludes file contents,
+      file names, paths, project names, previews, version identifiers, hashes, AI summaries, tags, embeddings,
+      and search queries. Planned events may queue locally while offline only when reporting is active.
     </p>
   </section>
 
@@ -77,7 +91,8 @@ import { landingContent } from "../content";
       Google Sign-In is optional. Chronicle requests only the <code>openid</code>, <code>email</code>, and
       <code>profile</code> scopes to authenticate you and create your Chronicle account. Authentication opens
       in your system browser. Chronicle sends the resulting short-lived Google ID token to its service for
-      verification, then issues a Chronicle session. Chronicle does not store Google access tokens or refresh
+      verification, then issues a Chronicle session. Chronicle stores the identity details described above and
+      the Google account's stable subject identifier. Chronicle does not store Google access tokens or refresh
       tokens, does not access Google Drive, Gmail, Calendar, contacts, or other Google services, and does not
       use Google account data for advertising.
     </p>
@@ -93,8 +108,8 @@ import { landingContent } from "../content";
     <h2>AI features and third-party providers</h2>
     <p>
       AI summaries and semantic search are optional and require a provider connection. When you configure
-      your own provider key, Chronicle's local AI service sends only the inputs required for the task—such as
-      the relevant current and previous images, filename, or annotation text—directly to the provider you
+      your own provider key, Chronicle's local AI service sends only the inputs required for the task, such as
+      the relevant current and previous images, filename, or annotation text, directly to the provider you
       selected. Your provider's privacy policy, retention rules, and terms apply to that processing.
     </p>
     <p>
@@ -122,6 +137,12 @@ import { landingContent } from "../content";
       by law, to protect rights or safety, or as part of a project transfer subject to this policy. Separately,
       data you direct to an AI provider is handled by that provider under your relationship with it.
     </p>
+    <p>
+      Authorized service administrators may access account and installation records when needed to operate,
+      secure, or support the service. The planned admin analytics view is not implemented in the current
+      release. If released, it is designed to show aggregate usage statistics and not creative files, file or
+      project names, paths, previews, summaries, tags, embeddings, or search text.
+    </p>
   </section>
 
   <section id="security">
@@ -147,13 +168,16 @@ import { landingContent } from "../content";
       local data. Cloud account records and synced settings are kept while your account is active and as needed
       to operate, secure, and comply with legal obligations. Short-lived session records expire or are revoked.
       Disabling encrypted-key sync removes the server copy of the encrypted envelope while keeping your local
-      key. Turning off usage reporting stops new usage events from being sent; minimal installation
-      registration remains separate.
+      keys. The current release does not send usage events. If reporting is released, turning it off will stop
+      new events, clear its local upload queue, and request deletion of covered raw installation and project
+      telemetry. Minimal installation registration is a separate operation.
     </p>
     <p>
       You may stop using Google Sign-In by signing out and revoking Chronicle's access from your Google Account.
-      To request account deactivation, deletion, access, or correction, contact us using the channel below.
-      Some limited records may be retained when required for security or legal compliance.
+      A self-service account-deletion control is not implemented in the current release. To request account
+      deactivation, deletion, access, export, or correction, contact us using the channel below. Deleting a
+      Chronicle account is separate from deleting local version history on your device. Some limited records
+      may be retained when required for security, fraud prevention, or legal compliance.
     </p>
   </section>
 
