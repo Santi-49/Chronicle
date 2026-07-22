@@ -5,7 +5,7 @@ interface Props {
   title: string;
   description: string;
   pathname: string;
-  pageType?: "home" | "privacy" | "terms";
+  pageType?: "home" | "about" | "privacy" | "terms";
 }
 
 const { title, description, pathname, pageType = "home" } = Astro.props;
@@ -13,7 +13,7 @@ const canonicalUrl = new URL(pathname, Astro.site ?? Astro.url);
 const socialImageUrl = new URL("/chronicle-home.png", Astro.site ?? Astro.url);
 const pageName = pageType === "home" ? landingContent.productName : title;
 
-const structuredData = pageType === "home"
+const structuredData = pageType === "home" || pageType === "about"
   ? {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
