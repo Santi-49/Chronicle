@@ -2260,6 +2260,19 @@ h2 {
   padding-right: 0;
 }
 
+.legal-back--light {
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
+  background: #fff;
+  color: #0b0f14;
+}
+
+.legal-back--light:hover {
+  background: #e8f0ff;
+  color: #0b0f14;
+}
+
 .legal-shell {
   width: min(1120px, calc(100% - 42px));
   margin: 0 auto;
@@ -2440,6 +2453,103 @@ h2 {
 
 .legal-footer {
   margin-top: 24px;
+}
+
+/* ── OFFICIAL APP HOMEPAGE / OAUTH VERIFICATION ─────────────────────── */
+
+.about-hero {
+  max-width: 880px;
+}
+
+.about-hero .legal-intro {
+  max-width: 780px;
+}
+
+.about-hero .platform-availability {
+  margin-top: 24px;
+}
+
+.about-actions {
+  margin-top: 28px;
+}
+
+.about-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.about-feature-grid article {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.about-feature-grid strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.about-feature-grid p {
+  margin-bottom: 0;
+  font-size: 0.94rem;
+  line-height: 1.65;
+}
+
+.oauth-boundary {
+  margin: 28px 0;
+  padding: 24px;
+  border: 1px solid rgba(29, 114, 255, 0.38);
+  border-radius: 12px;
+  background: rgba(29, 114, 255, 0.08);
+}
+
+.oauth-boundary > strong {
+  color: #d9e7ff;
+}
+
+.oauth-boundary ul {
+  margin-bottom: 0;
+}
+
+.about-policy-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.about-policy-links a {
+  display: flex;
+  min-height: 132px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--panel-soft);
+  text-decoration: none;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.about-policy-links a:hover {
+  border-color: rgba(141, 184, 255, 0.58);
+  background: #151515;
+}
+
+.about-policy-links strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.about-policy-links span {
+  color: #b8b8b8;
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2721,5 +2831,10 @@ h2 {
 
   .legal-footer nav {
     width: 100%;
+  }
+
+  .about-feature-grid,
+  .about-policy-links {
+    grid-template-columns: 1fr;
   }
 }

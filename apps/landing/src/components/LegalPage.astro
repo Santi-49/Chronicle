@@ -8,7 +8,7 @@ interface Props {
   description: string;
   eyebrow: string;
   effectiveDate: string;
-  currentPath: "/privacy" | "/terms-and-services";
+  currentPath: "/privacy/" | "/terms-and-services/";
 }
 
 const { title, description, eyebrow, effectiveDate, currentPath } = Astro.props;
@@ -26,7 +26,7 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
       title={`${title} | ${landingContent.productName}`}
       description={description}
       pathname={currentPath}
-      pageType={currentPath === "/privacy" ? "privacy" : "terms"}
+      pageType={currentPath === "/privacy/" ? "privacy" : "terms"}
     />
     <title>{title} | {landingContent.productName}</title>
   </head>
@@ -39,8 +39,8 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
         {landingContent.productName}
       </a>
       <nav class="legal-nav" aria-label="Legal navigation">
-        <a href="/privacy" aria-current={currentPath === "/privacy" ? "page" : undefined}>Privacy</a>
-        <a href="/terms-and-services" aria-current={currentPath === "/terms-and-services" ? "page" : undefined}>Terms</a>
+        <a href="/privacy/" aria-current={currentPath === "/privacy/" ? "page" : undefined}>Privacy</a>
+        <a href="/terms-and-services/" aria-current={currentPath === "/terms-and-services/" ? "page" : undefined}>Terms</a>
       </nav>
       <a class="legal-back" href="/">Back to Chronicle</a>
     </header>
@@ -65,8 +65,9 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
     <footer class="site-footer legal-footer">
       <span>Chronicle · Local-first creative version control</span>
       <nav aria-label="Footer navigation">
-        <a href="/privacy">Privacy</a>
-        <a href="/terms-and-services">Terms of Service</a>
+        <a href="/about/">About Chronicle</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms-and-services/">Terms of Service</a>
         <a href={landingContent.githubUrl}>GitHub</a>
       </nav>
     </footer>
