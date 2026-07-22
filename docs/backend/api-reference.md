@@ -95,7 +95,11 @@ JWT pair. Google tokens are validated and discarded.
 **Auth:** —
 **Request:** `{ "credential": "<google-id-token>" }`
 **Response `200`:** `TokenPair`
-**Errors:** `401` invalid/unverified Google identity · `409` explicit link required · `503` OAuth not configured
+**Errors:** `401` invalid/unverified Google identity · `403` existing account inactive · `409` a different Google identity is already linked · `503` OAuth not configured
+
+When the verified Google email matches an existing active Chronicle account, the API links the
+stable Google subject on first use and signs into that account. This includes password accounts and
+the migration-seeded administrator. An existing Google link is never replaced by email matching.
 
 ### `POST /auth/google/link`
 

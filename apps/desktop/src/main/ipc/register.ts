@@ -98,13 +98,22 @@ const emit: EmitEvent = (event, payload) => {
 
 /** Call once after `app.whenReady()`; returns the live api and a disposer. */
 export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): ChronicleIpc {
+  const bundledControlPlaneUrl =
+    typeof __CHRONICLE_CONTROL_PLANE_URL__ === 'undefined'
+      ? ''
+      : __CHRONICLE_CONTROL_PLANE_URL__
+  const bundledGoogleClientId =
+    typeof __GOOGLE_OAUTH_CLIENT_ID__ === 'undefined' ? '' : __GOOGLE_OAUTH_CLIENT_ID__
   const controlPlaneBaseUrl =
-    process.env['CHRONICLE_CONTROL_PLANE_URL']?.trim() || 'http://localhost:8000'
+    process.env['CHRONICLE_CONTROL_PLANE_URL']?.trim() ||
+    bundledControlPlaneUrl ||
+    'http://localhost:8000'
   const account = createControlPlaneClient(
     () => getSetting<AppSettings>(db, 'app-settings')?.controlPlane.baseUrl ?? controlPlaneBaseUrl,
     createSessionStore(db),
   )
-  const googleClientId = process.env['GOOGLE_OAUTH_CLIENT_ID'] ?? ''
+  const googleClientId =
+    process.env['GOOGLE_OAUTH_CLIENT_ID']?.trim() || bundledGoogleClientId
   const googleClientSecret = process.env['GOOGLE_OAUTH_CLIENT_SECRET'] ?? ''
   const aiClient = createAiClient()
   const services = createChronicleServices({

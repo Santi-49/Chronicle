@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient
 from unittest.mock import AsyncMock, patch
 
+from app.models.control_plane import ExternalIdentity
 from app.schemas.control_plane import GoogleIdentityClaims
 
 
@@ -129,12 +130,12 @@ async def test_google_login_creates_account_and_reuses_subject(client: AsyncClie
     assert me.json()["email"] == "google@test.com"
 
 
-async def test_google_login_requires_explicit_link_for_existing_email(
+async def test_google_login_auto_links_existing_verified_email(
     client: AsyncClient, regular_user
 ):
     claims = GoogleIdentityClaims(
         subject="google-existing",
-        email=regular_user.email,
+        email=regular_user.email.upper(),
         email_verified=True,
         given_name="Regular",
         family_name="Test",
@@ -144,8 +145,58 @@ async def test_google_login_requires_explicit_link_for_existing_email(
         new=AsyncMock(return_value=claims),
     ):
         response = await client.post("/api/v1/auth/google", json={"credential": "x" * 20})
+    assert response.status_code == 200
+    me = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {response.json()['access_token']}"},
+    )
+    assert me.status_code == 200
+    assert me.json()["email"] == regular_user.email
+    assert "user" in me.json()["roles"]
+
+
+async def test_google_login_does_not_replace_different_linked_identity(
+    client: AsyncClient, db, regular_user
+):
+    db.add(ExternalIdentity(
+        user_id=regular_user.id,
+        provider="google",
+        provider_subject="google-original",
+    ))
+    await db.commit()
+    claims = GoogleIdentityClaims(
+        subject="google-replacement",
+        email=regular_user.email,
+        email_verified=True,
+    )
+    with patch(
+        "app.services.google_auth_service.verify_google_credential",
+        new=AsyncMock(return_value=claims),
+    ):
+        response = await client.post("/api/v1/auth/google", json={"credential": "x" * 20})
+
     assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "account_link_required"
+    assert response.json()["detail"] == "Chronicle account already has a different Google identity"
+
+
+async def test_google_login_keeps_inactive_existing_account_blocked(
+    client: AsyncClient, db, regular_user
+):
+    regular_user.is_active = False
+    await db.commit()
+    claims = GoogleIdentityClaims(
+        subject="google-inactive",
+        email=regular_user.email,
+        email_verified=True,
+    )
+    with patch(
+        "app.services.google_auth_service.verify_google_credential",
+        new=AsyncMock(return_value=claims),
+    ):
+        response = await client.post("/api/v1/auth/google", json={"credential": "x" * 20})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Account inactive"
 
 
 async def test_authenticated_user_can_link_google(client: AsyncClient, user_token):

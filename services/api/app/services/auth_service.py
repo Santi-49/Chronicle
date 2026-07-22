@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import redis as token_store
@@ -75,14 +75,37 @@ async def authenticate_google(claims: GoogleIdentityClaims, db: AsyncSession) ->
         await db.commit()
         return user
 
-    existing = await db.execute(select(User).where(User.email == claims.email))
-    if existing.scalar_one_or_none() is not None:
+    existing_result = await db.execute(
+        select(User).where(func.lower(User.email) == claims.email.lower())
+    )
+    existing = existing_result.scalar_one_or_none()
+    if existing is not None:
+        if not existing.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account inactive",
+            )
+        own_google_result = await db.execute(
+            select(ExternalIdentity).where(
+                ExternalIdentity.user_id == existing.id,
+                ExternalIdentity.provider == "google",
+            )
+        )
+        if own_google_result.scalar_one_or_none() is None:
+            # Google has verified control of the existing account's email. Link
+            # the stable subject once; subsequent logins resolve by subject and
+            # never rely on email matching again.
+            db.add(ExternalIdentity(
+                user_id=existing.id,
+                provider="google",
+                provider_subject=claims.subject,
+                last_login_at=datetime.now(timezone.utc),
+            ))
+            await db.commit()
+            return existing
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "code": "account_link_required",
-                "message": "Sign in to the existing Chronicle account before linking Google",
-            },
+            detail="Chronicle account already has a different Google identity",
         )
 
     name, surname = _google_names(claims)

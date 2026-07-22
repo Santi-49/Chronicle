@@ -46,10 +46,13 @@ An unreachable API prevents the browser flow from starting and leaves local mode
 explicit retry. Cancellation or loopback timeout closes the listener and becomes a concise sign-in
 message; renderer copy never exposes Electron's `Error invoking remote method ...` wrapper.
 
-If the Google email already belongs to a password account, login returns
-`409 account_link_required`; the signed-in user must call `POST /auth/google/link`. Chronicle never
-merges accounts by email alone. Google-only users have a null `hashed_password` and cannot use the
-password endpoint unless a future password-setting flow is added.
+If the verified Google email belongs to an existing active Chronicle account, the first Google
+login attaches the stable Google `sub` to that account and signs in. This also lets the
+migration-seeded `FIRST_ADMIN_EMAIL` use Google without a separate password-linking step. Once a
+Google identity is attached, Chronicle resolves it by `sub`; it never replaces an account's linked
+Google identity with a different one. Inactive accounts remain blocked. Google-only users have a
+null `hashed_password` and cannot use the password endpoint unless a future password-setting flow
+is added.
 
 ### Login
 
