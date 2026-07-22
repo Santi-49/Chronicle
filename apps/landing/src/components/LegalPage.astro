@@ -1,5 +1,6 @@
 ---
 import { landingContent } from "../content";
+import SeoHead from "./SeoHead.astro";
 import "../styles/global.css";
 
 interface Props {
@@ -21,9 +22,13 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content={description} />
-    <meta name="robots" content="index,follow" />
-    <title>{title} — {landingContent.productName}</title>
+    <SeoHead
+      title={`${title} | ${landingContent.productName}`}
+      description={description}
+      pathname={currentPath}
+      pageType={currentPath === "/privacy" ? "privacy" : "terms"}
+    />
+    <title>{title} | {landingContent.productName}</title>
   </head>
   <body class="legal-body">
     <a class="skip-link" href="#legal-content">Skip to content</a>

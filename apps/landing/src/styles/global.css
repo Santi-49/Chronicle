@@ -222,6 +222,27 @@ h1 {
   gap: 14px;
 }
 
+.platform-availability {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-top: 16px;
+  color: #a8a8a8;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.platform-availability svg {
+  flex: 0 0 auto;
+  color: #78a9ff;
+}
+
+.platform-availability strong {
+  color: #e0e0e0;
+  font-weight: 600;
+}
+
 .hero-mockup {
   position: relative;
   z-index: 1;
@@ -1736,16 +1757,22 @@ h2 {
   width: 100%;
   margin-top: 56px;
   padding: 8px 0 24px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
   -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
   mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+}
+
+.format-marquee::-webkit-scrollbar {
+  display: none;
 }
 
 .format-marquee__track {
   display: flex;
   width: max-content;
-  animation: format-marquee-scroll 96s linear infinite;
-  will-change: transform;
+  will-change: scroll-position;
 }
 
 .format-marquee__group {
@@ -1753,12 +1780,6 @@ h2 {
   flex-shrink: 0;
   gap: 18px;
   padding-right: 18px;
-}
-
-@keyframes format-marquee-scroll {
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
 }
 
 .format-story {
@@ -2601,13 +2622,34 @@ h2 {
   }
 
   .format-story {
-    flex-basis: 340px;
+    flex-basis: min(300px, calc(100vw - 72px));
     padding: 16px;
   }
 
   .format-marquee__group {
     gap: 12px;
     padding-right: 12px;
+  }
+
+  /* On mobile, show only 3 versions (v1–v3) instead of 5 */
+  .format-version-strip {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .format-version[data-version="4"],
+  .format-version[data-version="5"] {
+    display: none;
+  }
+
+  /* v3 becomes the latest visible version, so it gets the accent treatment */
+  .format-version[data-version="3"] {
+    --version-opacity: 1;
+    color: var(--story-accent);
+  }
+
+  .format-version[data-version="3"] .format-version__preview {
+    border-color: color-mix(in srgb, var(--story-accent) 48%, transparent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--story-accent) 14%, transparent);
   }
 
 }
