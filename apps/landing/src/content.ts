@@ -1,11 +1,10 @@
 export const landingContent = {
   productName: "Chronicle",
-  appUrl: "http://localhost:5173",
+  appUrl: "https://github.com/Santi-49/Chronicle/releases/latest",
   nav: [
     { label: "Why Chronicle", href: "#why" },
     { label: "Features", href: "#features" },
     { label: "Formats", href: "#formats" },
-    { label: "Download", href: "#download" },
   ],
   headline: "Never lose a creative version again.",
   subheadline:
@@ -67,5 +66,5 @@ export const landingContent = {
     "Free. Local. No account required. Works with the tools you already use — Lightroom, Photoshop, Blender, Figma, After Effects, anything.",
   downloadCta: "Download Chronicle",
   downloadSecondaryCta: "View on GitHub",
-  githubUrl: "https://github.com",
+  githubUrl: "https://github.com/Santi-49/Chronicle",
 };

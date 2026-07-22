@@ -34,8 +34,8 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
         ))}
       </nav>
       <div class="nav-actions">
-        <a class="login" href={content.githubUrl}>GitHub</a>
-        <a class="book" href={content.appUrl}>{content.primaryCta}</a>
+        <a class="login" href={content.githubUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="book" href={content.appUrl} target="_blank" rel="noopener noreferrer">Download</a>
       </div>
     </header>
 
@@ -48,7 +48,7 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
             <h1 id="hero-title">{content.headline}</h1>
             <p>{content.subheadline}</p>
             <div class="hero-actions">
-              <a class="button button--primary" href={content.appUrl}>{content.primaryCta}</a>
+              <a class="button button--primary" href={content.appUrl} target="_blank" rel="noopener noreferrer">{content.primaryCta}</a>
               <a class="button button--secondary" href="#why">{content.secondaryCta}</a>
             </div>
           </div>
@@ -427,8 +427,8 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
         <h2 id="download-title">{content.downloadTitle}</h2>
         <p>{content.downloadSubtitle}</p>
         <div class="hero-actions">
-          <a class="button button--primary" href={content.appUrl}>{content.downloadCta}</a>
-          <a class="button button--secondary" href={content.githubUrl}>{content.downloadSecondaryCta}</a>
+          <a class="button button--primary" href={content.appUrl} target="_blank" rel="noopener noreferrer">{content.downloadCta}</a>
+          <a class="button button--secondary" href={content.githubUrl} target="_blank" rel="noopener noreferrer">{content.downloadSecondaryCta}</a>
         </div>
       </section>
 
@@ -436,7 +436,11 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
 
     <footer class="site-footer">
       <span>Chronicle · Local-first creative version control</span>
-      <span class="footer-muted">Built with IBM Bob · Open source</span>
+      <nav aria-label="Footer navigation">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms-and-services">Terms of Service</a>
+        <a href={content.githubUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
     </footer>
 
     <script>

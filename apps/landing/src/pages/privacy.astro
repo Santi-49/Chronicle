@@ -1,0 +1,193 @@
+---
+import LegalPage from "../components/LegalPage.astro";
+import { landingContent } from "../content";
+---
+
+<LegalPage
+  title="Privacy Policy"
+  description="How Chronicle handles your account information, creative files, AI requests, and product usage data."
+  eyebrow="Your work stays yours"
+  effectiveDate="July 22, 2026"
+  currentPath="/privacy"
+>
+  <Fragment slot="navigation">
+    <a href="#overview">Overview</a>
+    <a href="#data-we-handle">Data we handle</a>
+    <a href="#google-sign-in">Google Sign-In</a>
+    <a href="#ai-providers">AI providers</a>
+    <a href="#sharing">Sharing</a>
+    <a href="#retention">Retention & control</a>
+    <a href="#rights">Your rights</a>
+    <a href="#contact">Contact</a>
+  </Fragment>
+
+  <section id="overview">
+    <span class="legal-section-number">01</span>
+    <h2>Privacy, without the fine-print fog.</h2>
+    <p>
+      Chronicle is a local-first desktop application for versioning creative files. Core features—including
+      capture, history, restore, and keyword search—work without a Chronicle account. Your watched files,
+      stored versions, local database, AI summaries, tags, and search index remain on your device unless a
+      feature described below requires you to send specific data elsewhere.
+    </p>
+    <div class="legal-callout">
+      <strong>The short version</strong>
+      <p>We can understand product usage when reporting is enabled. We cannot see your creative work.</p>
+    </div>
+  </section>
+
+  <section id="data-we-handle">
+    <span class="legal-section-number">02</span>
+    <h2>Information Chronicle handles</h2>
+    <h3>Data stored on your device</h3>
+    <p>
+      Chronicle stores watched-folder paths, copies of captured file versions, file metadata, thumbnails,
+      version history, AI-generated annotations, embeddings, app settings, and queued work in its local app
+      data. Chronicle reads the folders you choose and writes to an original path only when you restore a
+      version. Removing Chronicle does not delete your original working files.
+    </p>
+    <h3>Account information</h3>
+    <p>
+      If you choose Google Sign-In, we receive your Google account's stable identifier, verified email
+      address, given name, and family name. We use these details to create or identify your Chronicle account,
+      secure sign-in, and prevent accounts from being merged by email alone.
+    </p>
+    <h3>Installation and settings information</h3>
+    <p>
+      When the Chronicle service is reachable, the app registers a random installation identifier together
+      with the app version, operating-system family, and first- and last-seen timestamps. This identifier is
+      not a hardware ID and does not include your hostname, paths, or project data. If you sign in and enable
+      settings sync, we may also store portable preferences such as appearance, selected AI providers and
+      models, and sync or reporting choices. Local paths and creative history are excluded.
+    </p>
+    <h3>Optional usage reporting</h3>
+    <p>
+      Usage reporting is enabled by default and can be switched off in Chronicle's settings. When enabled,
+      Chronicle may report allowlisted operational events such as app opens, counts of projects, files, and
+      versions, supported file types, timings, AI provider and latency, and whether a search occurred. Reports
+      never contain file contents, file names, paths, AI summaries, tags, or search queries. Events may queue
+      locally while offline before being sent.
+    </p>
+  </section>
+
+  <section id="google-sign-in">
+    <span class="legal-section-number">03</span>
+    <h2>Google Sign-In and Google user data</h2>
+    <p>
+      Google Sign-In is optional. Chronicle requests only the <code>openid</code>, <code>email</code>, and
+      <code>profile</code> scopes to authenticate you and create your Chronicle account. Authentication opens
+      in your system browser. Chronicle sends the resulting short-lived Google ID token to its service for
+      verification, then issues a Chronicle session. Chronicle does not store Google access tokens or refresh
+      tokens, does not access Google Drive, Gmail, Calendar, contacts, or other Google services, and does not
+      use Google account data for advertising.
+    </p>
+    <p>
+      Chronicle's use and transfer of information received from Google APIs will adhere to the{" "}
+      <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+      including the Limited Use requirements.
+    </p>
+  </section>
+
+  <section id="ai-providers">
+    <span class="legal-section-number">04</span>
+    <h2>AI features and third-party providers</h2>
+    <p>
+      AI summaries and semantic search are optional and require a provider connection. When you configure
+      your own provider key, Chronicle's local AI service sends only the inputs required for the task—such as
+      the relevant current and previous images, filename, or annotation text—directly to the provider you
+      selected. Your provider's privacy policy, retention rules, and terms apply to that processing.
+    </p>
+    <p>
+      Provider keys are encrypted on your device. Optional key sync is off by default and, if you enable it,
+      uploads only an envelope encrypted on your device with your passphrase. Chronicle does not receive that
+      passphrase or the plaintext key. A future Chronicle-hosted AI gateway, if offered, will be identified in
+      the app before use and this policy will be updated to describe it.
+    </p>
+  </section>
+
+  <section id="sharing">
+    <span class="legal-section-number">05</span>
+    <h2>How information is used and shared</h2>
+    <p>We use the information described in this policy to:</p>
+    <ul>
+      <li>authenticate users and maintain secure Chronicle sessions;</li>
+      <li>provide settings sync and other features you choose to enable;</li>
+      <li>operate, secure, troubleshoot, and improve Chronicle;</li>
+      <li>understand aggregate product usage without receiving creative content; and</li>
+      <li>comply with law and protect users, the service, and others.</li>
+    </ul>
+    <p>
+      We do not sell personal information or Google user data, and we do not share it for personalized
+      advertising. We may disclose information to infrastructure providers acting on our behalf, when required
+      by law, to protect rights or safety, or as part of a project transfer subject to this policy. Separately,
+      data you direct to an AI provider is handled by that provider under your relationship with it.
+    </p>
+  </section>
+
+  <section id="security">
+    <span class="legal-section-number">06</span>
+    <h2>Security and international processing</h2>
+    <p>
+      Chronicle uses safeguards appropriate to the data it handles, including external-browser OAuth with
+      PKCE, server-side Google token verification, short-lived Chronicle access tokens, revocable sessions,
+      encrypted local credential storage, and authenticated encryption for optional key sync. No system is
+      perfectly secure, and we cannot guarantee absolute security.
+    </p>
+    <p>
+      The Chronicle service and third-party providers may process information in countries other than the one
+      where you live. Where applicable, we rely on lawful transfer mechanisms and provider safeguards.
+    </p>
+  </section>
+
+  <section id="retention">
+    <span class="legal-section-number">07</span>
+    <h2>Retention and your controls</h2>
+    <p>
+      Local creative history remains on your device until you remove it using Chronicle or delete the app's
+      local data. Cloud account records and synced settings are kept while your account is active and as needed
+      to operate, secure, and comply with legal obligations. Short-lived session records expire or are revoked.
+      Disabling encrypted-key sync removes the server copy of the encrypted envelope while keeping your local
+      key. Turning off usage reporting stops new usage events from being sent; minimal installation
+      registration remains separate.
+    </p>
+    <p>
+      You may stop using Google Sign-In by signing out and revoking Chronicle's access from your Google Account.
+      To request account deactivation, deletion, access, or correction, contact us using the channel below.
+      Some limited records may be retained when required for security or legal compliance.
+    </p>
+  </section>
+
+  <section id="rights">
+    <span class="legal-section-number">08</span>
+    <h2>Your privacy rights</h2>
+    <p>
+      Depending on where you live, you may have rights to access, correct, delete, restrict, object to, or
+      receive a portable copy of personal information, and to withdraw consent where consent is the legal basis.
+      You may also complain to your local data-protection authority. We may need to verify your identity before
+      completing a request. Chronicle is not directed to children under 13, or the higher minimum age required
+      in their country, and we do not knowingly collect their personal information.
+    </p>
+  </section>
+
+  <section id="changes">
+    <span class="legal-section-number">09</span>
+    <h2>Changes to this policy</h2>
+    <p>
+      We may update this policy as Chronicle evolves. We will publish the revised version here, change the
+      effective date, and provide additional notice when a change is material. Your continued use after an
+      update is subject to the revised policy, where permitted by law.
+    </p>
+  </section>
+
+  <section id="contact">
+    <span class="legal-section-number">10</span>
+    <h2>Contact</h2>
+    <p>
+      Chronicle is maintained by the Chronicle project team. For privacy questions or requests, contact us at{" "}
+      <a href="mailto:chronicle.support@gmial.com">chronicle.support@gmial.com</a>{" "}or through the{" "}
+      <a href={`${landingContent.githubUrl}/issues`} target="_blank" rel="noopener noreferrer">Chronicle project issue tracker</a>.
+      Do not include passwords, provider keys, ID tokens, file contents, or other sensitive information in a
+      public issue.
+    </p>
+  </section>
+</LegalPage>

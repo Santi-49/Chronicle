@@ -1,0 +1,192 @@
+---
+import LegalPage from "../components/LegalPage.astro";
+import { landingContent } from "../content";
+---
+
+<LegalPage
+  title="Terms of Service"
+  description="The terms that apply when you download, access, or use Chronicle and its optional online services."
+  eyebrow="Clear terms. Creative freedom."
+  effectiveDate="July 22, 2026"
+  currentPath="/terms-and-services"
+>
+  <Fragment slot="navigation">
+    <a href="#agreement">Agreement</a>
+    <a href="#service">The service</a>
+    <a href="#accounts">Accounts</a>
+    <a href="#your-content">Your content</a>
+    <a href="#ai">AI features</a>
+    <a href="#acceptable-use">Acceptable use</a>
+    <a href="#disclaimers">Disclaimers</a>
+    <a href="#contact">Contact</a>
+  </Fragment>
+
+  <section id="agreement">
+    <span class="legal-section-number">01</span>
+    <h2>Your agreement with Chronicle</h2>
+    <p>
+      These Terms of Service (the “Terms”) govern your download, access, and use of Chronicle, including the
+      desktop application, website, and optional online services (together, the “Service”). By using the
+      Service, you agree to these Terms and our{" "}<a href="/privacy">Privacy Policy</a>. If you do not agree, do
+      not use the Service.
+    </p>
+    <p>
+      You must be legally able to enter into this agreement and meet the minimum digital-consent age that
+      applies where you live. If you use Chronicle for an organization, you confirm that you can accept these
+      Terms for that organization.
+    </p>
+  </section>
+
+  <section id="service">
+    <span class="legal-section-number">02</span>
+    <h2>What Chronicle provides</h2>
+    <p>
+      Chronicle is a local-first tool that watches folders you select, captures changed versions of supported
+      creative files, stores a local history, and helps you search and restore that history. Optional AI
+      features can describe changes and create semantic-search embeddings. Core local features do not require
+      an account, while Google Sign-In enables optional account-backed features such as portable settings.
+    </p>
+    <p>
+      Chronicle is under active development. Supported formats, compatibility, limits, and features may change.
+      We may modify, suspend, or discontinue all or part of the Service, and we will provide reasonable notice
+      when a material change adversely affects users where practical.
+    </p>
+  </section>
+
+  <section id="accounts">
+    <span class="legal-section-number">03</span>
+    <h2>Accounts and Google Sign-In</h2>
+    <p>
+      An account is optional. If you create one with Google Sign-In, you authorize Chronicle to use the basic
+      identity information described on the consent screen and in our Privacy Policy to authenticate you. You
+      are responsible for maintaining control of your Google account, your device, and any Chronicle session.
+      Notify us promptly if you believe your account or session has been compromised.
+    </p>
+    <p>
+      You may not impersonate another person, misrepresent your affiliation, transfer access in a way that
+      undermines security, or attempt to bypass authentication or account controls. We may suspend or deactivate
+      access when reasonably necessary to protect the Service, comply with law, or address a material breach of
+      these Terms.
+    </p>
+  </section>
+
+  <section id="your-content">
+    <span class="legal-section-number">04</span>
+    <h2>Your files remain your files</h2>
+    <p>
+      You retain all rights in the files and other content you process with Chronicle. These Terms do not give
+      Chronicle ownership of your creative work. You give Chronicle only the limited permission needed to read,
+      copy, index, restore, and otherwise process content on your device at your direction, and to send specific
+      inputs to an AI provider when you enable and use an AI feature.
+    </p>
+    <p>
+      You are responsible for having the rights and permissions needed to process your content. Chronicle is a
+      version-history aid, not your only backup. You should maintain independent backups of important work and
+      check restored files before relying on them.
+    </p>
+  </section>
+
+  <section id="ai">
+    <span class="legal-section-number">05</span>
+    <h2>AI features and provider services</h2>
+    <p>
+      AI summaries, tags, and search results are generated automatically and may be inaccurate, incomplete, or
+      misleading. Review AI output before relying on it, especially for professional, legal, safety-critical, or
+      irreversible decisions. Chronicle does not guarantee that AI output will identify every visual change.
+    </p>
+    <p>
+      When you connect your own AI provider, you are also subject to that provider's terms, privacy policy,
+      pricing, quotas, and content rules. You are responsible for provider charges and for ensuring your use is
+      permitted. Chronicle is not responsible for a third-party provider's availability, output, retention, or
+      handling of data sent at your direction.
+    </p>
+  </section>
+
+  <section id="software">
+    <span class="legal-section-number">06</span>
+    <h2>Software and open-source components</h2>
+    <p>
+      Chronicle's source code is made available through its{" "}
+      <a href={landingContent.githubUrl}>public repository</a>. Your right to copy, modify, or distribute source
+      code is governed by the license files included with that code. Third-party and open-source components may
+      have separate terms. These Terms govern your use of the hosted website, account services, and any aspects
+      not covered by an applicable software license.
+    </p>
+  </section>
+
+  <section id="acceptable-use">
+    <span class="legal-section-number">07</span>
+    <h2>Acceptable use</h2>
+    <p>You agree not to use the Service to:</p>
+    <ul>
+      <li>break the law or infringe another person's privacy, intellectual-property, or other rights;</li>
+      <li>upload, process, or transmit content you do not have the right to use;</li>
+      <li>introduce malware, abuse infrastructure, interfere with other users, or evade rate or security limits;</li>
+      <li>probe, attack, reverse engineer, or access non-public systems except where law or an open-source license permits it;</li>
+      <li>use automated means that materially burden the Service; or</li>
+      <li>use AI features to create or facilitate unlawful or harmful activity.</li>
+    </ul>
+  </section>
+
+  <section id="disclaimers">
+    <span class="legal-section-number">08</span>
+    <h2>Disclaimers</h2>
+    <p>
+      To the fullest extent permitted by law, the Service is provided “as is” and “as available.” We disclaim
+      implied warranties of merchantability, fitness for a particular purpose, non-infringement, and uninterrupted
+      or error-free operation. We do not warrant that Chronicle will capture every save, preserve every file,
+      work with every editor, or produce accurate AI output. Nothing in these Terms excludes warranties that
+      cannot legally be excluded.
+    </p>
+  </section>
+
+  <section id="liability">
+    <span class="legal-section-number">09</span>
+    <h2>Limitation of liability</h2>
+    <p>
+      To the fullest extent permitted by law, the Chronicle project team and contributors will not be liable for
+      indirect, incidental, special, consequential, exemplary, or punitive damages, or for loss of content, data,
+      profits, goodwill, or business opportunity arising from the Service. Our total liability for claims relating
+      to the Service will not exceed the greater of the amount you paid us for the Service during the 12 months
+      before the claim or USD $100. These limits do not apply where prohibited by law.
+    </p>
+  </section>
+
+  <section id="termination">
+    <span class="legal-section-number">10</span>
+    <h2>Ending use of Chronicle</h2>
+    <p>
+      You may stop using Chronicle at any time. Uninstalling the app or signing out does not necessarily remove
+      local app data, synced settings, or your Chronicle account; use the available deletion controls or contact
+      us for an account request. We may suspend or end online access for a serious or repeated breach, security
+      risk, legal requirement, or discontinuation of the Service. Provisions that by their nature should survive
+      termination—including ownership, disclaimers, and liability limits—will survive.
+    </p>
+  </section>
+
+  <section id="general">
+    <span class="legal-section-number">11</span>
+    <h2>Changes and general terms</h2>
+    <p>
+      We may update these Terms as Chronicle changes. We will post the revised Terms, update the effective date,
+      and provide additional notice for material changes where required. If a provision is unenforceable, the
+      remaining provisions stay in effect. Our failure to enforce a provision is not a waiver. You may not assign
+      these Terms without our consent; we may assign them as part of a reorganization or transfer of the project.
+    </p>
+    <p>
+      Mandatory consumer protections and the courts available to you under applicable law are not limited by
+      these Terms. Any dispute should first be raised with us so the parties can try to resolve it informally.
+    </p>
+  </section>
+
+  <section id="contact">
+    <span class="legal-section-number">12</span>
+    <h2>Contact</h2>
+    <p>
+      Chronicle is maintained by the Chronicle project team. Questions about these Terms can be sent to{" "}
+      <a href="mailto:chronicle.support@gmial.com">chronicle.support@gmial.com</a>{" "}or submitted through the{" "}
+      <a href={`${landingContent.githubUrl}/issues`} target="_blank" rel="noopener noreferrer">Chronicle project issue tracker</a>.
+      Do not publish passwords, provider keys, tokens, file contents, or other sensitive information in an issue.
+    </p>
+  </section>
+</LegalPage>
