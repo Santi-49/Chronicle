@@ -238,8 +238,11 @@ make control-plane-health
 make control-plane-down
 ```
 
-The desktop reads `CHRONICLE_CONTROL_PLANE_URL` from `.env`, defaulting to
-`http://localhost:8000`. Use the origin only, without `/api/v1`.
+In development, the desktop reads `CHRONICLE_CONTROL_PLANE_URL` and
+`GOOGLE_OAUTH_CLIENT_ID` from `.env`; the URL defaults to `http://localhost:8000`.
+Use the control-plane origin only, without `/api/v1`. Packaged releases embed these
+public values at build time from GitHub Actions repository variables of the same names,
+so an installed app does not require environment variables or a bundled `.env` file.
 
 ## Repository map
 

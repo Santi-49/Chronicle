@@ -14,6 +14,9 @@ jobs:
   windows-installer:
     name: Windows installer
     runs-on: windows-latest
+    env:
+      CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,6 +61,9 @@ jobs:
     name: macOS installer
     # Pin the standard Apple Silicon runner so the native sidecar architecture is deterministic.
     runs-on: macos-15
+    env:
+      CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
+      GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

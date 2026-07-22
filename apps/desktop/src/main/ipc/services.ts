@@ -653,7 +653,10 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         }
       }
       const settings = mergeSettings(DEFAULT_SETTINGS, migratedPatch)
-      if (stored === undefined && deps.controlPlaneBaseUrl) {
+      if (
+        deps.controlPlaneBaseUrl &&
+        (stored === undefined || settings.controlPlane.baseUrl === DEFAULT_SETTINGS.controlPlane.baseUrl)
+      ) {
         settings.controlPlane.baseUrl = deps.controlPlaneBaseUrl
         needsMigration = true
       }
