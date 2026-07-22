@@ -12,9 +12,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_EXECUTABLE = (
-    ROOT / "apps" / "desktop" / "build" / "sidecar" / "chronicle-ai-sidecar.exe"
-)
+EXECUTABLE_NAME = "chronicle-ai-sidecar.exe" if sys.platform == "win32" else "chronicle-ai-sidecar"
+DEFAULT_EXECUTABLE = ROOT / "apps" / "desktop" / "build" / "sidecar" / EXECUTABLE_NAME
 
 
 def main() -> None:

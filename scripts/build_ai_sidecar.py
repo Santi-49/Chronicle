@@ -1,4 +1,4 @@
-"""Build Chronicle's self-contained Windows AI sidecar with PyInstaller."""
+"""Build Chronicle's self-contained native AI sidecar with PyInstaller."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ SPEC_DIR = DESKTOP_BUILD / "pyinstaller-spec"
 BUNDLE_ENV_DIR = DESKTOP_BUILD / "sidecar-venv"
 DEPENDENCY_MARKER = BUNDLE_ENV_DIR / ".chronicle-bundle-dependencies.sha256"
 BUILD_MARKER = DESKTOP_BUILD / ".chronicle-sidecar-build.sha256"
-BUNDLE_LAYOUT_VERSION = "providers-v1"
+BUNDLE_LAYOUT_VERSION = "providers-v2-native-macos"
 PROVIDER_PACKAGES = (
     ("langchain-google-genai", "langchain_google_genai"),
     ("langchain-openai", "langchain_openai"),
@@ -113,8 +113,8 @@ def _ensure_bundle_environment() -> bool:
 
 
 def main() -> None:
-    if sys.platform != "win32":
-        raise SystemExit("The MVP installer sidecar must be built on Windows.")
+    if sys.platform not in {"win32", "darwin"}:
+        raise SystemExit("The packaged AI sidecar must be built on Windows or macOS.")
 
     if not _ensure_bundle_environment():
         return
@@ -163,7 +163,8 @@ def main() -> None:
     started = time.perf_counter()
     subprocess.run(command, cwd=SERVICE_DIR, check=True)
 
-    executable = DIST_DIR / "chronicle-ai-sidecar.exe"
+    executable_name = "chronicle-ai-sidecar.exe" if sys.platform == "win32" else "chronicle-ai-sidecar"
+    executable = DIST_DIR / executable_name
     if not executable.is_file() or executable.stat().st_size == 0:
         raise RuntimeError(f"Sidecar build did not produce {executable}")
     print(

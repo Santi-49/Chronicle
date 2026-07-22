@@ -11,9 +11,9 @@ describe('AI service location', () => {
     expect(location.cwd).toBe(path.join(root, 'services', 'ai'))
   })
 
-  it('uses the bundled executable and prompt in an installed build', () => {
+  it('uses the bundled Windows executable and prompt in an installed build', () => {
     const resources = path.resolve('resources')
-    const location = resolveAiServiceLocation(path.resolve('unused'), resources)
+    const location = resolveAiServiceLocation(path.resolve('unused'), resources, 'win32')
 
     expect(location.command).toBe(path.join(resources, 'ai', 'chronicle-ai-sidecar.exe'))
     expect(location.args).toEqual([])
@@ -21,5 +21,13 @@ describe('AI service location', () => {
     expect(location.environment['CHRONICLE_PROMPT_PATH']).toBe(
       path.join(resources, 'ai', 'prompts', 'version-annotation.md'),
     )
+  })
+
+  it('uses the extensionless bundled executable on macOS', () => {
+    const resources = path.resolve('resources')
+    const location = resolveAiServiceLocation(path.resolve('unused'), resources, 'darwin')
+
+    expect(location.command).toBe(path.join(resources, 'ai', 'chronicle-ai-sidecar'))
+    expect(location.cwd).toBe(path.join(resources, 'ai'))
   })
 })
