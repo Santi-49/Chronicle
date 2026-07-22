@@ -1,5 +1,7 @@
 ---
 import { landingContent } from "../content";
+import PlatformAvailability from "../components/PlatformAvailability.astro";
+import SeoHead from "../components/SeoHead.astro";
 import "../styles/global.css";
 
 const content = landingContent;
@@ -19,6 +21,8 @@ const formatShowcase = [
 ];
 
 const versions = [1, 2, 3, 4, 5];
+const pageTitle = `${content.productName} | Version history for creative work`;
+const pageDescription = "Chronicle automatically saves versions of your creative work, explains each change in plain English, and helps you find or restore any version.";
 ---
 
 <!doctype html>
@@ -26,11 +30,8 @@ const versions = [1, 2, 3, 4, 5];
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="Chronicle keeps a clear history of your creative images, explains what changed in plain English, and helps you find or restore any version."
-    />
-    <title>{content.productName} | Version history for creative work</title>
+    <SeoHead title={pageTitle} description={pageDescription} pathname="/" pageType="home" />
+    <title>{pageTitle}</title>
   </head>
   <body>
     <header class="site-header" aria-label="Site header">
@@ -61,6 +62,7 @@ const versions = [1, 2, 3, 4, 5];
               <a class="button button--primary" href={content.appUrl} target="_blank" rel="noopener noreferrer">{content.primaryCta}</a>
               <a class="button button--secondary" href="#how">{content.secondaryCta}</a>
             </div>
+            <PlatformAvailability />
 
             <figure class="hero-mockup" aria-labelledby="product-demo-caption">
               <button class="mockup-plane" type="button" aria-label="Open the Chronicle demo video in full screen" data-fullscreen-trigger>
@@ -499,6 +501,7 @@ const versions = [1, 2, 3, 4, 5];
             {content.downloadSecondaryCta}
           </a>
         </div>
+        <PlatformAvailability />
         <p class="github-support">A star helps more creators and judges discover the project.</p>
       </section>
 
@@ -542,6 +545,55 @@ const versions = [1, 2, 3, 4, 5];
       document.addEventListener("fullscreenchange", () => {
         if (productDemo) productDemo.controls = document.fullscreenElement === productDemo;
       });
+
+      // Formats marquee: auto-scrolls infinitely, but a manual drag/scroll takes
+      // over; auto resumes 500ms after the last interaction.
+      const marquee = document.querySelector<HTMLElement>(".format-marquee");
+      const marqueeTrack = marquee?.querySelector<HTMLElement>(".format-marquee__track");
+
+      if (marquee && marqueeTrack && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const SPEED = 40; // px per second
+        const RESUME_DELAY = 500; // ms of no interaction before auto resumes
+        let auto = true;
+        let resumeTimer: number | undefined;
+        let last: number | null = null;
+
+        // One of the two identical groups; wrapping at this width loops seamlessly.
+        const loopWidth = () => marqueeTrack.scrollWidth / 2;
+
+        const bump = () => {
+          auto = false;
+          if (resumeTimer) window.clearTimeout(resumeTimer);
+          resumeTimer = window.setTimeout(() => {
+            auto = true;
+          }, RESUME_DELAY);
+        };
+
+        (["pointerdown", "wheel", "touchstart", "touchmove", "keydown"] as const).forEach((evt) =>
+          marquee.addEventListener(evt, bump, { passive: true }),
+        );
+
+        const tick = (now: number) => {
+          if (last === null) last = now;
+          const dt = (now - last) / 1000;
+          last = now;
+          const half = loopWidth();
+
+          if (half > 0) {
+            if (auto) {
+              let next = marquee.scrollLeft + SPEED * dt;
+              if (next >= half) next -= half;
+              marquee.scrollLeft = next;
+            } else if (marquee.scrollLeft >= half) {
+              // Keep manual scrolling inside the first copy so the loop stays infinite.
+              marquee.scrollLeft -= half;
+            }
+          }
+
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
 
       mm.add(
         {

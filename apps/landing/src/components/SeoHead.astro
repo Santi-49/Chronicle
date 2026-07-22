@@ -1,0 +1,73 @@
+---
+import { landingContent } from "../content";
+
+interface Props {
+  title: string;
+  description: string;
+  pathname: string;
+  pageType?: "home" | "privacy" | "terms";
+}
+
+const { title, description, pathname, pageType = "home" } = Astro.props;
+const canonicalUrl = new URL(pathname, Astro.site ?? Astro.url);
+const socialImageUrl = new URL("/chronicle-home.png", Astro.site ?? Astro.url);
+const pageName = pageType === "home" ? landingContent.productName : title;
+
+const structuredData = pageType === "home"
+  ? {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: landingContent.productName,
+      applicationCategory: "DesignApplication",
+      operatingSystem: "Windows, macOS",
+      description,
+      url: canonicalUrl.href,
+      downloadUrl: landingContent.appUrl,
+      codeRepository: landingContent.githubUrl,
+      softwareHelp: `${landingContent.githubUrl}/issues`,
+    }
+  : {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: pageName,
+      description,
+      url: canonicalUrl.href,
+      isPartOf: {
+        "@type": "WebSite",
+        name: landingContent.productName,
+        url: new URL("/", Astro.site ?? Astro.url).href,
+      },
+    };
+---
+
+<meta name="description" content={description} />
+<meta name="application-name" content={landingContent.productName} />
+<meta name="author" content="Chronicle project team" />
+<meta name="robots" content="index,follow,max-image-preview:large" />
+<meta name="theme-color" content="#f4f4f4" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
+
+<link rel="canonical" href={canonicalUrl} />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="manifest" href="/site.webmanifest" />
+<link rel="sitemap" href="/sitemap.xml" />
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content={landingContent.productName} />
+<meta property="og:locale" content="en_US" />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonicalUrl} />
+<meta property="og:image" content={socialImageUrl} />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1919" />
+<meta property="og:image:height" content="1029" />
+<meta property="og:image:alt" content="Chronicle creative version history desktop application" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={socialImageUrl} />
+<meta name="twitter:image:alt" content="Chronicle creative version history desktop application" />
+
+<script type="application/ld+json" set:html={JSON.stringify(structuredData)} />

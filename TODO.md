@@ -1010,6 +1010,47 @@ and read an accurate privacy policy; the team has recorded a defensible lawful b
 collection purpose; disclosures and retention match what the app/API/logging infrastructure
 actually send/store; and the local creative library is never uploaded.
 
+### [ ] POST-06A — Add self-service account and cloud-data deletion `Post-MVP`
+
+**Owner:** Unassigned
+**Depends on:** POST-03; coordinate with POST-04 before telemetry tables ship
+**Goal:** Add a clear **Delete account and cloud data** action in Desktop Settings so a signed-in
+user can permanently remove their Chronicle account and its associated server-side data without
+opening a support request. Local creative history remains on the device unless the user chooses a
+separate local deletion action.
+
+**May edit:** The Settings account panel and IPC account client in `apps/desktop/**`; a new
+self-service account-erasure endpoint, service, migration/foreign-key behavior, and tests in
+`services/api/**`; C6 in `packages/contracts/api/**` followed by `make generate-types`; privacy,
+terms, desktop, and backend documentation.
+**Must not reuse:** The existing admin-only `DELETE /users/{user_id}` route, which only marks a
+user inactive and does not erase the row or related data.
+
+**Required functionality:**
+
+1. Add a danger-styled button visible only to a signed-in user. Its confirmation must state that
+   the account, Google identity link, synced preferences, encrypted key envelope, linked
+   installation records, and any future account-linked telemetry will be permanently deleted.
+2. Explain in the same confirmation that watched folders, original files, and Chronicle's local
+   version library are not deleted. Link to the existing local project/history deletion controls
+   for users who also want to erase on-device history.
+3. Add an authenticated self-service erasure endpoint for the current user. Delete dependent
+   account settings, external identities, encrypted secrets, linked installations, raw telemetry,
+   project inventory, and other account-linked control-plane data in one transaction. Revoke all
+   active Chronicle sessions and do not leave the current `installations.user_id ON DELETE SET
+   NULL` orphan as a substitute for erasure.
+4. On success, clear local Chronicle session tokens, return the desktop app to local mode, disable
+   account-backed sync, and show a completion message. Do not delete locally stored provider keys
+   or creative history without a separate explicit choice.
+5. Cover authorization, rollback on partial failure, repeated deletion, session revocation,
+   dependent-row removal, and preservation of local data with automated tests. Update the legal
+   pages only after the shipped behavior matches their deletion instructions.
+
+**Done when:** A signed-in user can delete their own Chronicle account from Settings; the API
+removes all account-linked server data and invalidates sessions; the user returns to fully usable
+local mode; local creative history and local provider keys remain untouched; and tests prove that
+no linked installation, identity, settings, encrypted secret, or telemetry record remains.
+
 ### [ ] POST-07 — Research and improve the install / onboarding experience `Post-MVP`
 
 **Owner:** Unassigned
