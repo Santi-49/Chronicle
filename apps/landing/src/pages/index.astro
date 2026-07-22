@@ -4,11 +4,23 @@ import "../styles/global.css";
 
 const content = landingContent;
 const useExportedMockup = false;
-const showMockupTuner = false;
 
 // Inline the SVG mark as a data URI so we don't need the brand package path at build time
 const chronicleMarkSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none"><path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/><path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/><circle cx="38" cy="12" r="6" fill="#a6c8ff"/><circle cx="39" cy="39" r="5" fill="#78a9ff"/></svg>`;
 const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkSvg)}`;
+
+const formatShowcase = [
+  { ext: "PNG", filename: "campaign.png", kind: "image", detail: "Transparent campaign artwork", change: "Palette, crop, and lockup refined", live: true },
+  { ext: "JPG", filename: "hero-shoot.jpg", kind: "photo", detail: "Rendered photo export", change: "Light, grade, and framing evolved", live: true },
+  { ext: "PSD", filename: "launch-poster.psd", kind: "layers", detail: "Layered Photoshop document", change: "Five passes from layout to final", live: false },
+  { ext: "PSB", filename: "expo-wall.psb", kind: "canvas", detail: "Large-format layered canvas", change: "Composition built panel by panel", live: false },
+  { ext: "SVG", filename: "brand-mark.svg", kind: "vector", detail: "Editable vector artwork", change: "Geometry simplified across revisions", live: false },
+  { ext: "BLEND", filename: "studio-scene.blend", kind: "scene", detail: "Blender scene and render", change: "Model, material, lights, camera", live: false },
+  { ext: "OBJ", filename: "chair-study.obj", kind: "mesh", detail: "3D polygon mesh", change: "Silhouette and topology refined", live: false },
+  { ext: "STEP", filename: "enclosure.step", kind: "cad", detail: "CAD interchange model", change: "Body, ports, fillets, fasteners", live: false },
+];
+
+const versions = [1, 2, 3, 4, 5];
 ---
 
 <!doctype html>
@@ -51,6 +63,18 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
               <a class="button button--primary" href={content.appUrl} target="_blank" rel="noopener noreferrer">{content.primaryCta}</a>
               <a class="button button--secondary" href="#why">{content.secondaryCta}</a>
             </div>
+
+            <figure class="hero-mockup" aria-label="Chronicle desktop app home screen">
+              <div class="mockup-plane">
+                <img
+                  src="/chronicle-home.png"
+                  alt="Chronicle desktop app showing a workspace, recent projects, and AI-generated change summaries"
+                  width="1919"
+                  height="1029"
+                  decoding="async"
+                />
+              </div>
+            </figure>
           </div>
         </section>
 
@@ -373,20 +397,99 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
 
       <!-- ── FORMATS ────────────────────────────────────────────────────── -->
       <section class="formats-section section-reveal" id="formats" aria-labelledby="formats-title">
-        <p class="pill">Format support</p>
-        <h2 id="formats-title">{content.formatsTitle}</h2>
-        <p class="section-copy">{content.formatsSubtitle}</p>
-        <div class="formats-grid">
-          {content.formats.available.map((fmt) => (
-            <div class={`format-card ${fmt.live ? "format-card--live" : "format-card--soon"}`}>
-              <span class="format-ext">.{fmt.ext.toLowerCase().split(" / ")[0]}</span>
-              <span class="format-label">{fmt.label}</span>
-              <span class="format-desc">{fmt.desc}</span>
-              <span class={`format-badge ${fmt.live ? "format-badge--live" : "format-badge--soon"}`}>
-                {fmt.live ? "Available now" : "Coming soon"}
-              </span>
-            </div>
-          ))}
+        <div class="formats-heading">
+          <p class="pill">Format support</p>
+          <h2 id="formats-title">{content.formatsTitle}</h2>
+          <p class="section-copy">Every file has a story. Chronicle turns five scattered saves into one readable evolution.</p>
+        </div>
+
+        <div class="format-marquee" aria-label="Creative file formats shown across five versions">
+          <div class="format-marquee__track">
+            {[false, true].map((duplicate) => (
+              <div class="format-marquee__group" aria-hidden={duplicate ? "true" : undefined}>
+                {formatShowcase.map((fmt) => (
+                  <article class={`format-story format-story--${fmt.kind}`} aria-label={`${fmt.ext}: ${fmt.change}`}>
+                    <header class="format-story__header">
+                      <div>
+                        <span class="format-story__ext">.{fmt.ext.toLowerCase()}</span>
+                        <strong>{fmt.filename}</strong>
+                      </div>
+                      <span class={`format-badge ${fmt.live ? "format-badge--live" : "format-badge--soon"}`}>
+                        {fmt.live ? "Available" : "Roadmap"}
+                      </span>
+                    </header>
+
+                    <div class="format-version-strip" aria-label="Versions 1 through 5">
+                      {versions.map((version) => (
+                        <div class="format-version" data-version={version}>
+                          <div class="format-version__preview" aria-hidden="true">
+                            <svg viewBox="0 0 120 84" role="img">
+                              {(fmt.kind === "image" || fmt.kind === "photo") && (
+                                <>
+                                  <rect class="art-sky" width="120" height="84" rx="5" />
+                                  <circle class="art-sun v2-up" cx="91" cy="20" r="10" />
+                                  <path class="art-mountain" d="M0 67 27 38 47 56 68 27 120 70V84H0Z" />
+                                  <path class="art-foreground v3-up" d="M0 69 24 55 46 68 78 46 120 65V84H0Z" />
+                                  <rect class="art-lockup v4-up" x="10" y="10" width="34" height="5" rx="2.5" />
+                                  <rect class="art-lockup v5-up" x="10" y="19" width="22" height="3" rx="1.5" />
+                                </>
+                              )}
+                              {(fmt.kind === "layers" || fmt.kind === "canvas") && (
+                                <>
+                                  <rect class="canvas-sheet" x="13" y="8" width="94" height="68" rx="4" />
+                                  <rect class="canvas-block" x="22" y="17" width="35" height="42" rx="2" />
+                                  <rect class="canvas-title v2-up" x="64" y="18" width="31" height="7" rx="2" />
+                                  <rect class="canvas-copy v3-up" x="64" y="31" width="24" height="3" rx="1.5" />
+                                  <rect class="canvas-copy v3-up" x="64" y="38" width="30" height="3" rx="1.5" />
+                                  <circle class="canvas-accent v4-up" cx="39" cy="38" r="12" />
+                                  <rect class="canvas-footer v5-up" x="22" y="64" width="73" height="4" rx="2" />
+                                </>
+                              )}
+                              {fmt.kind === "vector" && (
+                                <>
+                                  <path class="vector-shape" d="M34 18h36c18 0 25 10 25 23S88 64 70 64H49c-14 0-21-7-21-18 0-10 7-17 21-17h25" />
+                                  <circle class="vector-node v2-up" cx="34" cy="18" r="5" />
+                                  <circle class="vector-node v3-up" cx="95" cy="41" r="5" />
+                                  <path class="vector-cut v4-up" d="m50 29 20 35" />
+                                  <circle class="vector-dot v5-up" cx="70" cy="64" r="7" />
+                                </>
+                              )}
+                              {(fmt.kind === "scene" || fmt.kind === "mesh") && (
+                                <>
+                                  <path class="mesh-face" d="m31 30 32-16 28 17-31 18Z" />
+                                  <path class="mesh-side v2-up" d="m31 30 29 19v27L31 56Z" />
+                                  <path class="mesh-side mesh-side--light v2-up" d="m60 49 31-18v27L60 76Z" />
+                                  <path class="mesh-wire v3-up" d="m31 30 60 28M63 14l-3 62M31 56l60-25" />
+                                  <circle class="mesh-orbit v4-up" cx="60" cy="46" r="36" />
+                                  <path class="mesh-light v5-up" d="m96 10-8 12m15-5-12 8" />
+                                </>
+                              )}
+                              {fmt.kind === "cad" && (
+                                <>
+                                  <path class="cad-body" d="M21 29 54 12l45 22-34 19-44-20Z" />
+                                  <path class="cad-side v2-up" d="m21 33 44 20v20L21 52Z" />
+                                  <path class="cad-side cad-side--light v2-up" d="m65 53 34-19v19L65 73Z" />
+                                  <circle class="cad-port v3-up" cx="39" cy="49" r="5" />
+                                  <circle class="cad-port v4-up" cx="81" cy="50" r="4" />
+                                  <path class="cad-dimension v5-up" d="M16 76h88M16 72v8m88-8v8" />
+                                </>
+                              )}
+                            </svg>
+                          </div>
+                          <span>v{version}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <footer class="format-story__footer">
+                      <span>{fmt.detail}</span>
+                      <strong>{fmt.change}</strong>
+                    </footer>
+                  </article>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div class="formats-callout">
@@ -485,7 +588,7 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
           gsap.utils.toArray(".section-reveal").forEach((section) => {
             gsap.from(
               (section as Element).querySelectorAll(
-                "h2, .pill, .section-copy, .why-card, .panel, .format-card, .step, .button, .formats-callout, .step-arrow"
+                "h2, .pill, .section-copy, .why-card, .panel, .format-marquee, .step, .button, .formats-callout, .step-arrow"
               ),
               {
                 autoAlpha: 0,
@@ -503,50 +606,6 @@ const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkS
         },
       );
 
-      // Debug tuner (only active when showMockupTuner = true)
-      const unitMap: Record<string, string> = {
-        "--mockup-width-vw": "vw",
-        "--mockup-max-width": "px",
-        "--mockup-bottom": "px",
-        "--mockup-perspective": "px",
-        "--mockup-rotate-x": "deg",
-        "--mockup-rotate-y": "deg",
-        "--mockup-rotate-z": "deg",
-        "--mockup-shadow-y": "px",
-        "--mockup-shadow-blur": "px",
-        "--mockup-shadow-opacity": "",
-        "--mockup-border-width": "px",
-        "--mockup-lighting-intensity": "",
-        "--hero-height": "px",
-      };
-
-      const controls = Array.from(document.querySelectorAll<HTMLInputElement>(".debug-panel input"));
-      const output = document.querySelector(".debug-output");
-      const mockupDashboard = document.querySelector<HTMLElement>(".hero-mockup > .mockup-plane");
-
-      function updateDebugOutput() {
-        if (!output || !mockupDashboard || controls.length === 0) return;
-        const values = controls.map((control) => {
-          const name = control.dataset.var ?? "";
-          const unit = unitMap[name] ?? "";
-          document.documentElement.style.setProperty(name, `${control.value}${unit}`);
-          return `${name}: ${control.value}${unit};`;
-        });
-        const current = Object.fromEntries(
-          controls.map((control) => [control.dataset.var, Number(control.value)]),
-        );
-        gsap.set(mockupDashboard, {
-          rotationX: current["--mockup-rotate-x"],
-          rotationY: current["--mockup-rotate-y"],
-          rotationZ: current["--mockup-rotate-z"],
-          y: 0,
-          transformPerspective: current["--mockup-perspective"],
-        });
-        output.textContent = `:root {\n  ${values.join("\n  ")}\n}`;
-      }
-
-      controls.forEach((control) => control.addEventListener("input", updateDebugOutput));
-      updateDebugOutput();
     </script>
   </body>
 </html>
