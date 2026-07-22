@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Santi-49/Chronicle/compare/v0.3.0...v0.4.0) (2026-07-22)
+
+
+### Features
+
+* Enhance packaging for cross-platform support and update documen… ([cd1b307](https://github.com/Santi-49/Chronicle/commit/cd1b307e095da183237744713c2f782a5470757a))
+
 ## [0.3.0](https://github.com/Santi-49/Chronicle/compare/v0.2.0...v0.3.0) (2026-07-21)
 
 
