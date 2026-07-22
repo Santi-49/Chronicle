@@ -1,11 +1,24 @@
 ---
 import { landingContent } from "../content";
 import "../styles/global.css";
-import chronicleMarkDark from "../../../../packages/brand/assets/chronicle-mark-dark.svg?url";
 
 const content = landingContent;
-const useExportedMockup = true;
-const showMockupTuner = false;
+// Inline the SVG mark as a data URI so we don't need the brand package path at build time
+const chronicleMarkSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none"><path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/><path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/><circle cx="38" cy="12" r="6" fill="#a6c8ff"/><circle cx="39" cy="39" r="5" fill="#78a9ff"/></svg>`;
+const chronicleMarkUrl = `data:image/svg+xml,${encodeURIComponent(chronicleMarkSvg)}`;
+
+const formatShowcase = [
+  { ext: "PNG", filename: "campaign.png", kind: "image", profession: "Graphic designer", detail: "Campaign artwork", change: "Palette, crop, and lockup refined" },
+  { ext: "JPG", filename: "hero-shoot.jpg", kind: "photo", profession: "Photographer", detail: "Photography export", change: "Light, colour, and framing evolved" },
+  { ext: "PSD", filename: "launch-poster.psd", kind: "layers", profession: "Visual designer", detail: "Layered design document", change: "Five passes from layout to final" },
+  { ext: "PSB", filename: "expo-wall.psb", kind: "canvas", profession: "Exhibition designer", detail: "Large-format canvas", change: "Composition built panel by panel" },
+  { ext: "SVG", filename: "brand-mark.svg", kind: "vector", profession: "Brand designer", detail: "Editable vector artwork", change: "Geometry simplified across revisions" },
+  { ext: "BLEND", filename: "studio-scene.blend", kind: "scene", profession: "Game environment artist", detail: "Blender scene", change: "Model, materials, lights, and camera" },
+  { ext: "OBJ", filename: "chair-study.obj", kind: "mesh", profession: "3D artist", detail: "3D model", change: "Shape and surface refined" },
+  { ext: "STEP", filename: "enclosure.step", kind: "cad", profession: "Architect or product designer", detail: "CAD model", change: "Body, ports, edges, and fasteners" },
+];
+
+const versions = [1, 2, 3, 4, 5];
 ---
 
 <!doctype html>
@@ -15,14 +28,14 @@ const showMockupTuner = false;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="A dark landing page template for optimization software with a tilted app dashboard and demo CTA."
+      content="Chronicle keeps a clear history of your creative images, explains what changed in plain English, and helps you find or restore any version."
     />
-    <title>{content.productName} | Optimization Landing Template</title>
+    <title>{content.productName} | Version history for creative work</title>
   </head>
   <body>
     <header class="site-header" aria-label="Site header">
-      <a class="brand" href="#top" aria-label={`${content.productName} home`}>
-        <img class="brand__icon" src={chronicleMarkDark} alt="" />
+      <a class="brand" href="#top" aria-label="Chronicle home">
+        <img class="brand__icon" src={chronicleMarkUrl} alt="" width="26" height="26" />
         {content.productName}
       </a>
       <nav class="nav" aria-label="Primary navigation">
@@ -31,87 +44,234 @@ const showMockupTuner = false;
         ))}
       </nav>
       <div class="nav-actions">
-        <a class="login" href={content.appUrl}>Log in</a>
-        <a class="book" href={content.appUrl}>Try the app</a>
+        <a class="login" href={content.githubUrl} target="_blank" rel="noopener noreferrer">Star on GitHub</a>
+        <a class="book" href={content.appUrl} target="_blank" rel="noopener noreferrer">Download</a>
       </div>
     </header>
 
     <main id="top">
+      <!-- ── HERO ─────────────────────────────────────────────────────────── -->
       <div class="hero-stage">
         <section class="hero" aria-labelledby="hero-title">
           <div class="hero-copy">
+            <div class="hero-badge">{content.eyebrow}</div>
             <h1 id="hero-title">{content.headline}</h1>
             <p>{content.subheadline}</p>
             <div class="hero-actions">
-              <a class="button button--primary" href={content.appUrl}>{content.primaryCta}</a>
-              <a class="button button--secondary" href="#why">{content.secondaryCta}</a>
+              <a class="button button--primary" href={content.appUrl} target="_blank" rel="noopener noreferrer">{content.primaryCta}</a>
+              <a class="button button--secondary" href="#how">{content.secondaryCta}</a>
             </div>
-          </div>
-        </section>
 
-        <section class="mockup-section" aria-label="Tilted app dashboard preview">
-          <div class="hero-mockup hero-mockup--exported" hidden={!useExportedMockup}>
-            <img class="mockup-export" src="/exports/tilted-app-mockup.png" alt="Optima app dashboard preview" />
+            <figure class="hero-mockup" aria-labelledby="product-demo-caption">
+              <button class="mockup-plane" type="button" aria-label="Open the Chronicle demo video in full screen" data-fullscreen-trigger>
+                <video
+                  src="/landing-video.mp4"
+                  poster="/chronicle-home.png"
+                  width="1919"
+                  height="1029"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                  preload="metadata"
+                  aria-label="Chronicle capturing, explaining, finding, and restoring versions in a demo project"
+                  data-product-demo
+                ></video>
+                <span class="mockup-fullscreen">Open full screen</span>
+              </button>
+              <figcaption id="product-demo-caption">A real Chronicle workflow using demo project data. Select the video to watch full screen.</figcaption>
+            </figure>
           </div>
-
-          <div class="hero-mockup hero-mockup--live" hidden={useExportedMockup}>
-            <div class="mockup-plane">
-              <img src="/app.png" alt="Optima app dashboard preview" />
-            </div>
-          </div>
-
-          {showMockupTuner && (
-            <aside class="debug-panel debug-panel--hero" aria-labelledby="debug-title">
-              <h2 id="debug-title">3D Tuner</h2>
-              <p>Adjust the mockup live and copy the printed values.</p>
-              <div class="debug-grid">
-                <label>Width vw <input data-var="--mockup-width-vw" type="range" min="40" max="100" step="1" value="85" /></label>
-                <label>Max width px <input data-var="--mockup-max-width" type="range" min="700" max="1600" step="10" value="1260" /></label>
-                <label>Bottom px <input data-var="--mockup-bottom" type="range" min="-80" max="260" step="1" value="131" /></label>
-                <label>Perspective <input data-var="--mockup-perspective" type="range" min="600" max="2400" step="10" value="1200" /></label>
-                <label>Rotate X <input data-var="--mockup-rotate-x" type="range" min="-45" max="45" step="0.5" value="37" /></label>
-                <label>Rotate Y <input data-var="--mockup-rotate-y" type="range" min="-45" max="45" step="0.5" value="12" /></label>
-                <label>Rotate Z <input data-var="--mockup-rotate-z" type="range" min="-18" max="18" step="0.1" value="-2.7" /></label>
-                <label>Shadow Y <input data-var="--mockup-shadow-y" type="range" min="0" max="90" step="1" value="34" /></label>
-                <label>Shadow blur <input data-var="--mockup-shadow-blur" type="range" min="0" max="160" step="1" value="106" /></label>
-                <label>Shadow opacity <input data-var="--mockup-shadow-opacity" type="range" min="0" max="1" step="0.01" value="0.56" /></label>
-                <label>Border width <input data-var="--mockup-border-width" type="range" min="0" max="6" step="0.05" value="0.05" /></label>
-                <label>Lighting <input data-var="--mockup-lighting-intensity" type="range" min="0" max="0.35" step="0.01" value="0" /></label>
-                <label>Hero height <input data-var="--hero-height" type="range" min="700" max="1800" step="10" value="1500" /></label>
-              </div>
-              <pre class="debug-output" aria-live="polite"></pre>
-            </aside>
-          )}
         </section>
       </div>
 
-      <section class="why section-reveal" id="why" aria-labelledby="why-title">
-        <p class="pill">Why choose us</p>
-        <h2 id="why-title">{content.whyTitle}</h2>
-        <p class="section-copy">{content.whySubtitle}</p>
+      <!-- ── PROBLEM / OUTCOME ──────────────────────────────────────────── -->
+        <section class="compare-section section-reveal" id="why" aria-labelledby="why-title">
+          <div class="compare-heading">
+            <p class="pill">Why Chronicle</p>
+            <h2 id="why-title">{content.whyTitle}</h2>
+            <p class="section-copy">{content.whySubtitle}</p>
+          </div>
+          <div class="compare-wrap">
+
+            <!-- ══ LEFT PANEL — WITHOUT CHRONICLE ══ -->
+            <div class="compare-panel compare-panel--before" aria-label="Without Chronicle">
+              <div class="compare-label compare-label--before">Without Chronicle</div>
+
+              <!-- file explorer chaos -->
+              <div class="cmp-explorer">
+                <div class="cmp-explorer-bar">
+                  <span class="cmp-explorer-title">Designs / logo</span>
+                </div>
+                <div class="cmp-file-list">
+                  <div class="cmp-file cmp-file--dim">logo_final.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_final_v2.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_final_REAL.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_v3_use_this.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_v3_approved.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_approved_FINAL.png</div>
+                  <div class="cmp-file cmp-file--dim">logo_approved_FINAL2.png</div>
+                  <div class="cmp-file cmp-file--red">logo_FINAL_v8_USE_THIS_ONE.png</div>
+                </div>
+              </div>
+
+              <!-- pain points -->
+              <div class="cmp-pain-list">
+                <div class="cmp-pain">
+                  <span class="cmp-pain-icon">✗</span>
+                  <span>Which one is actually current?</span>
+                </div>
+                <div class="cmp-pain">
+                  <span class="cmp-pain-icon">✗</span>
+                  <span>What changed between v3 and v5?</span>
+                </div>
+                <div class="cmp-pain">
+                  <span class="cmp-pain-icon">✗</span>
+                  <span>Where's the one with the tagline?</span>
+                </div>
+                <div class="cmp-pain">
+                  <span class="cmp-pain-icon">✗</span>
+                  <span>Open both. Zoom in. Compare manually.</span>
+                </div>
+              </div>
+
+              <div class="cmp-cost">
+                <span class="cmp-cost-num">Manual</span>
+                <span class="cmp-cost-label">Open files one by one and compare them yourself</span>
+              </div>
+            </div>
+
+            <!-- ══ DIVIDER — CHRONICLE LOGO ══ -->
+            <div class="compare-divider" aria-hidden="true">
+              <div class="cmp-divider-line"></div>
+              <div class="cmp-logo-badge">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="32" height="32">
+                  <path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/>
+                  <path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/>
+                  <circle cx="38" cy="12" r="6" fill="#a6c8ff"/>
+                  <circle cx="39" cy="39" r="5" fill="#78a9ff"/>
+                </svg>
+              </div>
+              <div class="cmp-divider-line"></div>
+            </div>
+
+            <!-- ══ RIGHT PANEL — WITH CHRONICLE ══ -->
+            <div class="compare-panel compare-panel--after" aria-label="With Chronicle">
+              <div class="compare-label compare-label--after">With Chronicle</div>
+
+              <!-- clean timeline -->
+              <div class="cmp-timeline">
+                <div class="cmp-tl-header">
+                  <span class="cmp-tl-filename">logo.png</span>
+                  <span class="cmp-tl-badge">8 versions · watching</span>
+                </div>
+                <div class="cmp-tl-rows">
+                  <div class="cmp-tl-row cmp-tl-row--current">
+                    <div class="cmp-tl-dot cmp-tl-dot--current"></div>
+                    <div class="cmp-tl-info">
+                      <span class="cmp-tl-ver">v8 <span class="cmp-tl-now">now</span></span>
+                      <span class="cmp-tl-diff">Background → teal · tagline removed</span>
+                    </div>
+                    <span class="cmp-tl-time">2m ago</span>
+                  </div>
+                  <div class="cmp-tl-row">
+                    <div class="cmp-tl-dot"></div>
+                    <div class="cmp-tl-info">
+                      <span class="cmp-tl-ver">v7</span>
+                      <span class="cmp-tl-diff">Mark scaled up 12%</span>
+                    </div>
+                    <span class="cmp-tl-time">yesterday</span>
+                  </div>
+                  <div class="cmp-tl-row">
+                    <div class="cmp-tl-dot"></div>
+                    <div class="cmp-tl-info">
+                      <span class="cmp-tl-ver">v6</span>
+                      <span class="cmp-tl-diff">Tagline font weight → 700</span>
+                    </div>
+                    <span class="cmp-tl-time">3d ago</span>
+                  </div>
+                  <div class="cmp-tl-row">
+                    <div class="cmp-tl-dot"></div>
+                    <div class="cmp-tl-info">
+                      <span class="cmp-tl-ver">v5</span>
+                      <span class="cmp-tl-diff">Exposure +0.8 EV · bg desaturated</span>
+                    </div>
+                    <span class="cmp-tl-time">5d ago</span>
+                  </div>
+                </div>
+                <!-- search bar -->
+                <div class="cmp-search">
+                  <span class="cmp-search-icon">⌕</span>
+                  <span class="cmp-search-text">"version with the tagline" → v6 found instantly</span>
+                </div>
+              </div>
+
+              <!-- gains -->
+              <div class="cmp-gain-list">
+                <div class="cmp-gain">
+                  <span class="cmp-gain-icon">✓</span>
+                  <span>Every version auto-captured on save</span>
+                </div>
+                <div class="cmp-gain">
+                  <span class="cmp-gain-icon">✓</span>
+                  <span>AI explains exactly what changed</span>
+                </div>
+                <div class="cmp-gain">
+                  <span class="cmp-gain-icon">✓</span>
+                  <span>Search by meaning, not filename</span>
+                </div>
+                <div class="cmp-gain">
+                  <span class="cmp-gain-icon">✓</span>
+                  <span>One-click restore any version</span>
+                </div>
+              </div>
+
+              <div class="cmp-cost cmp-cost--saved">
+                <span class="cmp-cost-num">Clear</span>
+                <span class="cmp-cost-label">Find the right version from what you remember</span>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      <!-- ── PROOF BAR ───────────────────────────────────────────────────── -->
+      <div class="proof-bar" aria-label="Key facts">
+        <span><strong>8 creative formats</strong> targeted for the challenge release</span>
+        <span class="proof-divider" aria-hidden="true"></span>
+        <span><strong>Local</strong> version library</span>
+        <span class="proof-divider" aria-hidden="true"></span>
+        <span><strong>No account</strong> required</span>
+        <span class="proof-divider" aria-hidden="true"></span>
+        <span>Changes explained in <strong>plain English</strong></span>
+      </div>
+
+      <!-- ── HOW IT WORKS ──────────────────────────────────────────────── -->
+      <section class="why section-reveal" id="how" aria-labelledby="how-title">
+        <p class="pill">How it works</p>
+        <h2 id="how-title">Choose a folder. Keep creating.</h2>
+        <p class="section-copy">Chronicle works in the background, so a clear history does not require a new creative process.</p>
         <div class="why-grid">
           {content.cards.map((card) => (
             <article class="why-card">
-              <span class="card-icon" aria-hidden="true">⌁</span>
+              <span class="card-icon" aria-hidden="true">{card.icon}</span>
               <h3>{card.title}</h3>
               <p>{card.text}</p>
-              <div class="card-meter">
-                <span>Performance</span>
-                <strong>100%</strong>
-                <i></i>
-              </div>
             </article>
           ))}
         </div>
       </section>
 
-      <section class="power section-reveal" id="features" aria-labelledby="power-title">
+      <!-- ── DISTINCTIVE WORKFLOW ──────────────────────────────────────── -->
+      <section class="power section-reveal" id="innovation" aria-labelledby="power-title">
         <h2 id="power-title">{content.featuresTitle}</h2>
         <p class="section-copy">{content.featuresSubtitle}</p>
         <div class="bento">
+
+          <!-- Panel 1 — Asset Timeline (large) -->
           <article class="panel panel--large">
             <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
+              <span aria-hidden="true">01</span>
               <h3>{content.featurePanels[0]}</h3>
             </div>
             <div class="metrics-panel">
@@ -119,111 +279,239 @@ const showMockupTuner = false;
                 <div class="dashboard dashboard--compact">
                   <div class="dash-main">
                     <div class="dash-top">
-                      <h3>Overview</h3>
-                      <div class="search">Search scenarios...</div>
+                      <h3>Assets</h3>
+                      <div class="search">Search your history...</div>
                     </div>
-                    <h4>Recent Optimizations</h4>
+                    <h4>logo-brand.png</h4>
                     <div class="stat-grid">
-                      <div><span>Total Runs</span><strong>6</strong></div>
-                      <div><span>Successful Plans</span><strong>3</strong></div>
-                      <div><span>Failed Plans</span><strong>1</strong></div>
-                      <div><span>Avg Solve Time</span><strong>5m 32s</strong></div>
+                      <div><span>Versions</span><strong>8</strong></div>
+                      <div><span>Last saved</span><strong>2m ago</strong></div>
+                      <div><span>Size</span><strong>246 KB</strong></div>
+                      <div><span>Status</span><strong>Watching</strong></div>
                     </div>
                     <div class="table">
-                      <span>Name</span><span>Status</span><span>Updated</span><span>Version</span>
-                      <b>capacity-review</b><i>Process</i><em>26/01/2026</em><small>v1.2.3</small>
-                      <b>demand-shift</b><i>Ready</i><em>06/05/2026</em><small>v1.2.0</small>
+                      <span>Version</span><span>Changed</span><span>Date</span><span>Size</span>
+                      <b>v8 (current)</b><i>Summary ready</i><em>Today 11:42</em><small>246 KB</small>
+                      <b>v7</b><i>Summary ready</i><em>Yesterday</em><small>251 KB</small>
                     </div>
                   </div>
                 </div>
               </div>
               <div class="score-panel">
                 <div class="tabs">
-                  <span>Performance</span>
-                  <span>Accessibility</span>
-                  <span>Best Practices</span>
-                  <span>SEO</span>
+                  <span>Summary</span>
+                  <span>Tags</span>
+                  <span>Changes</span>
+                  <span>Restore</span>
                 </div>
-                <div class="score-row">
-                  <b>100</b><b>100</b><b>100</b><b>100</b>
+                <div class="ai-diff-card">
+                  <div class="ai-diff-label">What changed · v7 to v8</div>
+                  <p class="ai-diff-text">"Background changed from navy to teal. Tagline text removed from lower-left. Logo mark scaled up 12%."</p>
+                  <div class="ai-tags">
+                    <span>background-change</span>
+                    <span>text-removed</span>
+                    <span>scale</span>
+                  </div>
                 </div>
-                <ul class="audit-list">
-                  <li><span>First Contentful Paint</span><strong>0.8s</strong></li>
-                  <li><span>Largest Contentful Paint</span><strong>1.2s</strong></li>
-                  <li><span>Total Blocking Time</span><strong>0ms</strong></li>
-                  <li><span>Decision Index</span><strong>Fast</strong></li>
-                </ul>
               </div>
             </div>
           </article>
 
+          <!-- Panel 2: plain-English explanation -->
           <article class="panel panel--deploy">
             <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
+              <span aria-hidden="true">02</span>
               <h3>{content.featurePanels[1]}</h3>
             </div>
-            <div class="terminal">
-              <span></span><span></span><span></span>
-              <pre>&gt; optimize run demo</pre>
-            </div>
-            <div class="pipeline">
-              <b>✓</b><b>✓</b><b>3</b><b>4</b>
+            <div class="change-story">
+              <span>Version 7 to version 8</span>
+              <blockquote>“Background changed from navy to teal. The tagline was removed and the logo was made larger.”</blockquote>
             </div>
           </article>
 
-          <article class="panel">
+          <!-- Panel 3: restoration -->
+          <article class="panel panel--restore">
             <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
+              <span aria-hidden="true">03</span>
               <h3>{content.featurePanels[2]}</h3>
             </div>
-            <div class="tree">
-              <p>src</p>
-              <p>├ components</p>
-              <p>├ scenarios</p>
-              <p>├ constraints</p>
-              <p>└ demo.tsx</p>
+            <div class="restore-demo">
+              <span>Selected version</span>
+              <strong>v6 · Original tagline</strong>
+              <button type="button" disabled>Restore this version</button>
             </div>
           </article>
 
-          <article class="panel">
-            <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
-              <h3>{content.featurePanels[3]}</h3>
-            </div>
-            <div class="usage-chart">
-              <span style="--h: 28%"></span>
-              <span style="--h: 45%"></span>
-              <span style="--h: 66%"></span>
-              <span style="--h: 53%"></span>
-              <span style="--h: 38%"></span>
-            </div>
-          </article>
-
+          <!-- Panel 4: natural search -->
           <article class="panel panel--wide">
             <div class="panel-heading">
-              <span aria-hidden="true">▧</span>
+              <span aria-hidden="true">04</span>
               <h3>{content.featurePanels[4]}</h3>
             </div>
-            <div class="globe">
-              <span></span>
-              <span></span>
-              <span></span>
-              <div class="globe-stat globe-stat--one">1094<br /><small>runs</small></div>
-              <div class="globe-stat globe-stat--two">99.8%<br /><small>uptime</small></div>
+            <div class="search-demo">
+              <div class="search-query">"version with the tagline"</div>
+              <div class="search-results">
+                <div class="search-result search-result--match">
+                  <span class="result-name">logo-brand.png</span>
+                  <span class="result-version">v6</span>
+                  <span class="result-score">98%</span>
+                </div>
+                <div class="search-result">
+                  <span class="result-name">logo-brand.png</span>
+                  <span class="result-version">v5</span>
+                  <span class="result-score">91%</span>
+                </div>
+                <div class="search-result">
+                  <span class="result-name">banner-social.png</span>
+                  <span class="result-version">v3</span>
+                  <span class="result-score">74%</span>
+                </div>
+              </div>
             </div>
           </article>
+
         </div>
       </section>
 
-      <section class="templates section-reveal" id="demo" aria-labelledby="templates-title">
-        <h2 id="templates-title">Built to become your final demo shell.</h2>
-        <p>
-          Keep the visual system. Replace the product name, dashboard labels, and app link when the hackathon direction is clear.
-        </p>
-        <a class="button button--primary" href={content.appUrl}>Open app frontend</a>
+      <!-- ── FORMATS ────────────────────────────────────────────────────── -->
+      <section class="formats-section section-reveal" id="formats" aria-labelledby="formats-title">
+        <div class="formats-heading">
+          <p class="pill">Format support</p>
+          <h2 id="formats-title">{content.formatsTitle}</h2>
+          <p class="section-copy">{content.formatsSubtitle}</p>
+        </div>
+
+        <div class="format-marquee" aria-label="Creative file formats shown across five versions">
+          <div class="format-marquee__track">
+            {[false, true].map((duplicate) => (
+              <div class="format-marquee__group" aria-hidden={duplicate ? "true" : undefined}>
+                {formatShowcase.map((fmt) => (
+                  <article class={`format-story format-story--${fmt.kind}`} aria-label={`${fmt.ext}: ${fmt.change}`}>
+                    <header class="format-story__header">
+                      <div>
+                        <span class="format-story__ext">.{fmt.ext.toLowerCase()}</span>
+                        <strong class="format-story__profession">{fmt.profession}</strong>
+                        <small class="format-story__filename">{fmt.filename}</small>
+                      </div>
+                    </header>
+
+                    <div class="format-version-strip" aria-label="Versions 1 through 5">
+                      {versions.map((version) => (
+                        <div class="format-version" data-version={version}>
+                          <div class="format-version__preview" aria-hidden="true">
+                            <svg viewBox="0 0 120 84" role="img">
+                              {(fmt.kind === "image" || fmt.kind === "photo") && (
+                                <>
+                                  <rect class="art-sky" width="120" height="84" rx="5" />
+                                  <circle class="art-sun v2-up" cx="91" cy="20" r="10" />
+                                  <path class="art-mountain" d="M0 67 27 38 47 56 68 27 120 70V84H0Z" />
+                                  <path class="art-foreground v3-up" d="M0 69 24 55 46 68 78 46 120 65V84H0Z" />
+                                  <rect class="art-lockup v4-up" x="10" y="10" width="34" height="5" rx="2.5" />
+                                  <rect class="art-lockup v5-up" x="10" y="19" width="22" height="3" rx="1.5" />
+                                </>
+                              )}
+                              {(fmt.kind === "layers" || fmt.kind === "canvas") && (
+                                <>
+                                  <rect class="canvas-sheet" x="13" y="8" width="94" height="68" rx="4" />
+                                  <rect class="canvas-block" x="22" y="17" width="35" height="42" rx="2" />
+                                  <rect class="canvas-title v2-up" x="64" y="18" width="31" height="7" rx="2" />
+                                  <rect class="canvas-copy v3-up" x="64" y="31" width="24" height="3" rx="1.5" />
+                                  <rect class="canvas-copy v3-up" x="64" y="38" width="30" height="3" rx="1.5" />
+                                  <circle class="canvas-accent v4-up" cx="39" cy="38" r="12" />
+                                  <rect class="canvas-footer v5-up" x="22" y="64" width="73" height="4" rx="2" />
+                                </>
+                              )}
+                              {fmt.kind === "vector" && (
+                                <>
+                                  <path class="vector-shape" d="M34 18h36c18 0 25 10 25 23S88 64 70 64H49c-14 0-21-7-21-18 0-10 7-17 21-17h25" />
+                                  <circle class="vector-node v2-up" cx="34" cy="18" r="5" />
+                                  <circle class="vector-node v3-up" cx="95" cy="41" r="5" />
+                                  <path class="vector-cut v4-up" d="m50 29 20 35" />
+                                  <circle class="vector-dot v5-up" cx="70" cy="64" r="7" />
+                                </>
+                              )}
+                              {(fmt.kind === "scene" || fmt.kind === "mesh") && (
+                                <>
+                                  <path class="mesh-face" d="m31 30 32-16 28 17-31 18Z" />
+                                  <path class="mesh-side v2-up" d="m31 30 29 19v27L31 56Z" />
+                                  <path class="mesh-side mesh-side--light v2-up" d="m60 49 31-18v27L60 76Z" />
+                                  <path class="mesh-wire v3-up" d="m31 30 60 28M63 14l-3 62M31 56l60-25" />
+                                  <circle class="mesh-orbit v4-up" cx="60" cy="46" r="36" />
+                                  <path class="mesh-light v5-up" d="m96 10-8 12m15-5-12 8" />
+                                </>
+                              )}
+                              {fmt.kind === "cad" && (
+                                <>
+                                  <path class="cad-body" d="M21 29 54 12l45 22-34 19-44-20Z" />
+                                  <path class="cad-side v2-up" d="m21 33 44 20v20L21 52Z" />
+                                  <path class="cad-side cad-side--light v2-up" d="m65 53 34-19v19L65 73Z" />
+                                  <circle class="cad-port v3-up" cx="39" cy="49" r="5" />
+                                  <circle class="cad-port v4-up" cx="81" cy="50" r="4" />
+                                  <path class="cad-dimension v5-up" d="M16 76h88M16 72v8m88-8v8" />
+                                </>
+                              )}
+                            </svg>
+                          </div>
+                          <span>v{version}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <footer class="format-story__footer">
+                      <span>{fmt.detail}</span>
+                      <strong>{fmt.change}</strong>
+                    </footer>
+                  </article>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ── TRUST AND EXECUTION ───────────────────────────────────────── -->
+      <section class="trust section-reveal" aria-labelledby="trust-title">
+        <div class="trust-copy">
+          <p class="pill">Made for real work</p>
+          <h2 id="trust-title">Your creative history stays yours.</h2>
+          <p class="section-copy">Chronicle saves every version on your computer, even while you are offline. AI is optional and uses your own provider key, stored securely on your device. If you save while offline, Chronicle adds the explanation when you reconnect. No account is required. If you choose to sign in, settings sync and encrypted key backup can be enabled separately.</p>
+        </div>
+        <div class="bob-story">
+          <span class="bob-story__label">Built with IBM Bob</span>
+          <h3>From first plan to working product.</h3>
+          <p>We used IBM Bob to plan Chronicle, build its core features, test real creative workflows, solve integration problems, and prepare the app for release.</p>
+          <a href={content.githubUrl} target="_blank" rel="noopener noreferrer">Explore the public project on GitHub</a>
+        </div>
+      </section>
+
+      <!-- ── DOWNLOAD ───────────────────────────────────────────────────── -->
+      <section class="templates section-reveal" id="download" aria-labelledby="download-title">
+        <p class="pill">Start your history</p>
+        <h2 id="download-title">{content.downloadTitle}</h2>
+        <p>{content.downloadSubtitle}</p>
+        <div class="hero-actions">
+          <a class="button button--primary" href={content.appUrl} target="_blank" rel="noopener noreferrer">{content.downloadCta}</a>
+          <a class="button button--secondary button--github" href={content.githubUrl} target="_blank" rel="noopener noreferrer" aria-label="Star Chronicle on GitHub and support the project">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+              <path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3-4.6-4.4 6.3-.9Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+            </svg>
+            {content.downloadSecondaryCta}
+          </a>
+        </div>
+        <p class="github-support">A star helps more creators and judges discover the project.</p>
       </section>
 
     </main>
+
+    <footer class="site-footer">
+      <span>Chronicle · Local-first creative version control</span>
+      <nav aria-label="Footer navigation">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms-and-services">Terms of Service</a>
+        <a href={content.githubUrl} target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </footer>
 
     <script>
       import gsap from "gsap";
@@ -232,13 +520,43 @@ const showMockupTuner = false;
       gsap.registerPlugin(ScrollTrigger);
 
       const mm = gsap.matchMedia();
+      const productDemo = document.querySelector("[data-product-demo]") as HTMLVideoElement | null;
+      const fullscreenTrigger = document.querySelector("[data-fullscreen-trigger]") as HTMLButtonElement | null;
+
+      fullscreenTrigger?.addEventListener("click", async () => {
+        if (!productDemo) return;
+
+        if (productDemo.requestFullscreen) {
+          try {
+            await productDemo.requestFullscreen();
+          } catch {
+            productDemo.controls = true;
+          }
+          return;
+        }
+
+        const iosVideo = productDemo as HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+        iosVideo.webkitEnterFullscreen?.();
+      });
+
+      document.addEventListener("fullscreenchange", () => {
+        if (productDemo) productDemo.controls = document.fullscreenElement === productDemo;
+      });
+
       mm.add(
         {
           reduceMotion: "(prefers-reduced-motion: reduce)",
           animate: "(prefers-reduced-motion: no-preference)",
         },
         (context) => {
-          if (context.conditions.reduceMotion) return;
+          if (context.conditions.reduceMotion) {
+            productDemo?.pause();
+            return;
+          }
+
+          productDemo?.play().catch(() => {
+            // The poster remains visible if the browser blocks autoplay.
+          });
 
           gsap.from(".site-header", {
             autoAlpha: 0,
@@ -247,7 +565,7 @@ const showMockupTuner = false;
             ease: "power3.out",
           });
 
-          gsap.from(".hero-copy > *, .hero-mockup", {
+          gsap.from(".hero-badge, .hero-copy > *, .hero-mockup", {
             autoAlpha: 0,
             y: 28,
             duration: 0.8,
@@ -255,69 +573,36 @@ const showMockupTuner = false;
             stagger: 0.08,
           });
 
+          gsap.from(".proof-bar span", {
+            autoAlpha: 0,
+            y: 12,
+            duration: 0.5,
+            ease: "power3.out",
+            stagger: 0.06,
+            scrollTrigger: { trigger: ".proof-bar", start: "top 88%" },
+          });
+
           gsap.utils.toArray(".section-reveal").forEach((section) => {
-            gsap.from(section.querySelectorAll("h2, .pill, .section-copy, .why-card, .panel, .button"), {
-              autoAlpha: 0,
-              y: 26,
-              duration: 0.62,
-              ease: "power3.out",
-              stagger: 0.05,
-              scrollTrigger: {
-                trigger: section,
-                start: "top 74%",
-              },
-            });
+            gsap.from(
+              (section as Element).querySelectorAll(
+                "h2, h3, .pill, .section-copy, .compare-wrap, .why-card, .panel, .format-marquee, .bob-story"
+              ),
+              {
+                autoAlpha: 0,
+                y: 26,
+                duration: 0.62,
+                ease: "power3.out",
+                stagger: 0.05,
+                scrollTrigger: {
+                  trigger: section as Element,
+                  start: "clamp(top 74%)",
+                },
+              }
+            );
           });
         },
       );
 
-      const unitMap = {
-        "--mockup-width-vw": "vw",
-        "--mockup-max-width": "px",
-        "--mockup-bottom": "px",
-        "--mockup-perspective": "px",
-        "--mockup-rotate-x": "deg",
-        "--mockup-rotate-y": "deg",
-        "--mockup-rotate-z": "deg",
-        "--mockup-shadow-y": "px",
-        "--mockup-shadow-blur": "px",
-        "--mockup-shadow-opacity": "",
-        "--mockup-border-width": "px",
-        "--mockup-lighting-intensity": "",
-        "--hero-height": "px",
-      };
-
-      const controls = Array.from(document.querySelectorAll(".debug-panel input"));
-      const output = document.querySelector(".debug-output");
-      const mockupDashboard = document.querySelector(".hero-mockup > .mockup-plane");
-
-      function updateDebugOutput() {
-        if (!output || !mockupDashboard || controls.length === 0) return;
-
-        const values = controls.map((control) => {
-          const name = control.dataset.var;
-          const unit = unitMap[name] ?? "";
-          document.documentElement.style.setProperty(name, `${control.value}${unit}`);
-          return `${name}: ${control.value}${unit};`;
-        });
-
-        const current = Object.fromEntries(
-          controls.map((control) => [control.dataset.var, Number(control.value)]),
-        );
-
-        gsap.set(mockupDashboard, {
-          rotationX: current["--mockup-rotate-x"],
-          rotationY: current["--mockup-rotate-y"],
-          rotationZ: current["--mockup-rotate-z"],
-          y: 0,
-          transformPerspective: current["--mockup-perspective"],
-        });
-
-        output.textContent = `:root {\n  ${values.join("\n  ")}\n}`;
-      }
-
-      controls.forEach((control) => control.addEventListener("input", updateDebugOutput));
-      updateDebugOutput();
     </script>
   </body>
 </html>
