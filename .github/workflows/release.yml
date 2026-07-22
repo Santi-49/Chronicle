@@ -55,9 +55,53 @@ jobs:
           $installer = Get-ChildItem apps/desktop/dist/Chronicle-Setup-*.exe -File
           if ($installer.Count -ne 1) { throw "Expected exactly one installer" }
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash.ToLowerInvariant()
-          "$hash  $($installer.Name)" | Set-Content apps/desktop/dist/SHA256SUMS.txt
+          "$hash  $($installer.Name)" | Set-Content apps/desktop/dist/SHA256SUMS-windows.txt
       - name: Attach installer to GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ needs.release-please.outputs.tag }}" apps/desktop/dist/Chronicle-Setup-*.exe apps/desktop/dist/SHA256SUMS.txt --clobber
+        run: gh release upload "${{ needs.release-please.outputs.tag }}" apps/desktop/dist/Chronicle-Setup-*.exe apps/desktop/dist/SHA256SUMS-windows.txt --clobber
+
+  attach-macos-installer:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    # Pin the standard Apple Silicon runner so the native sidecar architecture is deterministic.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: services/ai/pyproject.toml
+      - run: npm ci
+        working-directory: apps/desktop
+      - name: Verify release version
+        env:
+          CHRONICLE_RELEASE_TAG: ${{ needs.release-please.outputs.tag }}
+        run: python scripts/check_versions.py
+      - run: npm run package:mac
+        working-directory: apps/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - run: python scripts/smoke_ai_sidecar.py
+      - name: Write installer checksum
+        shell: bash
+        run: |
+          installers=(apps/desktop/dist/Chronicle-*-mac-*.dmg)
+          if [[ ${#installers[@]} -ne 1 || ! -f "${installers[0]}" ]]; then
+            echo "Expected exactly one macOS DMG" >&2
+            exit 1
+          fi
+          shasum -a 256 "${installers[0]}" > apps/desktop/dist/SHA256SUMS-macos.txt
+      - name: Attach installer to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ needs.release-please.outputs.tag }}" apps/desktop/dist/Chronicle-*-mac-*.dmg apps/desktop/dist/SHA256SUMS-macos.txt --clobber

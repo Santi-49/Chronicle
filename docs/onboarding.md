@@ -65,8 +65,8 @@ make package
 ```
 
 These are also Docker-free. `make build` creates the desktop production bundle in
-`apps/desktop/out/`. `make package` creates a Windows installer `.exe` in
-`apps/desktop/dist/`.
+`apps/desktop/out/`. `make package` creates a Windows installer `.exe`; on macOS,
+`make package-macos` creates a `.dmg`. Both are written to `apps/desktop/dist/`.
 
 ---
 
@@ -124,6 +124,7 @@ make ensure-electron               # repair missing Electron binary
 make run                           # desktop app
 make build                         # desktop build
 make package                       # Windows installer .exe
+make package-macos                # macOS installer .dmg (run on macOS)
 make typecheck                     # desktop TypeScript check
 make test-desktop                  # desktop tests
 make control-plane-up              # optional Docker backend + migrations

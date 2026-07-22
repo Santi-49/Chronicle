@@ -11,7 +11,9 @@
     "prebuild": "npm run generate-api-types",
     "build": "electron-vite build",
     "build:sidecar": "python ../../scripts/build_ai_sidecar.py",
-    "package": "npm run build:sidecar && npm run build && electron-builder --win nsis --x64 --publish never",
+    "package": "npm run package:windows",
+    "package:windows": "npm run build:sidecar && npm run build && electron-builder --win nsis --x64 --publish never",
+    "package:mac": "npm run build:sidecar && npm run build && electron-builder --mac dmg --publish never",
     "package:unpacked": "npm run build:sidecar && npm run build && electron-builder --win --x64 --dir --publish never",
     "preview": "electron-vite preview",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
@@ -37,10 +39,6 @@
         "to": "chronicle-app-icon.png"
       },
       {
-        "from": "build/sidecar/chronicle-ai-sidecar.exe",
-        "to": "ai/chronicle-ai-sidecar.exe"
-      },
-      {
         "from": "../../packages/prompts/version-annotation.md",
         "to": "ai/prompts/version-annotation.md"
       }
@@ -48,10 +46,31 @@
     "asar": true,
     "win": {
       "icon": "../../packages/brand/assets/chronicle-app-icon.ico",
+      "extraResources": [
+        {
+          "from": "build/sidecar/chronicle-ai-sidecar.exe",
+          "to": "ai/chronicle-ai-sidecar.exe"
+        }
+      ],
       "target": [
         "nsis"
       ],
       "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "icon": "../../packages/brand/assets/png/chronicle-app-icon-dark-512.png",
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "target": [
+        "dmg"
+      ],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+      "extraResources": [
+        {
+          "from": "build/sidecar/chronicle-ai-sidecar",
+          "to": "ai/chronicle-ai-sidecar"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,

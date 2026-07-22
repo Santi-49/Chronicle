@@ -114,8 +114,8 @@ This is the MVP path and the one to use for normal Chronicle development. It doe
 require Docker, a backend, or an account.
 
 **Development requires:** Node.js 20+, Python 3.12, and GNU make. Python runs the local
-AI service in development and builds its self-contained Windows sidecar. The installed
-Windows app bundles that sidecar and does **not** require system Python.
+AI service in development and builds a self-contained native sidecar. The installed Windows and
+macOS apps bundle that sidecar and do **not** require system Python.
 On Windows, run make from Git Bash or WSL.
 
 ```bash
@@ -123,6 +123,7 @@ make setup      # install desktop dependencies and prepare demo-assets/workspace
 make run        # open Electron with hot reload
 make build      # build the desktop app
 make package    # create a Windows installer .exe in apps/desktop/dist/
+make package-macos # on macOS, create a .dmg in apps/desktop/dist/
 ```
 
 Useful check:
@@ -242,9 +243,10 @@ browse live projects/timelines/version details, and inspect queued AI work. A se
 unsigned Windows installer now bundles the validated Gemini AI sidecar. The final three-pass
 clean-machine journey and real-editor Windows smoke record remain open.
 
-Known packaging limitations: the unsigned installer can trigger Windows SmartScreen; the MVP
+Known packaging limitations: the unsigned Windows installer can trigger SmartScreen and the
+unsigned/unnotarized macOS DMG can trigger Gatekeeper; the MVP
 bundle contains the live-validated Gemini integration, while other provider integrations still
-require a development install; macOS packaging/signing and in-app auto-update remain post-MVP.
+require a development install; signing, Apple notarization, and in-app auto-update remain post-MVP.
 See [release and version policy](docs/releasing.md) and the
 [MVP-12 acceptance record](docs/mvp-12-acceptance.md).
 

@@ -18,7 +18,7 @@ ENV_FILE := .env
 	setup setup-all setup-env setup-desktop setup-landing setup-backend setup-ai ensure-electron \
 	run run-desktop run-all run-ai app ai \
 	backend run-backend dev stop restart control-plane-up control-plane-down control-plane-health \
-	build build-desktop build-all build-landing build-backend package package-desktop package-unpacked installer \
+	build build-desktop build-all build-landing build-backend package package-desktop package-macos package-unpacked installer \
 	typecheck test test-local test-desktop test-ai smoke-ai lint check \
 	migrate makemigration seed generate-types generate-ai-types clean \
 	demo-assets demo-reset demo-set demo-next demo-status demo-clean
@@ -107,6 +107,10 @@ package: package-desktop
 package-desktop: ensure-electron
 	$(NPM) --prefix $(DESKTOP_DIR) run package
 	echo "Desktop app packaged in $(DESKTOP_DIR)/dist"
+
+package-macos: ensure-electron
+	$(NPM) --prefix $(DESKTOP_DIR) run package:mac
+	echo "macOS app packaged in $(DESKTOP_DIR)/dist"
 
 package-unpacked: ensure-electron
 	$(NPM) --prefix $(DESKTOP_DIR) run package:unpacked
@@ -206,11 +210,12 @@ help:
 	$(info   make run            Run the Chronicle desktop app with hot reload)
 	$(info   make build          Build the desktop app)
 	$(info   make package        Build a Windows installer .exe)
+	$(info   make package-macos  Build a macOS installer .dmg (run on macOS))
 	$(info   make typecheck      Type-check the desktop app)
 	$(info   make ensure-electron Download/repair the Electron binary)
 	$(info )
 	$(info Local AI service (services/ai, required for AI features):)
-	$(info   make setup-ai       Install the AI service + Gemini demo provider)
+	$(info   make setup-ai       Install the AI service + shipped providers)
 	$(info   make run-ai         Run the loopback AI service on 127.0.0.1:8765)
 	$(info   make test-ai        Run provider-mocked AI service tests)
 	$(info   make smoke-ai       Live smoke test the annotation pipeline (needs a real key))

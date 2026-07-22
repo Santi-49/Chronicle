@@ -719,7 +719,7 @@ output-schema change. AI work stays async.
 first-version descriptions still pass on the demo fixtures through the running service;
 generated TS types compile; an unsupported format returns a typed error.
 
-### [ ] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
+### [X] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-01
@@ -1052,7 +1052,8 @@ identity decision the team must own.
 
 > MVP-12 now supplies the build/version baseline: `main` artifacts, Release Please version PRs,
 > tagged GitHub Releases, and attached unsigned installers/checksums. POST-08 still owns
-> `electron-updater`, update metadata/UX, restart-to-apply acceptance, signing, and macOS work.
+> `electron-updater`, update metadata/UX, restart-to-apply acceptance, signing/notarization, and
+> macOS auto-update. An unsigned macOS DMG build now exists independently of this task.
 
 > How it works (for reviewers): electron-builder produces `Chronicle-x.y.z.exe` (NSIS) plus a
 > `latest.yml` metadata file; both are published to a GitHub Release. The installed app calls
@@ -1080,12 +1081,12 @@ version bumped from `package.json`. The update check is a network call only for 
 **Contracts upheld:** none changed. Local-first and offline-tolerant behavior preserved.
 
 **Docs to update:** `apps/desktop/README.md` (release + auto-update steps, `GH_TOKEN`, the
-unsigned/SmartScreen caveat, macOS-not-yet note); one line in `docs/bob-log.md`.
+unsigned/SmartScreen and unsigned/unnotarized macOS caveats); one line in `docs/bob-log.md`.
 
 **Done when:** Publishing a release makes an older installed Windows build detect, download,
 and apply the update on relaunch; the app launches and captures normally with no network; the
-SmartScreen/unsigned limitation and the deferred signing + macOS work are written down as a
-follow-up task.
+SmartScreen/unsigned limitation and the deferred signing, notarization, and macOS auto-update work
+are written down as a follow-up task.
 
 ### [ ] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
 

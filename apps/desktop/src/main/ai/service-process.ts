@@ -18,11 +18,15 @@ export interface AiServiceLocation {
 export function resolveAiServiceLocation(
   repositoryRoot: string,
   packagedResourcesPath?: string,
+  platform: NodeJS.Platform = process.platform,
 ): AiServiceLocation {
   if (packagedResourcesPath) {
     const sidecarDir = path.join(packagedResourcesPath, 'ai')
+    const executableName = platform === 'win32'
+      ? 'chronicle-ai-sidecar.exe'
+      : 'chronicle-ai-sidecar'
     return {
-      command: path.join(sidecarDir, 'chronicle-ai-sidecar.exe'),
+      command: path.join(sidecarDir, executableName),
       args: [],
       cwd: sidecarDir,
       environment: {

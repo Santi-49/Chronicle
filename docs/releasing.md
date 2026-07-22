@@ -54,9 +54,10 @@ like any other `main` PR; no workflow writes a version directly onto `main`.
    promotion and for the labeled Release Please PR. GitHub merges each only after protected-main
    requirements pass. The release branch is then deleted; the persistent `dev` branch is never a
    cleanup target.
-5. Merging the release PR creates `vX.Y.Z`. The workflow checks the tag equals the desktop
-   `package.json` version, rebuilds that exact tagged commit, health-checks the sidecar, and attaches
-   the installer/checksum to the GitHub Release.
+5. Merging the release PR creates `vX.Y.Z`. Parallel Windows x64 and macOS Apple Silicon jobs
+   check that the tag equals the desktop `package.json` version, rebuild that exact tagged commit,
+   health-check each native sidecar, and attach the NSIS/DMG installers plus checksums to the
+   GitHub Release.
 
 Repository setup:
 
@@ -68,11 +69,11 @@ Repository setup:
 - Allow GitHub Actions to create pull requests.
 - Keep direct pushes to `main` disabled.
 
-Every ordinary `main` PR proves that the application builds, but the expensive Windows installer is
-built only once for a durable version tag. `package-main.yml` remains available through
-**Actions → Package Windows snapshot → Run workflow** when an intermediate installer is genuinely
-needed. The release action attaches release files; POST-08 still owns `electron-updater`,
-`latest.yml`, update UI, code signing, and macOS publication.
+Every ordinary `main` PR proves that the application builds, but the expensive native installers
+are built only once for a durable version tag. `package-main.yml` remains available through
+**Actions → Package desktop snapshot → Run workflow** when intermediate Windows x64 and macOS
+Apple Silicon installers are genuinely needed. POST-08 still owns `electron-updater`, update
+metadata/UI, code signing, Apple notarization, and macOS auto-update.
 
 ## One-time GitHub setup (repository administrator)
 
@@ -93,7 +94,7 @@ needed. The release action attaches release files; POST-08 still owns `electron-
    access. With one required approval, automation will safely wait for a human approval instead.
 7. Enable **Require status checks to pass** and select these checks after they have run once:
    `Desktop (Windows)`, `AI service and C3 contract`, and `Control plane and C6 contract`.
-8. Do not select checks from `Package Windows snapshot`, `Release desktop`, or
+8. Do not select checks from `Package desktop snapshot`, `Release desktop`, or
    `Auto-merge main promotion`: they coordinate after/beside the protected checks and must not gate
    themselves. Workflows that merge use the existing `RELEASE_PLEASE_TOKEN`, ensuring their pushes
    can trigger the next release workflow. Do not enable GitHub's merge queue unless the workflows
@@ -113,7 +114,7 @@ The normal promotion flow is:
    failure leaves the PR open. Fix failures on `dev`, never directly on `main`.
 4. After the checks pass, GitHub merges the promotion, Release Please opens its metadata PR, the
    lightweight guard passes, and GitHub merges that PR automatically.
-5. `Release desktop` creates the version/tag/release, attaches the installer/checksum, and the
+5. `Release desktop` creates the version/tag/release, attaches both installers/checksums, and the
    cleanup job removes the temporary release branch. No second PR action is required.
 
 ## Creating a new public version
@@ -124,17 +125,18 @@ the normal flow.
 1. Release Please creates `chore(main): release ...` after the development promotion lands.
 2. The lightweight `Desktop (Windows)` version guard runs while the implementation jobs appear as
    successful skips. Auto-merge waits if any protected requirement is not satisfied.
-3. After automatic merge, Release Please creates `vX.Y.Z` and the GitHub Release. `Release desktop` then rebuilds the exact
-   tag, verifies it matches `package.json`, and attaches the Windows installer and checksum.
-4. Download the installer from the Release, verify the checksum, and complete the release smoke
-   test before sharing the URL.
+3. After automatic merge, Release Please creates `vX.Y.Z` and the GitHub Release. `Release desktop`
+   then rebuilds the exact tag, verifies it matches `package.json`, and attaches the Windows x64
+   NSIS and macOS Apple Silicon DMG with platform-specific checksum files.
+4. Download the installer for each supported platform, verify its checksum, and complete the
+   release smoke test before sharing the URL.
 
 For an exceptional forced version, use Release Please's documented `Release-As: X.Y.Z` commit
 footer and review the resulting release PR. Do not change the manifest and package version by hand.
 
 ## Packaged AI providers
 
-The Windows sidecar bundles **Google Gemini, OpenAI, and Anthropic Claude**. Its packaging smoke
+Both native sidecars bundle **Google Gemini, OpenAI, and Anthropic Claude**. Their packaging smoke
 test imports every shipped integration from the frozen executable before probing `/health`.
 Anthropic remains annotation-only because it does not expose an embeddings API. Amazon Bedrock was
 removed from the catalog because Chronicle's per-provider secret currently stores one API key,
@@ -161,5 +163,6 @@ most of its 255.7-second total was Electron staging and NSIS creation, not colle
 Python packages. The unpacked target took 177.7 seconds. electron-builder's native rebuild is
 disabled because `npm ci` already runs the pinned Electron rebuild in `postinstall`.
 
-The Windows installer is currently unsigned and may trigger SmartScreen. Do not describe a
-workflow artifact as a signed or auto-updating production release.
+Both installers are currently unsigned. Windows may trigger SmartScreen; macOS Gatekeeper may
+block normal launch until the user explicitly overrides it. Do not describe a workflow artifact
+as signed, notarized, or auto-updating.
