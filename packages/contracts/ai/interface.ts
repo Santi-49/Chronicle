@@ -10,9 +10,13 @@
  */
 
 /** A supported image supplied to an annotation operation. */
+export type SupportedFormat = 'png' | 'jpg' | 'jpeg'
+
+/** A supported input file supplied to an annotation operation. */
 export interface ImageInput {
   base64: string
   mediaType: 'image/png' | 'image/jpeg'
+  format: SupportedFormat //for POST-01
 }
 
 /** The AI's structured output for one version — validated against output.schema.json. */
@@ -32,6 +36,7 @@ export interface VersionAnnotation {
 
 export interface AnnotateVersionInput {
   fileName: string
+  format: SupportedFormat //POST-01 implementation
   /** null → this is the asset's first version: describe it instead of diffing. */
   previous: ImageInput | null
   current: ImageInput

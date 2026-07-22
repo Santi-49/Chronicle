@@ -92,6 +92,7 @@ export interface components {
             apiKey?: string | null;
             /** Filename */
             fileName: string;
+            format: "png" | "jpg" | "jpeg";
             previous?: components["schemas"]["ImageInput"] | null;
             current: components["schemas"]["ImageInput"];
         };
@@ -187,6 +188,7 @@ export interface components {
              * @enum {string}
              */
             mediaType: "image/png" | "image/jpeg";
+            format: "png" | "jpg" | "jpeg";
         };
         /** ServiceErrorDetail */
         ServiceErrorDetail: {

@@ -46,8 +46,18 @@ export interface AiWorkerDependencies {
   pollMs?: number
 }
 
-function mediaType(fileName: string): 'image/png' | 'image/jpeg' {
-  return path.extname(fileName).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg'
+type SupportedFormat = 'png' | 'jpg' | 'jpeg'
+
+function formatFromPath(filePath: string): SupportedFormat {
+  const ext = path.extname(filePath).toLowerCase().replace('.', '')
+  if (ext === 'jpeg') return 'jpeg'
+  if (ext === 'jpg') return 'jpg'
+  return 'png' // Default fallback for current MVP image types
+}
+
+function mediaType(filePath: string): 'image/png' | 'image/jpeg' {
+  const format = formatFromPath(filePath)
+  return format === 'png' ? 'image/png' : 'image/jpeg'
 }
 
 function versionIdOf(job: QueueItem): number | null {
@@ -69,13 +79,18 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     return { provider: selected.provider, model: selected.model, apiKey }
   }
 
-  async function image(versionId: number): Promise<{ base64: string; mediaType: 'image/png' | 'image/jpeg' }> {
+  async function image(versionId: number): Promise<{ base64: string; mediaType: 'image/png' | 'image/jpeg'; format: SupportedFormat }> {
     const version = getVersion(deps.db, versionId)
     if (!version) throw new Error(`Unknown version ${versionId}`)
     const asset = getAsset(deps.db, version.assetId)
     if (!asset) throw new Error(`Unknown asset ${version.assetId}`)
     const bytes = await fs.readFile(libraryFilePathFor(deps.libraryRoot, version.contentHash))
-    return { base64: bytes.toString('base64'), mediaType: mediaType(asset.path) }
+    const format = formatFromPath(asset.path)
+    return { 
+      base64: bytes.toString('base64'), 
+      mediaType: mediaType(asset.path),
+      format,
+    }
   }
 
   function markFailed(job: QueueItem, versionId: number | null): void {
@@ -121,9 +136,11 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       (candidate) => candidate.versionNumber === version.versionNumber - 1,
     )
     const startedAt = Date.now()
+    const format = formatFromPath(asset.path)
     const annotation = await deps.client.annotate({
       ...config,
       fileName: asset.displayName,
+      format,
       previous: previous ? await image(previous.id) : null,
       current: await image(version.id),
     })

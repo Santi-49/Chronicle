@@ -18,8 +18,9 @@ to the configured provider.
 | `POST` | `/embed-text` | One embedding vector for a version's summary+tags or a search query. |
 | `POST` | `/validate-provider-model` | Uses the supplied BYOK key to make a minimal task-specific provider call and report whether the model is reachable. |
 
-Images cross the boundary as base64 plus `image/png` / `image/jpeg`. Provider,
-model and the BYOK key arrive per request (or fall back to the env defaults
+Requests to `/annotate` carry an explicit file format enum (`format`: `"png"` | `"jpg"` | `"jpeg"`) alongside base64 data and media types. The AI service uses this `format` to dispatch per-format extraction pipelines while keeping backwards compatibility for existing image assets. Unsupported formats trigger an explicit typed error.
+
+Provider, model and the BYOK key arrive per request (or fall back to the env defaults
 below). Annotation output is the C3 shape — `summary`, `changes`, `tags`,
 nullable `confidence` — plus `usage` (token counts) and `cost` (estimated USD
 from the configured per-task prices). Embedding responses carry the same
