@@ -6,6 +6,7 @@
  * SQLite — versions reference the content-addressed library by hash.
  */
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { AiStatus, FolderMetaPatch, TrackedFolder } from '../../shared/ipc'
 import { WATCHED_EXTENSIONS } from '../watcher/rules'
 import type { ChronicleDb } from './database'
@@ -75,12 +76,20 @@ export interface EmbeddingRecord {
 }
 
 export type JobType = 'ai_annotation' | 'embedding' | 'telemetry'
+export type QueueItemStatus = 'pending' | 'failed'
+export interface QueueFailure {
+  message: string
+  code: string | null
+  status: number | null
+}
 
 export interface QueueItem {
   id: number
   jobType: JobType
   payload: unknown
   retryCount: number
+  status: QueueItemStatus
+  lastError: QueueFailure | null
   createdAt: string
 }
 
@@ -680,6 +689,8 @@ export function listJobs(db: ChronicleDb, jobType?: JobType): QueueItem[] {
     job_type: JobType
     payload: string
     retry_count: number
+    status: QueueItemStatus
+    last_error: string | null
     created_at: string
   }>
   return rows.map((r) => ({
@@ -687,6 +698,8 @@ export function listJobs(db: ChronicleDb, jobType?: JobType): QueueItem[] {
     jobType: r.job_type,
     payload: JSON.parse(r.payload) as unknown,
     retryCount: r.retry_count,
+    status: r.status,
+    lastError: r.last_error === null ? null : JSON.parse(r.last_error) as QueueFailure,
     createdAt: r.created_at,
   }))
 }
@@ -697,6 +710,39 @@ export function deleteJob(db: ChronicleDb, jobId: number): void {
 
 export function bumpJobRetry(db: ChronicleDb, jobId: number): void {
   db.prepare('UPDATE queue_items SET retry_count = retry_count + 1 WHERE id = ?').run(jobId)
+}
+
+export function failJob(db: ChronicleDb, jobId: number, error: QueueFailure): void {
+  db.prepare(`
+    UPDATE queue_items
+    SET retry_count = retry_count + 1, status = 'failed', last_error = ?
+    WHERE id = ?
+  `).run(JSON.stringify(error), jobId)
+}
+
+export function retryJob(db: ChronicleDb, jobId: number): void {
+  db.prepare(`
+    UPDATE queue_items
+    SET retry_count = 0, status = 'pending', last_error = NULL
+    WHERE id = ? AND status = 'failed'
+  `).run(jobId)
+}
+
+export function retryAllFailedAiJobs(db: ChronicleDb): QueueItem[] {
+  const failed = listJobs(db).filter(
+    (job) =>
+      job.status === 'failed' &&
+      (job.jobType === 'ai_annotation' || job.jobType === 'embedding'),
+  )
+  const update = db.prepare(`
+    UPDATE queue_items
+    SET retry_count = 0, status = 'pending', last_error = NULL
+    WHERE id = ?
+  `)
+  db.transaction(() => {
+    for (const job of failed) update.run(job.id)
+  })()
+  return failed
 }
 
 // ── Settings (C5 — JSON per key; secrets NEVER stored here) ─────────────
@@ -713,4 +759,57 @@ export function setSetting(db: ChronicleDb, key: string, value: unknown): void {
     key,
     JSON.stringify(value),
   )
+}
+
+// ── Telemetry IDs (POST-04, F8) ──────────────────────────────────────────
+
+/**
+ * Returns the persistent random telemetry UUID for a tracked folder, creating
+ * it on first call. The value is stored in the `telemetry_id` column added in
+ * the POST-04 schema migration and is never derived from the folder's path,
+ * name, or database ID.
+ */
+export function getFolderTelemetryId(db: ChronicleDb, folderId: number): string {
+  const row = db
+    .prepare('SELECT telemetry_id FROM tracked_folders WHERE id = ?')
+    .get(folderId) as { telemetry_id: string | null } | undefined
+  if (!row) throw new Error(`Tracked folder ${folderId} not found`)
+  if (row.telemetry_id) return row.telemetry_id
+  const id = randomUUID()
+  db.prepare('UPDATE tracked_folders SET telemetry_id = ? WHERE id = ?').run(id, folderId)
+  return id
+}
+
+/**
+ * Clears the telemetry ID for a folder so a fresh UUID is issued on next use.
+ * Called when the user resets telemetry consent or removes + re-adds a project.
+ */
+export function clearFolderTelemetryId(db: ChronicleDb, folderId: number): void {
+  db.prepare('UPDATE tracked_folders SET telemetry_id = NULL WHERE id = ?').run(folderId)
+}
+
+/**
+ * Deletes all telemetry queue items. Used when the user turns off telemetry;
+ * non-telemetry jobs (AI/embedding) are unaffected.
+ */
+export function clearTelemetryQueue(db: ChronicleDb): void {
+  db.prepare("DELETE FROM queue_items WHERE job_type = 'telemetry'").run()
+}
+
+/**
+ * Returns the lowercase extensions (e.g. ".png") of all files captured under
+ * a tracked folder, for content-free project inventory telemetry.
+ */
+export function getFolderFileExts(db: ChronicleDb, folderId: number): string[] {
+  const folder = getTrackedFolder(db, folderId)
+  if (!folder) return []
+  const rows = db
+    .prepare("SELECT a.path FROM assets a WHERE a.on_disk = 1")
+    .all() as Array<{ path: string }>
+  return rows
+    .filter((r) => {
+      const rel = path.relative(folder.path, r.path)
+      return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
+    })
+    .map((r) => path.extname(r.path).toLowerCase())
 }

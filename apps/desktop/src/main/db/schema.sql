@@ -22,7 +22,10 @@ CREATE TABLE IF NOT EXISTS tracked_folders (
   -- JSON arrays. excluded_paths: absolute file paths the watcher must skip.
   -- allowed_extensions: enabled extensions; '[]' means "all supported types".
   excluded_paths      TEXT NOT NULL DEFAULT '[]',
-  allowed_extensions  TEXT NOT NULL DEFAULT '[]'
+  allowed_extensions  TEXT NOT NULL DEFAULT '[]',
+  -- POST-04: random UUID for content-free telemetry. Never derived from the
+  -- path, name, or database ID. NULL until first telemetry flush.
+  telemetry_id  TEXT
 );
 
 -- One tracked file. Identity = path (MVP, spec F3.7): rename/move = new asset.
@@ -90,6 +93,8 @@ CREATE TABLE IF NOT EXISTS queue_items (
   job_type     TEXT NOT NULL CHECK (job_type IN ('ai_annotation','embedding','telemetry')),
   payload      TEXT NOT NULL,                -- JSON, job-type specific
   retry_count  INTEGER NOT NULL DEFAULT 0,
+  status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','failed')),
+  last_error   TEXT,                         -- sanitized JSON; only populated when failed
   created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 

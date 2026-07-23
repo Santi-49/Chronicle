@@ -154,6 +154,13 @@ def main() -> None:
         str(SPEC_DIR),
         "--copy-metadata",
         "chronicle-ai",
+        # OpenAIEmbeddings tokenizes input locally with tiktoken, whose encoding
+        # tables (cl100k_base/o200k_base) are registered by the tiktoken_ext
+        # namespace plugin. PyInstaller can't see that runtime-discovered plugin,
+        # so without this hidden import the frozen sidecar raises "Unknown
+        # encoding" on every OpenAI embedding call.
+        "--hidden-import",
+        "tiktoken_ext.openai_public",
     ]
     for distribution, module in PROVIDER_PACKAGES:
         command.extend(("--copy-metadata", distribution, "--hidden-import", module))

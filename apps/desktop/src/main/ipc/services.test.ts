@@ -18,6 +18,7 @@ import {
   appendVersion,
   deleteJob,
   enqueueJob,
+  failJob,
   getAnnotation,
   getAssetByPath,
   getEmbedding,
@@ -516,8 +517,11 @@ describe('timeline and version details', () => {
       expect(getAnnotation(db, old.id)).toBeUndefined()
       expect(getEmbedding(db, old.id)).toBeUndefined()
     }
-    expect(listJobs(db)).toHaveLength(1)
-    expect(listJobs(db)[0]).toMatchObject({
+    // The reset queues exactly one annotation job for the fresh v1. A
+    // content-free version_history_reset telemetry job is also enqueued
+    // (POST-04), so scope this assertion to the annotation queue.
+    expect(listJobs(db, 'ai_annotation')).toHaveLength(1)
+    expect(listJobs(db, 'ai_annotation')[0]).toMatchObject({
       jobType: 'ai_annotation',
       payload: { versionId: reset.versionId },
     })
@@ -627,6 +631,44 @@ describe('retryAnnotation', () => {
     await expect(services.api.retryAnnotation(restore.id)).rejects.toThrow(/restore marker/)
     await expect(services.api.retryAnnotation(99_999)).rejects.toThrow(/Unknown version/)
   })
+
+  it('keeps failed jobs visible and only requeues them on explicit retry', async () => {
+    const first = await seedCapture('first.png', pngBytes(4, 4))
+    const second = await seedCapture('second.png', pngBytes(5, 5))
+    for (const job of listJobs(db, 'ai_annotation')) {
+      failJob(db, job.id, {
+        message: 'Provider quota exhausted',
+        code: 'provider_quota_exceeded',
+        status: 429,
+      })
+    }
+    setVersionAiStatus(db, first.versionId, 'failed')
+    setVersionAiStatus(db, second.versionId, 'failed')
+
+    const before = await services.api.listPendingJobs()
+    expect(before).toHaveLength(2)
+    expect(before.every((job) => job.state === 'failed')).toBe(true)
+    expect(before[0]?.lastError).toEqual({
+      message: 'Provider quota exhausted',
+      code: 'provider_quota_exceeded',
+      status: 429,
+    })
+    expect((await services.api.getVersionDetails(first.versionId)).aiFailure).toEqual({
+      message: 'Provider quota exhausted',
+      code: 'provider_quota_exceeded',
+      status: 429,
+    })
+    expect(await services.api.getAppStatus()).toMatchObject({
+      pendingJobs: { ai: 0 },
+      failedJobs: 2,
+    })
+
+    await expect(services.api.retryAllFailedJobs()).resolves.toBe(2)
+    expect(listJobs(db, 'ai_annotation').every((job) => job.status === 'pending')).toBe(true)
+    expect((await services.api.getVersionDetails(first.versionId)).aiStatus).toBe('pending')
+    expect((await services.api.getVersionDetails(second.versionId)).aiStatus).toBe('pending')
+    expect((await services.api.getAppStatus()).failedJobs).toBe(0)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -648,6 +690,31 @@ describe('settings and the secret boundary', () => {
     expect(updated.ai.chat.provider).toBe('openai')
     expect(updated.controlPlane).toEqual(DEFAULT_SETTINGS.controlPlane) // untouched section
     expect((await services.api.getSettings()).ai.chat.model).toBe('gpt-4o-mini')
+  })
+
+  it('tests the selected provider task without changing saved settings', async () => {
+    await services.api.setApiKey('google_genai', 'google-test-key')
+    const before = await services.api.getSettings()
+
+    await expect(services.api.testAiConfiguration(
+      'chat',
+      'google_genai',
+      'gemini-flash-latest',
+    )).resolves.toMatchObject({
+      task: 'chat',
+      provider: 'google_genai',
+      model: 'gemini-flash-latest',
+      valid: true,
+    })
+    expect(validationCalls).toContainEqual({
+      task: 'chat',
+      provider: 'google_genai',
+      model: 'gemini-flash-latest',
+    })
+    expect(await services.api.getSettings()).toEqual(before)
+    await expect(
+      services.api.testAiConfiguration('invalid' as never, 'google_genai', 'model'),
+    ).rejects.toThrow(/task must be/)
   })
 
   it('keeps portable appearance data while migrating the old Google provider alias', async () => {
@@ -829,6 +896,7 @@ describe('getAppStatus', () => {
       watchedFolders: 0,
       online: true,
       pendingJobs: { ai: 0, embedding: 0, telemetry: 0 },
+      failedJobs: 0,
       aiConfigured: false,
     })
 
@@ -869,9 +937,18 @@ describe('getAppStatus', () => {
       assetName: 'queued-logo.png',
       versionNumber: 1,
       retryCount: 0,
+      state: 'pending',
+      lastError: null,
     })
     expect(jobs[0]?.thumbnailUrl).toBe((await services.api.getVersionDetails(capture.versionId)).thumbnailUrl)
     expect(JSON.stringify(jobs)).not.toContain('internal')
+
+    const controlPlaneEvents = await services.api.listPendingControlPlaneEvents()
+    expect(controlPlaneEvents).toHaveLength(1)
+    expect(controlPlaneEvents[0]).toMatchObject({
+      retryCount: 0,
+      payload: { event: 'version_captured', secret: '[redacted]' },
+    })
   })
 })
 

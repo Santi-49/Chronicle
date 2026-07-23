@@ -17,6 +17,7 @@ import {
   deleteProjectHistory,
   enqueueEmbeddingReindexJobs,
   enqueueJob,
+  failJob,
   getAnnotation,
   getAsset,
   getAssetByPath,
@@ -30,6 +31,8 @@ import {
   listTrackedFolders,
   listVersions,
   removeTrackedFolder,
+  retryAllFailedAiJobs,
+  retryJob,
   saveAnnotation,
   saveEmbedding,
   setAssetOnDisk,
@@ -87,7 +90,7 @@ describe('startup', () => {
     }
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
-    expect(db.pragma('user_version', { simple: true })).toBe(4)
+    expect(db.pragma('user_version', { simple: true })).toBe(6)
   })
 
   it('repeat startup is idempotent and keeps existing data', () => {
@@ -99,6 +102,24 @@ describe('startup', () => {
     expect(listTrackedFolders(db)).toHaveLength(1)
     expect(listAssets(db)).toHaveLength(1)
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1) // per-connection, must be re-set
+  })
+
+  it('reconstructs deleted failed AI jobs when upgrading a v5 database', () => {
+    const { version } = seedAssetWithVersion()
+    setVersionAiStatus(db, version.id, 'failed')
+    db.pragma('user_version = 5')
+    db.close()
+
+    db = openChronicleDb(dbPath)
+
+    expect(listJobs(db, 'ai_annotation')).toEqual([
+      expect.objectContaining({
+        payload: { versionId: version.id },
+        retryCount: 3,
+        status: 'failed',
+        lastError: expect.objectContaining({ code: 'legacy_failure' }),
+      }),
+    ])
   })
 })
 
@@ -340,6 +361,21 @@ describe('offline queue', () => {
 
     bumpJobRetry(db, first.id)
     expect(listJobs(db, 'ai_annotation')[0]?.retryCount).toBe(1)
+    failJob(db, first.id, { message: 'Quota exceeded', code: 'quota', status: 429 })
+    expect(listJobs(db, 'ai_annotation')[0]).toMatchObject({
+      status: 'failed',
+      retryCount: 2,
+      lastError: { message: 'Quota exceeded', code: 'quota', status: 429 },
+    })
+    retryJob(db, first.id)
+    expect(listJobs(db, 'ai_annotation')[0]).toMatchObject({
+      status: 'pending',
+      retryCount: 0,
+      lastError: null,
+    })
+    failJob(db, first.id, { message: 'Quota exceeded', code: 'quota', status: 429 })
+    expect(retryAllFailedAiJobs(db).map((job) => job.id)).toEqual([first.id])
+    expect(listJobs(db, 'ai_annotation')[0]?.status).toBe('pending')
     deleteJob(db, first.id)
     expect(listJobs(db, 'ai_annotation')).toHaveLength(0)
   })

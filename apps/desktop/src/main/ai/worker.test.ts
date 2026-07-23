@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppSettings } from '../../shared/settings'
 import type { ChronicleDb } from '../db/database'
 import type { AnnotationRecord, QueueItem } from '../db/repositories'
+import { AiServiceError } from './client'
 import { createAiWorker } from './worker'
 
 const state = vi.hoisted(() => ({
@@ -24,12 +25,26 @@ vi.mock('../db/repositories', () => ({
     const job = state.jobs.find((item) => item.id === id)
     if (job) job.retryCount += 1
   },
+  failJob: (
+    _db: unknown,
+    id: number,
+    error: { message: string; code: string | null; status: number | null },
+  ) => {
+    const job = state.jobs.find((item) => item.id === id)
+    if (job) {
+      job.retryCount += 1
+      job.status = 'failed'
+      job.lastError = error
+    }
+  },
   enqueueJob: (_db: unknown, jobType: string, payload: unknown) => {
     const job = {
       id: Math.max(0, ...state.jobs.map((item) => item.id)) + 1,
       jobType,
       payload,
       retryCount: 0,
+      status: 'pending',
+      lastError: null,
       createdAt: new Date().toISOString(),
     } as QueueItem
     state.jobs.push(job)
@@ -79,6 +94,8 @@ beforeEach(() => {
       jobType: 'ai_annotation',
       payload: { versionId: 2 },
       retryCount: 0,
+      status: 'pending',
+      lastError: null,
       createdAt: new Date().toISOString(),
     },
   ]
@@ -207,15 +224,50 @@ describe('AI queue worker', () => {
   })
 
   it('marks an annotation failed after three provider failures', async () => {
-    const { worker, client, emit } = workerWith()
+    const diagnostic = vi.fn()
+    const { worker, client, emit } = workerWith({ diagnostic })
     client.annotate.mockRejectedValue(new Error('provider unavailable'))
 
     await worker.runOnce()
     await worker.runOnce()
     await worker.runOnce()
 
-    expect(state.jobs).toHaveLength(0)
+    expect(state.jobs).toHaveLength(1)
+    expect(state.jobs[0]).toMatchObject({
+      status: 'failed',
+      retryCount: 3,
+      lastError: { message: 'provider unavailable' },
+    })
     expect(state.status).toBe('failed')
     expect(emit).toHaveBeenCalledWith('annotationUpdated', { versionId: 2, aiStatus: 'failed' })
+    expect(diagnostic).toHaveBeenCalledTimes(3)
+    expect(diagnostic).toHaveBeenLastCalledWith(expect.objectContaining({
+      level: 'error',
+      source: 'ai',
+      event: 'summary_generation_failed',
+      context: expect.objectContaining({ versionId: 2, attempt: 3, willRetry: false }),
+    }))
+  })
+
+  it('does not automatically retry quota failures', async () => {
+    const { worker, client } = workerWith()
+    client.annotate.mockRejectedValue(new AiServiceError(
+      'The AI provider quota or rate limit was reached. This job requires a manual retry.',
+      429,
+      'provider_quota_exceeded',
+    ))
+
+    await worker.runOnce()
+    await worker.runOnce()
+
+    expect(client.annotate).toHaveBeenCalledTimes(1)
+    expect(state.jobs[0]).toMatchObject({
+      status: 'failed',
+      retryCount: 1,
+      lastError: {
+        code: 'provider_quota_exceeded',
+        status: 429,
+      },
+    })
   })
 })
