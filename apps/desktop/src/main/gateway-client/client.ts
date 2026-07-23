@@ -11,6 +11,10 @@ type AccountSettingsRead = components['schemas']['AccountSettingsRead']
 // Pydantic component directly, so either valid OpenAPI representation works.
 type PortableSettings = components['schemas']['AccountSettingsUpdate']['settings']
 type EncryptedSecretRead = components['schemas']['EncryptedSecretRead']
+// C6 telemetry wire schemas — the request bodies are validated against the
+// generated contract so the emitter allowlist can never drift from it silently.
+type TelemetryBatch = components['schemas']['TelemetryBatch']
+type ProjectInventoryUpsert = components['schemas']['ProjectInventoryUpsert']
 
 export interface TokenStore {
   read(): TokenPair | null
@@ -369,14 +373,17 @@ export function createControlPlaneClient(
     }, true),
     deleteEncryptedSecret: () => raw<void>('/api/v1/account/secrets', { method: 'DELETE' }, true),
     async sendTelemetryBatch(events) {
+      // Typed against the generated C6 contract, not a hand-shaped object.
+      const batch: TelemetryBatch = { events }
       await raw<void>('/api/v1/telemetry/events', {
-        method: 'POST', body: JSON.stringify({ events }),
+        method: 'POST', body: JSON.stringify(batch),
       })
     },
     async upsertProjectInventory(projectTelemetryId, installationId, data) {
       const qs = `?installation_id=${encodeURIComponent(installationId)}`
+      const body: ProjectInventoryUpsert = data
       await raw<void>(`/api/v1/telemetry/projects/${encodeURIComponent(projectTelemetryId)}${qs}`, {
-        method: 'PUT', body: JSON.stringify(data),
+        method: 'PUT', body: JSON.stringify(body),
       })
     },
     async deleteProjectInventory(projectTelemetryId, installationId) {
