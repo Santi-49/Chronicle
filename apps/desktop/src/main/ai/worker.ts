@@ -7,6 +7,7 @@ import {
   bumpJobRetry,
   deleteJob,
   enqueueJob,
+  failJob,
   getAnnotation,
   getAsset,
   getVersion,
@@ -16,6 +17,7 @@ import {
   saveEmbedding,
   setVersionAiStatus,
   type QueueItem,
+  type QueueFailure,
 } from '../db/repositories'
 import type { EmitEvent } from '../ipc/channels'
 import { embeddingModelIdentity } from '../search'
@@ -93,8 +95,19 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     return { base64: bytes.toString('base64'), mediaType: mediaType(asset.path) }
   }
 
-  function markFailed(job: QueueItem, versionId: number | null): void {
-    deleteJob(deps.db, job.id)
+  function failureDetails(error: unknown): QueueFailure {
+    if (error instanceof AiServiceError) {
+      return { message: error.message, code: error.code, status: error.status }
+    }
+    return {
+      message: error instanceof Error ? error.message : String(error),
+      code: null,
+      status: null,
+    }
+  }
+
+  function markFailed(job: QueueItem, versionId: number | null, error: unknown): void {
+    failJob(deps.db, job.id, failureDetails(error))
     if (versionId !== null && job.jobType === 'ai_annotation') {
       setVersionAiStatus(deps.db, versionId, 'failed')
       deps.emit('annotationUpdated', { versionId, aiStatus: 'failed' })
@@ -127,11 +140,11 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       },
     })
     if (nonRetryable) {
-      markFailed(job, versionId)
+      markFailed(job, versionId, error)
       return
     }
     if (finalAttempt) {
-      markFailed(job, versionId)
+      markFailed(job, versionId, error)
     } else {
       bumpJobRetry(deps.db, job.id)
       deps.onQueueChanged()
@@ -252,7 +265,9 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
   async function drainOne(): Promise<void> {
     if (running || stopped || !deps.isOnline()) return
     const job = listJobs(deps.db).find(
-      (candidate) => candidate.jobType === 'ai_annotation' || candidate.jobType === 'embedding',
+      (candidate) =>
+        candidate.status === 'pending' &&
+        (candidate.jobType === 'ai_annotation' || candidate.jobType === 'embedding'),
     )
     if (!job) return
     const versionId = versionIdOf(job)

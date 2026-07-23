@@ -19,13 +19,20 @@ export type ApplicationDiagnosticSink = (entry: ApplicationDiagnosticDraft) => v
 /** Converts thrown values into useful, credential-sanitized diagnostic metadata. */
 export function diagnosticError(error: unknown): unknown {
   if (error instanceof Error) {
-    const errorWithDetails = error as Error & { status?: unknown; detail?: unknown }
+    const errorWithDetails = error as Error & {
+      status?: unknown
+      code?: unknown
+      detail?: unknown
+    }
     return sanitizeControlPlaneData({
       name: error.name,
       message: error.message,
       stack: error.stack ?? null,
       ...(typeof errorWithDetails.status === 'number'
         ? { status: errorWithDetails.status }
+        : {}),
+      ...(typeof errorWithDetails.code === 'string'
+        ? { code: errorWithDetails.code }
         : {}),
       ...('detail' in error ? { detail: errorWithDetails.detail } : {}),
     })

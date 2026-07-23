@@ -21,6 +21,21 @@ import type { AppSettings } from './settings'
 export type WindowTheme = 'dark' | 'light'
 
 export type AiStatus = 'pending' | 'done' | 'failed' | 'none' // 'none' = restore versions, no AI needed
+export interface AiFailure {
+  /** Safe provider/service explanation; never contains credentials or request content. */
+  message: string
+  code: string | null
+  status: number | null
+}
+
+export interface AiConfigurationTestResult {
+  task: 'chat' | 'embeddings'
+  provider: string
+  model: string
+  valid: boolean
+  reachable: boolean
+  message: string
+}
 
 export interface TrackedFolder {
   id: number
@@ -86,6 +101,7 @@ export interface VersionSummary {
   versionNumber: number
   capturedAt: string
   aiStatus: AiStatus
+  aiFailure: AiFailure | null
   summary: string | null // null while pending/failed; "Restored from version N" for restores
   thumbnailUrl: string
 }
@@ -133,6 +149,8 @@ export interface AppStatus {
   watchedFolders: number
   online: boolean
   pendingJobs: { ai: number; embedding: number; telemetry: number }
+  /** Exhausted/non-retryable AI jobs waiting for an explicit user retry. */
+  failedJobs: number
   aiConfigured: boolean // false → UI shows "configure AI in Settings"
 }
 
@@ -142,6 +160,8 @@ export interface PendingJob {
   jobType: 'ai_annotation' | 'embedding'
   queuedAt: string
   retryCount: number
+  state: 'pending' | 'failed'
+  lastError: AiFailure | null
   versionId: number | null
   assetId: number | null
   assetName: string | null
@@ -237,6 +257,8 @@ export interface ChronicleApi {
 
   // F4 — AI
   retryAnnotation(versionId: number): Promise<void> // re-queues; result arrives as annotationUpdated
+  /** Requeues every failed annotation/embedding job; never retries them automatically. */
+  retryAllFailedJobs(): Promise<number>
 
   // C5 — settings (secrets handled separately, see below)
   getSettings(): Promise<AppSettings>
@@ -248,6 +270,12 @@ export interface ChronicleApi {
   clearApiKey(provider: string): Promise<void>
   /** Provider ids that currently have a saved key (for "Saved" badges / readiness). */
   configuredProviders(): Promise<string[]>
+  /** Runs the real task-specific provider/model/key probe without saving settings. */
+  testAiConfiguration(
+    task: 'chat' | 'embeddings',
+    provider: string,
+    model: string,
+  ): Promise<AiConfigurationTestResult>
 
   // F1 — account (low priority; everything above works in 'local' mode)
   /** Reachability/configuration preflight; never throws for ordinary connection failures. */

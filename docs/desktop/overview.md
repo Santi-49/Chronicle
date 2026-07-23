@@ -162,7 +162,9 @@ One asset's history, newest first, on a vertical rail. Each row: version number,
 
 - Click a version → Version details.
 - Timeline rows support ↑/↓ and Home/End focus traversal plus Enter to open. Failed rows
-  explain the recovery path; retry is available on Version Details.
+  show a renderer-safe provider failure reason and recovery guidance; retry is available on
+  Version Details. Quota/billing, credential, request-size, timeout, integration, invalid-output,
+  and generic provider failures each receive distinct plain-language instructions.
 - A discreet **Reset history…** action sits below the Timeline. It expands to explain the
   irreversible scope and requires typing `RESET`; the latest snapshot becomes a fresh v1 and
   a new initial-version annotation is queued.
@@ -220,14 +222,20 @@ Five sections, in current order:
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
-| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Packaged providers: **Google Gemini · Anthropic Claude · OpenAI**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Custom AI configuration** toggle permits free-text LangChain provider/model pairs for development environments that install them separately. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
+| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker and an explicit task-specific **Test connection** action that uses the saved key without mutating settings. Packaged providers: **Google Gemini · Anthropic Claude · OpenAI**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Custom AI configuration** toggle permits free-text LangChain provider/model pairs for development environments that install them separately. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save/Test until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
 | **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved. Portable preferences sync automatically after each saved change, with no manual sync action. The usage control includes an explicit local-data warning and immediate off switch. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. Enabling key sync reveals a compact passphrase row with explicit **Save encrypted copy** and **Restore to this device** actions; disabling it removes the cloud envelope but keeps local keys. The passphrase is cleared after an action, cannot be recovered, and is never sent to Chronicle. Operation status/errors sit beside the related control. |
 | **Developer tools** | Final section. Developer mode is forced on in development builds and is an explicit device-local checkbox in packaged builds. It controls the developer-only Diagnostics navigation tab. |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
 online/offline, AI-ready state, and pending AI/embedding job count — refreshed from `statusChanged`.
-When work is queued, the pending-job count is a button that opens a live FIFO queue screen with
-the job type, asset/version, queued time, retry count, and loading/error/empty states.
+When work is queued or needs attention, the status-bar count opens a live AI jobs screen with
+the job type, asset/version, queued time, retry count, pending/failed state, sanitized last error,
+and loading/error/empty states. Exhausted or non-retryable jobs remain stored but never run
+automatically. **Retry all failed jobs** explicitly resets and requeues them; quota/rate-limit
+failures go directly to this manual path to avoid repeated provider calls. Upgrading from the
+older delete-on-failure queue reconstructs retained failed annotation jobs from failed versions.
+The same failure reason and next action appear outside Developer Diagnostics on Timeline, Version
+Details, Pending jobs, and the always-visible status-bar failure count.
 
 ### 10. Admin `Stretch` — F10
 

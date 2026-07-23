@@ -67,6 +67,8 @@ import {
   updateTrackedFolder,
   enqueueJob,
   enqueueEmbeddingReindexJobs,
+  retryAllFailedAiJobs,
+  retryJob,
   getFolderTelemetryId,
   clearTelemetryQueue,
   type JobType,
@@ -420,12 +422,16 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         })
       },
       onError: (error) => {
+        const code = (error as NodeJS.ErrnoException).code
+        const lockedFile = code === 'EBUSY'
         diagnostic({
-          level: 'error',
+          level: lockedFile ? 'warn' : 'error',
           source: 'watcher',
-          event: 'watcher_failed',
-          message: 'The folder watcher reported an error.',
-          context: { error: diagnosticError(error) },
+          event: lockedFile ? 'watcher_file_locked' : 'watcher_failed',
+          message: lockedFile
+            ? 'Windows temporarily locked a file while Chronicle was attaching its watcher; the rest of the folder remains watched.'
+            : 'The folder watcher reported an error.',
+          context: { code: code ?? null, error: diagnosticError(error) },
         })
         console.error('[chronicle] watcher error:', error)
       },
@@ -504,6 +510,15 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     return getAnnotation(db, version.id)?.summary ?? null
   }
 
+  function aiFailureOf(versionId: number) {
+    const job = listJobs(db, 'ai_annotation').find((candidate) => {
+      if (candidate.status !== 'failed') return false
+      const payload = isPlainObject(candidate.payload) ? candidate.payload : undefined
+      return payload?.['versionId'] === versionId
+    })
+    return job?.lastError ?? null
+  }
+
   function toVersionSummary(version: VersionRecord): VersionSummary {
     return {
       id: version.id,
@@ -511,8 +526,26 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       versionNumber: version.versionNumber,
       capturedAt: version.capturedAt,
       aiStatus: version.aiStatus,
+      aiFailure: version.aiStatus === 'failed' ? aiFailureOf(version.id) : null,
       summary: summaryTextOf(version),
       thumbnailUrl: imageUrlForHash(version.contentHash),
+    }
+  }
+
+  async function testAiSelection(
+    task: 'chat' | 'embeddings',
+    provider: string,
+    model: string,
+  ) {
+    const selectionError = aiSelectionError(task, provider, model, true)
+    if (selectionError) throw new TypeError(selectionError)
+    const apiKey = deps.readApiKey?.(provider)
+    if (!apiKey) throw new Error(`Save an API key for ${provider} before testing this connection.`)
+    if (!deps.aiClient) throw new Error('The local AI validation service is unavailable.')
+    try {
+      return await deps.aiClient.validateProviderModel({ task, provider, model, apiKey })
+    } catch {
+      throw new Error('The local AI validation service could not be reached.')
     }
   }
 
@@ -833,13 +866,37 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       if (version.aiStatus === 'none') {
         throw new Error('This version is a restore marker and has no AI annotation')
       }
-      const alreadyQueued = listJobs(db, 'ai_annotation').some(
+      const alreadyQueued = listJobs(db, 'ai_annotation').find(
         (job) => (job.payload as { versionId?: number } | null)?.versionId === version.id,
       )
       if (!alreadyQueued) enqueueJob(db, 'ai_annotation', { versionId: version.id })
+      else if (alreadyQueued.status === 'failed') retryJob(db, alreadyQueued.id)
       setVersionAiStatus(db, version.id, 'pending')
       emit('annotationUpdated', { versionId: version.id, aiStatus: 'pending' })
       pushStatus()
+    },
+
+    async retryAllFailedJobs() {
+      const failed = retryAllFailedAiJobs(db)
+      for (const job of failed) {
+        if (job.jobType !== 'ai_annotation') continue
+        const payload = isPlainObject(job.payload) ? job.payload : undefined
+        const versionId = payload?.['versionId']
+        if (typeof versionId !== 'number') continue
+        setVersionAiStatus(db, versionId, 'pending')
+        emit('annotationUpdated', { versionId, aiStatus: 'pending' })
+      }
+      if (failed.length > 0) {
+        diagnostic({
+          level: 'info',
+          source: 'ai',
+          event: 'failed_jobs_requeued',
+          message: `Requeued ${failed.length} failed AI job${failed.length === 1 ? '' : 's'} at the user's request.`,
+          context: { jobIds: failed.map((job) => job.id) },
+        })
+      }
+      pushStatus()
+      return failed.length
     },
 
     // C5 — settings (secrets live in SecretStore, never in this object)
@@ -902,29 +959,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           const selected = next.ai[task]
           // Empty provider+model explicitly disables a task.
           if (!selected.provider && !selected.model) return
-          const selectionError = aiSelectionError(
-            task,
-            selected.provider,
-            selected.model,
-            true,
-          )
-          if (selectionError) throw new TypeError(selectionError)
-          const apiKey = deps.readApiKey?.(selected.provider)
-          if (!apiKey) {
-            throw new Error(`Save an API key for ${selected.provider} before changing this model.`)
-          }
-          if (!deps.aiClient) throw new Error('The local AI validation service is unavailable.')
-          let result
-          try {
-            result = await deps.aiClient.validateProviderModel({
-              task,
-              provider: selected.provider,
-              model: selected.model,
-              apiKey,
-            })
-          } catch {
-            throw new Error('The local AI validation service could not be reached.')
-          }
+          const result = await testAiSelection(task, selected.provider, selected.model)
           if (!result.valid) throw new TypeError(result.message)
         }),
       )
@@ -968,6 +1003,16 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
 
     async configuredProviders() {
       return secrets.providers()
+    },
+    async testAiConfiguration(task, provider, model) {
+      if (task !== 'chat' && task !== 'embeddings') {
+        throw new TypeError("task must be 'chat' or 'embeddings'")
+      }
+      return testAiSelection(
+        task,
+        expectString(provider, 'provider').trim(),
+        expectString(model, 'model').trim(),
+      )
     },
 
     // F1 — account (the app is fully usable in local mode)
@@ -1083,7 +1128,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     // Status bar
     async getAppStatus() {
       const jobs = listJobs(db)
-      const count = (type: JobType): number => jobs.filter((j) => j.jobType === type).length
+      const count = (type: JobType): number =>
+        jobs.filter((job) => job.jobType === type && job.status === 'pending').length
+      const failedJobs = jobs.filter(
+        (job) =>
+          job.status === 'failed' &&
+          (job.jobType === 'ai_annotation' || job.jobType === 'embedding'),
+      ).length
       const settings = await api.getSettings()
       const status: AppStatus = {
         watchedFolders: watcher.watched().length,
@@ -1093,6 +1144,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           embedding: count('embedding'),
           telemetry: count('telemetry'),
         },
+        failedJobs,
         // Ready when the annotation (chat) provider is fully configured AND has
         // a saved key. Per-task keys mean readiness is provider-specific.
         aiConfigured:
@@ -1121,6 +1173,8 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           jobType: job.jobType,
           queuedAt: job.createdAt,
           retryCount: job.retryCount,
+          state: job.status,
+          lastError: job.lastError,
           versionId,
           assetId: version?.assetId ?? null,
           assetName: asset?.displayName ?? null,

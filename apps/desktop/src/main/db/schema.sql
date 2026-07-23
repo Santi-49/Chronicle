@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS queue_items (
   job_type     TEXT NOT NULL CHECK (job_type IN ('ai_annotation','embedding','telemetry')),
   payload      TEXT NOT NULL,                -- JSON, job-type specific
   retry_count  INTEGER NOT NULL DEFAULT 0,
+  status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','failed')),
+  last_error   TEXT,                         -- sanitized JSON; only populated when failed
   created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 

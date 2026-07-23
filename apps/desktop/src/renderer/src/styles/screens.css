@@ -121,6 +121,7 @@
 .job-kind .icon { width: 14px; height: 14px; }
 .job-copy h2 { margin: 7px 0 0; overflow: hidden; color: var(--text-primary); font-size: 15px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
 .job-copy p { margin: 6px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
+.job-copy .job-failure-action { color: var(--text-secondary); }
 .job-meta { display: grid; min-width: 116px; justify-items: end; gap: 5px; color: var(--text-muted); font-size: 10px; }
 .job-meta strong { color: var(--text-secondary); font-size: 11px; font-weight: 600; }
 .jobs-message { margin: 24px 0 0; color: var(--text-secondary); font-size: 13px; }
@@ -444,6 +445,7 @@
 .ai-task legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
 .ai-task .settings-form-grid { margin: 4px 0 0; }
 .ai-task-hint { margin: 12px 0 0; color: var(--warning); font-size: 11px; }
+.ai-task-test-row { display: flex; margin-top: 12px; align-items: center; flex-wrap: wrap; gap: 10px; }
 .key-saved-badge { margin-left: 8px; padding: 1px 7px; color: var(--success); font-size: 10px; font-style: normal; border: 1px solid var(--success); border-radius: 999px; }
 .save-cluster { display: flex; align-items: center; gap: 12px; }
 .save-cluster-end { margin: 20px 0 0 44px; justify-content: flex-end; }
@@ -590,6 +592,21 @@
   font-size: 11px;
   line-height: 1.55;
 }
+.job-row-failed { border-left: 3px solid var(--danger); }
+.job-row-failed .job-kind,
+.job-row-failed .job-meta strong { color: var(--danger); }
+.version-failure-guidance {
+  display: block;
+  margin-top: 5px;
+  color: var(--danger);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.inline-notice-error { align-items: flex-start; color: var(--danger); }
+.inline-notice-error div { min-width: 0; }
+.inline-notice-error strong { display: block; font-size: 11px; line-height: 1.45; }
+.inline-notice-error p { margin: 4px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.45; }
 .diagnostics-section {
   margin-top: 28px;
   background: var(--surface-raised);

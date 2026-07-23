@@ -60,6 +60,36 @@
               }
             }
           },
+          "401": {
+            "description": "Provider rejected the credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Provider rejected the request size",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Provider quota or rate limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceErrorResponse"
+                }
+              }
+            }
+          },
           "502": {
             "description": "Provider or model output error",
             "content": {
@@ -130,6 +160,36 @@
           },
           "400": {
             "description": "No provider/model/key configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Provider rejected the credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Provider rejected the request size",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Provider quota or rate limit reached",
             "content": {
               "application/json": {
                 "schema": {

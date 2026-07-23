@@ -3,6 +3,7 @@ import { AssetPreview } from '../components/AssetPreview'
 import { Icon } from '../components/Icon'
 import type { AiStatus } from '../../../shared/ipc'
 import { chronicle } from '../lib/bridge'
+import { aiFailureFeedback } from '../lib/aiFailure'
 import { folderForAsset, relativeTime, useAssets, useFolders, useTimeline } from '../lib/useChronicle'
 
 interface TimelineScreenProps {
@@ -194,8 +195,9 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
         <>
           <div className="timeline-list" role="group" aria-label={`Versions of ${asset?.displayName ?? 'asset'}`}>
             {versions.map((version, index) => {
+              const failureFeedback = aiFailureFeedback(version.aiFailure)
               const fallbackSummary = version.aiStatus === 'failed'
-                ? 'Summary generation failed. Open this version to retry.'
+                ? failureFeedback.title
                 : version.aiStatus === 'pending'
                   ? 'Waiting for an AI change summary.'
                   : version.aiStatus === 'none'
@@ -217,6 +219,9 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
                   <span className="version-copy">
                     <span className="version-time">{relativeTime(version.capturedAt)}{index === 0 && <em>Latest</em>}</span>
                     <strong>{version.summary ?? fallbackSummary}</strong>
+                    {version.aiStatus === 'failed' && (
+                      <small className="version-failure-guidance">{failureFeedback.action}</small>
+                    )}
                     <span className={`version-status status-${version.aiStatus}`}>
                       <i /> {statusLabels[version.aiStatus]}
                     </span>

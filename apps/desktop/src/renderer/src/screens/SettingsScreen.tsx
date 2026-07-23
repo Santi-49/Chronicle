@@ -171,6 +171,10 @@ function AiSection() {
   const [embedProvider, setEmbedProvider] = useState('google_genai')
   const [embedModel, setEmbedModel] = useState('gemini-embedding-001')
   const [saveState, setSaveState] = useState<{ message: string; error: boolean } | null>(null)
+  const [testingTask, setTestingTask] = useState<AiTask | null>(null)
+  const [testStates, setTestStates] = useState<
+    Partial<Record<AiTask, { message: string; error: boolean }>>
+  >({})
 
   // Initialize the form once settings arrive.
   useEffect(() => {
@@ -240,6 +244,49 @@ function AiSection() {
     }
   }
 
+  const testConnection = async (task: AiTask) => {
+    const isChat = task === 'chat'
+    const selectionError = isChat ? chatError : embedError
+    if (selectionError) {
+      setTestStates((current) => ({
+        ...current,
+        [task]: { message: selectionError, error: true },
+      }))
+      return
+    }
+    setTestingTask(task)
+    setTestStates((current) => ({
+      ...current,
+      [task]: { message: 'Testing the real provider connection…', error: false },
+    }))
+    try {
+      const result = await chronicle.testAiConfiguration(
+        task,
+        (isChat ? chatProvider : embedProvider).trim(),
+        (isChat ? chatModel : embedModel).trim(),
+      )
+      setTestStates((current) => ({
+        ...current,
+        [task]: {
+          message: result.valid
+            ? `Connection passed: ${result.provider} / ${result.model}.`
+            : result.message,
+          error: !result.valid,
+        },
+      }))
+    } catch (error) {
+      setTestStates((current) => ({
+        ...current,
+        [task]: {
+          message: friendlyIpcError(error, 'The provider connection test failed.'),
+          error: true,
+        },
+      }))
+    } finally {
+      setTestingTask(null)
+    }
+  }
+
   // Providers to show a key row for: the curated catalog plus any custom
   // provider currently selected in custom mode (so its key can be saved).
   const keyProviders = useMemo(() => {
@@ -281,6 +328,24 @@ function AiSection() {
           <ProviderModelPicker task="chat" provider={chatProvider} model={chatModel} onProvider={(p) => changeProvider('chat', p)} onModel={setChatModel} />
         )}
         {chatError && <p className="ai-task-error" role="alert">{chatError}</p>}
+        <div className="ai-task-test-row">
+          <button
+            className="secondary-button compact-button"
+            disabled={loading || Boolean(chatError) || testingTask !== null}
+            onClick={() => void testConnection('chat')}
+            type="button"
+          >
+            {testingTask === 'chat' ? 'Testing…' : 'Test summary connection'}
+          </button>
+          {testStates.chat && (
+            <span
+              className={`inline-status ${testStates.chat.error ? 'inline-status-error' : ''}`}
+              role={testStates.chat.error ? 'alert' : 'status'}
+            >
+              {testStates.chat.message}
+            </span>
+          )}
+        </div>
       </fieldset>
 
       <fieldset className="ai-task">
@@ -294,6 +359,24 @@ function AiSection() {
           <ProviderModelPicker task="embeddings" provider={embedProvider} model={embedModel} onProvider={(p) => changeProvider('embeddings', p)} onModel={setEmbedModel} />
         )}
         {embedError && <p className="ai-task-error" role="alert">{embedError}</p>}
+        <div className="ai-task-test-row">
+          <button
+            className="secondary-button compact-button"
+            disabled={loading || Boolean(embedError) || testingTask !== null}
+            onClick={() => void testConnection('embeddings')}
+            type="button"
+          >
+            {testingTask === 'embeddings' ? 'Testing…' : 'Test search connection'}
+          </button>
+          {testStates.embeddings && (
+            <span
+              className={`inline-status ${testStates.embeddings.error ? 'inline-status-error' : ''}`}
+              role={testStates.embeddings.error ? 'alert' : 'status'}
+            >
+              {testStates.embeddings.message}
+            </span>
+          )}
+        </div>
       </fieldset>
 
       <div className="save-cluster save-cluster-end">

@@ -62,7 +62,7 @@ export function DiagnosticsScreen({ developmentBuild }: { developmentBuild: bool
   const { folders } = useFolders()
   const { jobs } = usePendingJobs()
   const pendingJobCount = status
-    ? Object.values(status.pendingJobs).reduce((sum, count) => sum + count, 0)
+    ? Object.values(status.pendingJobs).reduce((sum, count) => sum + count, 0) + status.failedJobs
     : jobs.length
 
   useEffect(() => subscribeToDiagnosticLogs(() => setLogs(getDiagnosticLogs())), [])

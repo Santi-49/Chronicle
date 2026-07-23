@@ -5,10 +5,8 @@ Success-path tests patch those coroutines with lightweight in-process fakes
 so the full FastAPI + Pydantic validation stack runs without network calls.
 """
 
-from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from chronicle_ai import routes
@@ -152,6 +150,26 @@ def test_provider_errors_are_sanitized(monkeypatch) -> None:
     assert "secret-key" not in response.text
 
 
+def test_provider_quota_errors_require_manual_retry(monkeypatch) -> None:
+    async def fail(_request):
+        raise RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded for secret-key")
+
+    monkeypatch.setattr(routes, "annotate_version", fail)
+    response = client.post("/annotate", json=ANNOTATE_PAYLOAD)
+
+    assert response.status_code == 429
+    assert response.json() == {
+        "detail": {
+            "code": "provider_quota_exceeded",
+            "message": (
+                "The AI provider quota or rate limit was reached. "
+                "This job requires a manual retry."
+            ),
+        }
+    }
+    assert "secret-key" not in response.text
+
+
 # ---------------------------------------------------------------------------
 # /annotate — success path (first-version description)
 # ---------------------------------------------------------------------------
@@ -286,6 +304,27 @@ def test_validate_provider_model_sanitizes_rejected_config(mock_validate: AsyncM
     assert response.status_code == 200
     assert response.json()["valid"] is False
     assert "secret-key" not in response.text
+
+
+@patch("chronicle_ai.routes.validate_provider_model", new_callable=AsyncMock)
+def test_validate_provider_model_explains_quota_failure(mock_validate: AsyncMock) -> None:
+    mock_validate.side_effect = RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded")
+    response = client.post(
+        "/validate-provider-model",
+        json={
+            "task": "chat",
+            "provider": "google_genai",
+            "model": "gemini-flash-latest",
+            "apiKey": "secret-key",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+    assert response.json()["message"] == (
+        "The AI provider quota or rate limit was reached. "
+        "This job requires a manual retry."
+    )
 
 
 def test_validate_provider_model_requires_api_key() -> None:
