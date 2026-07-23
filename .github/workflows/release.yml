@@ -21,6 +21,35 @@ jobs:
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
+  sync-release-back-to-dev:
+    name: Sync released main back to dev
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-back-sync-dev
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+      - name: Merge released main into latest dev
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main dev
+          git checkout -B dev origin/dev
+
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "dev already contains the released main commit."
+            exit 0
+          fi
+
+          git merge --no-ff origin/main -m "chore: sync released main back into dev"
+          git push origin HEAD:dev
+
   attach-windows-installer:
     needs: release-please
     if: needs.release-please.outputs.created == 'true'
@@ -28,6 +57,7 @@ jobs:
     env:
       CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +84,7 @@ jobs:
         run: |
           if (-not $env:CHRONICLE_CONTROL_PLANE_URL) { throw "Missing repository variable CHRONICLE_CONTROL_PLANE_URL" }
           if (-not $env:GOOGLE_OAUTH_CLIENT_ID) { throw "Missing repository variable GOOGLE_OAUTH_CLIENT_ID" }
+          if (-not $env:GOOGLE_OAUTH_CLIENT_SECRET) { throw "Missing repository secret GOOGLE_OAUTH_CLIENT_SECRET" }
       - run: npm run package
         working-directory: apps/desktop
       - run: python scripts/smoke_ai_sidecar.py
@@ -78,6 +109,7 @@ jobs:
     env:
       CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -102,6 +134,7 @@ jobs:
         run: |
           test -n "$CHRONICLE_CONTROL_PLANE_URL" || { echo "Missing repository variable CHRONICLE_CONTROL_PLANE_URL" >&2; exit 1; }
           test -n "$GOOGLE_OAUTH_CLIENT_ID" || { echo "Missing repository variable GOOGLE_OAUTH_CLIENT_ID" >&2; exit 1; }
+          test -n "$GOOGLE_OAUTH_CLIENT_SECRET" || { echo "Missing repository secret GOOGLE_OAUTH_CLIENT_SECRET" >&2; exit 1; }
       - run: npm run package:mac
         working-directory: apps/desktop
         env:

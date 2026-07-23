@@ -241,8 +241,10 @@ make control-plane-down
 In development, the desktop reads `CHRONICLE_CONTROL_PLANE_URL` and
 `GOOGLE_OAUTH_CLIENT_ID` from `.env`; the URL defaults to `http://localhost:8000`.
 Use the control-plane origin only, without `/api/v1`. Packaged releases embed these
-public values at build time from GitHub Actions repository variables of the same names,
-so an installed app does not require environment variables or a bundled `.env` file.
+public values at build time from GitHub Actions repository variables and read the matching
+`GOOGLE_OAUTH_CLIENT_SECRET` from an Actions secret, so an installed app does not require
+environment variables or a bundled `.env` file. Desktop OAuth client values are extractable
+from installed apps; PKCE remains the security boundary.
 
 ## Repository map
 

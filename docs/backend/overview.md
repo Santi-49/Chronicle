@@ -117,4 +117,4 @@ All variables are documented in `.env.example` at the repo root. Key ones:
 | `FIRST_ADMIN_EMAIL` | Seeded on first `make migrate` |
 | `FIRST_ADMIN_PASSWORD` | Seeded on first `make migrate` |
 | `GOOGLE_OAUTH_CLIENT_ID` | Desktop OAuth client ID; API validates the Google ID-token audience |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Unused by Chronicle's desktop PKCE flow; never bundle it in Electron |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Ignored by the API; the release workflow uses the same-named Actions secret for Electron's Desktop OAuth exchange (PKCE remains the security boundary) |
