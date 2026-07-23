@@ -684,7 +684,7 @@ secrets never in git, `docs/bob-log.md` line per PR). Contract-touching tasks (`
 `C5`, `C6`) require a coordinated contract change proposed *before* implementation, per
 `docs/contracts.md`.
 
-### [ ] POST-01 — Refactor the AI annotation request to carry an explicit file format `Post-MVP`
+### [x] POST-01 — Refactor the AI annotation request to carry an explicit file format `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** MVP-09
@@ -719,7 +719,7 @@ output-schema change. AI work stays async.
 first-version descriptions still pass on the demo fixtures through the running service;
 generated TS types compile; an unsupported format returns a typed error.
 
-### [X] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
+### [ ] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-01

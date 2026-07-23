@@ -126,6 +126,25 @@ def test_annotate_rejects_unsupported_media_type() -> None:
     assert response.status_code == 422
 
 
+def test_annotate_rejects_unsupported_format_with_typed_validation_error() -> None:
+    response = client.post(
+        "/annotate",
+        json={
+            **ANNOTATE_PAYLOAD,
+            "format": "gif",
+            "current": {**VALID_IMAGE, "format": "gif"},
+        },
+    )
+
+    assert response.status_code == 422
+    errors = response.json()["detail"]
+    assert any(
+        error["type"] == "literal_error"
+        and error["loc"] in (["body", "format"], ["body", "current", "format"])
+        for error in errors
+    )
+
+
 def test_provider_errors_are_sanitized(monkeypatch) -> None:
     async def fail(_request):
         raise RuntimeError("provider leaked secret-key")

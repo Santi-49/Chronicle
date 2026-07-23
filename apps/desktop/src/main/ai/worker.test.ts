@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppSettings } from '../../shared/settings'
 import type { ChronicleDb } from '../db/database'
 import type { AnnotationRecord, QueueItem } from '../db/repositories'
-import { createAiWorker } from './worker'
+import { createAiWorker, formatFromPath } from './worker'
 
 const state = vi.hoisted(() => ({
   jobs: [] as QueueItem[],
@@ -135,6 +135,15 @@ function workerWith(overrides: Record<string, unknown> = {}) {
 }
 
 describe('AI queue worker', () => {
+  it('rejects unsupported formats instead of silently treating them as PNG', () => {
+    expect(() => formatFromPath('C:/design/logo.gif')).toThrow(
+      'Unsupported annotation format: gif',
+    )
+    expect(() => formatFromPath('C:/design/logo')).toThrow(
+      'Unsupported annotation format: (missing extension)',
+    )
+  })
+
   it('annotates a version, then embeds and stores its searchable text', async () => {
     const { worker, client, emit } = workerWith()
 
@@ -142,8 +151,17 @@ describe('AI queue worker', () => {
     expect(client.annotate).toHaveBeenCalledWith(
       expect.objectContaining({
         fileName: 'logo.png',
-        previous: { base64: Buffer.from('old').toString('base64'), mediaType: 'image/png' },
-        current: { base64: Buffer.from('new').toString('base64'), mediaType: 'image/png' },
+        format: 'png',
+        previous: {
+          base64: Buffer.from('old').toString('base64'),
+          mediaType: 'image/png',
+          format: 'png',
+        },
+        current: {
+          base64: Buffer.from('new').toString('base64'),
+          mediaType: 'image/png',
+          format: 'png',
+        },
       }),
     )
     expect(state.annotations.get(2)?.summary).toBe('Background changed to teal.')

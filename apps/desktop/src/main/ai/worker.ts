@@ -48,11 +48,10 @@ export interface AiWorkerDependencies {
 
 type SupportedFormat = 'png' | 'jpg' | 'jpeg'
 
-function formatFromPath(filePath: string): SupportedFormat {
+export function formatFromPath(filePath: string): SupportedFormat {
   const ext = path.extname(filePath).toLowerCase().replace('.', '')
-  if (ext === 'jpeg') return 'jpeg'
-  if (ext === 'jpg') return 'jpg'
-  return 'png' // Default fallback for current MVP image types
+  if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') return ext
+  throw new Error(`Unsupported annotation format: ${ext || '(missing extension)'}`)
 }
 
 function mediaType(filePath: string): 'image/png' | 'image/jpeg' {

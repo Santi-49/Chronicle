@@ -270,6 +270,15 @@
             "minLength": 1,
             "title": "Filename"
           },
+          "format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpg",
+              "jpeg"
+            ],
+            "title": "Format"
+          },
           "previous": {
             "anyOf": [
               {
@@ -288,6 +297,7 @@
         "type": "object",
         "required": [
           "fileName",
+          "format",
           "current"
         ],
         "title": "AnnotateRequest"
@@ -571,13 +581,23 @@
               "image/jpeg"
             ],
             "title": "Mediatype"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpg",
+              "jpeg"
+            ],
+            "title": "Format"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "base64",
-          "mediaType"
+          "mediaType",
+          "format"
         ],
         "title": "ImageInput",
         "description": "One PNG or JPEG transported across the local HTTP boundary."
