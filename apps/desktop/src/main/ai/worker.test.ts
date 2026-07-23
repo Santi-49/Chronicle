@@ -207,7 +207,8 @@ describe('AI queue worker', () => {
   })
 
   it('marks an annotation failed after three provider failures', async () => {
-    const { worker, client, emit } = workerWith()
+    const diagnostic = vi.fn()
+    const { worker, client, emit } = workerWith({ diagnostic })
     client.annotate.mockRejectedValue(new Error('provider unavailable'))
 
     await worker.runOnce()
@@ -217,5 +218,12 @@ describe('AI queue worker', () => {
     expect(state.jobs).toHaveLength(0)
     expect(state.status).toBe('failed')
     expect(emit).toHaveBeenCalledWith('annotationUpdated', { versionId: 2, aiStatus: 'failed' })
+    expect(diagnostic).toHaveBeenCalledTimes(3)
+    expect(diagnostic).toHaveBeenLastCalledWith(expect.objectContaining({
+      level: 'error',
+      source: 'ai',
+      event: 'summary_generation_failed',
+      context: expect.objectContaining({ versionId: 2, attempt: 3, willRetry: false }),
+    }))
   })
 })

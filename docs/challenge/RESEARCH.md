@@ -335,6 +335,39 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 
 ---
 
+### Desktop diagnostics and developer-mode activation (2026-07-23)
+
+- Electron exposes `app.isPackaged` specifically to distinguish packaged and development
+  environments. In Chronicle's Vite renderer, `import.meta.env.DEV` is the equivalent compile-time
+  signal, so it is more reliable than inspecting the parent command or assuming that a terminal is
+  attached. ([Electron `app`](https://www.electronjs.org/docs/latest/api/app))
+- Development and support diagnostics are different use cases. A development build should expose
+  the panel automatically; an installed build needs an explicit, device-local opt-in so a user can
+  reproduce a production-only failure. The panel itself should not grant new filesystem, Node, or
+  IPC powers.
+- Electron separates renderer and main-process debugging: Chromium DevTools cover a window's
+  renderer JavaScript, while the main process requires an external inspector. Electron also emits
+  renderer `console-message` events from `webContents`, supports bounded network capture through
+  `netLog`, and stores crash dumps through Crashpad. This argues for a layered long-term design:
+  in-app safe summary first, rotating main/renderer file logs second, and time-bounded network/crash
+  collection only on explicit request.
+  ([renderer console events](https://www.electronjs.org/docs/latest/api/web-contents/),
+  [main-process debugging](https://www.electronjs.org/docs/latest/tutorial/debugging-main-process),
+  [`netLog`](https://www.electronjs.org/docs/latest/api/net-log/),
+  [`crashReporter`](https://www.electronjs.org/docs/latest/api/crash-reporter))
+- Network diagnostics are privacy-sensitive: Electron's default `netLog` mode captures metadata,
+  while its stronger modes can include cookies, authentication data, and full socket bytes.
+  Chronicle must never start those modes silently or include them in routine telemetry.
+- A useful first panel needs bounded, filterable logs plus a runtime snapshot (app/build version,
+  bridge health, connectivity, watched folders, assets/versions, AI configuration, and queue depth).
+  Logs should be memory-bounded, preserve level and timestamp, redact common credential shapes, and
+  explain their scope. Copy/export is explicit and user-initiated.
+- Implemented follow-up: Chronicle's typed diagnostics boundary now also exposes live control-plane
+  health, the exact content-free telemetry payloads pending in SQLite, and a bounded completed-request
+  audit. URL/query, method, status, latency, headers, and JSON request bodies preserve their outbound
+  shape, while authorization, passwords, OAuth credentials, tokens, passphrases, API keys, and
+  encrypted envelopes are replaced by explicit redaction markers.
+
 ## Recommendations
 
 > Update this section whenever a meaningful new finding changes the strategic picture.
@@ -360,6 +393,10 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 - Minimal, clear, documented code — judges are told to reward "well-structured"; the README is a judged artifact, treat it as a feature.
 - For the desktop UI, use a neutral-gray, dark-first palette with IBM blue reserved for primary actions and focus. IBM's public design language recommends gray-dominant product interfaces, blue as the primary action color, paired dark/light themes, and WCAG contrast checks.
 - Keep product navigation in one persistent left shell and use short “productive” motion only to clarify page changes. Carbon presents the UI shell as the stable orientation layer and describes efficient motion as a way to move users forward, not decoration.
+- Auto-enable the Diagnostics tab in development builds, and provide a separate local Developer
+  mode checkbox for packaged support cases. Keep it below Search as secondary, developer-only
+  navigation. Do not infer mode from the literal `npm run dev` command, and do not expose privileged
+  APIs or upload diagnostic data merely because the tab is enabled.
 - Treat the desktop title bar as functional window chrome, not spare canvas. Keep the app identity at the leading edge, preserve native caption controls, and leave unused space draggable. Add a centered global search/command field only when it provides real app-wide functionality; Microsoft recommends a 48 px title bar when global search is present.
 - Make Chronicle's title bar follow the selected light/dark mode and blend with the adjacent app surface. A permanently dark shell inside a light theme is a valid Carbon high-contrast pattern, but it is best reserved for a substantial navigation shell or deliberate workflow emphasis. Chronicle's bar contains only identity and native window controls, so theme-matched chrome is quieter, more platform-consistent, and avoids making the bar look accidentally left behind in light mode. Theme the Electron overlay background and caption-symbol colors together with the rendered bar.
 - Design the Windows app icon independently from the in-product logo lockup: start on a 48 px grid, use a bold transparent silhouette with no more than two metaphors, and judge it first at the 24 px Windows 11 taskbar size. Avoid a dark plate plus multiple translucent outlines—the plate merges into a dark taskbar and the outlines collapse into a generic nested-screen glyph. Prefer a restrained monochrome or analogous palette with dark, medium, and light values; ensure at least half the icon reaches 3:1 contrast on both light and dark contexts, and export exact 16/24/32/48/256 px resources.
@@ -408,6 +445,8 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 > Append entries here as new information surfaces. Never delete old entries — mark them
 > superseded if they become stale. Format: `YYYY-MM-DD — finding — source`.
 
+- 2026-07-23 — DESKTOP DIAGNOSTICS: Electron provides packaged/development signals rather than command-name detection, and separates renderer, main-process, network, and crash diagnostics. Chronicle auto-enables Diagnostics in development, offers a device-local packaged-build opt-in, and now includes a bounded/redacted renderer log, runtime state, live control-plane health, exact pending content-free telemetry payloads, and a 200-request sanitized control-plane audit. Rotating process files and explicit bounded network/crash bundles remain follow-up work — [Electron app](https://www.electronjs.org/docs/latest/api/app), [webContents](https://www.electronjs.org/docs/latest/api/web-contents/), [netLog](https://www.electronjs.org/docs/latest/api/net-log/), [crashReporter](https://www.electronjs.org/docs/latest/api/crash-reporter)
+- 2026-07-23 — DEVELOPMENT CONTROL-PLANE URL: electron-vite correctly injected the root `.env` `CHRONICLE_CONTROL_PLANE_URL`, but the gateway client could still prefer a URL persisted by an earlier run before settings migration executed. Development now treats the explicitly configured `.env` endpoint as authoritative from the first request and persists that resolved value when settings load; packaged builds preserve their existing user-override behavior. The current repository `.env` value resolves to `http://localhost:8000`, so a different development service requires changing that value and restarting `npm run dev` — local configuration trace + regression test
 - 2026-07-16 — Event identified: "AI Builders Challenge with IBM Bob", BeMyApp for IBM SkillsBuild; July theme "Reimagine Creative Industries with AI"; submissions due July 31, 2026 11:59 PM ET; prizes $2,250/$1,250/$750/$750 per month + $5,000 grand prize — event page
 - 2026-07-16 — Judging: 4 equal criteria, 1–5 each (max 20): Technical Execution (incl. effective IBM Bob use), Innovation, Challenge Fit, Implementation & Feasibility — Official Rules doc
 - 2026-07-16 — Submission: public GitHub repo + README (problem, solution, AI approach, theme, Bob usage) + ≤3 min video + SkillsBuild learning activity; 1 submission/person; teams 1–5 — Official Rules + event page

@@ -7,18 +7,21 @@ import { StatusBar } from './StatusBar'
 interface AppShellProps {
   route: AppRoute
   children: ReactNode
+  developerMode: boolean
   onNavigate: (route: AppRoute) => void
   onOpenJobs: () => void
 }
 
-const primaryNavigation: { name: PrimaryRouteName; label: string; icon: IconName }[] = [
+const primaryNavigation: { name: PrimaryRouteName; label: string; icon: IconName; developerOnly?: boolean }[] = [
   { name: 'home', label: 'Home', icon: 'home' },
   { name: 'projects', label: 'Projects', icon: 'folder' },
   { name: 'search', label: 'Search', icon: 'search' },
+  { name: 'diagnostics', label: 'Diagnostics', icon: 'terminal', developerOnly: true },
 ]
 
-export function AppShell({ route, children, onNavigate, onOpenJobs }: AppShellProps) {
+export function AppShell({ route, children, developerMode, onNavigate, onOpenJobs }: AppShellProps) {
   const activeRoute = getPrimaryRoute(route)
+  const visibleNavigation = primaryNavigation.filter((item) => !item.developerOnly || developerMode)
 
   return (
     <div className="workspace-shell">
@@ -26,7 +29,7 @@ export function AppShell({ route, children, onNavigate, onOpenJobs }: AppShellPr
       <aside className="workspace-sidebar">
         <nav aria-label="Primary navigation">
           <ul>
-            {primaryNavigation.map((item) => (
+            {visibleNavigation.map((item) => (
               <li key={item.name}>
                 <button
                   aria-current={activeRoute === item.name ? 'page' : undefined}

@@ -862,7 +862,7 @@ telemetry defaulting, and explicit encrypted-key-sync enable/save controls. Auto
 desktop suites pass. Final acceptance requires one interactive Google login against the team's
 configured OAuth client after restarting the desktop process.
 
-### [ ] POST-04 — Wire the app to the control plane for usage statistics `Post-MVP`
+### [x] POST-04 — Wire the app to the control plane for usage statistics `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-03

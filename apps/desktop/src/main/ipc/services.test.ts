@@ -516,8 +516,11 @@ describe('timeline and version details', () => {
       expect(getAnnotation(db, old.id)).toBeUndefined()
       expect(getEmbedding(db, old.id)).toBeUndefined()
     }
-    expect(listJobs(db)).toHaveLength(1)
-    expect(listJobs(db)[0]).toMatchObject({
+    // The reset queues exactly one annotation job for the fresh v1. A
+    // content-free version_history_reset telemetry job is also enqueued
+    // (POST-04), so scope this assertion to the annotation queue.
+    expect(listJobs(db, 'ai_annotation')).toHaveLength(1)
+    expect(listJobs(db, 'ai_annotation')[0]).toMatchObject({
       jobType: 'ai_annotation',
       payload: { versionId: reset.versionId },
     })
@@ -872,6 +875,13 @@ describe('getAppStatus', () => {
     })
     expect(jobs[0]?.thumbnailUrl).toBe((await services.api.getVersionDetails(capture.versionId)).thumbnailUrl)
     expect(JSON.stringify(jobs)).not.toContain('internal')
+
+    const controlPlaneEvents = await services.api.listPendingControlPlaneEvents()
+    expect(controlPlaneEvents).toHaveLength(1)
+    expect(controlPlaneEvents[0]).toMatchObject({
+      retryCount: 0,
+      payload: { event: 'version_captured', secret: '[redacted]' },
+    })
   })
 })
 

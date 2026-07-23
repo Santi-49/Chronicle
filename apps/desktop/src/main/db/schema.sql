@@ -22,7 +22,10 @@ CREATE TABLE IF NOT EXISTS tracked_folders (
   -- JSON arrays. excluded_paths: absolute file paths the watcher must skip.
   -- allowed_extensions: enabled extensions; '[]' means "all supported types".
   excluded_paths      TEXT NOT NULL DEFAULT '[]',
-  allowed_extensions  TEXT NOT NULL DEFAULT '[]'
+  allowed_extensions  TEXT NOT NULL DEFAULT '[]',
+  -- POST-04: random UUID for content-free telemetry. Never derived from the
+  -- path, name, or database ID. NULL until first telemetry flush.
+  telemetry_id  TEXT
 );
 
 -- One tracked file. Identity = path (MVP, spec F3.7): rename/move = new asset.

@@ -57,8 +57,23 @@ Authenticated account/settings and secret operations require OPA `(account, read
 write)`, granted to `user` and `admin`. Installation registration is intentionally public;
 installation linking requires an authenticated Chronicle session.
 
-## Deferred to POST-04
+## Telemetry (POST-04)
 
-Content-free telemetry remains a separate change: `POST /api/v1/telemetry/events` plus project
-inventory upsert/delete. POST-03 registers installations and stores the preference but sends no
-usage events.
+All telemetry endpoints are public (no Chronicle account required) so local-mode installations
+can participate when opted in. The installation ID from the request body is the only identity
+link; no account or device identity is required.
+
+- `POST /api/v1/telemetry/events` accepts a batch of 1–100 discriminated events. Unknown or
+  extra fields are rejected with 422. Duplicate event IDs are silently ignored for idempotent
+  retry. Event types: `app_opened`, `version_captured`, `ai_summary_generated`,
+  `search_performed`. No event may contain file content, file names or paths, project names or
+  descriptions, AI summaries, tags, search queries, exact byte sizes, or Chronicle/asset IDs.
+- `PUT /api/v1/telemetry/projects/{project_telemetry_id}?installation_id=…` upserts an
+  allowlisted per-project inventory: total tracked-file count and a map of counts by normalised
+  file type (`png`, `jpg`, `other`). No name, path, description, or database ID is accepted.
+- `DELETE /api/v1/telemetry/projects/{project_telemetry_id}?installation_id=…` removes the
+  inventory record. Silently succeeds if already absent.
+
+Disabling telemetry in Settings clears the local queue immediately and sends DELETE for every
+known project inventory record. Minimal installation registration (POST-03) is a separately
+disclosed operation that continues regardless of the telemetry preference.

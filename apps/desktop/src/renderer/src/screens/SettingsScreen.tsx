@@ -19,8 +19,11 @@ import { friendlyError } from '../lib/friendlyError'
 import { friendlyIpcError } from '../lib/errors'
 
 interface SettingsScreenProps {
+  developerBuild: boolean
+  developerMode: boolean
   themePreference: ThemePreference
   onAddProject: () => void
+  onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
 }
 
@@ -30,7 +33,14 @@ const appearanceOptions: { value: ThemePreference; label: string; description: s
   { value: 'light', label: 'Light', description: 'Use the light workspace' },
 ]
 
-export function SettingsScreen({ themePreference, onAddProject, onThemePreferenceChange }: SettingsScreenProps) {
+export function SettingsScreen({
+  developerBuild,
+  developerMode,
+  themePreference,
+  onAddProject,
+  onDeveloperModeChange,
+  onThemePreferenceChange,
+}: SettingsScreenProps) {
   return (
     <section className="page settings-page" aria-labelledby="settings-title">
       <PageHeader
@@ -44,7 +54,43 @@ export function SettingsScreen({ themePreference, onAddProject, onThemePreferenc
         <TrackedFoldersSection onAddProject={onAddProject} />
         <AiSection />
         <AccountSection />
+        <DeveloperToolsSection
+          developerBuild={developerBuild}
+          developerMode={developerMode}
+          onDeveloperModeChange={onDeveloperModeChange}
+        />
       </div>
+    </section>
+  )
+}
+
+function DeveloperToolsSection({
+  developerBuild,
+  developerMode,
+  onDeveloperModeChange,
+}: Pick<SettingsScreenProps, 'developerBuild' | 'developerMode' | 'onDeveloperModeChange'>) {
+  return (
+    <section className="settings-section">
+      <div className="settings-section-heading">
+        <Icon name="terminal" />
+        <div><h2>Developer tools</h2><p>Show local diagnostics for troubleshooting this installation.</p></div>
+      </div>
+      <label className="toggle-field developer-tools-toggle">
+        <input
+          checked={developerMode}
+          disabled={developerBuild}
+          onChange={(event) => onDeveloperModeChange(event.target.checked)}
+          type="checkbox"
+        />
+        <span>
+          <strong>Developer mode</strong>
+          <small>
+            {developerBuild
+              ? 'Enabled automatically while running npm run dev.'
+              : 'Adds a Diagnostics tab below Search. This preference stays on this device.'}
+          </small>
+        </span>
+      </label>
     </section>
   )
 }
@@ -133,7 +179,7 @@ function AiSection() {
     setChatModel(settings.ai.chat.model || 'gemini-flash-latest')
     setEmbedProvider(settings.ai.embeddings.provider || 'google_genai')
     setEmbedModel(settings.ai.embeddings.model || 'gemini-embedding-001')
-    // Show developer mode automatically when stored values are not presets.
+    // Show custom configuration automatically when stored values are not presets.
     const preset =
       isPresetModel('chat', settings.ai.chat.provider, settings.ai.chat.model) &&
       isPresetModel('embeddings', settings.ai.embeddings.provider, settings.ai.embeddings.model)
@@ -195,7 +241,7 @@ function AiSection() {
   }
 
   // Providers to show a key row for: the curated catalog plus any custom
-  // provider currently selected in developer mode (so its key can be saved).
+  // provider currently selected in custom mode (so its key can be saved).
   const keyProviders = useMemo(() => {
     const rows = AI_PROVIDERS.map((p) => ({ id: p.id, label: p.label }))
     const known = new Set(rows.map((r) => r.id))
@@ -219,7 +265,7 @@ function AiSection() {
       <label className="toggle-field dev-toggle">
         <input checked={devMode} onChange={(event) => setDevMode(event.target.checked)} type="checkbox" />
         <span>
-          <strong>Developer mode</strong>
+          <strong>Custom AI configuration</strong>
           <small>Enter any LangChain provider and model instead of the presets.</small>
         </span>
       </label>
@@ -398,9 +444,12 @@ function AccountSection() {
     setControlPlaneAvailable(available)
   }
 
+  // Check when Settings opens, then again if connectivity returns — no polling.
   useEffect(() => {
     void refreshAccount()
     void checkControlPlane()
+    window.addEventListener('online', checkControlPlane)
+    return () => window.removeEventListener('online', checkControlPlane)
   }, [])
 
   const runAuth = async (operation: () => Promise<void>, success: string) => {

@@ -47,7 +47,11 @@ export function openChronicleDb(filePath: string): ChronicleDb {
   ensureColumns(db, 'tracked_folders', {
     description: "TEXT NOT NULL DEFAULT ''",
   })
-  db.pragma('user_version = 4')
+  // v5: POST-04 random telemetry UUID per project (nullable, no default needed).
+  ensureColumns(db, 'tracked_folders', {
+    telemetry_id: 'TEXT',
+  })
+  db.pragma('user_version = 5')
   return db
 }
 

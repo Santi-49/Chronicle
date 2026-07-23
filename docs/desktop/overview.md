@@ -192,16 +192,37 @@ box — the user never chooses a "mode". Click a result → Version details.
   active indexing, work paused offline, and missing AI setup; in every state it confirms that
   keyword search remains available while meaning-based matches catch up.
 
+### 8.1 Diagnostics — developer-only
+
+A **Diagnostics** tab appears directly below Search while running `npm run dev`. Packaged builds
+can expose the same tab through **Settings → Developer tools → Developer mode**, stored only on
+that device. The tab shows a non-sensitive runtime snapshot, live control-plane health, every
+content-free telemetry event pending in the offline SQLite queue, a 200-request control-plane audit,
+and two filterable in-memory logs: a 500-entry structured main-process application stream and a
+250-entry renderer console stream. Application events cover project create/update/remove, version
+capture/restore/reset, watcher activity, successful and failed AI summaries/embeddings, telemetry
+delivery, failed IPC operations, and unexpected process errors. The request audit shows
+URL/query, method, status,
+latency, headers, request bodies, and response bodies after explicit redaction of authorization values, passwords,
+OAuth credentials, tokens, passphrases, API keys, and encrypted key envelopes. Clear and copy-report
+actions remain local and user initiated; clearing the request audit does not delete queued telemetry
+or server data and retains the latest independent health result. Structured application, pending,
+and request entries are collapsed by default and expand individually to reveal their sanitized
+details. Every top-level Diagnostics card also has an explicit keyboard-accessible Collapse/Expand
+control in its header. Creative-file contents and privileged Node/Electron APIs never cross this
+diagnostics boundary. Rotating file logs and opt-in network/crash bundles remain separate future work.
+
 ### 9. Settings — F1, F2, F4/F9 config
 
-Four sections, in current order:
+Five sections, in current order:
 
 | Section | Contents |
 |---|---|
 | **Appearance** | Theme: System (default) · Dark · Light |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
+| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Packaged providers: **Google Gemini · Anthropic Claude · OpenAI**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Custom AI configuration** toggle permits free-text LangChain provider/model pairs for development environments that install them separately. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
 | **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved. Portable preferences sync automatically after each saved change, with no manual sync action. The usage control includes an explicit local-data warning and immediate off switch. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. Enabling key sync reveals a compact passphrase row with explicit **Save encrypted copy** and **Restore to this device** actions; disabling it removes the cloud envelope but keeps local keys. The passphrase is cleared after an action, cannot be recovered, and is never sent to Chronicle. Operation status/errors sit beside the related control. |
-| **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker. Packaged providers: **Google Gemini · Anthropic Claude · OpenAI**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Developer mode** toggle permits free-text LangChain provider/model pairs for development environments that install them separately. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
+| **Developer tools** | Final section. Developer mode is forced on in development builds and is an explicit device-local checkbox in packaged builds. It controls the developer-only Diagnostics navigation tab. |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
 online/offline, AI-ready state, and pending AI/embedding job count — refreshed from `statusChanged`.

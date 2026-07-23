@@ -149,6 +149,54 @@ export interface PendingJob {
   thumbnailUrl: string | null
 }
 
+/** Sanitized record of one outbound Chronicle control-plane request. */
+export interface ControlPlaneDiagnostic {
+  id: number
+  timestamp: string
+  kind: 'health' | 'request'
+  method: string
+  url: string
+  requestHeaders: Record<string, string>
+  /** Exact JSON-compatible request payload after secret-bearing fields are redacted. */
+  requestBody: unknown | null
+  /** Sanitized JSON/text response payload, including error details when the server provides them. */
+  responseBody: unknown | null
+  status: number | null
+  ok: boolean
+  durationMs: number
+  error: string | null
+}
+
+/** One sanitized telemetry payload queued locally for later control-plane delivery. */
+export interface PendingControlPlaneEvent {
+  id: number
+  queuedAt: string
+  retryCount: number
+  payload: unknown
+}
+
+export type ApplicationDiagnosticLevel = 'debug' | 'info' | 'warn' | 'error'
+export type ApplicationDiagnosticSource =
+  | 'application'
+  | 'project'
+  | 'capture'
+  | 'watcher'
+  | 'ai'
+  | 'telemetry'
+  | 'control-plane'
+
+/** Structured main-process event exposed only through Developer Diagnostics. */
+export interface ApplicationDiagnostic {
+  id: number
+  timestamp: string
+  level: ApplicationDiagnosticLevel
+  source: ApplicationDiagnosticSource
+  event: string
+  message: string
+  /** Sanitized, JSON-compatible debugging metadata. Never contains credentials. */
+  context: unknown | null
+}
+
 // ── Renderer → main (request/response) ─────────────────────────────────
 
 export interface ChronicleApi {
@@ -204,6 +252,16 @@ export interface ChronicleApi {
   // F1 — account (low priority; everything above works in 'local' mode)
   /** Reachability/configuration preflight; never throws for ordinary connection failures. */
   checkControlPlaneHealth(): Promise<boolean>
+  /** Developer diagnostic health probe; checks the service independently of OAuth configuration. */
+  probeControlPlaneHealth(): Promise<boolean>
+  /** Bounded, sanitized audit of outbound requests; never contains credentials or plaintext keys. */
+  listControlPlaneDiagnostics(): Promise<ControlPlaneDiagnostic[]>
+  /** Clears only the current session's in-memory control-plane request audit. */
+  clearControlPlaneDiagnostics(): Promise<void>
+  /** Bounded, sanitized lifecycle/error log from the Electron main process. */
+  listApplicationDiagnostics(): Promise<ApplicationDiagnostic[]>
+  /** Content-free telemetry events currently waiting in the offline SQLite queue. */
+  listPendingControlPlaneEvents(): Promise<PendingControlPlaneEvent[]>
   getAccountState(): Promise<AccountState>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
@@ -238,6 +296,10 @@ export interface ChronicleEvents {
   statusChanged: AppStatus
   /** A file was seen but skipped (F3 rule 6) — toast. */
   fileSkipped: { fileName: string; reason: 'too-large' }
+  /** One sanitized control-plane request completed — update developer diagnostics. */
+  controlPlaneDiagnostic: ControlPlaneDiagnostic
+  /** One structured application lifecycle/error event — update developer diagnostics. */
+  applicationDiagnostic: ApplicationDiagnostic
 }
 
 export type ChronicleEventName = keyof ChronicleEvents

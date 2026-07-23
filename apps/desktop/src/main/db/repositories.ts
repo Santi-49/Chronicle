@@ -6,6 +6,7 @@
  * SQLite — versions reference the content-addressed library by hash.
  */
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { AiStatus, FolderMetaPatch, TrackedFolder } from '../../shared/ipc'
 import { WATCHED_EXTENSIONS } from '../watcher/rules'
 import type { ChronicleDb } from './database'
@@ -713,4 +714,57 @@ export function setSetting(db: ChronicleDb, key: string, value: unknown): void {
     key,
     JSON.stringify(value),
   )
+}
+
+// ── Telemetry IDs (POST-04, F8) ──────────────────────────────────────────
+
+/**
+ * Returns the persistent random telemetry UUID for a tracked folder, creating
+ * it on first call. The value is stored in the `telemetry_id` column added in
+ * the POST-04 schema migration and is never derived from the folder's path,
+ * name, or database ID.
+ */
+export function getFolderTelemetryId(db: ChronicleDb, folderId: number): string {
+  const row = db
+    .prepare('SELECT telemetry_id FROM tracked_folders WHERE id = ?')
+    .get(folderId) as { telemetry_id: string | null } | undefined
+  if (!row) throw new Error(`Tracked folder ${folderId} not found`)
+  if (row.telemetry_id) return row.telemetry_id
+  const id = randomUUID()
+  db.prepare('UPDATE tracked_folders SET telemetry_id = ? WHERE id = ?').run(id, folderId)
+  return id
+}
+
+/**
+ * Clears the telemetry ID for a folder so a fresh UUID is issued on next use.
+ * Called when the user resets telemetry consent or removes + re-adds a project.
+ */
+export function clearFolderTelemetryId(db: ChronicleDb, folderId: number): void {
+  db.prepare('UPDATE tracked_folders SET telemetry_id = NULL WHERE id = ?').run(folderId)
+}
+
+/**
+ * Deletes all telemetry queue items. Used when the user turns off telemetry;
+ * non-telemetry jobs (AI/embedding) are unaffected.
+ */
+export function clearTelemetryQueue(db: ChronicleDb): void {
+  db.prepare("DELETE FROM queue_items WHERE job_type = 'telemetry'").run()
+}
+
+/**
+ * Returns the lowercase extensions (e.g. ".png") of all files captured under
+ * a tracked folder, for content-free project inventory telemetry.
+ */
+export function getFolderFileExts(db: ChronicleDb, folderId: number): string[] {
+  const folder = getTrackedFolder(db, folderId)
+  if (!folder) return []
+  const rows = db
+    .prepare("SELECT a.path FROM assets a WHERE a.on_disk = 1")
+    .all() as Array<{ path: string }>
+  return rows
+    .filter((r) => {
+      const rel = path.relative(folder.path, r.path)
+      return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
+    })
+    .map((r) => path.extname(r.path).toLowerCase())
 }

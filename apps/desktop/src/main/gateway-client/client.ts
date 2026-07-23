@@ -1,6 +1,7 @@
-import type { AccountState } from '../../shared/ipc'
+import type { AccountState, ControlPlaneDiagnostic } from '../../shared/ipc'
 import type { AppSettings } from '../../shared/settings'
 import type { components } from '../../../../../packages/contracts/api/generated'
+import type { ProjectInventoryPayload, TelemetryPayload } from '../telemetry/emitter'
 
 type TokenPair = components['schemas']['TokenPair']
 type User = components['schemas']['UserWithRoles']
@@ -16,6 +17,10 @@ export interface TokenStore {
   write(tokens: TokenPair): void
   clear(): void
 }
+
+export type ControlPlaneDiagnosticSink = (
+  entry: Omit<ControlPlaneDiagnostic, 'id'>,
+) => void
 
 export interface InstallationDescriptor {
   installationId: string
@@ -38,6 +43,12 @@ export interface ControlPlaneClient {
   getEncryptedSecret(): Promise<EncryptedSecretRead | null>
   putEncryptedSecret(envelope: string, expectedRevision: number): Promise<EncryptedSecretRead>
   deleteEncryptedSecret(): Promise<void>
+  /** POST /api/v1/telemetry/events — best-effort, offline-tolerant. */
+  sendTelemetryBatch(events: TelemetryPayload[]): Promise<void>
+  /** PUT /api/v1/telemetry/projects/{id}?installation_id=… */
+  upsertProjectInventory(projectTelemetryId: string, installationId: string, data: ProjectInventoryPayload): Promise<void>
+  /** DELETE /api/v1/telemetry/projects/{id}?installation_id=… */
+  deleteProjectInventory(projectTelemetryId: string, installationId: string): Promise<void>
 }
 
 export class ControlPlaneError extends Error {
@@ -55,6 +66,80 @@ function state(user: User): AccountState {
     mode: 'signed-in',
     email: user.email,
     isAdmin: user.roles.includes('admin'),
+  }
+}
+
+const SECRET_FIELD = /^(?:password|passphrase|credential|envelope|token|secret|api_key|access_token|refresh_token|authorization|cookie|client_secret)$/i
+
+function redactString(value: string): string {
+  return value
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
+    .replace(/\b(?:sk|key|token)-[A-Za-z0-9_-]{12,}\b/gi, '[redacted]')
+    .replace(/\bAIza[A-Za-z0-9_-]{20,}\b/g, '[redacted]')
+}
+
+/** Preserve the outbound shape while removing values that could grant access. */
+export function sanitizeControlPlaneData(value: unknown, key = ''): unknown {
+  if (SECRET_FIELD.test(key)) {
+    if (key.toLowerCase() === 'envelope' && typeof value === 'string') {
+      return `[encrypted envelope redacted: ${value.length} characters]`
+    }
+    return '[redacted]'
+  }
+  if (typeof value === 'string') return redactString(value)
+  if (Array.isArray(value)) return value.map((item) => sanitizeControlPlaneData(item))
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([nestedKey, nestedValue]) => [
+        nestedKey,
+        sanitizeControlPlaneData(nestedValue, nestedKey),
+      ]),
+    )
+  }
+  return value
+}
+
+function diagnosticBody(body: BodyInit | null | undefined): unknown | null {
+  if (body === undefined || body === null) return null
+  if (typeof body !== 'string') return `[non-JSON request body: ${body.constructor.name}]`
+  try {
+    return sanitizeControlPlaneData(JSON.parse(body) as unknown)
+  } catch {
+    return redactString(body)
+  }
+}
+
+async function diagnosticResponseBody(response: Response): Promise<unknown | null> {
+  if (response.status === 204) return null
+  const body = await response.clone().text().catch(() => '')
+  if (body === '') return null
+  try {
+    return sanitizeControlPlaneData(JSON.parse(body) as unknown)
+  } catch {
+    return redactString(body)
+  }
+}
+
+function diagnosticHeaders(headers: Headers): Record<string, string> {
+  return Object.fromEntries(
+    [...headers.entries()].map(([name, value]) => [
+      name,
+      SECRET_FIELD.test(name) ? '[redacted]' : redactString(value),
+    ]),
+  )
+}
+
+function diagnosticUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl)
+    if (url.username) url.username = '[redacted]'
+    if (url.password) url.password = '[redacted]'
+    for (const key of [...url.searchParams.keys()]) {
+      if (SECRET_FIELD.test(key)) url.searchParams.set(key, '[redacted]')
+    }
+    return url.toString()
+  } catch {
+    return redactString(rawUrl)
   }
 }
 
@@ -77,10 +162,60 @@ export function portableSettings(local: AppSettings): PortableSettings {
   }
 }
 
+export function resolveControlPlaneBaseUrl(
+  storedUrl: string | undefined,
+  configuredUrl: string,
+  preferConfigured: boolean,
+): string {
+  if (preferConfigured && configuredUrl.trim() !== '') return configuredUrl.trim()
+  return storedUrl?.trim() || configuredUrl.trim()
+}
+
 export function createControlPlaneClient(
   getBaseUrl: () => string,
   tokens: TokenStore,
+  onDiagnostic: ControlPlaneDiagnosticSink = () => {},
 ): ControlPlaneClient {
+  async function auditedFetch(path: string, init: RequestInit): Promise<Response> {
+    const startedAt = Date.now()
+    const method = init.method?.toUpperCase() ?? 'GET'
+    const headers = new Headers(init.headers)
+    const url = `${getBaseUrl()}${path}`
+    try {
+      const response = await fetch(url, init)
+      const responseBody = await diagnosticResponseBody(response)
+      onDiagnostic({
+        timestamp: new Date().toISOString(),
+        kind: 'request',
+        method,
+        url: diagnosticUrl(url),
+        requestHeaders: diagnosticHeaders(headers),
+        requestBody: diagnosticBody(init.body),
+        responseBody,
+        status: response.status,
+        ok: response.ok,
+        durationMs: Date.now() - startedAt,
+        error: response.ok ? null : `HTTP ${response.status}`,
+      })
+      return response
+    } catch (error) {
+      onDiagnostic({
+        timestamp: new Date().toISOString(),
+        kind: 'request',
+        method,
+        url: diagnosticUrl(url),
+        requestHeaders: diagnosticHeaders(headers),
+        requestBody: diagnosticBody(init.body),
+        responseBody: null,
+        status: null,
+        ok: false,
+        durationMs: Date.now() - startedAt,
+        error: redactString(error instanceof Error ? error.message : String(error)),
+      })
+      throw error
+    }
+  }
+
   async function raw<T>(path: string, init: RequestInit = {}, authenticated = false): Promise<T> {
     const headers = new Headers(init.headers)
     if (init.body !== undefined) headers.set('content-type', 'application/json')
@@ -89,17 +224,17 @@ export function createControlPlaneClient(
       if (!current) throw new ControlPlaneError('Sign in required', 401, null)
       headers.set('authorization', `Bearer ${current.access_token}`)
     }
-    let response = await fetch(`${getBaseUrl()}${path}`, { ...init, headers })
+    let response = await auditedFetch(path, { ...init, headers })
     if (response.status === 401 && authenticated && tokens.read()) {
       const refresh = tokens.read()!.refresh_token
-      const refreshed = await fetch(`${getBaseUrl()}/api/v1/auth/refresh`, {
+      const refreshed = await auditedFetch('/api/v1/auth/refresh', {
         method: 'POST',
         headers: { authorization: `Bearer ${refresh}` },
       })
       if (refreshed.ok) {
         tokens.write((await refreshed.json()) as TokenPair)
         headers.set('authorization', `Bearer ${tokens.read()!.access_token}`)
-        response = await fetch(`${getBaseUrl()}${path}`, { ...init, headers })
+        response = await auditedFetch(path, { ...init, headers })
       } else {
         tokens.clear()
       }
@@ -127,12 +262,47 @@ export function createControlPlaneClient(
     async health() {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 3_000)
+      const startedAt = Date.now()
+      const url = `${getBaseUrl()}/health`
       try {
-        const response = await fetch(`${getBaseUrl()}/health`, { signal: controller.signal })
-        if (!response.ok) return false
-        const body = await response.json() as { status?: unknown; service?: unknown }
-        return body.status === 'ok' && body.service === 'chronicle-control-plane'
-      } catch {
+        const response = await fetch(url, { signal: controller.signal })
+        const body = await response.json().catch(() => null) as {
+          status?: unknown
+          service?: unknown
+          version?: unknown
+        } | null
+        const healthy =
+          response.ok &&
+          body?.status === 'ok' &&
+          body.service === 'chronicle-control-plane'
+        onDiagnostic({
+          timestamp: new Date().toISOString(),
+          kind: 'health',
+          method: 'GET',
+          url: diagnosticUrl(url),
+          requestHeaders: {},
+          requestBody: null,
+          responseBody: sanitizeControlPlaneData(body),
+          status: response.status,
+          ok: healthy,
+          durationMs: Date.now() - startedAt,
+          error: healthy ? null : response.ok ? 'Unexpected health response' : `HTTP ${response.status}`,
+        })
+        return healthy
+      } catch (error) {
+        onDiagnostic({
+          timestamp: new Date().toISOString(),
+          kind: 'health',
+          method: 'GET',
+          url: diagnosticUrl(url),
+          requestHeaders: {},
+          requestBody: null,
+          responseBody: null,
+          status: null,
+          ok: false,
+          durationMs: Date.now() - startedAt,
+          error: redactString(error instanceof Error ? error.message : String(error)),
+        })
         return false
       } finally {
         clearTimeout(timeout)
@@ -198,5 +368,22 @@ export function createControlPlaneClient(
       method: 'PUT', body: JSON.stringify({ envelope, expected_revision: expectedRevision }),
     }, true),
     deleteEncryptedSecret: () => raw<void>('/api/v1/account/secrets', { method: 'DELETE' }, true),
+    async sendTelemetryBatch(events) {
+      await raw<void>('/api/v1/telemetry/events', {
+        method: 'POST', body: JSON.stringify({ events }),
+      })
+    },
+    async upsertProjectInventory(projectTelemetryId, installationId, data) {
+      const qs = `?installation_id=${encodeURIComponent(installationId)}`
+      await raw<void>(`/api/v1/telemetry/projects/${encodeURIComponent(projectTelemetryId)}${qs}`, {
+        method: 'PUT', body: JSON.stringify(data),
+      })
+    },
+    async deleteProjectInventory(projectTelemetryId, installationId) {
+      const qs = `?installation_id=${encodeURIComponent(installationId)}`
+      await raw<void>(`/api/v1/telemetry/projects/${encodeURIComponent(projectTelemetryId)}${qs}`, {
+        method: 'DELETE',
+      })
+    },
   }
 }

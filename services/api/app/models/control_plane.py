@@ -71,3 +71,34 @@ class Installation(Base, TimestampMixin):
     last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class TelemetryEvent(Base, TimestampMixin):
+    """Append-only telemetry event log. The envelope column is intentionally
+    opaque JSON stored verbatim — the API validates the shape on ingestion via
+    Pydantic, then persists the sanitised dict. The backend never logs it."""
+    __tablename__ = "telemetry_events"
+    __table_args__ = (
+        Index("ix_telemetry_events_installation_id", "installation_id"),
+        Index("ix_telemetry_events_occurred_at", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)  # client-supplied; idempotency key
+    installation_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+
+class ProjectTelemetry(Base, TimestampMixin):
+    """Per-installation project inventory record. Keyed by a client-generated
+    random UUID that carries no link to the project's real name or path."""
+    __tablename__ = "project_telemetry"
+    __table_args__ = (
+        Index("ix_project_telemetry_installation_id", "installation_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)  # = projectTelemetryId
+    installation_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    tracked_file_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    file_type_counts: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
