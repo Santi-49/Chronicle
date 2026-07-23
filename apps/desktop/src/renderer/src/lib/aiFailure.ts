@@ -50,11 +50,18 @@ export function aiFailureFeedback(failure: AiFailure | null): AiFailureFeedback 
       action: 'Choose an installed provider in Settings → AI summaries, then retry.',
     }
   }
+  if (!failure) {
+    return {
+      title: 'The AI provider returned an unspecified error',
+      explanation: 'The provider did not return a usable summary.',
+      action: 'Open Settings → AI summaries and run Test summary connection. Retry this job only if that test passes.',
+    }
+  }
+  // Otherwise-unclassified failures carry the raw provider error in `message`
+  // (key redacted) so the user can debug the exact cause.
   return {
-    title: 'The AI provider returned an unspecified error',
-    explanation: failure?.status === 502
-      ? 'Chronicle reached the provider, but the older provider response did not identify whether the model, account quota, credentials, or request caused the rejection.'
-      : failure?.message ?? 'The provider did not return a usable summary.',
+    title: 'The AI provider returned an error',
+    explanation: failure.message,
     action: 'Open Settings → AI summaries and run Test summary connection. Retry this job only if that test passes.',
   }
 }

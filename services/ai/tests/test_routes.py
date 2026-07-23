@@ -141,12 +141,12 @@ def test_provider_errors_are_sanitized(monkeypatch) -> None:
     )
 
     assert response.status_code == 502
-    assert response.json() == {
-        "detail": {
-            "code": "provider_error",
-            "message": "The AI provider rejected the request.",
-        }
-    }
+    body = response.json()
+    assert body["detail"]["code"] == "provider_error"
+    # The friendly message is kept and the raw provider error is appended so the
+    # user can debug, with the BYOK key redacted out of the raw text.
+    assert body["detail"]["message"].startswith("The AI provider rejected the request.")
+    assert "Provider error: provider leaked <redacted-key>" in body["detail"]["message"]
     assert "secret-key" not in response.text
 
 
@@ -158,15 +158,13 @@ def test_provider_quota_errors_require_manual_retry(monkeypatch) -> None:
     response = client.post("/annotate", json=ANNOTATE_PAYLOAD)
 
     assert response.status_code == 429
-    assert response.json() == {
-        "detail": {
-            "code": "provider_quota_exceeded",
-            "message": (
-                "The AI provider quota or rate limit was reached. "
-                "This job requires a manual retry."
-            ),
-        }
-    }
+    body = response.json()
+    assert body["detail"]["code"] == "provider_quota_exceeded"
+    assert body["detail"]["message"].startswith(
+        "The AI provider quota or rate limit was reached. This job requires a manual retry."
+    )
+    # Raw provider error appended for debugging; the BYOK key stays redacted.
+    assert "Provider error:" in body["detail"]["message"]
     assert "secret-key" not in response.text
 
 
@@ -320,11 +318,42 @@ def test_validate_provider_model_explains_quota_failure(mock_validate: AsyncMock
     )
 
     assert response.status_code == 200
+    message = response.json()["message"]
     assert response.json()["valid"] is False
-    assert response.json()["message"] == (
-        "The AI provider quota or rate limit was reached. "
-        "This job requires a manual retry."
+    assert message.startswith(
+        "The AI provider quota or rate limit was reached. This job requires a manual retry."
     )
+    # The raw provider error is appended so the user can debug it.
+    assert "Provider error: 429 RESOURCE_EXHAUSTED: quota exceeded" in message
+
+
+def test_validate_provider_model_google_auth_error_is_classified() -> None:
+    """Google's 'UNAUTHENTICATED' wording must classify as an auth failure and
+    surface the raw provider error (with the BYOK key redacted)."""
+
+    async def fail(_request):
+        raise RuntimeError(
+            "Error embedding content (UNAUTHENTICATED): 401 UNAUTHENTICATED. "
+            "Request had invalid authentication credentials. secret-key"
+        )
+
+    with patch("chronicle_ai.routes.validate_provider_model", side_effect=fail):
+        response = client.post(
+            "/validate-provider-model",
+            json={
+                "task": "embeddings",
+                "provider": "google_genai",
+                "model": "gemini-embedding-001",
+                "apiKey": "secret-key",
+            },
+        )
+
+    assert response.status_code == 200
+    message = response.json()["message"]
+    assert response.json()["valid"] is False
+    assert message.startswith("The AI provider rejected the configured credential.")
+    assert "401 UNAUTHENTICATED" in message
+    assert "secret-key" not in response.text
 
 
 def test_validate_provider_model_requires_api_key() -> None:

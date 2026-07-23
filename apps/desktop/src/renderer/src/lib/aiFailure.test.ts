@@ -28,13 +28,15 @@ describe('aiFailureFeedback', () => {
     })
   })
 
-  it('does not pretend a generic 502 identifies the misconfiguration', () => {
+  it('surfaces the raw provider error for a generic 502', () => {
     const feedback = aiFailureFeedback({
-      message: 'The AI provider rejected the request.',
+      message: 'The AI provider rejected the request. Provider error: 401 UNAUTHENTICATED.',
       code: 'provider_error',
       status: 502,
     })
-    expect(feedback.explanation).toContain('did not identify')
+    expect(feedback.explanation).toBe(
+      'The AI provider rejected the request. Provider error: 401 UNAUTHENTICATED.',
+    )
     expect(feedback.action).toContain('Test summary connection')
   })
 })
