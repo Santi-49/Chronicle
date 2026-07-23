@@ -25,13 +25,13 @@ function decide(p: string, sizeBytes = 1024): WatchDecision {
 
 describe('evaluateWatchCandidate', () => {
   it('accepts supported extensions case-insensitively', () => {
-    for (const name of ['a.png', 'a.PNG', 'a.jpg', 'a.JPG', 'a.jpeg', 'a.JpEg']) {
+    for (const name of ['a.png', 'a.PNG', 'a.jpg', 'a.JPG', 'a.jpeg', 'a.JpEg', 'a.psd', 'a.PSD']) {
       expect(decide(`C:\\Designs\\${name}`)).toEqual({ accepted: true })
     }
   })
 
   it('rejects unsupported types', () => {
-    for (const name of ['a.txt', 'a.psd', 'a.gif', 'a.dwg', 'a']) {
+    for (const name of ['a.txt', 'a.psb', 'a.gif', 'a.dwg', 'a']) {
       expect(decide(`C:\\Designs\\${name}`)).toEqual({
         accepted: false,
         reason: 'unsupported-type',

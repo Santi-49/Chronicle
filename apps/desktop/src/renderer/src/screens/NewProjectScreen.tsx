@@ -16,9 +16,12 @@ interface NewProjectScreenProps {
 }
 
 /** File-type toggles offered in the tree. Each maps to one or more extensions. */
-const FILE_TYPES: { id: 'png' | 'jpg'; label: string; extensions: string[] }[] = [
+type FileTypeId = 'png' | 'jpg' | 'psd'
+
+const FILE_TYPES: { id: FileTypeId; label: string; extensions: string[] }[] = [
   { id: 'png', label: 'PNG', extensions: ['.png'] },
   { id: 'jpg', label: 'JPG / JPEG', extensions: ['.jpg', '.jpeg'] },
+  { id: 'psd', label: 'Photoshop PSD', extensions: ['.psd'] },
 ]
 
 function baseName(p: string): string {
@@ -93,11 +96,12 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
   const [scan, setScan] = useState<FolderScanEntry[] | null>(null)
   const [scanning, setScanning] = useState(false)
   const [excluded, setExcluded] = useState<Set<string>>(new Set(project?.excludedPaths ?? []))
-  const [enabledTypes, setEnabledTypes] = useState<Set<'png' | 'jpg'>>(() => {
-    if (!project) return new Set(['png', 'jpg'])
-    const enabled = new Set<'png' | 'jpg'>()
+  const [enabledTypes, setEnabledTypes] = useState<Set<FileTypeId>>(() => {
+    if (!project) return new Set(['png', 'jpg', 'psd'])
+    const enabled = new Set<FileTypeId>()
     if (project.allowedExtensions.includes('.png')) enabled.add('png')
     if (project.allowedExtensions.includes('.jpg') || project.allowedExtensions.includes('.jpeg')) enabled.add('jpg')
+    if (project.allowedExtensions.includes('.psd')) enabled.add('psd')
     return enabled
   })
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -266,7 +270,7 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
     })
   }
 
-  const toggleType = (id: 'png' | 'jpg') => {
+  const toggleType = (id: FileTypeId) => {
     setEnabledTypes((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)

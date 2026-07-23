@@ -18,7 +18,29 @@ to the configured provider.
 | `POST` | `/embed-text` | One embedding vector for a version's summary+tags or a search query. |
 | `POST` | `/validate-provider-model` | Uses the supplied BYOK key to make a minimal task-specific provider call and report whether the model is reachable. |
 
-Requests to `/annotate` carry an explicit file format enum (`format`: `"png"` | `"jpg"` | `"jpeg"`) alongside base64 data and media types. The AI service uses this `format` to dispatch per-format extraction pipelines while keeping backwards compatibility for existing image assets. Unsupported formats trigger an explicit typed error.
+Requests to `/annotate` carry an explicit file format enum (`format`: `"png"` | `"jpg"` |
+`"jpeg"` | `"psd"`) alongside base64 data and media types. PNG/JPEG continue through the direct
+image path. PSD bytes use `image/vnd.adobe.photoshop` and are parsed locally; opaque PSD bytes are
+never sent to the provider. Unsupported formats trigger an explicit typed error.
+
+### PSD annotation path (POST-02)
+
+`psd-tools` opens PSD documents under a 64 MB declared-geometry allocation cap and Chronicle's
+existing 50 MB file cap. The service extracts a bounded document/layer inventory (IDs or paths,
+kind, visibility, opacity, bounds, and available type-layer text), then computes a deterministic
+structure diff. It derives at most one provider image:
+
+- first version: one JPEG composite preview, maximum edge 1024 px;
+- visual diff: one 1024×512 JPEG contact sheet (`BEFORE` left, `AFTER` right), using a padded crop
+  when the changed region occupies less than 40% of the canvas;
+- pixel-identical normalized composites: no image, only the compact structure diff.
+
+Parsing/compositing runs off the async event loop. Layer inventories stop at 40 records, diffs
+at 24 changes, and the final JSON evidence is capped at 7,000 characters. Font, Smart Object,
+adjustment-layer, truncation, and render limitations become
+explicit coverage warnings; warning-bearing results have confidence capped at 0.75. Corrupt or
+oversized PSD inputs return a typed `extraction_error` without calling a provider. PSB remains
+unsupported until its large-document isolation and resource policy are implemented.
 
 Provider, model and the BYOK key arrive per request (or fall back to the env defaults
 below). Annotation output is the C3 shape — `summary`, `changes`, `tags`,
@@ -64,6 +86,7 @@ services/ai/
     schemas.py              # strict Pydantic v2 request/response models
     prompts.py              # loads the versioned prompt from packages/prompts/
     image_loader.py         # local-file helper for fixtures / smoke tests
+    psd_adapter.py          # bounded PSD extraction, structure diff, and derived preview
     export_openapi.py       # writes packages/contracts/ai/openapi.json
   tests/                    # provider-mocked contract + behaviour tests
 ```

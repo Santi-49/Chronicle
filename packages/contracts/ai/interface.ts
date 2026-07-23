@@ -9,14 +9,14 @@
  * contract.
  */
 
-/** A supported image supplied to an annotation operation. */
-export type SupportedFormat = 'png' | 'jpg' | 'jpeg'
+/** A supported creative-file format supplied to an annotation operation. */
+export type SupportedFormat = 'png' | 'jpg' | 'jpeg' | 'psd'
 
-/** A supported input file supplied to an annotation operation. */
+/** Original creative-file bytes or a derived image preview supplied to annotation. */
 export interface ImageInput {
   base64: string
-  mediaType: 'image/png' | 'image/jpeg'
-  format: SupportedFormat //for POST-01
+  mediaType: 'image/png' | 'image/jpeg' | 'image/vnd.adobe.photoshop'
+  format: SupportedFormat
 }
 
 /** The AI's structured output for one version — validated against output.schema.json. */
@@ -36,7 +36,7 @@ export interface VersionAnnotation {
 
 export interface AnnotateVersionInput {
   fileName: string
-  format: SupportedFormat //POST-01 implementation
+  format: SupportedFormat
   /** null → this is the asset's first version: describe it instead of diffing. */
   previous: ImageInput | null
   current: ImageInput

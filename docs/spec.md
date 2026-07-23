@@ -27,7 +27,7 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 | Local database | **SQLite** via **better-sqlite3** (runs inside the app, single file) | Zero-setup embedded DB; metadata, AI summaries, search index all in one file |
 | File watching | **chokidar** | Battle-tested cross-platform watcher; same code on Windows and macOS |
 | Hashing | Node.js built-in `crypto` (**SHA-256**) | Detects "did the content actually change"; no dependency |
-| AI engine | **Local Python AI service** (`services/ai/`): **FastAPI** + **LangChain (Python)**, model-agnostic, **default classes/methods only** — the Electron main process calls it on `127.0.0.1` | AI features are developed in Python (team decision 2026-07-19, replaces LangChain.js in-app); provider swappable (Anthropic, watsonx/Granite, OpenAI…); one AI codebase shared with the stretch gateway |
+| AI engine | **Local Python AI service** (`services/ai/`): **FastAPI** + **LangChain (Python)**, model-agnostic, **default classes/methods only**; `psd-tools` for safe local PSD structure/composite extraction — the Electron main process calls it on `127.0.0.1` | AI features are developed in Python (team decision 2026-07-19, replaces LangChain.js in-app); provider swappable (Anthropic, watsonx/Granite, OpenAI…); one AI codebase shared with the stretch gateway |
 | Embeddings storage | Vectors stored **in SQLite**, similarity computed in-process | Hundreds of versions ≠ vector DB territory; simplest thing that works |
 | Packaging (MVP-12) | **PyInstaller sidecar + electron-builder NSIS/DMG** | Produces self-contained unsigned Windows and macOS installers; installed users do not need Python |
 

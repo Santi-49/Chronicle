@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Icon } from './Icon'
 
 /**
@@ -13,10 +14,13 @@ export function AssetPreview({
   alt?: string
   className?: string
 }) {
+  const [failed, setFailed] = useState(false)
+  useEffect(() => setFailed(false), [src])
+
   return (
     <div className={`asset-preview ${className}`}>
-      {src ? (
-        <img alt={alt} loading="lazy" src={src} />
+      {src && !failed ? (
+        <img alt={alt} loading="lazy" onError={() => setFailed(true)} src={src} />
       ) : (
         <span className="asset-preview-placeholder" aria-hidden="true">
           <Icon name="image" />

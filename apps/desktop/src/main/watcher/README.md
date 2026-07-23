@@ -38,7 +38,7 @@ the version-capture pipeline (MVP-04).
   - *Temporary:* Office `~$` prefixes, trailing `~` backups, emacs `#auto#`,
     and `.tmp/.temp/.bak/.old/.part/.partial/.crdownload/.download/.swp/.swo/.swx`
     suffixes.
-  - *Type:* only `.png/.jpg/.jpeg`, case-insensitive (C4 `WATCHED_EXTENSIONS`).
+  - *Type:* `.png/.jpg/.jpeg/.psd`, case-insensitive (C4 `WATCHED_EXTENSIONS`).
   - *Size:* strictly over 50 MB → skipped with reason `too-large` — the only
     rejection that warrants a visible UI notice (F3.6).
 - **Callbacks:** `onAccepted(candidate)`, `onSkipped(candidate, reason)`,

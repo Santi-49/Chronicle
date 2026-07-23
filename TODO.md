@@ -744,6 +744,12 @@ is tested on a fixture pair; PNG/JPG are the MVP baseline, already done):
 - [ ] OBJ
 - [ ] STEP / STP
 
+> **PSD implementation in progress (2026-07-23):** C3/C4 and the project file-type selector now
+> accept PSD; the local service performs bounded `psd-tools` extraction, compact structural diff,
+> and at most one derived JPEG preview/contact sheet. Automated FastAPI, Python, and Electron
+> coverage is being completed. Keep PSD unchecked until a controlled provider-backed fixture pair
+> produces a factual coverage-aware annotation; PSB remains a separate increment.
+
 **May edit:** `services/ai/**` (per-format extractors/preview generators + handlers),
 `packages/contracts/ai/**` only to widen the POST-01 `format` enum, format fixtures and
 tests, prompt assets under `packages/prompts/` when recording an intentional experiment.

@@ -155,6 +155,33 @@ The ranking is a product hypothesis to validate with users, not a market-share c
   An adapter could eventually annotate AutoCAD comparisons, Revit backups, Premiere autosaves,
   or PDM check-ins instead of replacing those systems.
 
+#### PSD implementation decision (2026-07-23)
+
+- Adobe's PSD/PSB specification exposes document metadata, layer/mask information and optional
+  merged composite data; a merged composite may be absent when Photoshop's compatibility option
+  was disabled. PSD is version 1 of the format and PSB is version 2.
+  ([Adobe specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/))
+- `psd-tools` 1.17.4 reads the low-level PSD/PSB structure, exposes layer IDs, names, kinds,
+  visibility, opacity, bounds and type-layer text, and can return an embedded thumbnail or
+  composite. Its rendering is intentionally partial: fonts and many layer effects are not
+  faithfully rendered. `PSDImage.open(..., max_alloc_bytes=...)` bounds buffers derived from
+  declared geometry, so Chronicle will use it rather than trusting document dimensions.
+  ([PSDImage API](https://psd-tools.readthedocs.io/en/stable/reference/psd_tools.html),
+  [layer API](https://psd-tools.readthedocs.io/en/latest/reference/psd_tools.api.layers.html))
+- The first adapter increment supports **PSD only**. It extracts locally and sends no opaque PSD
+  bytes to the provider. The provider receives a capped deterministic structure diff plus at most
+  one JPEG: a first-version preview or a before/after comparison sheet. If the normalized
+  composites are pixel-identical, the diff is text-only. Derived images are capped at 1024 px;
+  parser/render limitations become coverage warnings and cap the returned confidence.
+- Token policy: send only changed fields, cap structural changes, truncate layer text/names and
+  combine the two visual states into one media item. Gemini's current media-resolution controls
+  budget roughly 280 image tokens at low and 560 at medium for Gemini 3; exact usage remains
+  model-dependent and must be recorded from provider usage metadata.
+  ([Gemini media resolution](https://ai.google.dev/gemini-api/docs/media-resolution))
+- PSB remains unchecked until the same adapter is proven under process isolation and stricter
+  large-document time/memory tests. A 50 MB Chronicle capture cap also means PSB needs an explicit
+  product/storage decision rather than being enabled accidentally.
+
 #### Validation still required
 
 Before implementing future formats, interview users of the selected graphic-design, 3D, and
@@ -405,6 +432,14 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 
 ## Research Log
 
+- 2026-07-23 — **PSD LIVE ACCEPTANCE BLOCKED (POST-02):** the controlled PSD
+  first-version/diff run reached the packaged Google integration, but the locally configured
+  credential was rejected with HTTP 401 before inference. No provider result or billable
+  acceptance evidence was produced. Local extraction, single-contact-sheet generation, FastAPI
+  integration, 61 Python tests, 141 desktop tests, the production build, and the packaged
+  PSD-route smoke test all pass. Keep PSD unchecked until the run is repeated with a valid BYOK
+  credential.
+- 2026-07-23 — PSD ADAPTER DECISION (POST-02): start with PSD only using `psd-tools` 1.17.4 under a per-document allocation cap; extract a bounded layer inventory and deterministic structural diff locally, then send at most one capped JPEG preview/contact sheet to the configured provider. Pixel-identical composites use text-only inference. Parser/render limitations become explicit coverage warnings and cap confidence. PSB remains separate until isolation, large-document limits, and the 50 MB capture policy are resolved — Adobe specification, psd-tools API, and Gemini media-resolution sources linked in the PSD implementation section above
 > Append entries here as new information surfaces. Never delete old entries — mark them
 > superseded if they become stale. Format: `YYYY-MM-DD — finding — source`.
 

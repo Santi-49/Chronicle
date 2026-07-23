@@ -96,7 +96,7 @@ export interface components {
              * Format
              * @enum {string}
              */
-            format: "png" | "jpg" | "jpeg";
+            format: "png" | "jpg" | "jpeg" | "psd";
             previous?: components["schemas"]["ImageInput"] | null;
             current: components["schemas"]["ImageInput"];
         };
@@ -182,7 +182,7 @@ export interface components {
         };
         /**
          * ImageInput
-         * @description One PNG or JPEG transported across the local HTTP boundary.
+         * @description Original creative-file bytes or a derived image preview.
          */
         ImageInput: {
             /** Base64 */
@@ -191,12 +191,12 @@ export interface components {
              * Mediatype
              * @enum {string}
              */
-            mediaType: "image/png" | "image/jpeg";
+            mediaType: "image/png" | "image/jpeg" | "image/vnd.adobe.photoshop";
             /**
              * Format
              * @enum {string}
              */
-            format: "png" | "jpg" | "jpeg";
+            format: "png" | "jpg" | "jpeg" | "psd";
         };
         /** ServiceErrorDetail */
         ServiceErrorDetail: {
@@ -204,7 +204,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "configuration_error" | "invalid_model_output" | "provider_unavailable" | "provider_timeout" | "provider_error";
+            code: "configuration_error" | "extraction_error" | "invalid_model_output" | "provider_unavailable" | "provider_timeout" | "provider_error";
             /** Message */
             message: string;
         };

@@ -14,6 +14,7 @@ usage, and estimate the call's cost from the per-task prices. Both accept an
 optional factory argument so unit tests can inject a fake model.
 """
 
+import asyncio
 from typing import Any, Callable
 
 from langchain.chat_models import init_chat_model
@@ -21,6 +22,7 @@ from langchain.embeddings import init_embeddings
 
 from .config import TaskConfig, load_config
 from .prompts import load_annotation_prompt
+from .psd_adapter import prepare_psd_annotation
 from .schemas import (
     AnnotateRequest,
     AnnotateResponse,
@@ -129,6 +131,13 @@ async def annotate_version(
     defaults. The response carries the C3 annotation plus the call's token
     usage and estimated cost.
     """
+    prepared = None
+    if request.format == "psd":
+        prepared = await asyncio.to_thread(
+            prepare_psd_annotation,
+            request.previous,
+            request.current,
+        )
     config = load_config()
     provider = _resolve(request.provider, config.provider, "provider")
     model_name = _resolve(request.model, config.annotate.model, "model")
@@ -151,13 +160,20 @@ async def annotate_version(
     system_prompt, user_prompt = load_annotation_prompt(
         file_name=request.file_name,
         is_first_version=request.previous is None,
+        file_format=request.format,
     )
 
     # Text first so the model reads the instruction before the image(s).
-    content: list[dict[str, Any]] = [{"type": "text", "text": user_prompt}]
-    if request.previous is not None:
-        content.append(_image_block(request.previous))
-    content.append(_image_block(request.current))
+    if prepared is not None:
+        content: list[dict[str, Any]] = [
+            {"type": "text", "text": f"{user_prompt}\n\n{prepared.context}"}
+        ]
+        content.extend(_image_block(image) for image in prepared.images)
+    else:
+        content = [{"type": "text", "text": user_prompt}]
+        if request.previous is not None:
+            content.append(_image_block(request.previous))
+        content.append(_image_block(request.current))
 
     raw = await structured_model.ainvoke(
         [
@@ -167,6 +183,13 @@ async def annotate_version(
     )
 
     annotation, usage = _parse_structured(raw)
+    if prepared is not None and prepared.confidence_limit is not None:
+        confidence = (
+            prepared.confidence_limit
+            if annotation.confidence is None
+            else min(annotation.confidence, prepared.confidence_limit)
+        )
+        annotation = annotation.model_copy(update={"confidence": confidence})
     cost = _estimate_cost(usage, config.annotate)
     return AnnotateResponse(**annotation.model_dump(), usage=usage, cost=cost)
 

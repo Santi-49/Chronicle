@@ -128,7 +128,7 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
       const result = await dialog.showSaveDialog({
         title: 'Save a version copy',
         defaultPath: suggestedName,
-        filters: [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg'] }],
+        filters: [{ name: 'Creative file', extensions: ['png', 'jpg', 'jpeg', 'psd'] }],
       })
       return result.canceled || !result.filePath ? null : result.filePath
     },

@@ -160,7 +160,7 @@ export interface ChronicleApi {
   /** Opens the native folder picker and returns the chosen path; null if cancelled. No side effects. */
   pickFolder(): Promise<string | null>
   /**
-   * Lists every supported (png/jpg/jpeg) file under a folder tree, skipping
+   * Lists every supported (png/jpg/jpeg/psd) file under a folder tree, skipping
    * hidden and temporary files. Read-only — used by the New Project flow to
    * preview matches and let the user deselect files/types before tracking.
    */

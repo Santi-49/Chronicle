@@ -71,6 +71,19 @@ function jpegBytes(width: number, height: number, extra = ''): Buffer {
   ])
 }
 
+/** Minimal PSD header: signature, version, reserved, channels, height, width. */
+function psdBytes(width: number, height: number): Buffer {
+  const header = Buffer.alloc(26)
+  header.write('8BPS', 0, 'ascii')
+  header.writeUInt16BE(1, 4)
+  header.writeUInt16BE(3, 12)
+  header.writeUInt32BE(height, 14)
+  header.writeUInt32BE(width, 18)
+  header.writeUInt16BE(8, 22)
+  header.writeUInt16BE(3, 24)
+  return header
+}
+
 describe('captureVersion', () => {
   it('three changed saves create exactly versions 1, 2, 3 (F3.4)', async () => {
     const file = writeFile('logo.png', pngBytes(800, 600, 'v1'))
@@ -271,14 +284,16 @@ describe('markFileMissing', () => {
 })
 
 describe('readImageDimensions', () => {
-  it('parses PNG and JPEG headers and rejects other content', async () => {
+  it('parses PNG, JPEG, and PSD headers and rejects other content', async () => {
     const png = writeFile('a.png', pngBytes(321, 123))
     const jpg = writeFile('a.jpg', jpegBytes(45, 67))
+    const psd = writeFile('a.psd', psdBytes(640, 480))
     const txt = writeFile('a.txt', 'plain text, long enough to fill the header read')
     const empty = writeFile('empty.png', '')
 
     expect(await readImageDimensions(png)).toEqual({ width: 321, height: 123 })
     expect(await readImageDimensions(jpg)).toEqual({ width: 45, height: 67 })
+    expect(await readImageDimensions(psd)).toEqual({ width: 640, height: 480 })
     expect(await readImageDimensions(txt)).toBeNull()
     expect(await readImageDimensions(empty)).toBeNull()
     expect(await readImageDimensions(path.join(workDir, 'missing.png'))).toBeNull()

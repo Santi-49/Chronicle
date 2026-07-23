@@ -34,6 +34,15 @@ export async function readImageDimensions(filePath: string): Promise<ImageDimens
       return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) }
     }
 
+    // PSD: `8BPS`, version 1, then channels(2), height(4), width(4).
+    if (
+      bytesRead >= 22 &&
+      head.toString('ascii', 0, 4) === '8BPS' &&
+      head.readUInt16BE(4) === 1
+    ) {
+      return { width: head.readUInt32BE(18), height: head.readUInt32BE(14) }
+    }
+
     // JPEG: SOI marker, then walk the segment list to a frame header.
     // `await` matters: without it the finally-close races the walk.
     if (bytesRead >= 2 && head[0] === 0xff && head[1] === 0xd8) {

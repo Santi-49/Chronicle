@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.121.3",
     "langchain>=1.0",
+    "psd-tools==1.17.4",
     "pydantic==2.12.4",
     "python-dotenv>=1.0",
     "uvicorn>=0.30",

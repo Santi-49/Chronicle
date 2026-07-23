@@ -216,7 +216,7 @@ describe('tracked folders and capture events', () => {
     expect(folder.icon).toBe('folder')
     expect(folder.color).toMatch(/^#/)
     expect(folder.excludedPaths).toEqual([])
-    expect(folder.allowedExtensions).toEqual(['.png', '.jpg', '.jpeg'])
+    expect(folder.allowedExtensions).toEqual(['.png', '.jpg', '.jpeg', '.psd'])
     expect(await services.api.listFolders()).toHaveLength(1)
     await waitFor(() => eventsOf('statusChanged').length > 0, 'statusChanged')
     expect((await services.api.getAppStatus()).watchedFolders).toBe(1)

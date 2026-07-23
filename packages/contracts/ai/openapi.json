@@ -275,7 +275,8 @@
             "enum": [
               "png",
               "jpg",
-              "jpeg"
+              "jpeg",
+              "psd"
             ],
             "title": "Format"
           },
@@ -578,7 +579,8 @@
             "type": "string",
             "enum": [
               "image/png",
-              "image/jpeg"
+              "image/jpeg",
+              "image/vnd.adobe.photoshop"
             ],
             "title": "Mediatype"
           },
@@ -587,7 +589,8 @@
             "enum": [
               "png",
               "jpg",
-              "jpeg"
+              "jpeg",
+              "psd"
             ],
             "title": "Format"
           }
@@ -600,7 +603,7 @@
           "format"
         ],
         "title": "ImageInput",
-        "description": "One PNG or JPEG transported across the local HTTP boundary."
+        "description": "Original creative-file bytes or a derived image preview."
       },
       "ServiceErrorDetail": {
         "properties": {
@@ -608,6 +611,7 @@
             "type": "string",
             "enum": [
               "configuration_error",
+              "extraction_error",
               "invalid_model_output",
               "provider_unavailable",
               "provider_timeout",

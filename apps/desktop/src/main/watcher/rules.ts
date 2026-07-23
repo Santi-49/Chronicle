@@ -7,7 +7,7 @@
  */
 
 /** F2 — only these count, matched case-insensitively against the extension. */
-export const WATCHED_EXTENSIONS = ['.png', '.jpg', '.jpeg'] as const
+export const WATCHED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.psd'] as const
 
 /** F3.1 — a save is finished when the file stops changing for this long. */
 export const SETTLE_MS = 2_000

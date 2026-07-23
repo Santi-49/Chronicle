@@ -46,17 +46,20 @@ export interface AiWorkerDependencies {
   pollMs?: number
 }
 
-type SupportedFormat = 'png' | 'jpg' | 'jpeg'
+type SupportedFormat = 'png' | 'jpg' | 'jpeg' | 'psd'
+type SupportedMediaType = 'image/png' | 'image/jpeg' | 'image/vnd.adobe.photoshop'
 
 export function formatFromPath(filePath: string): SupportedFormat {
   const ext = path.extname(filePath).toLowerCase().replace('.', '')
-  if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') return ext
+  if (ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'psd') return ext
   throw new Error(`Unsupported annotation format: ${ext || '(missing extension)'}`)
 }
 
-function mediaType(filePath: string): 'image/png' | 'image/jpeg' {
+function mediaType(filePath: string): SupportedMediaType {
   const format = formatFromPath(filePath)
-  return format === 'png' ? 'image/png' : 'image/jpeg'
+  if (format === 'png') return 'image/png'
+  if (format === 'psd') return 'image/vnd.adobe.photoshop'
+  return 'image/jpeg'
 }
 
 function versionIdOf(job: QueueItem): number | null {
@@ -78,7 +81,11 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     return { provider: selected.provider, model: selected.model, apiKey }
   }
 
-  async function image(versionId: number): Promise<{ base64: string; mediaType: 'image/png' | 'image/jpeg'; format: SupportedFormat }> {
+  async function image(versionId: number): Promise<{
+    base64: string
+    mediaType: SupportedMediaType
+    format: SupportedFormat
+  }> {
     const version = getVersion(deps.db, versionId)
     if (!version) throw new Error(`Unknown version ${versionId}`)
     const asset = getAsset(deps.db, version.assetId)

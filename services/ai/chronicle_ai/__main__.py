@@ -1,5 +1,6 @@
 """Executable entry point used by the packaged desktop sidecar."""
 
+import os
 import sys
 
 import uvicorn
@@ -34,7 +35,7 @@ def main() -> None:
     uvicorn.run(
         app,
         host="127.0.0.1",
-        port=8765,
+        port=int(os.environ.get("CHRONICLE_AI_PORT", "8765")),
         log_level="warning",
         access_log=False,
     )

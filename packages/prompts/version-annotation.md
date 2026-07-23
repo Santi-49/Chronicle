@@ -1,6 +1,6 @@
 ---
 id: version-annotation
-version: 0.1.1
+version: 0.2.0
 status: experimental
 purpose: Describe a first creative-file version or explain changes from its previous version.
 framework: langchain
@@ -14,6 +14,7 @@ research_required:
   - Verify provider-specific image handling and privacy behavior.
 experiment_notes:
   - 2026-07-19 Gemini live acceptance returned multi-word tags with spaces; require lowercase hyphenated slugs to satisfy C3.
+  - 2026-07-23 PSD uses deterministic local structure evidence plus at most one derived JPEG preview/contact sheet; opaque PSD bytes are never sent to the model.
 notes:
   - Only the `### System` and `### User` bodies below are sent to the model. First-version mode reuses the Version-diff system prompt (see services/ai/chronicle_ai/prompts.py).
 ---
@@ -47,3 +48,25 @@ File name: `{fileName}`.
 
 This is the first captured version. Describe it with a concise summary, its key visual
 elements, and searchable tags.
+
+## PSD version diff
+
+### User
+
+File name: `{fileName}`.
+
+Explain the PSD version change using the deterministic structure diff and optional comparison
+sheet supplied below. In the sheet, BEFORE is on the left and AFTER is on the right. Prefer
+specific extracted facts such as layer text, visibility, additions/removals, position, opacity,
+and document dimensions. Do not claim unsupported Photoshop effects were inspected. Reflect any
+coverage warning in `confidence`.
+
+## PSD first-version description
+
+### User
+
+File name: `{fileName}`.
+
+Describe this first PSD version using the deterministic document/layer inventory and optional
+locally derived composite preview supplied below. Do not speculate about design intent or claim
+unsupported Photoshop effects were inspected. Reflect any coverage warning in `confidence`.

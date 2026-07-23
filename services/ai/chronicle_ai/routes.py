@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
 from .engine import ConfigurationError, annotate_version, embed_text, validate_provider_model
+from .psd_adapter import PsdExtractionError
 from .schemas import (
     AnnotateRequest,
     AnnotateResponse,
@@ -39,6 +40,11 @@ ERROR_RESPONSES = {
 async def annotate(request: AnnotateRequest) -> AnnotateResponse:
     try:
         return await annotate_version(request)
+    except PsdExtractionError as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "extraction_error", "message": str(error)},
+        ) from error
     except ConfigurationError as error:
         raise HTTPException(
             status_code=400,

@@ -145,6 +145,30 @@ def test_annotate_rejects_unsupported_format_with_typed_validation_error() -> No
     )
 
 
+def test_annotate_rejects_corrupt_psd_with_typed_extraction_error() -> None:
+    response = client.post(
+        "/annotate",
+        json={
+            **ANNOTATE_PAYLOAD,
+            "fileName": "broken.psd",
+            "format": "psd",
+            "current": {
+                "base64": "bm90IGEgcHNk",
+                "mediaType": "image/vnd.adobe.photoshop",
+                "format": "psd",
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": {
+            "code": "extraction_error",
+            "message": "The PSD file is corrupt or unsupported.",
+        }
+    }
+
+
 def test_provider_errors_are_sanitized(monkeypatch) -> None:
     async def fail(_request):
         raise RuntimeError("provider leaked secret-key")

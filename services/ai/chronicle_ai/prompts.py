@@ -59,11 +59,18 @@ def _operation_sections(lines: list[str]) -> dict[str, str]:
     return result
 
 
-def load_annotation_prompt(file_name: str, is_first_version: bool) -> tuple[str, str]:
+def load_annotation_prompt(
+    file_name: str,
+    is_first_version: bool,
+    file_format: str = "png",
+) -> tuple[str, str]:
     """Return the system and user text for the requested annotation mode."""
 
     sections = _prompt_sections()
-    operation = "First-version description" if is_first_version else "Version diff"
+    if file_format == "psd":
+        operation = "PSD first-version description" if is_first_version else "PSD version diff"
+    else:
+        operation = "First-version description" if is_first_version else "Version diff"
     # The prompt says first-version mode uses the same system guidance as a diff.
     system = sections.get("Version diff.System")
     user = sections.get(f"{operation}.User")

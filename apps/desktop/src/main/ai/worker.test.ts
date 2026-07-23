@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   annotations: new Map<number, AnnotationRecord>(),
   savedEmbedding: undefined as { versionId: number; model: string } | undefined,
   status: undefined as string | undefined,
+  assetPath: 'C:/design/logo.png',
 }))
 
 vi.mock('../db/repositories', () => ({
@@ -40,7 +41,11 @@ vi.mock('../db/repositories', () => ({
       1: { id: 1, assetId: 10, versionNumber: 1, contentHash: 'aa-old' },
       2: { id: 2, assetId: 10, versionNumber: 2, contentHash: 'bb-new' },
     })[id],
-  getAsset: () => ({ id: 10, path: 'C:/design/logo.png', displayName: 'logo.png' }),
+  getAsset: () => ({
+    id: 10,
+    path: state.assetPath,
+    displayName: path.basename(state.assetPath),
+  }),
   listVersions: () => [
     { id: 2, assetId: 10, versionNumber: 2, contentHash: 'bb-new' },
     { id: 1, assetId: 10, versionNumber: 1, contentHash: 'aa-old' },
@@ -85,6 +90,7 @@ beforeEach(() => {
   state.annotations.clear()
   state.savedEmbedding = undefined
   state.status = undefined
+  state.assetPath = 'C:/design/logo.png'
   libraryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ai-worker-'))
   fs.mkdirSync(path.join(libraryRoot, 'aa'))
   fs.mkdirSync(path.join(libraryRoot, 'bb'))
@@ -136,11 +142,34 @@ function workerWith(overrides: Record<string, unknown> = {}) {
 
 describe('AI queue worker', () => {
   it('rejects unsupported formats instead of silently treating them as PNG', () => {
+    expect(formatFromPath('C:/design/campaign.psd')).toBe('psd')
     expect(() => formatFromPath('C:/design/logo.gif')).toThrow(
       'Unsupported annotation format: gif',
     )
     expect(() => formatFromPath('C:/design/logo')).toThrow(
       'Unsupported annotation format: (missing extension)',
+    )
+  })
+
+  it('passes original PSD bytes and the Photoshop media type to the local service', async () => {
+    state.assetPath = 'C:/design/campaign.psd'
+    const { worker, client } = workerWith()
+
+    await worker.runOnce()
+
+    expect(client.annotate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileName: 'campaign.psd',
+        format: 'psd',
+        previous: expect.objectContaining({
+          mediaType: 'image/vnd.adobe.photoshop',
+          format: 'psd',
+        }),
+        current: expect.objectContaining({
+          mediaType: 'image/vnd.adobe.photoshop',
+          format: 'psd',
+        }),
+      }),
     )
   })
 
