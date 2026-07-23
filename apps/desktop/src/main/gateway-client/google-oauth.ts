@@ -102,6 +102,9 @@ async function googleTokenError(response: Response): Promise<Error> {
   if (code === 'invalid_client') {
     return new Error('Google rejected the OAuth client. Check the desktop client ID and secret.')
   }
+  if (code === 'invalid_request') {
+    return new Error('Google rejected the token request. Check that this release includes the matching Desktop OAuth client secret.')
+  }
   if (code === 'invalid_grant') {
     return new Error('Google sign-in expired or could not be verified. Start a new sign-in attempt.')
   }

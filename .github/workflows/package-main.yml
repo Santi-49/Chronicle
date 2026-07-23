@@ -17,6 +17,7 @@ jobs:
     env:
       CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,6 +65,7 @@ jobs:
     env:
       CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
