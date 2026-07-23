@@ -54,7 +54,11 @@ like any other `main` PR; no workflow writes a version directly onto `main`.
    promotion and for the labeled Release Please PR. GitHub merges each only after protected-main
    requirements pass. The release branch is then deleted; the persistent `dev` branch is never a
    cleanup target.
-5. Merging the release PR creates `vX.Y.Z`. Parallel Windows x64 and macOS Apple Silicon jobs
+5. Merging the release PR creates `vX.Y.Z`. A serialized back-sync job fetches the latest `dev`,
+   merges the released `main` without force-pushing, and fails safely if a real conflict or
+   concurrent update prevents the push. The built-in `GITHUB_TOKEN` intentionally prevents this
+   maintenance push from recursively starting another workflow.
+6. Parallel Windows x64 and macOS Apple Silicon jobs
    check that the tag equals the desktop `package.json` version, rebuild that exact tagged commit,
    health-check each native sidecar, and attach the NSIS/DMG installers plus checksums to the
    GitHub Release.
@@ -106,6 +110,9 @@ metadata/UI, code signing, Apple notarization, and macOS auto-update.
    themselves. Workflows that merge use the existing `RELEASE_PLEASE_TOKEN`, ensuring their pushes
    can trigger the next release workflow. Do not enable GitHub's merge queue unless the workflows
    also gain a `merge_group` trigger.
+9. Keep `dev` writable by the repository's GitHub Actions token. The release back-sync never
+   force-pushes; if future rules protect `dev`, allow this workflow to create its merge commit or
+   replace the direct push with a reviewed `main → dev` pull request.
 
 The ruleset applies only to `main`. There is intentionally no required CI ruleset for `dev`.
 
@@ -121,8 +128,10 @@ The normal promotion flow is:
    failure leaves the PR open. Fix failures on `dev`, never directly on `main`.
 4. After the checks pass, GitHub merges the promotion, Release Please opens its metadata PR, the
    lightweight guard passes, and GitHub merges that PR automatically.
-5. `Release desktop` creates the version/tag/release, attaches both installers/checksums, and the
-   cleanup job removes the temporary release branch. No second PR action is required.
+5. `Release desktop` creates the version/tag/release, syncs released `main` back into the latest
+   `dev`, attaches both installers/checksums, and the cleanup job removes the temporary release
+   branch. No second PR action is required. A genuine back-sync conflict fails visibly and requires
+   a manual merge; automation never overwrites `dev`.
 
 ## Creating a new public version
 
@@ -133,8 +142,9 @@ the normal flow.
 2. The lightweight `Desktop (Windows)` version guard runs while the implementation jobs appear as
    successful skips. Auto-merge waits if any protected requirement is not satisfied.
 3. After automatic merge, Release Please creates `vX.Y.Z` and the GitHub Release. `Release desktop`
-   then rebuilds the exact tag, verifies it matches `package.json`, and attaches the Windows x64
-   NSIS and macOS Apple Silicon DMG with platform-specific checksum files.
+   syncs that released commit back to `dev`, then rebuilds the exact tag, verifies it matches
+   `package.json`, and attaches the Windows x64 NSIS and macOS Apple Silicon DMG with
+   platform-specific checksum files.
 4. Download the installer for each supported platform, verify its checksum, and complete the
    release smoke test before sharing the URL.
 

@@ -21,6 +21,35 @@ jobs:
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
+  sync-release-back-to-dev:
+    name: Sync released main back to dev
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-back-sync-dev
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+      - name: Merge released main into latest dev
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main dev
+          git checkout -B dev origin/dev
+
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "dev already contains the released main commit."
+            exit 0
+          fi
+
+          git merge --no-ff origin/main -m "chore: sync released main back into dev"
+          git push origin HEAD:dev
+
   attach-windows-installer:
     needs: release-please
     if: needs.release-please.outputs.created == 'true'
