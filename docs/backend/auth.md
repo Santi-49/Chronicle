@@ -42,6 +42,10 @@ one-time authorization code locally and sends only the short-lived Google ID tok
 email with `google-auth`, keys identities by the stable `sub` claim, then issues the same Chronicle
 JWT pair used by password login. Google access/refresh tokens are never stored.
 
+The packaged desktop includes the client ID and matching Desktop client exchange value supplied at
+build time. Google notes that installed applications cannot keep such client values confidential,
+so Chronicle relies on the per-attempt PKCE verifier, state, and nonce as the security boundaries.
+
 An unreachable API prevents the browser flow from starting and leaves local mode intact with an
 explicit retry. Cancellation or loopback timeout closes the listener and becomes a concise sign-in
 message; renderer copy never exposes Electron's `Error invoking remote method ...` wrapper.

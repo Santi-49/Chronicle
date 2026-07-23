@@ -104,6 +104,10 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
       : __CHRONICLE_CONTROL_PLANE_URL__
   const bundledGoogleClientId =
     typeof __GOOGLE_OAUTH_CLIENT_ID__ === 'undefined' ? '' : __GOOGLE_OAUTH_CLIENT_ID__
+  const bundledGoogleClientSecret =
+    typeof __GOOGLE_OAUTH_CLIENT_SECRET__ === 'undefined'
+      ? ''
+      : __GOOGLE_OAUTH_CLIENT_SECRET__
   const controlPlaneBaseUrl =
     process.env['CHRONICLE_CONTROL_PLANE_URL']?.trim() ||
     bundledControlPlaneUrl ||
@@ -114,7 +118,8 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
   )
   const googleClientId =
     process.env['GOOGLE_OAUTH_CLIENT_ID']?.trim() || bundledGoogleClientId
-  const googleClientSecret = process.env['GOOGLE_OAUTH_CLIENT_SECRET'] ?? ''
+  const googleClientSecret =
+    process.env['GOOGLE_OAUTH_CLIENT_SECRET']?.trim() || bundledGoogleClientSecret
   const aiClient = createAiClient()
   const services = createChronicleServices({
     db,
