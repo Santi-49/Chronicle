@@ -34,6 +34,8 @@ Format: `date · member · what Bob did · feature/PR`.
 | 2026-07-22 | Team | Bob traced the first-admin Google 409 to the migration-seeded password account, then implemented verified-email linking for any existing active Chronicle account while retaining stable-subject identity, inactive-account blocking, and protection against replacing an existing Google identity; API tests cover new and existing-account login | POST-03 — Google existing-account sign-in |
 | 2026-07-23 | Team | Bob diagnosed the 0.5.0 Google callback failure at the token-exchange boundary, reconciled Google's installed-app and OIDC guidance, found the release-only omission of the Desktop client secret, embedded the matching value from a guarded GitHub Actions secret, and added an actionable `invalid_request` error | POST-03 — packaged Google token exchange |
 | 2026-07-23 | Team | Bob diagnosed recurring `main → dev` conflicts as release metadata and squash ancestry drift, then added a serialized post-release back-sync that fetches the latest branches, merges without force, rejects conflicts/concurrent pushes safely, and avoids recursive workflow triggers through the built-in GitHub token | MVP-12 — automatic release back-sync |
+| 2026-07-23 | Team | Bob audited every POST-03 "Done when" criterion against the actual source files — verified health preflight, IPC error stripping, telemetry migration, encrypted key-sync controls, Google PKCE/nonce, session persistence, OPA policy, and installation registration — then confirmed full implementation and closed the task after manual interactive Google login was confirmed by the team | POST-03 — final acceptance and task closure |
+
 
 
 ## Ideas for judge-visible Bob usage

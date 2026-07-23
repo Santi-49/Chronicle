@@ -766,7 +766,7 @@ findings entry in `docs/challenge/RESEARCH.md`; front-matter notes on prompt exp
 service with a factual, coverage-aware message; unsupported/partial cases degrade gracefully
 without crashing capture; no untrusted embedded code is ever executed.
 
-### [~] POST-03 — Build the control-plane API and Google sign-in `Post-MVP`
+### [x] POST-03 — Build the control-plane API and Google sign-in `Post-MVP`
 
 **Owner:** Team (started 2026-07-21 on `feat/post-03-control-plane-google-auth`)
 **Scheduling exception:** The team explicitly started POST-03 before the remaining MVP tasks were
