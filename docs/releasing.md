@@ -65,8 +65,11 @@ Repository setup:
   required approvals; teams that require human approval keep that manual gate.
 - Add repository Actions variable `CHRONICLE_CONTROL_PLANE_URL` with the deployed API origin
   (for example, `https://chronicle-api.quick2query.com`) and repository Actions variable
-  `GOOGLE_OAUTH_CLIENT_ID` with the public Google Desktop OAuth client ID. Release builds embed
-  both values and fail before packaging if either is absent. Do not add the client secret.
+  `GOOGLE_OAUTH_CLIENT_ID` with the public Google Desktop OAuth client ID. Add the matching
+  `GOOGLE_OAUTH_CLIENT_SECRET` as a repository Actions secret. Release builds embed all three and
+  fail before packaging if any is absent. Google documents that installed apps cannot keep this
+  client value confidential; PKCE remains the authorization-code security boundary, while the
+  Actions secret prevents casual disclosure in repository configuration and logs.
 - Add a fine-grained `RELEASE_PLEASE_TOKEN` secret with Contents and Pull requests write access.
   A PAT is necessary because resources created with the built-in `GITHUB_TOKEN` do not trigger the
   required PR workflow.

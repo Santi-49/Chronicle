@@ -22,6 +22,9 @@ export default defineConfig({
       __GOOGLE_OAUTH_CLIENT_ID__: JSON.stringify(
         process.env['GOOGLE_OAUTH_CLIENT_ID']?.trim() ?? '',
       ),
+      __GOOGLE_OAUTH_CLIENT_SECRET__: JSON.stringify(
+        process.env['GOOGLE_OAUTH_CLIENT_SECRET']?.trim() ?? '',
+      ),
     },
   },
   preload: {
