@@ -21,6 +21,21 @@ import type { AppSettings } from './settings'
 export type WindowTheme = 'dark' | 'light'
 
 export type AiStatus = 'pending' | 'done' | 'failed' | 'none' // 'none' = restore versions, no AI needed
+export interface AiFailure {
+  /** Safe provider/service explanation; never contains credentials or request content. */
+  message: string
+  code: string | null
+  status: number | null
+}
+
+export interface AiConfigurationTestResult {
+  task: 'chat' | 'embeddings'
+  provider: string
+  model: string
+  valid: boolean
+  reachable: boolean
+  message: string
+}
 
 export interface TrackedFolder {
   id: number
@@ -86,6 +101,7 @@ export interface VersionSummary {
   versionNumber: number
   capturedAt: string
   aiStatus: AiStatus
+  aiFailure: AiFailure | null
   summary: string | null // null while pending/failed; "Restored from version N" for restores
   thumbnailUrl: string
 }
@@ -133,6 +149,8 @@ export interface AppStatus {
   watchedFolders: number
   online: boolean
   pendingJobs: { ai: number; embedding: number; telemetry: number }
+  /** Exhausted/non-retryable AI jobs waiting for an explicit user retry. */
+  failedJobs: number
   aiConfigured: boolean // false → UI shows "configure AI in Settings"
 }
 
@@ -142,11 +160,61 @@ export interface PendingJob {
   jobType: 'ai_annotation' | 'embedding'
   queuedAt: string
   retryCount: number
+  state: 'pending' | 'failed'
+  lastError: AiFailure | null
   versionId: number | null
   assetId: number | null
   assetName: string | null
   versionNumber: number | null
   thumbnailUrl: string | null
+}
+
+/** Sanitized record of one outbound Chronicle control-plane request. */
+export interface ControlPlaneDiagnostic {
+  id: number
+  timestamp: string
+  kind: 'health' | 'request'
+  method: string
+  url: string
+  requestHeaders: Record<string, string>
+  /** Exact JSON-compatible request payload after secret-bearing fields are redacted. */
+  requestBody: unknown | null
+  /** Sanitized JSON/text response payload, including error details when the server provides them. */
+  responseBody: unknown | null
+  status: number | null
+  ok: boolean
+  durationMs: number
+  error: string | null
+}
+
+/** One sanitized telemetry payload queued locally for later control-plane delivery. */
+export interface PendingControlPlaneEvent {
+  id: number
+  queuedAt: string
+  retryCount: number
+  payload: unknown
+}
+
+export type ApplicationDiagnosticLevel = 'debug' | 'info' | 'warn' | 'error'
+export type ApplicationDiagnosticSource =
+  | 'application'
+  | 'project'
+  | 'capture'
+  | 'watcher'
+  | 'ai'
+  | 'telemetry'
+  | 'control-plane'
+
+/** Structured main-process event exposed only through Developer Diagnostics. */
+export interface ApplicationDiagnostic {
+  id: number
+  timestamp: string
+  level: ApplicationDiagnosticLevel
+  source: ApplicationDiagnosticSource
+  event: string
+  message: string
+  /** Sanitized, JSON-compatible debugging metadata. Never contains credentials. */
+  context: unknown | null
 }
 
 // ── Renderer → main (request/response) ─────────────────────────────────
@@ -189,6 +257,8 @@ export interface ChronicleApi {
 
   // F4 — AI
   retryAnnotation(versionId: number): Promise<void> // re-queues; result arrives as annotationUpdated
+  /** Requeues every failed annotation/embedding job; never retries them automatically. */
+  retryAllFailedJobs(): Promise<number>
 
   // C5 — settings (secrets handled separately, see below)
   getSettings(): Promise<AppSettings>
@@ -200,10 +270,26 @@ export interface ChronicleApi {
   clearApiKey(provider: string): Promise<void>
   /** Provider ids that currently have a saved key (for "Saved" badges / readiness). */
   configuredProviders(): Promise<string[]>
+  /** Runs the real task-specific provider/model/key probe without saving settings. */
+  testAiConfiguration(
+    task: 'chat' | 'embeddings',
+    provider: string,
+    model: string,
+  ): Promise<AiConfigurationTestResult>
 
   // F1 — account (low priority; everything above works in 'local' mode)
   /** Reachability/configuration preflight; never throws for ordinary connection failures. */
   checkControlPlaneHealth(): Promise<boolean>
+  /** Developer diagnostic health probe; checks the service independently of OAuth configuration. */
+  probeControlPlaneHealth(): Promise<boolean>
+  /** Bounded, sanitized audit of outbound requests; never contains credentials or plaintext keys. */
+  listControlPlaneDiagnostics(): Promise<ControlPlaneDiagnostic[]>
+  /** Clears only the current session's in-memory control-plane request audit. */
+  clearControlPlaneDiagnostics(): Promise<void>
+  /** Bounded, sanitized lifecycle/error log from the Electron main process. */
+  listApplicationDiagnostics(): Promise<ApplicationDiagnostic[]>
+  /** Content-free telemetry events currently waiting in the offline SQLite queue. */
+  listPendingControlPlaneEvents(): Promise<PendingControlPlaneEvent[]>
   getAccountState(): Promise<AccountState>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
@@ -238,6 +324,10 @@ export interface ChronicleEvents {
   statusChanged: AppStatus
   /** A file was seen but skipped (F3 rule 6) — toast. */
   fileSkipped: { fileName: string; reason: 'too-large' }
+  /** One sanitized control-plane request completed — update developer diagnostics. */
+  controlPlaneDiagnostic: ControlPlaneDiagnostic
+  /** One structured application lifecycle/error event — update developer diagnostics. */
+  applicationDiagnostic: ApplicationDiagnostic
 }
 
 export type ChronicleEventName = keyof ChronicleEvents

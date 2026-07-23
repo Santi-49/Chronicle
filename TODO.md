@@ -612,7 +612,7 @@ pass over `docs/desktop/overview.md` and `PROJECT_STATUS.md`.
 **Done when:** A teammate follows the README on a clean machine, the video is under three minutes,
 all links work publicly, secrets/private files are absent, and submission is completed before the deadline.
 
-### [ ] LAND-01 — Build the Chronicle landing page `Stretch`
+### [X] LAND-01 — Build the Chronicle landing page `Stretch`
 
 **Owner:** Unassigned
 **Depends on:** MVP-12 (do not let this delay the MVP — `apps/landing/` is optional marketing only)
@@ -663,6 +663,82 @@ and build); one line in `docs/bob-log.md`.
 **Done when:** `npm run dev` and `npm run build` succeed in `apps/landing/`; the page renders
 correctly in light and dark; CTA buttons are clearly mock; animations degrade gracefully with
 reduced motion; and the team agrees it looks like a deliberate product page, not AI slop.
+
+### [ ] LAND-02 — Publish user help, setup guides, and FAQ on the landing site `Stretch`
+
+**Owner:** Unassigned
+**Depends on:** LAND-01, MVP-12 (document the verified packaged-app behavior, not planned behavior)
+**Goal:** Turn the landing site into Chronicle's public user-support home with clear, task-based
+manuals that help a new user set up the app, understand AI-provider costs and data handling, and
+recover from common errors without contacting the team.
+
+**Research and verification required first:**
+
+- Walk through a clean install and first run of the packaged app. Verify every instruction and
+  screenshot against the current UI on Windows and macOS where available.
+- Use only official Google AI, Anthropic, and OpenAI documentation for API-key creation, account
+  requirements, billing, quotas/rate limits, model availability, data handling, and key
+  revocation. Record a **last verified** date and link to the authoritative source on each
+  provider guide; do not copy provider secrets, screenshots, or pricing tables without permission.
+- Re-check provider pricing immediately before publishing. Prefer links to official live pricing
+  pages and clearly label any examples as non-binding estimates; provider invoices are
+  authoritative, prices/models can change, and Chronicle does not control provider charges.
+- Reconcile privacy wording with the behavior in `docs/spec.md`,
+  `docs/challenge/CONSTRAINTS.md`, and any shipped privacy policy. Never claim that all data stays
+  local: creative history stays on-device, while inputs required for enabled AI features are sent
+  to the user's selected provider through the configured inference path.
+
+**May edit:** `apps/landing/**` (help routes, content, navigation, styles, local screenshots and
+assets) and dedicated end-user support documentation under `docs/user-guide/**` if the landing
+site consumes it as the single content source.
+**Must not edit:** Desktop behavior, service behavior, contracts, provider settings, or privacy
+policy merely to make the manuals simpler. Documentation must describe the product as shipped.
+
+**Required content and functionality:**
+
+1. Add a visible **Help** entry to the landing-page navigation/footer and a browsable help home
+   organized by user task rather than internal architecture.
+2. Publish a first-setup guide covering installation, Continue local vs. sign-in, selecting a
+   watched folder, capturing the first PNG/JPG version, AI-service readiness, configuring
+   annotation and embedding providers/models, and confirming that search and restore work.
+3. Publish separate Google AI, Anthropic, and OpenAI API-key guides covering where to create and
+   revoke a key, how billing or credits work, likely quota/rate-limit issues, where Chronicle
+   stores the key, and safe-key practices. Never ask a user to paste a key into the website,
+   support message, screenshot, log, or issue.
+4. Add a costs guide explaining BYOK, which Chronicle actions can make billable annotation or
+   embedding calls, why usage varies, how to inspect provider usage/billing, and how to limit or
+   stop spend. Do not promise free tiers, fixed prices, or exact costs without dated official
+   evidence.
+5. Add a plain-language privacy and data-flow guide that distinguishes the local version library,
+   provider-bound image/text inputs, encrypted local API keys, optional account/sync/telemetry
+   behavior, logs, deletion, and offline behavior. Link to the published privacy policy when it
+   exists and clearly mark features that are not yet shipped.
+6. Add troubleshooting guides for install/startup failure, unhealthy or unavailable local AI
+   service, invalid/revoked keys, billing/quota/rate-limit errors, offline/pending AI jobs,
+   unsupported or ignored files, missing watched folders, capture delays/duplicate saves, search
+   indexing, and safe restore/save-copy recovery. Map known app error states to concrete,
+   reversible steps and explain what diagnostic information is safe to share.
+7. Add an FAQ covering supported files and operating systems, whether an account or AI is
+   required, what works offline, where data and keys live, provider choice, expected costs,
+   version retention/storage growth, restore safety, deletion, and how to get further support.
+8. Provide persistent section navigation, accessible headings, keyboard/focus behavior, useful
+   page titles/descriptions, deep links to individual answers, a print-friendly manual layout,
+   and a lightweight client-side search or equivalent index that keeps the static Astro site
+   deployable without a support backend.
+9. Add a small maintenance checklist identifying owner, last-reviewed date, broken-link check,
+   screenshot refresh process, and triggers for re-verification after UI, provider, pricing,
+   privacy, packaging, or supported-platform changes.
+
+**Docs to update:** `apps/landing/README.md` (content structure, local preview/build, support-doc
+maintenance and verification process); `docs/user-guide/**` if used as the source of truth; one
+line in `docs/bob-log.md`.
+
+**Done when:** A first-time user can follow the published guides from install through a captured
+and AI-annotated version; each provider-key flow has been tested with a non-production key and
+links to current official documentation; cost and privacy claims are dated and match shipped
+behavior; common app errors have actionable recovery steps; FAQ answers are deep-linkable and
+searchable; no secret or sensitive local path appears in text/screenshots; automated link checks,
+`npm run build`, accessibility checks, and a teammate documentation walkthrough pass.
 
 ## Deferred until after the MVP
 
@@ -772,7 +848,7 @@ findings entry in `docs/challenge/RESEARCH.md`; front-matter notes on prompt exp
 service with a factual, coverage-aware message; unsupported/partial cases degrade gracefully
 without crashing capture; no untrusted embedded code is ever executed.
 
-### [~] POST-03 — Build the control-plane API and Google sign-in `Post-MVP`
+### [x] POST-03 — Build the control-plane API and Google sign-in `Post-MVP`
 
 **Owner:** Team (started 2026-07-21 on `feat/post-03-control-plane-google-auth`)
 **Scheduling exception:** The team explicitly started POST-03 before the remaining MVP tasks were
@@ -868,7 +944,7 @@ telemetry defaulting, and explicit encrypted-key-sync enable/save controls. Auto
 desktop suites pass. Final acceptance requires one interactive Google login against the team's
 configured OAuth client after restarting the desktop process.
 
-### [ ] POST-04 — Wire the app to the control plane for usage statistics `Post-MVP`
+### [x] POST-04 — Wire the app to the control plane for usage statistics `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-03

@@ -1,6 +1,6 @@
 {
   "name": "chronicle-desktop",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Chronicle — local-first version history for creative files, explained by AI",
   "private": true,
   "main": "out/main/index.js",

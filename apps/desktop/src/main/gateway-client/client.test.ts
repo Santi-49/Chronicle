@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createControlPlaneClient, portableSettings, type TokenStore } from './client'
+import {
+  createControlPlaneClient,
+  portableSettings,
+  resolveControlPlaneBaseUrl,
+  sanitizeControlPlaneData,
+  type TokenStore,
+} from './client'
+import { buildAppOpened } from '../telemetry/emitter'
 import type { AppSettings } from '../../shared/settings'
 
 function tokenStore(initial: { access_token: string; refresh_token: string; token_type: string } | null = null): TokenStore {
@@ -25,17 +32,96 @@ const user = {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('control-plane client', () => {
+  it('prefers the configured development URL over a stale persisted URL', () => {
+    expect(resolveControlPlaneBaseUrl(
+      'http://localhost:8000',
+      'https://dev-control-plane.example',
+      true,
+    )).toBe('https://dev-control-plane.example')
+    expect(resolveControlPlaneBaseUrl(
+      'https://user-override.example',
+      'https://packaged-default.example',
+      false,
+    )).toBe('https://user-override.example')
+  })
+
   it('reports health without throwing on an unavailable control plane', async () => {
+    const diagnostics: Array<{ kind: string; ok: boolean; responseBody: unknown }> = []
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
         status: 'ok', service: 'chronicle-control-plane', version: '0.2.0',
       }), { status: 200 }))
       .mockRejectedValueOnce(new TypeError('fetch failed'))
     vi.stubGlobal('fetch', fetchMock)
-    const client = createControlPlaneClient(() => 'http://control-plane', tokenStore())
+    const client = createControlPlaneClient(
+      () => 'http://control-plane',
+      tokenStore(),
+      (entry) => diagnostics.push(entry),
+    )
 
     await expect(client.health()).resolves.toBe(true)
     await expect(client.health()).resolves.toBe(false)
+    expect(diagnostics).toMatchObject([
+      {
+        kind: 'health',
+        ok: true,
+        responseBody: { status: 'ok', service: 'chronicle-control-plane', version: '0.2.0' },
+      },
+      { kind: 'health', ok: false, responseBody: null },
+    ])
+  })
+
+  it('audits exact telemetry JSON while redacting secret-bearing fields', async () => {
+    const diagnostics: Array<{ requestBody: unknown; requestHeaders: Record<string, string> }> = []
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
+    const client = createControlPlaneClient(
+      () => 'http://control-plane',
+      tokenStore(),
+      (entry) => diagnostics.push(entry),
+    )
+    const event = buildAppOpened(
+      '00000000-0000-0000-0000-000000000001',
+      '0.6.0',
+      'windows',
+    )
+
+    await client.sendTelemetryBatch([event])
+
+    expect(diagnostics[0]?.requestBody).toEqual({ events: [event] })
+    expect(diagnostics[0]?.requestHeaders).toEqual({ 'content-type': 'application/json' })
+    expect(sanitizeControlPlaneData({
+      password: 'plain',
+      credential: 'google-token',
+      envelope: 'ciphertext',
+      settings: { api_key_sync_enabled: true },
+    })).toEqual({
+      password: '[redacted]',
+      credential: '[redacted]',
+      envelope: '[encrypted envelope redacted: 10 characters]',
+      settings: { api_key_sync_enabled: true },
+    })
+  })
+
+  it('audits and sanitizes control-plane error response bodies', async () => {
+    const diagnostics: Array<{ status: number | null; responseBody: unknown }> = []
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      detail: 'telemetry_events table is missing',
+      access_token: 'must-not-leak',
+    }), { status: 500 })))
+    const client = createControlPlaneClient(
+      () => 'http://control-plane',
+      tokenStore(),
+      (entry) => diagnostics.push(entry),
+    )
+
+    await expect(client.sendTelemetryBatch([])).rejects.toThrow('Control plane request failed (500)')
+    expect(diagnostics[0]).toMatchObject({
+      status: 500,
+      responseBody: {
+        detail: 'telemetry_events table is missing',
+        access_token: '[redacted]',
+      },
+    })
   })
 
   it('stores Chronicle tokens after Google login and returns renderer-safe account state', async () => {

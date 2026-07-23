@@ -121,6 +121,7 @@ export async function search(query: string, deps: SearchDependencies): Promise<S
       versionNumber: row.versionNumber,
       capturedAt: row.capturedAt,
       aiStatus: row.aiStatus,
+      aiFailure: null,
       summary: row.summary,
       thumbnailUrl: imageUrlForHash(row.contentHash),
     }

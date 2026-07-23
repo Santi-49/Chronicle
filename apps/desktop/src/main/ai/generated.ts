@@ -331,6 +331,24 @@ export interface operations {
                     "application/json": components["schemas"]["ServiceErrorResponse"];
                 };
             };
+            /** @description Provider rejected the credential */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+            /** @description Provider rejected the request size */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -338,6 +356,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Provider quota or rate limit reached */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
                 };
             };
             /** @description Provider or model output error */
@@ -400,6 +427,24 @@ export interface operations {
                     "application/json": components["schemas"]["ServiceErrorResponse"];
                 };
             };
+            /** @description Provider rejected the credential */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+            /** @description Provider rejected the request size */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -407,6 +452,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Provider quota or rate limit reached */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
                 };
             };
             /** @description Provider or model output error */
