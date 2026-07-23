@@ -31,21 +31,22 @@ client = TestClient(app)
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
-VALID_IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png"}
+VALID_IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png", "format": "png"}
 
 ANNOTATE_PAYLOAD = {
     "provider": "test-provider",
     "model": "test-chat-model",
     "apiKey": "secret",
     "fileName": "logo.png",
+    "format": "png",
     "previous": None,
     "current": VALID_IMAGE,
 }
 
 ANNOTATE_DIFF_PAYLOAD = {
     **ANNOTATE_PAYLOAD,
-    "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png"},
-    "current": {"base64": "Y3VycmVudA==", "mediaType": "image/png"},
+    "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png", "format": "png"},
+    "current": {"base64": "Y3VycmVudA==", "mediaType": "image/png", "format": "png"},
 }
 
 ANNOTATION_RESULT = AnnotateResponse(
@@ -137,8 +138,9 @@ def test_provider_errors_are_sanitized(monkeypatch) -> None:
             "model": "test-chat-model",
             "apiKey": "secret-key",
             "fileName": "logo.png",
+            "format": "png",
             "previous": None,
-            "current": {"base64": "aW1hZ2U=", "mediaType": "image/png"},
+            "current": {"base64": "aW1hZ2U=", "mediaType": "image/png", "format": "png"},
         },
     )
 

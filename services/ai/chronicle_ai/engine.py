@@ -243,8 +243,9 @@ async def validate_provider_model(
             {
                 **common,
                 "fileName": "configuration-check.png",
+                "format": "png",
                 "previous": None,
-                "current": {"base64": _VALIDATION_PNG, "mediaType": "image/png"},
+                "current": {"base64": _VALIDATION_PNG, "mediaType": "image/png", "format": "png"},
             }
         ),
         model_factory=model_factory,

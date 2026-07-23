@@ -19,11 +19,15 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+SupportedFormat = Literal["png", "jpg", "jpeg"]
+
+
 class ImageInput(StrictModel):
     """One PNG or JPEG transported across the local HTTP boundary."""
 
     base64: NonEmptyText
     media_type: Literal["image/png", "image/jpeg"] = Field(alias="mediaType")
+    format: SupportedFormat
 
     @field_validator("base64")
     @classmethod
@@ -65,6 +69,7 @@ class ProviderConfig(StrictModel):
 
 class AnnotateRequest(ProviderConfig):
     file_name: Annotated[str, Field(alias="fileName", min_length=1, max_length=255)]
+    format: SupportedFormat
     previous: ImageInput | None = None
     current: ImageInput
 
