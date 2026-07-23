@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Santi-49/Chronicle/compare/v0.4.0...v0.5.0) (2026-07-22)
+
+
+### Features
+
+* Updated control plane api value and allowed pass a Oauth for all accounts ([6f86eb8](https://github.com/Santi-49/Chronicle/commit/6f86eb894fed5bc4af38ed7f32bb632eac091fe3))
+
 ## [0.4.0](https://github.com/Santi-49/Chronicle/compare/v0.3.0...v0.4.0) (2026-07-22)
 
 
