@@ -391,19 +391,51 @@ Normal desktop delivery occurs on startup and hourly only after changes. A batch
 
 ### `GET /api/v1/admin/statistics`
 
-Returns aggregate-only product analytics for a 7–90 day window. Optional `account_id`,
-two-letter `country`, and `os_family` filters scope inventory, activity, AI, search,
+Returns aggregate-only product analytics for a preset 1–366 day window or an inclusive custom
+`start_date` + `end_date` range of at most 366 days. Optional `account_id`,
+two-letter `country`, `os_family`, and `app_version` filters scope inventory, activity, AI, search,
 geography, and grouped errors. The response includes weekly creative installations,
 activation and D7 retention, version/project/restore counters, current inventory,
 file types, AI outcomes/latency/provider-model mix, keyword/semantic search counts,
-coarse country distribution, and error groups. No event rows or telemetry identifiers
-are returned.
+new-installation/DAU/WAU series, app-version and OS distributions, coarse country distribution,
+and grouped errors. Error groups include only sanitized representative messages/stacks and
+aggregate impact/breakdowns; no telemetry identifiers or creative event rows are returned.
 
 **Auth:** JWT + OPA `admin_statistics:read`
 
 ### `GET /api/v1/admin/statistics/accounts`
 
-Searches up to 50 accounts by email or display name for the admin user filter and reports
-whether each account is Google-linked plus content-free installation/project/version counts.
+Searches up to 200 accounts by email or display name for filters and the Users & access view.
+Each row reports Google linkage, active/admin state, last external login, content-free
+installation/project/version counts, and the latest reported app version/OS.
 
 **Auth:** JWT + OPA `admin_statistics:read`
+
+### `PUT /api/v1/admin/statistics/accounts/{user_id}/admin`
+
+Adds the administrator role while preserving the account's existing roles.
+
+### `DELETE /api/v1/admin/statistics/accounts/{user_id}/admin`
+
+Removes the administrator role. Returns `409` rather than demoting the last active administrator.
+
+**Auth:** JWT + OPA `admin_statistics:write`
+
+### `DELETE /api/v1/admin/statistics/errors/{stack_fingerprint}`
+
+Deletes the currently stored error occurrences in the selected fingerprint group. It does not
+create a suppression rule: a future telemetry event with the same fingerprint appears as a new
+group again.
+
+**Response:** `204`
+
+**Auth:** JWT + OPA `admin_statistics:write`
+
+### `DELETE /api/v1/admin/statistics/errors`
+
+Deletes every currently stored error occurrence. Future telemetry is not suppressed and starts
+new fingerprint groups normally.
+
+**Response:** `204`
+
+**Auth:** JWT + OPA `admin_statistics:write`

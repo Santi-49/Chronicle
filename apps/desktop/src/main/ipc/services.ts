@@ -1051,18 +1051,40 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     async getAccountState() {
       return deps.account?.accountState() ?? { mode: 'local', email: null, isAdmin: false }
     },
-    async getAdminStatistics(periodDays, accountId, country, osFamily) {
-      if (!Number.isInteger(periodDays) || periodDays < 7 || periodDays > 90) {
-        throw new TypeError('periodDays must be 7 to 90')
+    async getAdminStatistics(filters) {
+      if (!filters || typeof filters !== 'object' || Array.isArray(filters)) {
+        throw new TypeError('filters must be an object')
       }
-      return requireAccount().getAdminStatistics(
-        periodDays, accountId ? expectString(accountId, 'accountId') : undefined,
-        country ? expectString(country, 'country') : undefined,
-        osFamily ? expectString(osFamily, 'osFamily') : undefined,
-      )
+      if (filters.periodDays !== undefined &&
+          (!Number.isInteger(filters.periodDays) || filters.periodDays < 1 || filters.periodDays > 366)) {
+        throw new TypeError('periodDays must be 1 to 366')
+      }
+      const datePattern = /^\d{4}-\d{2}-\d{2}$/
+      if ((filters.startDate === undefined) !== (filters.endDate === undefined)) {
+        throw new TypeError('startDate and endDate must be provided together')
+      }
+      if ((filters.startDate && !datePattern.test(filters.startDate)) ||
+          (filters.endDate && !datePattern.test(filters.endDate))) {
+        throw new TypeError('custom dates must use YYYY-MM-DD')
+      }
+      return requireAccount().getAdminStatistics(filters)
     },
     async searchAdminAccounts(search) {
       return requireAccount().searchAdminAccounts(expectString(search, 'search').trim())
+    },
+    async setAdminRole(userId, enabled) {
+      if (typeof enabled !== 'boolean') throw new TypeError('enabled must be a boolean')
+      return requireAccount().setAdminRole(expectString(userId, 'userId'), enabled)
+    },
+    async deleteAdminErrorGroup(stackFingerprint) {
+      const fingerprint = expectString(stackFingerprint, 'stackFingerprint')
+      if (fingerprint.length < 16 || fingerprint.length > 128) {
+        throw new TypeError('stackFingerprint must be 16 to 128 characters')
+      }
+      await requireAccount().deleteAdminErrorGroup(fingerprint)
+    },
+    async deleteAllAdminErrors() {
+      await requireAccount().deleteAllAdminErrors()
     },
     async register(email, password) {
       const state = await requireAccount().register(

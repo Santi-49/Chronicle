@@ -15,16 +15,26 @@
  */
 export interface AdminAccountSummary {
   id: string; email: string; display_name: string; google_linked: boolean
+  is_active: boolean; is_admin: boolean; last_login_at?: string | null
   installation_count: number; current_project_count: number; current_version_count: number
+  latest_app_version?: string | null; latest_os_family?: string | null
 }
+export interface AdminStatisticsFilters {
+  periodDays?: number; startDate?: string; endDate?: string
+  accountId?: string; country?: string; osFamily?: string; appVersion?: string
+}
+export interface AdminCategoryCount { label: string; count: number }
+export interface AdminTimeSeriesPoint { bucket_start: string; count: number }
 export interface AdminStatistics {
-  generated_at: string; period_days: number
+  generated_at: string; period_start: string; period_end: string; period_days: number
   overview: {
     registered_accounts: number; registered_installations: number
     estimated_active_installations: number; reporting_installations: number
     current_projects: number; tracked_files: number; current_versions: number
     weekly_active_creative_installations: number; versions_captured: number
     project_creations: number; restores: number
+    new_installations: number; error_affected_installations: number
+    activation_eligible_installations: number; d7_eligible_installations: number
     activation_rate: number; d7_retention_rate: number
   }
   inventory_averages: {
@@ -32,23 +42,40 @@ export interface AdminStatistics {
     tracked_files_per_project: number; versions_per_project: number
     median_versions_per_project: number
   }
-  file_type_distribution: { label: string; count: number }[]
-  version_inventory_over_time: { bucket_start: string; count: number }[]
+  file_type_distribution: AdminCategoryCount[]
+  version_inventory_over_time: AdminTimeSeriesPoint[]
   ai: {
     attempt_count: number; success_count: number; failure_count: number
     success_rate: number; average_latency_ms: number; token_counts_available?: boolean
     total_token_count?: number | null
-    provider_model_mix: unknown[]; over_time: { bucket_start: string; count: number }[]
+    provider_model_mix: {
+      operation: 'annotation' | 'embedding'; provider: string; model: string
+      attempt_count: number; success_count: number; failure_count: number
+      average_latency_ms: number
+    }[]
+    over_time: AdminTimeSeriesPoint[]
   }
   search: {
     total_count: number; mode_counts_available?: boolean
-    by_mode: { label: string; count: number }[]; over_time: { bucket_start: string; count: number }[]
+    by_mode: AdminCategoryCount[]; over_time: AdminTimeSeriesPoint[]
+  }
+  growth: {
+    new_installations: AdminTimeSeriesPoint[]
+    daily_active_installations: AdminTimeSeriesPoint[]
+    weekly_active_installations: AdminTimeSeriesPoint[]
   }
   errors: {
-    component: string; error_name: string; error_code?: string | null; stack_fingerprint: string
-    severity: 'warning' | 'error' | 'fatal'; count: number; last_seen_at: string
+    process: string; component: string; operation: string; error_name: string
+    error_code?: string | null; sanitized_message: string; sanitized_stack?: string[]
+    stack_fingerprint: string; severity: 'warning' | 'error' | 'fatal'
+    count: number; affected_installations: number
+    first_seen_at: string; last_seen_at: string
+    app_versions: AdminCategoryCount[]; os_families: AdminCategoryCount[]
+    provider_models: AdminCategoryCount[]
   }[]
-  coarse_locations: { label: string; count: number }[]
+  coarse_locations: AdminCategoryCount[]
+  os_distribution: AdminCategoryCount[]
+  app_version_distribution: AdminCategoryCount[]
 }
 
 import type { AppSettings } from './settings'
@@ -454,8 +481,11 @@ export interface ChronicleApi {
   /** Current v2 usage buffer and an exact, non-consuming preview of the next batch. */
   getTelemetryDiagnostics(): Promise<TelemetryDiagnostics>
   getAccountState(): Promise<AccountState>
-  getAdminStatistics(periodDays: number, accountId?: string, country?: string, osFamily?: string): Promise<AdminStatistics>
+  getAdminStatistics(filters: AdminStatisticsFilters): Promise<AdminStatistics>
   searchAdminAccounts(search: string): Promise<AdminAccountSummary[]>
+  setAdminRole(userId: string, enabled: boolean): Promise<AdminAccountSummary>
+  deleteAdminErrorGroup(stackFingerprint: string): Promise<void>
+  deleteAllAdminErrors(): Promise<void>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
   /** System-browser Google OAuth with desktop PKCE; returns after Chronicle JWT issuance. */

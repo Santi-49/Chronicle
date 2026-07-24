@@ -16,7 +16,8 @@ role_permissions := {
         {"resource": "hello",       "action": "read"},
         {"resource": "account",     "action": "read"},
         {"resource": "account",     "action": "write"},
-        {"resource": "admin_statistics", "action": "read"}
+        {"resource": "admin_statistics", "action": "read"},
+        {"resource": "admin_statistics", "action": "write"}
     ],
     "user": [
         {"resource": "hello",   "action": "read"},

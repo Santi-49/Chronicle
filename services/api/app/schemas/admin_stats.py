@@ -26,6 +26,10 @@ class AdminOverview(StrictModel):
     versions_captured: int = Field(ge=0)
     project_creations: int = Field(ge=0)
     restores: int = Field(ge=0)
+    new_installations: int = Field(ge=0)
+    error_affected_installations: int = Field(ge=0)
+    activation_eligible_installations: int = Field(ge=0)
+    d7_eligible_installations: int = Field(ge=0)
     activation_rate: float = Field(ge=0, le=1)
     d7_retention_rate: float = Field(ge=0, le=1)
 
@@ -78,27 +82,47 @@ class AdminSearchStatistics(StrictModel):
     over_time: list[AdminTimeSeriesPoint]
 
 
+class AdminGrowthStatistics(StrictModel):
+    new_installations: list[AdminTimeSeriesPoint]
+    daily_active_installations: list[AdminTimeSeriesPoint]
+    weekly_active_installations: list[AdminTimeSeriesPoint]
+
+
 class AdminErrorAggregate(StrictModel):
+    process: str = Field(min_length=1, max_length=16)
     component: str = Field(min_length=1, max_length=64)
+    operation: str = Field(min_length=1, max_length=100)
     error_name: str = Field(min_length=1, max_length=100)
     error_code: str | None = Field(default=None, max_length=100)
+    sanitized_message: str = Field(min_length=1, max_length=500)
+    sanitized_stack: list[str] = Field(default_factory=list, max_length=20)
     stack_fingerprint: str = Field(min_length=16, max_length=128)
     severity: Literal["warning", "error", "fatal"]
     count: int = Field(ge=1)
+    affected_installations: int = Field(ge=1)
+    first_seen_at: datetime
     last_seen_at: datetime
+    app_versions: list[AdminCategoryCount]
+    os_families: list[AdminCategoryCount]
+    provider_models: list[AdminCategoryCount]
 
 
 class AdminStatistics(StrictModel):
     generated_at: datetime
-    period_days: int = Field(ge=7, le=90)
+    period_start: datetime
+    period_end: datetime
+    period_days: int = Field(ge=1, le=366)
     overview: AdminOverview
     inventory_averages: AdminInventoryAverages
     file_type_distribution: list[AdminCategoryCount]
     version_inventory_over_time: list[AdminTimeSeriesPoint]
     ai: AdminAiStatistics
     search: AdminSearchStatistics
+    growth: AdminGrowthStatistics
     errors: list[AdminErrorAggregate]
     coarse_locations: list[AdminCategoryCount]
+    os_distribution: list[AdminCategoryCount]
+    app_version_distribution: list[AdminCategoryCount]
 
 
 class AdminAccountSummary(StrictModel):
@@ -106,6 +130,11 @@ class AdminAccountSummary(StrictModel):
     email: str
     display_name: str
     google_linked: bool
+    is_active: bool
+    is_admin: bool
+    last_login_at: datetime | None = None
     installation_count: int = Field(ge=0)
     current_project_count: int = Field(ge=0)
     current_version_count: int = Field(ge=0)
+    latest_app_version: str | None = Field(default=None, max_length=32)
+    latest_os_family: str | None = Field(default=None, max_length=16)

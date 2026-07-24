@@ -23,6 +23,7 @@ from app.schemas.admin_stats import (
     AdminAiStatistics,
     AdminCategoryCount,
     AdminErrorAggregate,
+    AdminGrowthStatistics,
     AdminInventoryAverages,
     AdminOverview,
     AdminSearchStatistics,
@@ -33,6 +34,13 @@ from app.schemas.admin_stats import (
 
 def _ratio(numerator: int, denominator: int) -> float:
     return round(numerator / denominator, 2) if denominator else 0.0
+
+
+def _counts(values) -> dict[str, int]:
+    counts: dict[str, int] = defaultdict(int)
+    for value in values:
+        counts[value] += 1
+    return counts
 
 
 def _day_start(value: datetime) -> datetime:
@@ -52,16 +60,32 @@ def _series(values: dict[datetime, int]) -> list[AdminTimeSeriesPoint]:
     ]
 
 
+def _daily_series(
+    values: dict[datetime, int], start: datetime, end: datetime
+) -> list[AdminTimeSeriesPoint]:
+    points: list[AdminTimeSeriesPoint] = []
+    cursor = _day_start(start)
+    last = _day_start(end - timedelta(microseconds=1))
+    while cursor <= last:
+        points.append(AdminTimeSeriesPoint(bucket_start=cursor, count=values.get(cursor, 0)))
+        cursor += timedelta(days=1)
+    return points
+
+
 async def read_admin_statistics(
     db: AsyncSession,
     period_days: int,
     now: datetime | None = None,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
     account_id: uuid.UUID | None = None,
     country: str | None = None,
     os_family: str | None = None,
+    app_version: str | None = None,
 ) -> AdminStatistics:
     generated_at = now or datetime.now(timezone.utc)
-    window_start = generated_at - timedelta(days=period_days)
+    window_end = _utc(end_at) if end_at else generated_at
+    window_start = _utc(start_at) if start_at else window_end - timedelta(days=period_days)
 
     registered_accounts = int(await db.scalar(select(func.count()).select_from(User)) or 0)
     registered_installations = int(
@@ -70,7 +94,8 @@ async def read_admin_statistics(
     estimated_active_installations = int(
         await db.scalar(
             select(func.count(func.distinct(TelemetrySession.installation_id))).where(
-                TelemetrySession.opened_at >= window_start
+                TelemetrySession.opened_at >= window_start,
+                TelemetrySession.opened_at < window_end,
             )
         )
         or 0
@@ -84,6 +109,7 @@ async def read_admin_statistics(
         row.id for row in installation_rows
         if (account_id is None or row.user_id == account_id)
         and (os_family is None or row.os_family == os_family)
+        and (app_version is None or row.app_version == app_version)
     }
     if country is not None:
         country_installations = set((await db.scalars(
@@ -96,6 +122,7 @@ async def read_admin_statistics(
         await db.scalar(
             select(func.count(func.distinct(TelemetrySession.installation_id))).where(
                 TelemetrySession.opened_at >= window_start,
+                TelemetrySession.opened_at < window_end,
                 TelemetrySession.installation_id.in_(allowed_installations),
                 *([TelemetrySession.country_code == country] if country else []),
             )
@@ -141,6 +168,7 @@ async def read_admin_statistics(
             await db.scalars(
                 select(TelemetryHourlyAiUsage).where(
                     TelemetryHourlyAiUsage.bucket_start >= window_start,
+                    TelemetryHourlyAiUsage.bucket_start < window_end,
                     TelemetryHourlyAiUsage.installation_id.in_(allowed_installations),
                 )
             )
@@ -179,6 +207,7 @@ async def read_admin_statistics(
             await db.scalars(
                 select(TelemetryHourlyUsage).where(
                     TelemetryHourlyUsage.bucket_start >= window_start,
+                    TelemetryHourlyUsage.bucket_start < window_end,
                     TelemetryHourlyUsage.installation_id.in_(allowed_installations),
                 )
             )
@@ -195,7 +224,7 @@ async def read_admin_statistics(
     versions_captured = sum(row.version_capture_count for row in search_rows)
     project_creations = sum(row.project_create_count for row in search_rows)
     restores = sum(row.restore_count for row in search_rows)
-    weekly_cutoff = generated_at - timedelta(days=7)
+    weekly_cutoff = window_end - timedelta(days=7)
     weekly_active_creative = len({
         row.installation_id for row in search_rows
         if _utc(row.bucket_start) >= weekly_cutoff and row.version_capture_count > 0
@@ -212,7 +241,7 @@ async def read_admin_statistics(
         and row.installation_id in installation_by_id
         and (_utc(row.first_version_at) - _utc(installation_by_id[row.installation_id].first_seen_at)) <= timedelta(hours=24)
     ]
-    eligible_d7 = [row for row in activated if _utc(row.first_version_at) <= generated_at - timedelta(days=7)]
+    eligible_d7 = [row for row in activated if _utc(row.first_version_at) <= window_end - timedelta(days=7)]
     session_rows = list((await db.scalars(
         select(TelemetrySession).where(TelemetrySession.installation_id.in_(allowed_installations))
     )).all())
@@ -227,12 +256,13 @@ async def read_admin_statistics(
             await db.scalars(
                 select(TelemetryError).where(
                     TelemetryError.occurred_at >= window_start,
+                    TelemetryError.occurred_at < window_end,
                     TelemetryError.installation_id.in_(allowed_installations),
                 )
             )
         ).all()
     )
-    error_groups: dict[tuple[str, str, str | None, str, str], tuple[int, datetime]] = {}
+    error_groups: dict[tuple[str, str, str | None, str, str], list[TelemetryError]] = defaultdict(list)
     for row in error_rows:
         key = (
             row.component,
@@ -241,21 +271,50 @@ async def read_admin_statistics(
             row.stack_fingerprint,
             row.severity,
         )
-        occurred_at = _utc(row.occurred_at)
-        count, last_seen = error_groups.get(key, (0, occurred_at))
-        error_groups[key] = (count + 1, max(last_seen, occurred_at))
+        error_groups[key].append(row)
     errors = [
         AdminErrorAggregate(
+            process=max(rows, key=lambda row: _utc(row.occurred_at)).process,
             component=key[0],
+            operation=max(rows, key=lambda row: _utc(row.occurred_at)).operation,
             error_name=key[1],
             error_code=key[2],
+            sanitized_message=max(rows, key=lambda row: _utc(row.occurred_at)).sanitized_message,
+            sanitized_stack=max(rows, key=lambda row: _utc(row.occurred_at)).sanitized_stack,
             stack_fingerprint=key[3],
             severity=key[4],
-            count=value[0],
-            last_seen_at=value[1],
+            count=len(rows),
+            affected_installations=len({row.installation_id for row in rows}),
+            first_seen_at=min(_utc(row.occurred_at) for row in rows),
+            last_seen_at=max(_utc(row.occurred_at) for row in rows),
+            app_versions=[
+                AdminCategoryCount(label=label, count=count)
+                for label, count in sorted(
+                    _counts(row.app_version for row in rows).items(),
+                    key=lambda item: (-item[1], item[0]),
+                )
+            ],
+            os_families=[
+                AdminCategoryCount(label=label, count=count)
+                for label, count in sorted(
+                    _counts(row.os_family for row in rows).items(),
+                    key=lambda item: (-item[1], item[0]),
+                )
+            ],
+            provider_models=[
+                AdminCategoryCount(label=label, count=count)
+                for label, count in sorted(
+                    _counts(
+                        f"{row.provider} · {row.model}"
+                        for row in rows
+                        if row.provider and row.model
+                    ).items(),
+                    key=lambda item: (-item[1], item[0]),
+                )
+            ],
         )
-        for key, value in sorted(
-            error_groups.items(), key=lambda item: (-item[1][0], item[0])
+        for key, rows in sorted(
+            error_groups.items(), key=lambda item: (-len(item[1]), item[0])
         )[:20]
     ]
 
@@ -268,6 +327,7 @@ async def read_admin_statistics(
                 TelemetrySession.city,
             ).where(
                 TelemetrySession.opened_at >= window_start,
+                TelemetrySession.opened_at < window_end,
                 TelemetrySession.installation_id.in_(allowed_installations),
             )
         )
@@ -279,8 +339,51 @@ async def read_admin_statistics(
         for label, count in sorted(location_counts.items(), key=lambda item: (-item[1], item[0]))[:12]
     ]
 
+    period_sessions = [
+        row for row in session_rows
+        if window_start <= _utc(row.opened_at) < window_end
+    ]
+    os_installations: dict[str, set[uuid.UUID]] = defaultdict(set)
+    version_installations: dict[str, set[uuid.UUID]] = defaultdict(set)
+    for row in period_sessions:
+        os_installations[row.os_family].add(row.installation_id)
+        version_installations[row.app_version].add(row.installation_id)
+    os_distribution = [
+        AdminCategoryCount(label=label, count=len(installation_ids))
+        for label, installation_ids in sorted(
+            os_installations.items(), key=lambda item: (-len(item[1]), item[0])
+        )
+    ]
+    app_version_distribution = [
+        AdminCategoryCount(label=label, count=len(installation_ids))
+        for label, installation_ids in sorted(
+            version_installations.items(), key=lambda item: (-len(item[1]), item[0])
+        )
+    ]
+    new_installations_by_day: dict[datetime, int] = defaultdict(int)
+    for row in installation_rows:
+        if row.id in allowed_installations and window_start <= _utc(row.first_seen_at) < window_end:
+            new_installations_by_day[_day_start(row.first_seen_at)] += 1
+    sessions_by_day: dict[datetime, set[uuid.UUID]] = defaultdict(set)
+    for row in session_rows:
+        if window_start - timedelta(days=6) <= _utc(row.opened_at) < window_end:
+            sessions_by_day[_day_start(row.opened_at)].add(row.installation_id)
+    daily_active = {day: len(ids) for day, ids in sessions_by_day.items()}
+    weekly_active: dict[datetime, int] = {}
+    cursor = _day_start(window_start)
+    final_day = _day_start(window_end - timedelta(microseconds=1))
+    while cursor <= final_day:
+        ids: set[uuid.UUID] = set()
+        for offset in range(7):
+            ids |= sessions_by_day.get(cursor - timedelta(days=offset), set())
+        weekly_active[cursor] = len(ids)
+        cursor += timedelta(days=1)
+    error_affected = len({row.installation_id for row in error_rows})
+
     return AdminStatistics(
         generated_at=generated_at,
+        period_start=window_start,
+        period_end=window_end,
         period_days=period_days,
         overview=AdminOverview(
             registered_accounts=registered_accounts,
@@ -294,6 +397,10 @@ async def read_admin_statistics(
             versions_captured=versions_captured,
             project_creations=project_creations,
             restores=restores,
+            new_installations=sum(new_installations_by_day.values()),
+            error_affected_installations=error_affected,
+            activation_eligible_installations=len(telemetry_states),
+            d7_eligible_installations=len(eligible_d7),
             activation_rate=_ratio(len(activated), len(telemetry_states)),
             d7_retention_rate=_ratio(retained_d7, len(eligible_d7)),
         ),
@@ -332,6 +439,13 @@ async def read_admin_statistics(
             ],
             over_time=_series(search_over_time),
         ),
+        growth=AdminGrowthStatistics(
+            new_installations=_daily_series(new_installations_by_day, window_start, window_end),
+            daily_active_installations=_daily_series(daily_active, window_start, window_end),
+            weekly_active_installations=_daily_series(weekly_active, window_start, window_end),
+        ),
         errors=errors,
         coarse_locations=coarse_locations,
+        os_distribution=os_distribution,
+        app_version_distribution=app_version_distribution,
     )

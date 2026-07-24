@@ -1206,10 +1206,44 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 90,
-              "minimum": 7,
+              "maximum": 366,
+              "minimum": 1,
               "default": 30,
               "title": "Period Days"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
             }
           },
           {
@@ -1262,6 +1296,24 @@
                 }
               ],
               "title": "Os Family"
+            }
+          },
+          {
+            "name": "app_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "App Version"
             }
           }
         ],
@@ -1328,6 +1380,163 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/statistics/accounts/{user_id}/admin": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Promote Admin",
+        "operationId": "promote_admin_api_v1_admin_statistics_accounts__user_id__admin_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccountSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Demote Admin",
+        "operationId": "demote_admin_api_v1_admin_statistics_accounts__user_id__admin_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccountSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/statistics/errors": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete All Errors",
+        "description": "Delete every stored occurrence, without suppressing future error telemetry.",
+        "operationId": "delete_all_errors_api_v1_admin_statistics_errors_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/statistics/errors/{stack_fingerprint}": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete Error Group",
+        "description": "Delete stored occurrences, without suppressing future events with this fingerprint.",
+        "operationId": "delete_error_group_api_v1_admin_statistics_errors__stack_fingerprint__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "stack_fingerprint",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 128,
+              "title": "Stack Fingerprint"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -1430,6 +1639,26 @@
             "type": "boolean",
             "title": "Google Linked"
           },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "is_admin": {
+            "type": "boolean",
+            "title": "Is Admin"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
           "installation_count": {
             "type": "integer",
             "minimum": 0.0,
@@ -1444,6 +1673,30 @@
             "type": "integer",
             "minimum": 0.0,
             "title": "Current Version Count"
+          },
+          "latest_app_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest App Version"
+          },
+          "latest_os_family": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 16
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Os Family"
           }
         },
         "additionalProperties": false,
@@ -1453,6 +1706,8 @@
           "email",
           "display_name",
           "google_linked",
+          "is_active",
+          "is_admin",
           "installation_count",
           "current_project_count",
           "current_version_count"
@@ -1624,11 +1879,23 @@
       },
       "AdminErrorAggregate": {
         "properties": {
+          "process": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Process"
+          },
           "component": {
             "type": "string",
             "maxLength": 64,
             "minLength": 1,
             "title": "Component"
+          },
+          "operation": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Operation"
           },
           "error_name": {
             "type": "string",
@@ -1647,6 +1914,20 @@
               }
             ],
             "title": "Error Code"
+          },
+          "sanitized_message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Sanitized Message"
+          },
+          "sanitized_stack": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Sanitized Stack"
           },
           "stack_fingerprint": {
             "type": "string",
@@ -1668,23 +1949,95 @@
             "minimum": 1.0,
             "title": "Count"
           },
+          "affected_installations": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Affected Installations"
+          },
+          "first_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Seen At"
+          },
           "last_seen_at": {
             "type": "string",
             "format": "date-time",
             "title": "Last Seen At"
+          },
+          "app_versions": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCategoryCount"
+            },
+            "type": "array",
+            "title": "App Versions"
+          },
+          "os_families": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCategoryCount"
+            },
+            "type": "array",
+            "title": "Os Families"
+          },
+          "provider_models": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCategoryCount"
+            },
+            "type": "array",
+            "title": "Provider Models"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "process",
           "component",
+          "operation",
           "error_name",
+          "sanitized_message",
           "stack_fingerprint",
           "severity",
           "count",
-          "last_seen_at"
+          "affected_installations",
+          "first_seen_at",
+          "last_seen_at",
+          "app_versions",
+          "os_families",
+          "provider_models"
         ],
         "title": "AdminErrorAggregate"
+      },
+      "AdminGrowthStatistics": {
+        "properties": {
+          "new_installations": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTimeSeriesPoint"
+            },
+            "type": "array",
+            "title": "New Installations"
+          },
+          "daily_active_installations": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTimeSeriesPoint"
+            },
+            "type": "array",
+            "title": "Daily Active Installations"
+          },
+          "weekly_active_installations": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTimeSeriesPoint"
+            },
+            "type": "array",
+            "title": "Weekly Active Installations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "new_installations",
+          "daily_active_installations",
+          "weekly_active_installations"
+        ],
+        "title": "AdminGrowthStatistics"
       },
       "AdminInventoryAverages": {
         "properties": {
@@ -1782,6 +2135,26 @@
             "minimum": 0.0,
             "title": "Restores"
           },
+          "new_installations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "New Installations"
+          },
+          "error_affected_installations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Error Affected Installations"
+          },
+          "activation_eligible_installations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Activation Eligible Installations"
+          },
+          "d7_eligible_installations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "D7 Eligible Installations"
+          },
           "activation_rate": {
             "type": "number",
             "maximum": 1.0,
@@ -1809,6 +2182,10 @@
           "versions_captured",
           "project_creations",
           "restores",
+          "new_installations",
+          "error_affected_installations",
+          "activation_eligible_installations",
+          "d7_eligible_installations",
           "activation_rate",
           "d7_retention_rate"
         ],
@@ -1857,10 +2234,20 @@
             "format": "date-time",
             "title": "Generated At"
           },
+          "period_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Period End"
+          },
           "period_days": {
             "type": "integer",
-            "maximum": 90.0,
-            "minimum": 7.0,
+            "maximum": 366.0,
+            "minimum": 1.0,
             "title": "Period Days"
           },
           "overview": {
@@ -1889,6 +2276,9 @@
           "search": {
             "$ref": "#/components/schemas/AdminSearchStatistics"
           },
+          "growth": {
+            "$ref": "#/components/schemas/AdminGrowthStatistics"
+          },
           "errors": {
             "items": {
               "$ref": "#/components/schemas/AdminErrorAggregate"
@@ -1902,12 +2292,28 @@
             },
             "type": "array",
             "title": "Coarse Locations"
+          },
+          "os_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCategoryCount"
+            },
+            "type": "array",
+            "title": "Os Distribution"
+          },
+          "app_version_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCategoryCount"
+            },
+            "type": "array",
+            "title": "App Version Distribution"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "generated_at",
+          "period_start",
+          "period_end",
           "period_days",
           "overview",
           "inventory_averages",
@@ -1915,8 +2321,11 @@
           "version_inventory_over_time",
           "ai",
           "search",
+          "growth",
           "errors",
-          "coarse_locations"
+          "coarse_locations",
+          "os_distribution",
+          "app_version_distribution"
         ],
         "title": "AdminStatistics"
       },

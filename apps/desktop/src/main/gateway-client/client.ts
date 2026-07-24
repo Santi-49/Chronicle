@@ -1,4 +1,8 @@
-import type { AccountState, ControlPlaneDiagnostic } from '../../shared/ipc'
+import type {
+  AccountState,
+  AdminStatisticsFilters,
+  ControlPlaneDiagnostic,
+} from '../../shared/ipc'
 import type { AppSettings } from '../../shared/settings'
 import type { components } from '../../../../../packages/contracts/api/generated'
 import type { TelemetryBatch as TelemetryBatchPayload } from '../telemetry/emitter'
@@ -36,8 +40,11 @@ export interface InstallationDescriptor {
 export interface ControlPlaneClient {
   health(): Promise<boolean>
   accountState(): Promise<AccountState>
-  getAdminStatistics(periodDays: number, accountId?: string, country?: string, osFamily?: string): Promise<AdminStatistics>
+  getAdminStatistics(filters: AdminStatisticsFilters): Promise<AdminStatistics>
   searchAdminAccounts(search: string): Promise<AdminAccountSummary[]>
+  setAdminRole(userId: string, enabled: boolean): Promise<AdminAccountSummary>
+  deleteAdminErrorGroup(stackFingerprint: string): Promise<void>
+  deleteAllAdminErrors(): Promise<void>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
   loginWithGoogleCredential(credential: string): Promise<AccountState>
@@ -315,16 +322,34 @@ export function createControlPlaneClient(
       if (!tokens.read()) return { mode: 'local', email: null, isAdmin: false }
       try { return state(await me()) } catch { return { mode: 'local', email: null, isAdmin: false } }
     },
-    getAdminStatistics: (periodDays, accountId, country, osFamily) => raw<AdminStatistics>(
+    getAdminStatistics: (filters) => raw<AdminStatistics>(
       `/api/v1/admin/statistics?${new URLSearchParams({
-        period_days: String(periodDays),
-        ...(accountId ? { account_id: accountId } : {}),
-        ...(country ? { country } : {}),
-        ...(osFamily ? { os_family: osFamily } : {}),
+        period_days: String(filters.periodDays ?? 30),
+        ...(filters.startDate ? { start_date: filters.startDate } : {}),
+        ...(filters.endDate ? { end_date: filters.endDate } : {}),
+        ...(filters.accountId ? { account_id: filters.accountId } : {}),
+        ...(filters.country ? { country: filters.country } : {}),
+        ...(filters.osFamily ? { os_family: filters.osFamily } : {}),
+        ...(filters.appVersion ? { app_version: filters.appVersion } : {}),
       })}`, {}, true,
     ),
     searchAdminAccounts: (search) => raw<AdminAccountSummary[]>(
       `/api/v1/admin/statistics/accounts?${new URLSearchParams({ search })}`, {}, true,
+    ),
+    setAdminRole: (userId, enabled) => raw<AdminAccountSummary>(
+      `/api/v1/admin/statistics/accounts/${encodeURIComponent(userId)}/admin`,
+      { method: enabled ? 'PUT' : 'DELETE' },
+      true,
+    ),
+    deleteAdminErrorGroup: (stackFingerprint) => raw<void>(
+      `/api/v1/admin/statistics/errors/${encodeURIComponent(stackFingerprint)}`,
+      { method: 'DELETE' },
+      true,
+    ),
+    deleteAllAdminErrors: () => raw<void>(
+      '/api/v1/admin/statistics/errors',
+      { method: 'DELETE' },
+      true,
     ),
     async register(email, password) {
       const prefix = email.split('@')[0] || 'Chronicle'

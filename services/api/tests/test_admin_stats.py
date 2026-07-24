@@ -6,8 +6,11 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy import select
 
-from app.models.control_plane import Installation
+from app.models.control_plane import Installation, TelemetryError
+from app.models.role import Role
+from app.models.user import User
 
 pytestmark = pytest.mark.anyio
 
@@ -32,6 +35,11 @@ async def seed_statistics(client, db, admin_user) -> None:
         "sent_at": NOW.isoformat(),
         "final": False,
         "sessions": [{
+            "id": str(uuid.uuid4()),
+            "opened_at": NOW.isoformat(),
+            "app_version": "0.6.0",
+            "os_family": "windows",
+        }, {
             "id": str(uuid.uuid4()),
             "opened_at": NOW.isoformat(),
             "app_version": "0.6.0",
@@ -117,21 +125,13 @@ async def test_admin_reads_live_aggregate_statistics(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["overview"] == {
-        "registered_accounts": 1,
-        "registered_installations": 1,
-        "estimated_active_installations": 1,
-        "reporting_installations": 1,
-        "current_projects": 1,
-        "tracked_files": 3,
-        "current_versions": 12,
-        "weekly_active_creative_installations": 0,
-        "versions_captured": 0,
-        "project_creations": 0,
-        "restores": 0,
-        "activation_rate": 0.0,
-        "d7_retention_rate": 0.0,
-    }
+    assert body["overview"]["registered_accounts"] == 1
+    assert body["overview"]["registered_installations"] == 1
+    assert body["overview"]["estimated_active_installations"] == 1
+    assert body["overview"]["new_installations"] == 1
+    assert body["overview"]["error_affected_installations"] == 1
+    assert body["overview"]["activation_eligible_installations"] == 1
+    assert body["overview"]["d7_eligible_installations"] == 0
     assert body["search"]["total_count"] == 7
     assert body["search"]["mode_counts_available"] is True
     assert body["ai"]["attempt_count"] == 4
@@ -141,16 +141,20 @@ async def test_admin_reads_live_aggregate_statistics(
         {"label": "PNG", "count": 2},
         {"label": "JPG", "count": 1},
     ]
-    assert body["coarse_locations"] == [{"label": "ES · MD · Madrid", "count": 1}]
+    assert body["coarse_locations"] == [{"label": "ES · MD · Madrid", "count": 2}]
+    assert body["os_distribution"] == [{"label": "windows", "count": 1}]
+    assert body["app_version_distribution"] == [{"label": "0.6.0", "count": 1}]
+    assert body["growth"]["daily_active_installations"][-1]["count"] == 1
+    assert body["errors"][0]["sanitized_message"] == "Content deliberately absent from aggregate response"
+    assert body["errors"][0]["sanitized_stack"] == ["private/source.ts:42"]
+    assert body["errors"][0]["affected_installations"] == 1
 
     serialized = json.dumps(body)
     for forbidden in (
         "project_telemetry_id",
         "installation_id",
-        "sanitized_message",
-        "sanitized_stack",
-        "private/source.ts",
-        "Content deliberately absent",
+        "search query",
+        "file contents",
     ):
         assert forbidden not in serialized
 
@@ -173,7 +177,7 @@ async def test_non_admin_is_forbidden(client, user_token):
 
 async def test_admin_statistics_rejects_oversized_period(client, admin_token):
     response = await client.get(
-        "/api/v1/admin/statistics?period_days=365",
+        "/api/v1/admin/statistics?period_days=367",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 422
@@ -193,12 +197,112 @@ async def test_admin_can_search_google_account_directory(client, db, admin_user,
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 200
-    assert response.json()[0] == {
-        "id": str(admin_user.id),
-        "email": "admin@test.com",
-        "display_name": "Admin Test",
-        "google_linked": True,
-        "installation_count": 0,
-        "current_project_count": 0,
-        "current_version_count": 0,
-    }
+    account = response.json()[0]
+    assert account["id"] == str(admin_user.id)
+    assert account["email"] == "admin@test.com"
+    assert account["display_name"] == "Admin Test"
+    assert account["google_linked"] is True
+    assert account["is_active"] is True
+    assert account["is_admin"] is True
+    assert account["last_login_at"] is not None
+    assert account["installation_count"] == 0
+
+
+async def test_admin_statistics_accepts_custom_date_range(client, admin_token):
+    today = NOW.date().isoformat()
+    response = await client.get(
+        f"/api/v1/admin/statistics?start_date={today}&end_date={today}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["period_days"] == 1
+    assert body["period_start"].startswith(today)
+
+
+async def test_last_active_admin_cannot_be_demoted(client, admin_user, admin_token):
+    response = await client.delete(
+        f"/api/v1/admin/statistics/accounts/{admin_user.id}/admin",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 409
+
+
+async def test_admin_can_promote_and_demote_an_account(client, db, admin_token):
+    user_role = await db.scalar(select(Role).where(Role.name == "user"))
+    account = User(
+        email="member@test.com",
+        name="Member",
+        surname="Test",
+        hashed_password=None,
+        roles=[user_role],
+    )
+    db.add(account)
+    await db.commit()
+
+    promoted = await client.put(
+        f"/api/v1/admin/statistics/accounts/{account.id}/admin",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert promoted.status_code == 200
+    assert promoted.json()["is_admin"] is True
+
+    demoted = await client.delete(
+        f"/api/v1/admin/statistics/accounts/{account.id}/admin",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert demoted.status_code == 200
+    assert demoted.json()["is_admin"] is False
+
+
+async def test_admin_deletes_occurrences_without_suppressing_future_errors(
+    client, db, admin_user, admin_token
+):
+    await seed_statistics(client, db, admin_user)
+    fingerprint = "0123456789abcdef"
+    deleted = await client.delete(
+        f"/api/v1/admin/statistics/errors/{fingerprint}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert deleted.status_code == 204
+    assert await db.scalar(select(TelemetryError).where(
+        TelemetryError.stack_fingerprint == fingerprint
+    )) is None
+
+    installation_id = await db.scalar(select(Installation.id))
+    db.add(TelemetryError(
+        id=uuid.uuid4(),
+        installation_id=installation_id,
+        occurred_at=NOW,
+        process="main",
+        component="watcher",
+        operation="capture",
+        error_name="UnavailableError",
+        error_code="E_UNAVAILABLE",
+        sanitized_message="The issue happened again",
+        stack_fingerprint=fingerprint,
+        sanitized_stack=[],
+        severity="error",
+        fatal=False,
+        handled=True,
+        app_version="0.6.0",
+        os_family="windows",
+    ))
+    await db.commit()
+
+    statistics = await client.get(
+        "/api/v1/admin/statistics",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert statistics.status_code == 200
+    assert statistics.json()["errors"][0]["stack_fingerprint"] == fingerprint
+
+
+async def test_admin_can_delete_all_stored_errors(client, db, admin_user, admin_token):
+    await seed_statistics(client, db, admin_user)
+    deleted = await client.delete(
+        "/api/v1/admin/statistics/errors",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert deleted.status_code == 204
+    assert list((await db.scalars(select(TelemetryError))).all()) == []
