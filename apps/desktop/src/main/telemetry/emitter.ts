@@ -58,6 +58,7 @@ interface TelemetryBuffer {
 
 const BUFFER_KEY = 'telemetry-v2-buffer'
 const SNAPSHOT_HASH_KEY = 'telemetry-v2-last-snapshot-hash'
+const MILESTONE_KEY = 'telemetry-product-milestones'
 
 function emptyBuffer(): TelemetryBuffer {
   return {
@@ -135,7 +136,8 @@ function errorMetadata(draft: ApplicationDiagnosticDraft): {
 export interface TelemetryCollector {
   recordAppOpened(): void
   recordProjectRemoved(projectTelemetryId: string, historyDeleted: boolean): void
-  recordSearch(): void
+  recordProductActivity(activity: 'project-create' | 'version-capture' | 'restore'): void
+  recordSearch(semantic?: boolean): void
   recordAiUsage(
     operation: AiOperation,
     provider: string,
@@ -227,6 +229,10 @@ export function createTelemetryCollector(
         ...(settings?.ai.embeddings.model ? { embedding_model: settings.ai.embeddings.model } : {}),
         app_version: appVersion,
         os_family: osFamily,
+        ...(getSetting<{ firstProjectAt?: string }>(db, MILESTONE_KEY)?.firstProjectAt
+          ? { first_project_at: getSetting<{ firstProjectAt: string }>(db, MILESTONE_KEY)!.firstProjectAt } : {}),
+        ...(getSetting<{ firstVersionAt?: string }>(db, MILESTONE_KEY)?.firstVersionAt
+          ? { first_version_at: getSetting<{ firstVersionAt: string }>(db, MILESTONE_KEY)!.firstVersionAt } : {}),
       },
       projects,
     }
@@ -256,11 +262,27 @@ export function createTelemetryCollector(
         }
       })
     },
-    recordSearch() {
+    recordProductActivity(activity) {
+      const milestones = getSetting<{ firstProjectAt?: string; firstVersionAt?: string }>(db, MILESTONE_KEY) ?? {}
+      if (activity === 'project-create' && !milestones.firstProjectAt) milestones.firstProjectAt = new Date().toISOString()
+      if (activity === 'version-capture' && !milestones.firstVersionAt) milestones.firstVersionAt = new Date().toISOString()
+      setSetting(db, MILESTONE_KEY, milestones)
+      mutate((buffer) => {
+        const bucket = hourStart()
+        const existing = buffer.hourlyUsage[bucket] ?? { bucket_start: bucket, search_count: 0 }
+        const field = activity === 'project-create' ? 'project_create_count'
+          : activity === 'version-capture' ? 'version_capture_count' : 'restore_count'
+        existing[field] = (existing[field] ?? 0) + 1
+        buffer.hourlyUsage[bucket] = existing
+      })
+    },
+    recordSearch(semantic) {
       mutate((buffer) => {
         const bucket = hourStart()
         const existing = buffer.hourlyUsage[bucket] ?? { bucket_start: bucket, search_count: 0 }
         existing.search_count++
+        existing.keyword_search_count = (existing.keyword_search_count ?? 0) + 1
+        if (semantic) existing.semantic_search_count = (existing.semantic_search_count ?? 0) + 1
         buffer.hourlyUsage[bucket] = existing
       })
     },

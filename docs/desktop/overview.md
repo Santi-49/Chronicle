@@ -216,6 +216,34 @@ details. Every top-level Diagnostics card also has an explicit keyboard-accessib
 control in its header. Creative-file contents and privileged Node/Electron APIs never cross this
 diagnostics boundary. Rotating file logs and opt-in network/crash bundles remain separate future work.
 
+### 8.2 Admin — F8 (admin-only)
+
+An **Admin** tab is visible only while the signed-in Chronicle account has the `admin` role.
+It reads aggregate-only control-plane statistics through the authenticated Electron main
+process. The **Admin control center** uses five question-led views instead of one overloaded
+dashboard:
+
+- **Overview:** active/new installations, activation, eligible D7 retention, weekly creative
+  activity, error impact, and attention links.
+- **Product:** projects, versions, searches, restores, successful summaries, inventory, and
+  provider/model operation outcomes.
+- **Audience & releases:** installation growth, DAU/WAU, app-version adoption, OS distribution,
+  and a bundled offline country choropleth paired with accessible ranked values. The base map
+  always fits fully; `Ctrl` + scroll zooms around the pointer and `Ctrl` + drag pans while zoomed.
+- **Reliability:** grouped issue inbox with expandable sanitized message/stack, first/last seen,
+  affected installations, release/OS/provider context, and device-local acknowledge/flag/group/note
+  controls. A guarded **Delete occurrences** action removes the currently stored group events
+  without suppressing that fingerprint, so a later recurrence appears again. A separately
+  confirmed **Delete all errors** action applies the same recurrence-safe behavior to the inbox.
+- **Users & access:** searchable registered-account table with Google linkage, last login,
+  latest reported app/OS, inventory totals, account analytics drill-through, and guarded
+  administrator promotion/demotion.
+
+Preset periods and a custom inclusive start/end date share account/country/OS/app-version filters. Applied
+filters remain visible and account drill-through preserves context. Creative content, project telemetry IDs,
+installation IDs, paths, names, summaries, tags, search text, previews, hashes, credentials,
+and raw IP addresses never enter the renderer contract.
+
 ### 9. Settings — F1, F2, F4/F9 config
 
 Five sections, in current order:
@@ -238,14 +266,6 @@ failures go directly to this manual path to avoid repeated provider calls. Upgra
 older delete-on-failure queue reconstructs retained failed annotation jobs from failed versions.
 The same failure reason and next action appear outside Developer Diagnostics on Timeline, Version
 Details, Pending jobs, and the always-visible status-bar failure count.
-
-### 10. Admin `Stretch` — F10
-
-Aggregated usage stats from the control plane, visible only to the `admin` role. Until
-this exists, admins read stats via the API's Swagger UI — the desktop app has **no** MVP
-admin surface.
-
----
 
 ## Feature → Page Coverage
 

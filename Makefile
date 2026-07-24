@@ -21,6 +21,7 @@ ENV_FILE := .env
 	build build-desktop build-all build-landing build-backend package package-desktop package-macos package-unpacked installer \
 	typecheck test test-local test-desktop test-ai smoke-ai lint check \
 	migrate makemigration seed generate-types generate-ai-types clean \
+	admin-promote admin-demote admin-list \
 	demo-assets demo-reset demo-set demo-next demo-status demo-clean
 
 # --- Setup -----------------------------------------------------------------
@@ -157,6 +158,17 @@ makemigration: setup-env
 
 seed: migrate
 
+# Development-only role helpers. EMAIL is passed as a psql variable and quoted
+# by psql itself, so addresses are never interpolated directly into SQL.
+admin-promote:
+	$(PYTHON) scripts/admin_role.py promote "$(EMAIL)"
+
+admin-demote:
+	$(PYTHON) scripts/admin_role.py demote "$(EMAIL)"
+
+admin-list:
+	$(PYTHON) scripts/admin_role.py list
+
 # --- Contracts -------------------------------------------------------------
 generate-types: setup-env
 	$(DOCKER_COMPOSE) run --rm api python -c \
@@ -249,6 +261,9 @@ help:
 	$(info   make stop           Stop Docker services)
 	$(info   make migrate        Apply Alembic migrations)
 	$(info   make makemigration MSG="...")
+	$(info   make admin-promote EMAIL=user@example.com  Grant the admin role locally)
+	$(info   make admin-demote EMAIL=user@example.com  Remove admin and retain user locally)
+	$(info   make admin-list  List local administrator accounts)
 	$(info   make generate-types Generate API TypeScript types)
 	$(info   make test           Run backend tests in Docker)
 	$(info   make test-desktop   Run desktop tests)

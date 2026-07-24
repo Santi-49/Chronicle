@@ -25,6 +25,7 @@ interface SettingsScreenProps {
   onAddProject: () => void
   onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
+  onAdminStateChange: (isAdmin: boolean) => void
 }
 
 const appearanceOptions: { value: ThemePreference; label: string; description: string }[] = [
@@ -40,6 +41,7 @@ export function SettingsScreen({
   onAddProject,
   onDeveloperModeChange,
   onThemePreferenceChange,
+  onAdminStateChange,
 }: SettingsScreenProps) {
   return (
     <section className="page settings-page" aria-labelledby="settings-title">
@@ -53,7 +55,7 @@ export function SettingsScreen({
         <AppearanceSection themePreference={themePreference} onThemePreferenceChange={onThemePreferenceChange} />
         <TrackedFoldersSection onAddProject={onAddProject} />
         <AiSection />
-        <AccountSection />
+        <AccountSection onAdminStateChange={onAdminStateChange} />
         <DeveloperToolsSection
           developerBuild={developerBuild}
           developerMode={developerMode}
@@ -506,7 +508,7 @@ function ProviderModelPicker({
 
 // ── Account ────────────────────────────────────────────────────────────────
 
-function AccountSection() {
+function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdminStateChange'>) {
   const { settings, save } = useSettings()
   const [email, setEmail] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -520,6 +522,7 @@ function AccountSection() {
     const state = await chronicle.getAccountState()
     setEmail(state.email)
     setIsAdmin(state.isAdmin)
+    onAdminStateChange(state.isAdmin)
   }
 
   const checkControlPlane = async () => {
