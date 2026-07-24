@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/Santi-49/Chronicle/compare/v0.6.0...v0.7.0) (2026-07-24)
+
+
+### Features
+
+* POST-04 Telemetry implementation ([af11001](https://github.com/Santi-49/Chronicle/commit/af11001e2ecef07de160cfd86f36462eeb3258a4))
+
 ## [0.6.0](https://github.com/Santi-49/Chronicle/compare/v0.5.0...v0.6.0) (2026-07-23)
 
 
