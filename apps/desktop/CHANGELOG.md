@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/Santi-49/Chronicle/compare/v0.7.0...v0.8.0) (2026-07-24)
+
+
+### Features
+
+* POST-05 — Build the admin UI for control-plane data  ([da760ad](https://github.com/Santi-49/Chronicle/commit/da760ad463ef4db0a42924f70b8f61a685370da6))
+
 ## [0.7.0](https://github.com/Santi-49/Chronicle/compare/v0.6.0...v0.7.0) (2026-07-24)
 
 
