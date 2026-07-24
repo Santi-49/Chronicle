@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AssetPreview } from '../components/AssetPreview'
 import { Icon } from '../components/Icon'
 import { chronicle } from '../lib/bridge'
+import { aiFailureFeedback } from '../lib/aiFailure'
 import { folderForAsset, formatBytes, relativeTime, useAssets, useFolders, useTimeline, useVersionDetails } from '../lib/useChronicle'
 
 interface VersionDetailsScreenProps {
@@ -103,6 +104,7 @@ export function VersionDetailsScreen({
 
   const hasChanges = version.changes.length > 0
   const isRestore = version.restoredFromVersion !== null
+  const failureFeedback = aiFailureFeedback(version.aiFailure)
 
   return (
     <section className="page version-page" aria-labelledby="version-title">
@@ -184,7 +186,7 @@ export function VersionDetailsScreen({
             </div>
             <p className="summary-lead">
               {version.summary ?? (version.aiStatus === 'failed'
-                ? 'The AI change summary could not be generated.'
+                ? failureFeedback.title
                 : 'This version is stored locally. Its AI summary is not available yet.')}
             </p>
             {hasChanges ? (
@@ -193,15 +195,20 @@ export function VersionDetailsScreen({
               </ol>
             ) : (
               !isRestore && (
-                <div className="inline-notice">
+                <div className={`inline-notice${version.aiStatus === 'failed' ? ' inline-notice-error' : ''}`}>
                   <Icon name="info" />
-                  <span>
-                    {version.aiStatus === 'pending'
-                      ? 'The AI change summary is being generated.'
-                      : version.aiStatus === 'failed'
-                        ? 'Summary generation failed. Retry when the provider is available.'
+                  {version.aiStatus === 'failed' ? (
+                    <div>
+                      <strong>{failureFeedback.explanation}</strong>
+                      <p>{failureFeedback.action}</p>
+                    </div>
+                  ) : (
+                    <span>
+                      {version.aiStatus === 'pending'
+                        ? 'The AI change summary is being generated.'
                         : 'This version is stored locally. Its AI summary is not available yet.'}
-                  </span>
+                    </span>
+                  )}
                 </div>
               )
             )}

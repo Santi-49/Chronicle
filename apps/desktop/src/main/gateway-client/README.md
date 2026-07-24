@@ -17,4 +17,13 @@ passphrase. The signed-in UI has a separate enable checkbox plus explicit save/r
 actions. The server receives neither plaintext keys nor the passphrase.
 
 Types are imported from `packages/contracts/api/generated` — never hand-written.
-Usage event delivery and stats remain POST-04.
+During `npm run dev`, the root `.env` `CHRONICLE_CONTROL_PLANE_URL` is authoritative
+from the first request, even if an earlier run persisted another endpoint. Changing
+the file requires restarting electron-vite. Packaged builds retain their persisted
+override/migration behavior.
+
+POST-04 usage delivery is offline-tolerant. Developer Diagnostics shows typed counts
+and an exact non-consuming preview of the persistent v2 buffer, plus current-session
+delivery attempts from the bounded sanitized control-plane audit. Sent payloads are
+not duplicated into another persistent history; secret-bearing request fields are
+replaced with explicit redaction markers.

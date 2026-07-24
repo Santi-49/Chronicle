@@ -9,6 +9,7 @@ import { PendingJobsScreen } from './screens/PendingJobsScreen'
 import { ProjectScreen } from './screens/ProjectScreen'
 import { ProjectsScreen } from './screens/ProjectsScreen'
 import { SearchScreen } from './screens/SearchScreen'
+import { DiagnosticsScreen } from './screens/DiagnosticsScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { TimelineScreen } from './screens/TimelineScreen'
 import { VersionDetailsScreen } from './screens/VersionDetailsScreen'
@@ -16,20 +17,33 @@ import { WelcomeScreen } from './screens/WelcomeScreen'
 import type { AppRoute } from './types/navigation'
 import { getPrimaryRoute } from './types/navigation'
 import { chronicle } from './lib/bridge'
+import { readDeveloperMode, writeDeveloperMode } from './lib/developerMode'
 import type { AppearanceTheme } from '../../shared/settings'
 
 export type Theme = 'dark' | 'light'
 export type ThemePreference = AppearanceTheme
 
 interface WorkspaceScreenProps {
+  developmentBuild: boolean
+  developerMode: boolean
   route: AppRoute
   themePreference: ThemePreference
   navigate: (route: AppRoute) => void
+  onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
   onCloseJobs: () => void
 }
 
-function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceChange, onCloseJobs }: WorkspaceScreenProps) {
+function WorkspaceScreen({
+  developmentBuild,
+  developerMode,
+  route,
+  themePreference,
+  navigate,
+  onDeveloperModeChange,
+  onThemePreferenceChange,
+  onCloseJobs,
+}: WorkspaceScreenProps) {
   switch (route.name) {
     case 'home':
       return (
@@ -109,11 +123,16 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
           onOpenVersion={(assetId, versionId) => navigate({ name: 'version', versionId, assetId })}
         />
       )
+    case 'diagnostics':
+      return <DiagnosticsScreen developmentBuild={developmentBuild} />
     case 'settings':
       return (
         <SettingsScreen
+          developerBuild={developmentBuild}
+          developerMode={developerMode}
           themePreference={themePreference}
           onAddProject={() => navigate({ name: 'new-project' })}
+          onDeveloperModeChange={onDeveloperModeChange}
           onThemePreferenceChange={onThemePreferenceChange}
         />
       )
@@ -123,6 +142,7 @@ function WorkspaceScreen({ route, themePreference, navigate, onThemePreferenceCh
 }
 
 const HAS_ONBOARDED_KEY = 'chronicle-has-onboarded'
+const DEVELOPMENT_BUILD = import.meta.env.DEV
 
 export default function App() {
   // After the first "Continue local" the welcome screen is skipped and returning
@@ -131,6 +151,9 @@ export default function App() {
     () => localStorage.getItem(HAS_ONBOARDED_KEY) === 'true'
   )
   const [route, setRoute] = useState<AppRoute>({ name: 'home' })
+  const [developerMode, setDeveloperMode] = useState(
+    () => DEVELOPMENT_BUILD || readDeveloperMode(),
+  )
   const [jobsReturnRoute, setJobsReturnRoute] = useState<AppRoute>({ name: 'home' })
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
     // 'chronicle-theme' (pre-"system" builds) is intentionally ignored so System is the default.
@@ -193,6 +216,13 @@ export default function App() {
     void chronicle.updateSettings({ appearance: { theme: preference } })
   }
 
+  const changeDeveloperMode = (enabled: boolean) => {
+    if (DEVELOPMENT_BUILD) return
+    writeDeveloperMode(enabled)
+    setDeveloperMode(enabled)
+    if (!enabled && route.name === 'diagnostics') setRoute({ name: 'settings' })
+  }
+
   const openJobs = () => {
     if (route.name === 'jobs') return
     setJobsReturnRoute(route)
@@ -223,12 +253,20 @@ export default function App() {
             />
           </div>
         ) : (
-          <AppShell route={route} onNavigate={setRoute} onOpenJobs={openJobs}>
+          <AppShell
+            developerMode={developerMode}
+            route={route}
+            onNavigate={setRoute}
+            onOpenJobs={openJobs}
+          >
             <div className="screen-transition" key={JSON.stringify(route)}>
               <WorkspaceScreen
+                developmentBuild={DEVELOPMENT_BUILD}
+                developerMode={developerMode}
                 route={route}
                 themePreference={themePreference}
                 navigate={setRoute}
+                onDeveloperModeChange={changeDeveloperMode}
                 onThemePreferenceChange={changeThemePreference}
                 onCloseJobs={() => setRoute(jobsReturnRoute)}
               />

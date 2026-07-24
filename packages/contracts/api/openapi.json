@@ -1153,6 +1153,40 @@
         }
       }
     },
+    "/api/v1/telemetry/batches": {
+      "post": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Ingest Batch",
+        "operationId": "ingest_batch_api_v1_telemetry_batches_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -1268,6 +1302,194 @@
           "model"
         ],
         "title": "AiTaskPreference"
+      },
+      "AppError": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "process": {
+            "type": "string",
+            "enum": [
+              "main",
+              "renderer",
+              "preload",
+              "electron"
+            ],
+            "title": "Process"
+          },
+          "component": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Component"
+          },
+          "operation": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Operation"
+          },
+          "error_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Error Name"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "sanitized_message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Sanitized Message"
+          },
+          "stack_fingerprint": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Stack Fingerprint"
+          },
+          "sanitized_stack": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Sanitized Stack"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "error",
+              "fatal"
+            ],
+            "title": "Severity"
+          },
+          "fatal": {
+            "type": "boolean",
+            "title": "Fatal"
+          },
+          "handled": {
+            "type": "boolean",
+            "title": "Handled"
+          },
+          "app_version": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "App Version"
+          },
+          "os_family": {
+            "type": "string",
+            "enum": [
+              "windows",
+              "macos",
+              "linux",
+              "other"
+            ],
+            "title": "Os Family"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "occurred_at",
+          "process",
+          "component",
+          "operation",
+          "error_name",
+          "sanitized_message",
+          "stack_fingerprint",
+          "severity",
+          "fatal",
+          "handled",
+          "app_version",
+          "os_family"
+        ],
+        "title": "AppError"
+      },
+      "AppSession": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Opened At"
+          },
+          "app_version": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "App Version"
+          },
+          "os_family": {
+            "type": "string",
+            "enum": [
+              "windows",
+              "macos",
+              "linux",
+              "other"
+            ],
+            "title": "Os Family"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "opened_at",
+          "app_version",
+          "os_family"
+        ],
+        "title": "AppSession"
       },
       "AppearancePreference": {
         "properties": {
@@ -1422,6 +1644,89 @@
         ],
         "title": "HealthResponse"
       },
+      "HourlyAiUsage": {
+        "properties": {
+          "bucket_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Bucket Start"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "annotation",
+              "embedding"
+            ],
+            "title": "Operation"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempt Count"
+          },
+          "success_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Success Count"
+          },
+          "failure_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Failure Count"
+          },
+          "total_latency_ms": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Latency Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bucket_start",
+          "operation",
+          "provider",
+          "model",
+          "attempt_count",
+          "success_count",
+          "failure_count",
+          "total_latency_ms"
+        ],
+        "title": "HourlyAiUsage"
+      },
+      "HourlyUsage": {
+        "properties": {
+          "bucket_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Bucket Start"
+          },
+          "search_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Search Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bucket_start",
+          "search_count"
+        ],
+        "title": "HourlyUsage"
+      },
       "InstallationRead": {
         "properties": {
           "installation_id": {
@@ -1486,6 +1791,111 @@
           "os_family"
         ],
         "title": "InstallationRegister"
+      },
+      "InstallationState": {
+        "properties": {
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "project_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Project Count"
+          },
+          "asset_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Asset Count"
+          },
+          "version_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version Count"
+          },
+          "ai_annotated_version_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Ai Annotated Version Count"
+          },
+          "annotation_provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annotation Provider"
+          },
+          "annotation_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annotation Model"
+          },
+          "embedding_provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Provider"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "app_version": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "App Version"
+          },
+          "os_family": {
+            "type": "string",
+            "enum": [
+              "windows",
+              "macos",
+              "linux",
+              "other"
+            ],
+            "title": "Os Family"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "captured_at",
+          "project_count",
+          "asset_count",
+          "version_count",
+          "ai_annotated_version_count",
+          "app_version",
+          "os_family"
+        ],
+        "title": "InstallationState"
       },
       "LoginRequest": {
         "properties": {
@@ -1645,6 +2055,95 @@
         ],
         "title": "PortableSettings"
       },
+      "ProjectRemoval": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "project_telemetry_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Telemetry Id"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "history_deleted": {
+            "type": "boolean",
+            "title": "History Deleted"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "project_telemetry_id",
+          "occurred_at",
+          "history_deleted"
+        ],
+        "title": "ProjectRemoval"
+      },
+      "ProjectState": {
+        "properties": {
+          "project_telemetry_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Telemetry Id"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "asset_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Asset Count"
+          },
+          "version_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version Count"
+          },
+          "ai_annotated_version_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Ai Annotated Version Count"
+          },
+          "png_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Png Count"
+          },
+          "jpg_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Jpg Count"
+          },
+          "other_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Other Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "project_telemetry_id",
+          "captured_at",
+          "asset_count",
+          "version_count",
+          "ai_annotated_version_count",
+          "png_count",
+          "jpg_count",
+          "other_count"
+        ],
+        "title": "ProjectState"
+      },
       "RegisterRequest": {
         "properties": {
           "email": {
@@ -1770,6 +2269,111 @@
         },
         "type": "object",
         "title": "RoleUpdate"
+      },
+      "TelemetryBatch": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 2,
+            "title": "Schema Version",
+            "default": 2
+          },
+          "batch_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Batch Id"
+          },
+          "installation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Installation Id"
+          },
+          "sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Sent At"
+          },
+          "final": {
+            "type": "boolean",
+            "title": "Final",
+            "default": false
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/AppSession"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Sessions"
+          },
+          "project_removals": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectRemoval"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Project Removals"
+          },
+          "hourly_usage": {
+            "items": {
+              "$ref": "#/components/schemas/HourlyUsage"
+            },
+            "type": "array",
+            "maxItems": 168,
+            "title": "Hourly Usage"
+          },
+          "hourly_ai_usage": {
+            "items": {
+              "$ref": "#/components/schemas/HourlyAiUsage"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Hourly Ai Usage"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/AppError"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Errors"
+          },
+          "installation_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InstallationState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectState"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Projects"
+          },
+          "deleted_project_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Deleted Project Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "batch_id",
+          "installation_id",
+          "sent_at"
+        ],
+        "title": "TelemetryBatch"
       },
       "TelemetryPreference": {
         "properties": {

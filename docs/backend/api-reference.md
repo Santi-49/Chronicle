@@ -362,3 +362,27 @@ Demonstrates the full auth + RBAC path. Returns the caller's name.
 ```json
 { "message": "Hello, Alice Smith!" }
 ```
+
+---
+
+## Usage statistics
+
+### `POST /api/v1/telemetry/batches`
+
+Public, strict schema-version-2 ingestion for local or signed-in installations. A batch contains
+separate typed collections for application sessions, project removals, UTC-hour search counters,
+UTC-hour AI counters keyed by operation/provider/model, sanitized application errors, and current
+installation/project count snapshots. Record IDs and cumulative upserts make retries idempotent.
+
+The endpoint rejects unknown fields. It never accepts creative content, names, paths, summaries,
+tags, embeddings, search text, credentials, exact file metadata, client-supplied location, or raw
+IP. Country, region, and city are derived from Cloudflare headers at the Tunnel origin.
+
+Normal desktop delivery occurs on startup and hourly only after changes. A batch with
+`final: true` is the final best-effort opt-out request and removes current state snapshots.
+
+**Auth:** —
+
+**Response:** `204 No Content`
+
+**Errors:** `422` for an invalid or empty batch

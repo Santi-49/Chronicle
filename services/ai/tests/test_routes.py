@@ -5,10 +5,8 @@ Success-path tests patch those coroutines with lightweight in-process fakes
 so the full FastAPI + Pydantic validation stack runs without network calls.
 """
 
-from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from chronicle_ai import routes
@@ -143,12 +141,30 @@ def test_provider_errors_are_sanitized(monkeypatch) -> None:
     )
 
     assert response.status_code == 502
-    assert response.json() == {
-        "detail": {
-            "code": "provider_error",
-            "message": "The AI provider rejected the request.",
-        }
-    }
+    body = response.json()
+    assert body["detail"]["code"] == "provider_error"
+    # The friendly message is kept and the raw provider error is appended so the
+    # user can debug, with the BYOK key redacted out of the raw text.
+    assert body["detail"]["message"].startswith("The AI provider rejected the request.")
+    assert "Provider error: provider leaked <redacted-key>" in body["detail"]["message"]
+    assert "secret-key" not in response.text
+
+
+def test_provider_quota_errors_require_manual_retry(monkeypatch) -> None:
+    async def fail(_request):
+        raise RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded for secret-key")
+
+    monkeypatch.setattr(routes, "annotate_version", fail)
+    response = client.post("/annotate", json=ANNOTATE_PAYLOAD)
+
+    assert response.status_code == 429
+    body = response.json()
+    assert body["detail"]["code"] == "provider_quota_exceeded"
+    assert body["detail"]["message"].startswith(
+        "The AI provider quota or rate limit was reached. This job requires a manual retry."
+    )
+    # Raw provider error appended for debugging; the BYOK key stays redacted.
+    assert "Provider error:" in body["detail"]["message"]
     assert "secret-key" not in response.text
 
 
@@ -285,6 +301,58 @@ def test_validate_provider_model_sanitizes_rejected_config(mock_validate: AsyncM
 
     assert response.status_code == 200
     assert response.json()["valid"] is False
+    assert "secret-key" not in response.text
+
+
+@patch("chronicle_ai.routes.validate_provider_model", new_callable=AsyncMock)
+def test_validate_provider_model_explains_quota_failure(mock_validate: AsyncMock) -> None:
+    mock_validate.side_effect = RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded")
+    response = client.post(
+        "/validate-provider-model",
+        json={
+            "task": "chat",
+            "provider": "google_genai",
+            "model": "gemini-flash-latest",
+            "apiKey": "secret-key",
+        },
+    )
+
+    assert response.status_code == 200
+    message = response.json()["message"]
+    assert response.json()["valid"] is False
+    assert message.startswith(
+        "The AI provider quota or rate limit was reached. This job requires a manual retry."
+    )
+    # The raw provider error is appended so the user can debug it.
+    assert "Provider error: 429 RESOURCE_EXHAUSTED: quota exceeded" in message
+
+
+def test_validate_provider_model_google_auth_error_is_classified() -> None:
+    """Google's 'UNAUTHENTICATED' wording must classify as an auth failure and
+    surface the raw provider error (with the BYOK key redacted)."""
+
+    async def fail(_request):
+        raise RuntimeError(
+            "Error embedding content (UNAUTHENTICATED): 401 UNAUTHENTICATED. "
+            "Request had invalid authentication credentials. secret-key"
+        )
+
+    with patch("chronicle_ai.routes.validate_provider_model", side_effect=fail):
+        response = client.post(
+            "/validate-provider-model",
+            json={
+                "task": "embeddings",
+                "provider": "google_genai",
+                "model": "gemini-embedding-001",
+                "apiKey": "secret-key",
+            },
+        )
+
+    assert response.status_code == 200
+    message = response.json()["message"]
+    assert response.json()["valid"] is False
+    assert message.startswith("The AI provider rejected the configured credential.")
+    assert "401 UNAUTHENTICATED" in message
     assert "secret-key" not in response.text
 
 

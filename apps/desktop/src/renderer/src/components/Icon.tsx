@@ -27,6 +27,7 @@ import paletteIcon from '@material-symbols/svg-400/outlined/palette.svg'
 import sparkIcon from '@material-symbols/svg-400/outlined/wand_stars.svg'
 import themeDarkIcon from '@material-symbols/svg-400/outlined/dark_mode.svg'
 import themeLightIcon from '@material-symbols/svg-400/outlined/light_mode.svg'
+import terminalIcon from '@material-symbols/svg-400/outlined/terminal.svg'
 
 export type IconName =
   | 'archive'
@@ -57,6 +58,7 @@ export type IconName =
   | 'spark'
   | 'theme-dark'
   | 'theme-light'
+  | 'terminal'
 
 const icons: Record<IconName, string> = {
   archive: archiveIcon,
@@ -86,7 +88,8 @@ const icons: Record<IconName, string> = {
   palette: paletteIcon,
   spark: sparkIcon,
   'theme-dark': themeDarkIcon,
-  'theme-light': themeLightIcon
+  'theme-light': themeLightIcon,
+  terminal: terminalIcon
 }
 
 export function Icon({ name, className = '' }: { name: IconName; className?: string }) {

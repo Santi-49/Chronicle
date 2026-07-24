@@ -370,6 +370,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/telemetry/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ingest Batch */
+        post: operations["ingest_batch_api_v1_telemetry_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -428,6 +445,78 @@ export interface components {
             provider: string;
             /** Model */
             model: string;
+        };
+        /** AppError */
+        AppError: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Process
+             * @enum {string}
+             */
+            process: "main" | "renderer" | "preload" | "electron";
+            /** Component */
+            component: string;
+            /** Operation */
+            operation: string;
+            /** Error Name */
+            error_name: string;
+            /** Error Code */
+            error_code?: string | null;
+            /** Sanitized Message */
+            sanitized_message: string;
+            /** Stack Fingerprint */
+            stack_fingerprint: string;
+            /** Sanitized Stack */
+            sanitized_stack?: string[];
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "warning" | "error" | "fatal";
+            /** Fatal */
+            fatal: boolean;
+            /** Handled */
+            handled: boolean;
+            /** App Version */
+            app_version: string;
+            /**
+             * Os Family
+             * @enum {string}
+             */
+            os_family: "windows" | "macos" | "linux" | "other";
+            /** Provider */
+            provider?: string | null;
+            /** Model */
+            model?: string | null;
+        };
+        /** AppSession */
+        AppSession: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** App Version */
+            app_version: string;
+            /**
+             * Os Family
+             * @enum {string}
+             */
+            os_family: "windows" | "macos" | "linux" | "other";
         };
         /** AppearancePreference */
         AppearancePreference: {
@@ -494,6 +583,41 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** HourlyAiUsage */
+        HourlyAiUsage: {
+            /**
+             * Bucket Start
+             * Format: date-time
+             */
+            bucket_start: string;
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "annotation" | "embedding";
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Attempt Count */
+            attempt_count: number;
+            /** Success Count */
+            success_count: number;
+            /** Failure Count */
+            failure_count: number;
+            /** Total Latency Ms */
+            total_latency_ms: number;
+        };
+        /** HourlyUsage */
+        HourlyUsage: {
+            /**
+             * Bucket Start
+             * Format: date-time
+             */
+            bucket_start: string;
+            /** Search Count */
+            search_count: number;
+        };
         /** InstallationRead */
         InstallationRead: {
             /**
@@ -521,6 +645,37 @@ export interface components {
              * Format: uuid
              */
             installation_id: string;
+            /** App Version */
+            app_version: string;
+            /**
+             * Os Family
+             * @enum {string}
+             */
+            os_family: "windows" | "macos" | "linux" | "other";
+        };
+        /** InstallationState */
+        InstallationState: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Project Count */
+            project_count: number;
+            /** Asset Count */
+            asset_count: number;
+            /** Version Count */
+            version_count: number;
+            /** Ai Annotated Version Count */
+            ai_annotated_version_count: number;
+            /** Annotation Provider */
+            annotation_provider?: string | null;
+            /** Annotation Model */
+            annotation_model?: string | null;
+            /** Embedding Provider */
+            embedding_provider?: string | null;
+            /** Embedding Model */
+            embedding_model?: string | null;
             /** App Version */
             app_version: string;
             /**
@@ -606,6 +761,51 @@ export interface components {
             ai: components["schemas"]["AiPreference"];
             telemetry: components["schemas"]["TelemetryPreference"];
         };
+        /** ProjectRemoval */
+        ProjectRemoval: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Telemetry Id
+             * Format: uuid
+             */
+            project_telemetry_id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** History Deleted */
+            history_deleted: boolean;
+        };
+        /** ProjectState */
+        ProjectState: {
+            /**
+             * Project Telemetry Id
+             * Format: uuid
+             */
+            project_telemetry_id: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Asset Count */
+            asset_count: number;
+            /** Version Count */
+            version_count: number;
+            /** Ai Annotated Version Count */
+            ai_annotated_version_count: number;
+            /** Png Count */
+            png_count: number;
+            /** Jpg Count */
+            jpg_count: number;
+            /** Other Count */
+            other_count: number;
+        };
         /** RegisterRequest */
         RegisterRequest: {
             /**
@@ -655,6 +855,50 @@ export interface components {
             name?: string | null;
             /** Description */
             description?: string | null;
+        };
+        /** TelemetryBatch */
+        TelemetryBatch: {
+            /**
+             * Schema Version
+             * @default 2
+             * @constant
+             */
+            schema_version: 2;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * Installation Id
+             * Format: uuid
+             */
+            installation_id: string;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /**
+             * Final
+             * @default false
+             */
+            final: boolean;
+            /** Sessions */
+            sessions?: components["schemas"]["AppSession"][];
+            /** Project Removals */
+            project_removals?: components["schemas"]["ProjectRemoval"][];
+            /** Hourly Usage */
+            hourly_usage?: components["schemas"]["HourlyUsage"][];
+            /** Hourly Ai Usage */
+            hourly_ai_usage?: components["schemas"]["HourlyAiUsage"][];
+            /** Errors */
+            errors?: components["schemas"]["AppError"][];
+            installation_state?: components["schemas"]["InstallationState"] | null;
+            /** Projects */
+            projects?: components["schemas"]["ProjectState"][];
+            /** Deleted Project Ids */
+            deleted_project_ids?: string[];
         };
         /** TelemetryPreference */
         TelemetryPreference: {
@@ -1568,6 +1812,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["InstallationRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_batch_api_v1_telemetry_batches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetryBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -7,6 +7,7 @@ import {
   bumpJobRetry,
   deleteJob,
   enqueueJob,
+  failJob,
   getAnnotation,
   getAsset,
   getVersion,
@@ -16,11 +17,15 @@ import {
   saveEmbedding,
   setVersionAiStatus,
   type QueueItem,
+  type QueueFailure,
 } from '../db/repositories'
 import type { EmitEvent } from '../ipc/channels'
 import { embeddingModelIdentity } from '../search'
 import { libraryFilePathFor } from '../versioning'
 import { AiServiceError, type AiClient, type ProviderRequest } from './client'
+import type { TelemetryCollector } from '../telemetry/emitter'
+import type { ApplicationDiagnosticSink } from '../diagnostics'
+import { diagnosticError } from '../diagnostics'
 
 const MAX_ATTEMPTS = 3
 
@@ -38,11 +43,12 @@ export interface AiWorkerDependencies {
   client: AiClient
   emit: EmitEvent
   getSettings: () => Promise<AppSettings>
-  /** Resolve the saved key for a specific provider (per-task BYOK). */
   readApiKey: (provider: string) => string | null
   isOnline: () => boolean
   ensureService: () => void
   onQueueChanged: () => void
+  telemetry?: Pick<TelemetryCollector, 'recordAiUsage'>
+  diagnostic?: ApplicationDiagnosticSink
   pollMs?: number
 }
 
@@ -59,6 +65,7 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
   let timer: NodeJS.Timeout | undefined
   let running = false
   let stopped = false
+  const diagnostic: ApplicationDiagnosticSink = deps.diagnostic ?? (() => {})
 
   async function providerConfig(kind: 'chat' | 'embeddings'): Promise<ProviderRequest | null> {
     const settings = await deps.getSettings()
@@ -78,8 +85,19 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     return { base64: bytes.toString('base64'), mediaType: mediaType(asset.path) }
   }
 
-  function markFailed(job: QueueItem, versionId: number | null): void {
-    deleteJob(deps.db, job.id)
+  function failureDetails(error: unknown): QueueFailure {
+    if (error instanceof AiServiceError) {
+      return { message: error.message, code: error.code, status: error.status }
+    }
+    return {
+      message: error instanceof Error ? error.message : String(error),
+      code: null,
+      status: null,
+    }
+  }
+
+  function markFailed(job: QueueItem, versionId: number | null, error: unknown): void {
+    failJob(deps.db, job.id, failureDetails(error))
     if (versionId !== null && job.jobType === 'ai_annotation') {
       setVersionAiStatus(deps.db, versionId, 'failed')
       deps.emit('annotationUpdated', { versionId, aiStatus: 'failed' })
@@ -91,22 +109,43 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     // A non-retryable service error (4xx: bad key, invalid request, invalid
     // model output) will fail identically on every attempt — fail fast instead
     // of burning all three. Retryable errors (5xx, network) back off and retry.
-    if (error instanceof AiServiceError && !error.retryable) {
-      markFailed(job, versionId)
+    const nonRetryable = error instanceof AiServiceError && !error.retryable
+    const finalAttempt = job.retryCount + 1 >= MAX_ATTEMPTS
+    const willRetry = !nonRetryable && !finalAttempt
+    diagnostic({
+      level: 'error',
+      source: 'ai',
+      event: job.jobType === 'ai_annotation'
+        ? 'summary_generation_failed'
+        : 'embedding_generation_failed',
+      message: job.jobType === 'ai_annotation'
+        ? `Failed to generate a summary for version ${versionId ?? 'unknown'}.`
+        : `Failed to generate an embedding for version ${versionId ?? 'unknown'}.`,
+      context: {
+        jobId: job.id,
+        versionId,
+        attempt: job.retryCount + 1,
+        willRetry,
+        error: diagnosticError(error),
+      },
+    })
+    if (nonRetryable) {
+      markFailed(job, versionId, error)
       return
     }
-    if (job.retryCount + 1 >= MAX_ATTEMPTS) {
-      markFailed(job, versionId)
+    if (finalAttempt) {
+      markFailed(job, versionId, error)
     } else {
       bumpJobRetry(deps.db, job.id)
       deps.onQueueChanged()
     }
   }
 
-  async function processAnnotation(job: QueueItem, versionId: number): Promise<void> {
-    const config = await providerConfig('chat')
-    if (!config) return
-
+  async function processAnnotation(
+    job: QueueItem,
+    versionId: number,
+    config: ProviderRequest,
+  ): Promise<void> {
     const version = getVersion(deps.db, versionId)
     if (!version) {
       deleteJob(deps.db, job.id)
@@ -128,6 +167,7 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       current: await image(version.id),
     })
 
+    const latencyMs = Date.now() - startedAt
     saveAnnotation(deps.db, {
       versionId,
       summary: annotation.summary,
@@ -135,19 +175,36 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       tags: annotation.tags,
       provider: config.provider,
       model: config.model,
-      latencyMs: Date.now() - startedAt,
+      latencyMs,
     })
     deleteJob(deps.db, job.id)
+    deps.telemetry?.recordAiUsage('annotation', config.provider, config.model, 'success', latencyMs)
     if (!listJobs(deps.db, 'embedding').some((item) => versionIdOf(item) === versionId)) {
       enqueueJob(deps.db, 'embedding', { versionId })
     }
     deps.emit('annotationUpdated', { versionId, aiStatus: 'done' })
     deps.onQueueChanged()
+    diagnostic({
+      level: 'debug',
+      source: 'ai',
+      event: 'summary_generated',
+      message: `Generated a summary for ${asset.displayName} version ${version.versionNumber}.`,
+      context: {
+        jobId: job.id,
+        versionId,
+        assetId: asset.id,
+        provider: config.provider,
+        model: config.model,
+        latencyMs,
+      },
+    })
   }
 
-  async function processEmbedding(job: QueueItem, versionId: number): Promise<void> {
-    const config = await providerConfig('embeddings')
-    if (!config) return
+  async function processEmbedding(
+    job: QueueItem,
+    versionId: number,
+    config: ProviderRequest,
+  ): Promise<void> {
     const annotation = getAnnotation(deps.db, versionId)
     if (!annotation) {
       deleteJob(deps.db, job.id)
@@ -155,23 +212,39 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     }
 
     const sourceText = `${annotation.summary}\n${annotation.tags.join(' ')}`
+    const embeddingStart = Date.now()
     const result = await deps.client.embedText({ ...config, text: sourceText })
     saveEmbedding(deps.db, {
       versionId,
       vector: Float32Array.from(result.embedding),
       sourceText,
-      // Use the requested configuration for the lookup identity too. Provider
-      // responses may canonicalize aliases, while future queries use Settings.
       model: embeddingModelIdentity(config.provider, config.model),
     })
+    const embeddingLatency = Date.now() - embeddingStart
     deleteJob(deps.db, job.id)
+    deps.telemetry?.recordAiUsage('embedding', config.provider, config.model, 'success', embeddingLatency)
     deps.onQueueChanged()
+    diagnostic({
+      level: 'debug',
+      source: 'ai',
+      event: 'embedding_generated',
+      message: `Generated an embedding for version ${versionId}.`,
+      context: {
+        jobId: job.id,
+        versionId,
+        provider: config.provider,
+        model: config.model,
+        latencyMs: embeddingLatency,
+      },
+    })
   }
 
   async function drainOne(): Promise<void> {
     if (running || stopped || !deps.isOnline()) return
     const job = listJobs(deps.db).find(
-      (candidate) => candidate.jobType === 'ai_annotation' || candidate.jobType === 'embedding',
+      (candidate) =>
+        candidate.status === 'pending' &&
+        (candidate.jobType === 'ai_annotation' || candidate.jobType === 'embedding'),
     )
     if (!job) return
     const versionId = versionIdOf(job)
@@ -180,14 +253,21 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       deps.onQueueChanged()
       return
     }
+    const operation = job.jobType === 'ai_annotation' ? 'annotation' : 'embedding'
+    const config = await providerConfig(job.jobType === 'ai_annotation' ? 'chat' : 'embeddings')
+    if (!config) return
     deps.ensureService()
     if (!(await deps.client.health())) return
 
     running = true
+    const startedAt = Date.now()
     try {
-      if (job.jobType === 'ai_annotation') await processAnnotation(job, versionId)
-      else await processEmbedding(job, versionId)
+      if (job.jobType === 'ai_annotation') await processAnnotation(job, versionId, config)
+      else await processEmbedding(job, versionId, config)
     } catch (error) {
+      deps.telemetry?.recordAiUsage(
+        operation, config.provider, config.model, 'failure', Date.now() - startedAt,
+      )
       handleFailure(job, versionId, error)
     } finally {
       running = false

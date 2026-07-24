@@ -11,6 +11,8 @@ import { chronicle } from '../lib/bridge'
 export function StatusBar({ onOpenJobs }: { onOpenJobs: () => void }) {
   const status = useAppStatus()
   const pendingAi = (status?.pendingJobs.ai ?? 0) + (status?.pendingJobs.embedding ?? 0)
+  const failedAi = status?.failedJobs ?? 0
+  const actionableAi = pendingAi + failedAi
 
   const [email, setEmail] = useState<string | null>(null)
   useEffect(() => {
@@ -34,15 +36,19 @@ export function StatusBar({ onOpenJobs }: { onOpenJobs: () => void }) {
         {status?.aiConfigured ? 'AI ready' : 'AI not configured'}
       </span>
 
-      {pendingAi > 0 && (
+      {actionableAi > 0 && (
         <button
-          aria-label={`View ${pendingAi} pending ${pendingAi === 1 ? 'job' : 'jobs'}`}
+          aria-label={`View AI jobs: ${pendingAi} pending, ${failedAi} failed`}
           className="status-item status-item-busy status-item-button"
           onClick={onOpenJobs}
           type="button"
         >
           <Icon name="refresh" />
-          <span aria-live="polite">{pendingAi} {pendingAi === 1 ? 'job' : 'jobs'} pending</span>
+          <span aria-live="polite">
+            {pendingAi > 0 && `${pendingAi} pending`}
+            {pendingAi > 0 && failedAi > 0 && ' · '}
+            {failedAi > 0 && `${failedAi} failed`}
+          </span>
         </button>
       )}
 

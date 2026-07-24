@@ -9,6 +9,7 @@ function status(overrides: Partial<AppStatus> = {}): AppStatus {
     pendingJobs: { ai: 0, embedding: 1, telemetry: 0 },
     aiConfigured: true,
     ...overrides,
+    failedJobs: overrides.failedJobs ?? 0,
   }
 }
 

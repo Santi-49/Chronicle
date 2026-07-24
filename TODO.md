@@ -612,7 +612,7 @@ pass over `docs/desktop/overview.md` and `PROJECT_STATUS.md`.
 **Done when:** A teammate follows the README on a clean machine, the video is under three minutes,
 all links work publicly, secrets/private files are absent, and submission is completed before the deadline.
 
-### [ ] LAND-01 — Build the Chronicle landing page `Stretch`
+### [X] LAND-01 — Build the Chronicle landing page `Stretch`
 
 **Owner:** Unassigned
 **Depends on:** MVP-12 (do not let this delay the MVP — `apps/landing/` is optional marketing only)
@@ -663,6 +663,82 @@ and build); one line in `docs/bob-log.md`.
 **Done when:** `npm run dev` and `npm run build` succeed in `apps/landing/`; the page renders
 correctly in light and dark; CTA buttons are clearly mock; animations degrade gracefully with
 reduced motion; and the team agrees it looks like a deliberate product page, not AI slop.
+
+### [ ] LAND-02 — Publish user help, setup guides, and FAQ on the landing site `Stretch`
+
+**Owner:** Unassigned
+**Depends on:** LAND-01, MVP-12 (document the verified packaged-app behavior, not planned behavior)
+**Goal:** Turn the landing site into Chronicle's public user-support home with clear, task-based
+manuals that help a new user set up the app, understand AI-provider costs and data handling, and
+recover from common errors without contacting the team.
+
+**Research and verification required first:**
+
+- Walk through a clean install and first run of the packaged app. Verify every instruction and
+  screenshot against the current UI on Windows and macOS where available.
+- Use only official Google AI, Anthropic, and OpenAI documentation for API-key creation, account
+  requirements, billing, quotas/rate limits, model availability, data handling, and key
+  revocation. Record a **last verified** date and link to the authoritative source on each
+  provider guide; do not copy provider secrets, screenshots, or pricing tables without permission.
+- Re-check provider pricing immediately before publishing. Prefer links to official live pricing
+  pages and clearly label any examples as non-binding estimates; provider invoices are
+  authoritative, prices/models can change, and Chronicle does not control provider charges.
+- Reconcile privacy wording with the behavior in `docs/spec.md`,
+  `docs/challenge/CONSTRAINTS.md`, and any shipped privacy policy. Never claim that all data stays
+  local: creative history stays on-device, while inputs required for enabled AI features are sent
+  to the user's selected provider through the configured inference path.
+
+**May edit:** `apps/landing/**` (help routes, content, navigation, styles, local screenshots and
+assets) and dedicated end-user support documentation under `docs/user-guide/**` if the landing
+site consumes it as the single content source.
+**Must not edit:** Desktop behavior, service behavior, contracts, provider settings, or privacy
+policy merely to make the manuals simpler. Documentation must describe the product as shipped.
+
+**Required content and functionality:**
+
+1. Add a visible **Help** entry to the landing-page navigation/footer and a browsable help home
+   organized by user task rather than internal architecture.
+2. Publish a first-setup guide covering installation, Continue local vs. sign-in, selecting a
+   watched folder, capturing the first PNG/JPG version, AI-service readiness, configuring
+   annotation and embedding providers/models, and confirming that search and restore work.
+3. Publish separate Google AI, Anthropic, and OpenAI API-key guides covering where to create and
+   revoke a key, how billing or credits work, likely quota/rate-limit issues, where Chronicle
+   stores the key, and safe-key practices. Never ask a user to paste a key into the website,
+   support message, screenshot, log, or issue.
+4. Add a costs guide explaining BYOK, which Chronicle actions can make billable annotation or
+   embedding calls, why usage varies, how to inspect provider usage/billing, and how to limit or
+   stop spend. Do not promise free tiers, fixed prices, or exact costs without dated official
+   evidence.
+5. Add a plain-language privacy and data-flow guide that distinguishes the local version library,
+   provider-bound image/text inputs, encrypted local API keys, optional account/sync/telemetry
+   behavior, logs, deletion, and offline behavior. Link to the published privacy policy when it
+   exists and clearly mark features that are not yet shipped.
+6. Add troubleshooting guides for install/startup failure, unhealthy or unavailable local AI
+   service, invalid/revoked keys, billing/quota/rate-limit errors, offline/pending AI jobs,
+   unsupported or ignored files, missing watched folders, capture delays/duplicate saves, search
+   indexing, and safe restore/save-copy recovery. Map known app error states to concrete,
+   reversible steps and explain what diagnostic information is safe to share.
+7. Add an FAQ covering supported files and operating systems, whether an account or AI is
+   required, what works offline, where data and keys live, provider choice, expected costs,
+   version retention/storage growth, restore safety, deletion, and how to get further support.
+8. Provide persistent section navigation, accessible headings, keyboard/focus behavior, useful
+   page titles/descriptions, deep links to individual answers, a print-friendly manual layout,
+   and a lightweight client-side search or equivalent index that keeps the static Astro site
+   deployable without a support backend.
+9. Add a small maintenance checklist identifying owner, last-reviewed date, broken-link check,
+   screenshot refresh process, and triggers for re-verification after UI, provider, pricing,
+   privacy, packaging, or supported-platform changes.
+
+**Docs to update:** `apps/landing/README.md` (content structure, local preview/build, support-doc
+maintenance and verification process); `docs/user-guide/**` if used as the source of truth; one
+line in `docs/bob-log.md`.
+
+**Done when:** A first-time user can follow the published guides from install through a captured
+and AI-annotated version; each provider-key flow has been tested with a non-production key and
+links to current official documentation; cost and privacy claims are dated and match shipped
+behavior; common app errors have actionable recovery steps; FAQ answers are deep-linkable and
+searchable; no secret or sensitive local path appears in text/screenshots; automated link checks,
+`npm run build`, accessibility checks, and a teammate documentation walkthrough pass.
 
 ## Deferred until after the MVP
 
@@ -766,7 +842,7 @@ findings entry in `docs/challenge/RESEARCH.md`; front-matter notes on prompt exp
 service with a factual, coverage-aware message; unsupported/partial cases degrade gracefully
 without crashing capture; no untrusted embedded code is ever executed.
 
-### [~] POST-03 — Build the control-plane API and Google sign-in `Post-MVP`
+### [x] POST-03 — Build the control-plane API and Google sign-in `Post-MVP`
 
 **Owner:** Team (started 2026-07-21 on `feat/post-03-control-plane-google-auth`)
 **Scheduling exception:** The team explicitly started POST-03 before the remaining MVP tasks were
@@ -862,7 +938,7 @@ telemetry defaulting, and explicit encrypted-key-sync enable/save controls. Auto
 desktop suites pass. Final acceptance requires one interactive Google login against the team's
 configured OAuth client after restarting the desktop process.
 
-### [ ] POST-04 — Wire the app to the control plane for usage statistics `Post-MVP`
+### [x] POST-04 — Wire the app to the control plane for usage statistics `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-03
@@ -883,8 +959,8 @@ project/file metadata ever leave the device**.
 > POST-06 must establish and document a valid lawful basis; if consent is the selected basis,
 > this default must change before production because consent must be an affirmative choice.
 
-**May edit:** Desktop telemetry emitter + offline queue (`apps/desktop/src/main/**`),
-`POST /telemetry/events` (batch) and project-inventory upsert/delete endpoints in
+**May edit:** Desktop telemetry collector + offline accumulator (`apps/desktop/src/main/**`),
+`POST /telemetry/batches` and normalized usage-statistics tables/endpoints in
 `services/api/**`, `packages/contracts/api/**` (→ `make generate-types`), telemetry tests.
 **Must not edit:** The F8 privacy rule; C3; local capture/version data.
 
@@ -897,42 +973,36 @@ project/file metadata ever leave the device**.
    to your selected AI provider; API keys leave the device only if you separately enable encrypted
    key sync. You can turn usage reporting off now or later.” Exact final wording is a human/legal
    decision and must match the implemented payloads.
-2. **Project inventory.** Give every local project a random, resettable `projectTelemetryId`
-   unrelated to its database ID/name/path. Upsert only its tracked-file count and a map of counts
-   by allowlisted normalized file type (`png`, `jpg`, later contract-approved values, otherwise
-   `other`). Send on enablement, project/file-count change, and a low-frequency reconciliation.
-   Delete its server record when the project is removed or telemetry is disabled. This enables
-   projects per installation/account and tracked files per project without uploading project
-   identity. Do not claim that a project telemetry UUID is anonymous when linked to an account;
-   it remains pseudonymous control-plane data.
-3. **Usage events.** Batch `app_opened`, `version_captured`, `ai_summary_generated`, and
-   `search_performed` with a random event ID, schema version, occurrence time, installation ID,
-   and optional project telemetry ID. `version_captured` may contain only file type, a coarse
-   size bucket (`<100KB`, `100KB–1MB`, `1–10MB`, `10–50MB`) and capture timing—never an asset ID,
-   version ID/number, exact byte size or hash. AI events may contain provider/model,
-   annotation-vs-embedding operation, outcome, latency and token counts when available. Search
-   events may contain keyword/semantic/hybrid mode, timing and result-count bucket, never query
-   text or matched records.
-4. **Delivery and validation.** Queue offline, upload asynchronously, use event IDs for
-   idempotency, reject unknown event properties/file types server-side, and centralize payload
-   construction behind a strict allowlist plus tests that forbidden data cannot serialize.
-   Disabling telemetry stops new events, clears the local telemetry queue, and requests deletion
-   of the installation/project-level raw telemetry covered by the eventual retention policy;
-   minimal installation registration from POST-03 remains a separately disclosed operation.
+2. **Current state.** Give every local project a random, resettable `projectTelemetryId`
+   unrelated to its database ID/name/path. Upsert typed project asset/version/annotation and
+   PNG/JPG/other counts plus one typed installation snapshot containing totals and the currently
+   configured annotation/embedding provider and model.
+3. **Activity and reliability.** Store timestamped app opens and project removals; cumulative UTC
+   hourly search totals; and cumulative hourly AI attempt/success/failure/latency totals keyed by
+   annotation-vs-embedding operation, provider, and model. Capture unexpected main, preload,
+   renderer, IPC, and Electron renderer/child-process errors as typed records with stable
+   fingerprints and sanitized messages/stacks.
+4. **Location, delivery, and validation.** Derive coarse country/region/city at the API from
+   Cloudflare visitor-location headers; never accept client location or store raw IP. Persist
+   offline, send at startup and once per hour only after changes, and use IDs/cumulative upserts
+   for idempotency. Disabling telemetry attempts one final batch, clears local state regardless of
+   network outcome, and never retries. Reject unknown fields server-side and test that creative
+   content, names, paths, summaries/tags, embeddings, search text, credentials, exact metadata,
+   and raw IP cannot enter payloads.
 
-**Contracts touched:** C6 `POST /telemetry/events` plus `PUT/DELETE
-/telemetry/projects/{projectTelemetryId}` → regenerate TS types. Use discriminated event schemas
-with `extra="forbid"`; do not accept an arbitrary `props` dictionary.
+**Contracts touched:** C6 `POST /telemetry/batches` → regenerate TS types. Use separate strict
+typed collections in a schema-versioned batch; do not accept an arbitrary `props` dictionary.
 
 **Docs to update:** the F1/F8 and data/privacy sections of `docs/spec.md` (the previous signed-in
 opt-in wording is superseded), `docs/challenge/CONSTRAINTS.md`, `docs/backend/**`, and the
 telemetry/settings sections of `docs/desktop/overview.md`; one line in `docs/bob-log.md`.
 
-**Done when:** After a demo run, an admin can answer how many installations/accounts/projects
-are active, projects per account/installation, tracked files per project, file-type distribution,
-new versions captured today, and AI/search usage; tests assert forbidden content cannot enter any
-payload; local mode sends the same content-free statistics while enabled; disabling reporting
-sends no further usage events and removes queued events; offline product behavior is unchanged.
+**Done when:** After a demo run, an admin can answer when the app opened, how many projects were
+removed, searches per hour, average versions per project, configured and actually used AI
+providers/models, AI success/failure rates, and grouped application errors by component/fingerprint
+and coarse location. Tests assert forbidden content cannot enter payloads; local mode sends the
+same statistics; opt-out sends at most one final request and never retries; offline product
+behavior is unchanged.
 
 ### [ ] POST-05 — Build the admin UI for control-plane data `Post-MVP`
 

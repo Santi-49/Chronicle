@@ -57,8 +57,28 @@ Authenticated account/settings and secret operations require OPA `(account, read
 write)`, granted to `user` and `admin`. Installation registration is intentionally public;
 installation linking requires an authenticated Chronicle session.
 
-## Deferred to POST-04
+## Telemetry (POST-04)
 
-Content-free telemetry remains a separate change: `POST /api/v1/telemetry/events` plus project
-inventory upsert/delete. POST-03 registers installations and stores the preference but sends no
-usage events.
+`POST /api/v1/telemetry/batches` is public so local-mode installations can participate. Its
+strict schema-version-2 envelope carries separate typed collections that the server stores in
+normalised tables:
+
+- timestamped application sessions and project removals;
+- cumulative UTC-hour search counters;
+- cumulative UTC-hour AI attempt/success/failure/latency counters keyed by operation,
+  provider, and model;
+- sanitized unexpected Node/Electron/renderer/preload errors with stable fingerprints;
+- one current installation snapshot and current per-project count snapshots.
+
+Unknown fields are rejected with 422. IDs and cumulative upserts make retries idempotent.
+The request cannot contain file content, file/project names, paths, summaries, tags, embeddings,
+search queries, exact sizes, credentials, or raw IP addresses.
+
+The API derives country, region, and city from Cloudflare visitor-location headers. The origin
+must be reachable only through the configured Cloudflare Tunnel; client-supplied location fields
+are not accepted and `CF-Connecting-IP` is never stored.
+
+The desktop sends at startup and once per hour only when data changed. Disabling reporting makes
+one final best-effort batch, clears local telemetry even if offline, and never retries after the
+user turns it off. A final batch removes current installation/project snapshots. Minimal
+installation registration remains a separately disclosed operation.

@@ -15,6 +15,14 @@
 > **Architecture (clarified 2026-07-17; AI layer revised 2026-07-19):** Chronicle is a **local-first storage Electron app** — file watching, version storage, and non-AI history operations happen on-device (Electron → React UI → SQLite → local file storage). AI features are implemented **in Python** in a **local AI service** (`services/ai/`: FastAPI + LangChain, loopback-only) that the Electron main process calls — distinct from the FastAPI control plane, which stays optional. AI inference is API-based through LangChain; no local model is planned for the MVP. BYOK keys are passed per-request to the local service, which forwards them only to the configured provider; the optional gateway routes the required AI inputs through our backend instead. Chronicle does not upload the version library as cloud storage, but image content used for inference leaves the device under the selected AI path. The module-contract flow applies to gateway/stats endpoints.
 >
 > **Priority (clarified 2026-07-17; sync exception 2026-07-21):** the control plane is **lowest priority — non-essential**. On startup the app offers Google sign-in or "Continue local" (default); the password routes remain API-only. Capture, cached history, restore, and keyword search work with no Docker or Chronicle API. Google auth is health-gated and opens the operating system's default external browser, never an embedded Electron webview. AI summaries and semantic embeddings require the configured external API through LangChain and queue while offline. Provider, model, and BYOK credentials are configured and encrypted locally. Keys stay local by default; a signed-in user may separately enable E2E-encrypted API-key sync, which sends only a passphrase-encrypted envelope the control plane cannot decrypt.
+>
+> **Usage statistics (revised 2026-07-24):** the optional/default-enabled control sends on startup
+> and at most hourly after changes. It records app opens, project removals, hourly searches,
+> provider/model AI outcomes and latency, current project/version counts, and sanitized unexpected
+> Electron/Node errors. The Cloudflare Tunnel origin derives coarse country/region/city from edge
+> headers and never stores raw IP. Creative content, names, paths, summaries/tags, search text,
+> credentials, and exact file metadata remain prohibited. Turning reporting off attempts one final
+> request, clears the local accumulator, and never retries.
 
 ## 3D / Immersive Elements
 

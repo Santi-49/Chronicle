@@ -21,6 +21,21 @@ import type { AppSettings } from './settings'
 export type WindowTheme = 'dark' | 'light'
 
 export type AiStatus = 'pending' | 'done' | 'failed' | 'none' // 'none' = restore versions, no AI needed
+export interface AiFailure {
+  /** Safe provider/service explanation; never contains credentials or request content. */
+  message: string
+  code: string | null
+  status: number | null
+}
+
+export interface AiConfigurationTestResult {
+  task: 'chat' | 'embeddings'
+  provider: string
+  model: string
+  valid: boolean
+  reachable: boolean
+  message: string
+}
 
 export interface TrackedFolder {
   id: number
@@ -86,6 +101,7 @@ export interface VersionSummary {
   versionNumber: number
   capturedAt: string
   aiStatus: AiStatus
+  aiFailure: AiFailure | null
   summary: string | null // null while pending/failed; "Restored from version N" for restores
   thumbnailUrl: string
 }
@@ -133,6 +149,8 @@ export interface AppStatus {
   watchedFolders: number
   online: boolean
   pendingJobs: { ai: number; embedding: number; telemetry: number }
+  /** Exhausted/non-retryable AI jobs waiting for an explicit user retry. */
+  failedJobs: number
   aiConfigured: boolean // false → UI shows "configure AI in Settings"
 }
 
@@ -142,6 +160,8 @@ export interface PendingJob {
   jobType: 'ai_annotation' | 'embedding'
   queuedAt: string
   retryCount: number
+  state: 'pending' | 'failed'
+  lastError: AiFailure | null
   versionId: number | null
   assetId: number | null
   assetName: string | null
@@ -149,11 +169,178 @@ export interface PendingJob {
   thumbnailUrl: string | null
 }
 
+/** Sanitized record of one outbound Chronicle control-plane request. */
+export interface ControlPlaneDiagnostic {
+  id: number
+  timestamp: string
+  kind: 'health' | 'request'
+  method: string
+  url: string
+  requestHeaders: Record<string, string>
+  /** Exact JSON-compatible request payload after secret-bearing fields are redacted. */
+  requestBody: unknown | null
+  /** Sanitized JSON/text response payload, including error details when the server provides them. */
+  responseBody: unknown | null
+  status: number | null
+  ok: boolean
+  durationMs: number
+  error: string | null
+}
+
+export type TelemetryOsFamily = 'windows' | 'macos' | 'linux' | 'other'
+export type TelemetryAiOperation = 'annotation' | 'embedding'
+export type TelemetryErrorProcess = 'main' | 'renderer' | 'preload' | 'electron'
+
+export interface TelemetryAppSession {
+  id: string
+  opened_at: string
+  app_version: string
+  os_family: TelemetryOsFamily
+}
+
+export interface TelemetryProjectRemoval {
+  id: string
+  project_telemetry_id: string
+  occurred_at: string
+  history_deleted: boolean
+}
+
+export interface TelemetryHourlyUsage {
+  bucket_start: string
+  search_count: number
+}
+
+export interface TelemetryHourlyAiUsage {
+  bucket_start: string
+  operation: TelemetryAiOperation
+  provider: string
+  model: string
+  attempt_count: number
+  success_count: number
+  failure_count: number
+  total_latency_ms: number
+}
+
+export interface TelemetryAppError {
+  id: string
+  occurred_at: string
+  process: TelemetryErrorProcess
+  component: string
+  operation: string
+  error_name: string
+  error_code?: string
+  sanitized_message: string
+  stack_fingerprint: string
+  sanitized_stack: string[]
+  severity: 'warning' | 'error' | 'fatal'
+  fatal: boolean
+  handled: boolean
+  app_version: string
+  os_family: TelemetryOsFamily
+  provider?: string
+  model?: string
+}
+
+export interface TelemetryInstallationState {
+  captured_at: string
+  project_count: number
+  asset_count: number
+  version_count: number
+  ai_annotated_version_count: number
+  annotation_provider?: string
+  annotation_model?: string
+  embedding_provider?: string
+  embedding_model?: string
+  app_version: string
+  os_family: TelemetryOsFamily
+}
+
+export interface TelemetryProjectState {
+  project_telemetry_id: string
+  captured_at: string
+  asset_count: number
+  version_count: number
+  ai_annotated_version_count: number
+  png_count: number
+  jpg_count: number
+  other_count: number
+}
+
+/** Exact privacy-sanitized v2 wire envelope used by the next delivery attempt. */
+export interface TelemetryBatch {
+  schema_version: 2
+  batch_id: string
+  installation_id: string
+  sent_at: string
+  final: boolean
+  sessions: TelemetryAppSession[]
+  project_removals: TelemetryProjectRemoval[]
+  hourly_usage: TelemetryHourlyUsage[]
+  hourly_ai_usage: TelemetryHourlyAiUsage[]
+  errors: TelemetryAppError[]
+  installation_state?: TelemetryInstallationState
+  projects: TelemetryProjectState[]
+  deleted_project_ids: string[]
+}
+
+export interface TelemetryPendingCounts {
+  sessions: number
+  projectRemovals: number
+  searchHours: number
+  aiUsageHours: number
+  errors: number
+  projects: number
+  deletedProjects: number
+}
+
+/** Developer-only inspection of the persistent v2 buffer. It never consumes records. */
+export interface TelemetryDiagnostics {
+  enabled: boolean
+  pendingCount: number
+  counts: TelemetryPendingCounts
+  /** Null when reporting is disabled or no data/snapshot has changed. */
+  nextBatch: TelemetryBatch | null
+}
+
+export type ApplicationDiagnosticLevel = 'debug' | 'info' | 'warn' | 'error'
+export type ApplicationDiagnosticSource =
+  | 'application'
+  | 'project'
+  | 'capture'
+  | 'watcher'
+  | 'ai'
+  | 'telemetry'
+  | 'control-plane'
+
+/** Structured main-process event exposed only through Developer Diagnostics. */
+export interface ApplicationDiagnostic {
+  id: number
+  timestamp: string
+  level: ApplicationDiagnosticLevel
+  source: ApplicationDiagnosticSource
+  event: string
+  message: string
+  /** Sanitized, JSON-compatible debugging metadata. Never contains credentials. */
+  context: unknown | null
+}
+
+/** Sanitized renderer failure forwarded to the trusted main-process reporter. */
+export interface RendererErrorReport {
+  source: 'renderer' | 'preload'
+  kind: 'error' | 'unhandledrejection'
+  message: string
+  name?: string
+  stack?: string
+  occurredAt: string
+}
+
 // ── Renderer → main (request/response) ─────────────────────────────────
 
 export interface ChronicleApi {
   // Native window chrome — keeps Electron's caption controls aligned with the renderer theme.
   setWindowTheme(theme: WindowTheme): Promise<void>
+  /** Reports an unexpected renderer failure; never accepts arbitrary context or user data. */
+  reportRendererError(report: RendererErrorReport): Promise<void>
 
   // F2 — tracked folders
   listFolders(): Promise<TrackedFolder[]>
@@ -189,6 +376,8 @@ export interface ChronicleApi {
 
   // F4 — AI
   retryAnnotation(versionId: number): Promise<void> // re-queues; result arrives as annotationUpdated
+  /** Requeues every failed annotation/embedding job; never retries them automatically. */
+  retryAllFailedJobs(): Promise<number>
 
   // C5 — settings (secrets handled separately, see below)
   getSettings(): Promise<AppSettings>
@@ -200,10 +389,26 @@ export interface ChronicleApi {
   clearApiKey(provider: string): Promise<void>
   /** Provider ids that currently have a saved key (for "Saved" badges / readiness). */
   configuredProviders(): Promise<string[]>
+  /** Runs the real task-specific provider/model/key probe without saving settings. */
+  testAiConfiguration(
+    task: 'chat' | 'embeddings',
+    provider: string,
+    model: string,
+  ): Promise<AiConfigurationTestResult>
 
   // F1 — account (low priority; everything above works in 'local' mode)
   /** Reachability/configuration preflight; never throws for ordinary connection failures. */
   checkControlPlaneHealth(): Promise<boolean>
+  /** Developer diagnostic health probe; checks the service independently of OAuth configuration. */
+  probeControlPlaneHealth(): Promise<boolean>
+  /** Bounded, sanitized audit of outbound requests; never contains credentials or plaintext keys. */
+  listControlPlaneDiagnostics(): Promise<ControlPlaneDiagnostic[]>
+  /** Clears only the current session's in-memory control-plane request audit. */
+  clearControlPlaneDiagnostics(): Promise<void>
+  /** Bounded, sanitized lifecycle/error log from the Electron main process. */
+  listApplicationDiagnostics(): Promise<ApplicationDiagnostic[]>
+  /** Current v2 usage buffer and an exact, non-consuming preview of the next batch. */
+  getTelemetryDiagnostics(): Promise<TelemetryDiagnostics>
   getAccountState(): Promise<AccountState>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
@@ -238,6 +443,10 @@ export interface ChronicleEvents {
   statusChanged: AppStatus
   /** A file was seen but skipped (F3 rule 6) — toast. */
   fileSkipped: { fileName: string; reason: 'too-large' }
+  /** One sanitized control-plane request completed — update developer diagnostics. */
+  controlPlaneDiagnostic: ControlPlaneDiagnostic
+  /** One structured application lifecycle/error event — update developer diagnostics. */
+  applicationDiagnostic: ApplicationDiagnostic
 }
 
 export type ChronicleEventName = keyof ChronicleEvents

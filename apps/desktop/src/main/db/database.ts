@@ -30,6 +30,7 @@ export function openChronicleDb(filePath: string): ChronicleDb {
   // foreign_keys is per-connection in SQLite — it must be set on every open,
   // not only inside schema.sql.
   db.pragma('foreign_keys = ON')
+  const previousVersion = db.pragma('user_version', { simple: true }) as number
   db.exec(schemaSql)
   // v2: presentation fields for tracked folders (C1 TrackedFolder). Existing
   // databases created at v1 lack these columns; add them without data loss.
@@ -47,7 +48,47 @@ export function openChronicleDb(filePath: string): ChronicleDb {
   ensureColumns(db, 'tracked_folders', {
     description: "TEXT NOT NULL DEFAULT ''",
   })
-  db.pragma('user_version = 4')
+  // v5: POST-04 random telemetry UUID per project (nullable, no default needed).
+  ensureColumns(db, 'tracked_folders', {
+    telemetry_id: 'TEXT',
+  })
+  // v6: failed AI jobs remain inspectable until the user explicitly retries.
+  ensureColumns(db, 'queue_items', {
+    status: "TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','failed'))",
+    last_error: 'TEXT',
+  })
+  if (previousVersion < 6) {
+    // Releases before v6 deleted exhausted jobs. Reconstruct one failed
+    // annotation job for each failed version so existing user work is
+    // recoverable from Pending jobs after upgrade.
+    db.exec(`
+      INSERT INTO queue_items (job_type, payload, retry_count, status, last_error)
+      SELECT
+        'ai_annotation',
+        json_object('versionId', versions.id),
+        3,
+        'failed',
+        json_object(
+          'message', 'This summary failed before Chronicle began retaining failed jobs.',
+          'code', 'legacy_failure',
+          'status', NULL
+        )
+      FROM versions
+      WHERE versions.ai_status = 'failed'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM queue_items
+          WHERE job_type = 'ai_annotation'
+            AND json_extract(payload, '$.versionId') = versions.id
+        );
+    `)
+  }
+  if (previousVersion < 7) {
+    // V2 usage statistics use a compact accumulator rather than v1 per-action
+    // telemetry jobs. Old telemetry payloads do not match the new API contract.
+    db.exec("DELETE FROM queue_items WHERE job_type = 'telemetry'")
+  }
+  db.pragma('user_version = 7')
   return db
 }
 

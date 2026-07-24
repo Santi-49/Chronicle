@@ -20,7 +20,13 @@ export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenPro
     setControlPlaneAvailable(available)
   }
 
-  useEffect(() => { void checkControlPlane() }, [])
+  // Check once on startup, then again if connectivity returns — so the Google
+  // option appears when the app comes back online. No timer-based polling.
+  useEffect(() => {
+    void checkControlPlane()
+    window.addEventListener('online', checkControlPlane)
+    return () => window.removeEventListener('online', checkControlPlane)
+  }, [])
 
   const signIn = async () => {
     setGoogleBusy(true)
@@ -97,9 +103,13 @@ export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenPro
           </div>
 
           <p className="privacy-note">
-            Local mode works without an account. Chronicle registers a random installation ID
-            when online; creative files, names, paths, summaries, and searches stay out of the
-            control plane.
+            <strong>Help improve Chronicle</strong> is enabled by default. Chronicle sends usage
+            statistics such as app opens, project/version counts, searches, AI provider/model use,
+            sanitized application failures, and coarse location derived by Cloudflare. Creative
+            files, project names, paths, AI summaries, tags, search text, credentials, and raw IP
+            addresses are <em>not</em> stored.
+            You can turn this off in{' '}
+            <strong>Settings → Account</strong> at any time.
           </p>
         </div>
       </section>

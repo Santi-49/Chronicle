@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import account, auth, hello, installations, permissions, roles, users
+from app.api.v1.endpoints import account, auth, hello, installations, permissions, roles, telemetry, users
 
 router = APIRouter(prefix="/api/v1")
 
@@ -11,3 +11,4 @@ router.include_router(permissions.router)
 router.include_router(hello.router)
 router.include_router(account.router)
 router.include_router(installations.router)
+router.include_router(telemetry.router)

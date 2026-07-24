@@ -24,10 +24,15 @@ Electron starts the service at startup, health-checks it, and processes one
 queued job at a time. Annotation output is stored before an embedding job is
 created. Offline and service-down states leave jobs untouched. Failure handling:
 
-- **Non-retryable errors** (4xx: bad key, invalid request, invalid model output)
-  fail the annotation immediately — retrying would fail identically.
+- **Non-retryable errors** (4xx: bad key, invalid request, invalid model output,
+  provider quota/rate limit) become retained failed jobs immediately — retrying
+  automatically would fail identically or consume/throttle the user's API budget.
 - **Retryable errors** (5xx, network) retry up to three times, then mark the
-annotation failed so the existing Retry AI action can requeue it.
+  queue row failed without deleting it.
+- Failed annotation and embedding jobs never run automatically. Pending jobs
+  displays their sanitized last error and provides an explicit **Retry all
+  failed jobs** action; the per-version **Retry AI** action requeues one failed
+  annotation.
 
 Installed Windows builds include a PyInstaller Gemini/OpenAI/Anthropic sidecar and canonical prompt under
 `resources/ai`; they do not require system Python. Development still runs uvicorn from
