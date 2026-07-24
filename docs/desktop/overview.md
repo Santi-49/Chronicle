@@ -216,6 +216,18 @@ details. Every top-level Diagnostics card also has an explicit keyboard-accessib
 control in its header. Creative-file contents and privileged Node/Electron APIs never cross this
 diagnostics boundary. Rotating file logs and opt-in network/crash bundles remain separate future work.
 
+### 8.2 Admin — F8 (admin-only)
+
+An **Admin** tab is visible only while the signed-in Chronicle account has the `admin` role.
+It reads aggregate-only control-plane statistics through the authenticated Electron main
+process. The dashboard provides product-success KPIs, period/account/country/OS filters,
+Google-account search and a selected-user overview, daily activity plots, a bundled offline
+country choropleth plus accessible ranked values, provider/model usage, file-type inventory,
+and grouped reliability errors. Error acknowledgements, flags, notes, and custom group names
+are stored only on the administrator's device. Creative content, project telemetry IDs,
+installation IDs, paths, names, summaries, tags, search text, previews, hashes, credentials,
+and raw IP addresses never enter the renderer contract.
+
 ### 9. Settings — F1, F2, F4/F9 config
 
 Five sections, in current order:

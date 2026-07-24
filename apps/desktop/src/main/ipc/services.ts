@@ -371,6 +371,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         void captureVersion(db, libraryRoot, candidate.path)
           .then((result) => {
             if (result.outcome === 'captured') {
+              deps.telemetry?.recordProductActivity('version-capture')
               diagnostic({
                 level: 'debug',
                 source: 'capture',
@@ -658,6 +659,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       pushStatus()
       // POST-04: only enqueue for genuinely new projects, not re-tracks.
       if (!existing) {
+        deps.telemetry?.recordProductActivity('project-create')
         diagnostic({
           level: 'debug',
           source: 'project',
@@ -803,6 +805,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         return { ok: false, reason: 'folder-missing' }
       }
       emit('versionCaptured', { assetId: result.version.assetId, versionId: result.version.id })
+      deps.telemetry?.recordProductActivity('restore')
       pushStatus()
       diagnostic({
         level: 'debug',
@@ -855,7 +858,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         embedQuery,
         embeddingsModel: embeddingModelIdentity(provider, embeddingsModel),
       })
-      deps.telemetry?.recordSearch()
+      deps.telemetry?.recordSearch(embedQuery !== undefined)
       return results
     },
 
@@ -1047,6 +1050,19 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
     async getAccountState() {
       return deps.account?.accountState() ?? { mode: 'local', email: null, isAdmin: false }
+    },
+    async getAdminStatistics(periodDays, accountId, country, osFamily) {
+      if (!Number.isInteger(periodDays) || periodDays < 7 || periodDays > 90) {
+        throw new TypeError('periodDays must be 7 to 90')
+      }
+      return requireAccount().getAdminStatistics(
+        periodDays, accountId ? expectString(accountId, 'accountId') : undefined,
+        country ? expectString(country, 'country') : undefined,
+        osFamily ? expectString(osFamily, 'osFamily') : undefined,
+      )
+    },
+    async searchAdminAccounts(search) {
+      return requireAccount().searchAdminAccounts(expectString(search, 'search').trim())
     },
     async register(email, password) {
       const state = await requireAccount().register(

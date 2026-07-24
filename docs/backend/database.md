@@ -158,3 +158,10 @@ with dashboard-ready normalized storage:
 Location columns contain only Cloudflare-derived country, region, and city. There is no raw-IP
 column. Error rows contain allowlisted metadata plus sanitized messages/stacks and a stable
 fingerprint; project rows contain only random telemetry UUIDs and counts.
+
+### Migration 005 — Product analytics
+
+Adds count-only hourly project creation, version capture, restore, keyword-search, and
+semantic-search counters plus first-project/first-version activation milestones. These fields
+support aggregate activation, retention, and creative-activity reporting without collecting
+creative metadata or search text.

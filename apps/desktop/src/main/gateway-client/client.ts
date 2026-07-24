@@ -14,6 +14,8 @@ type EncryptedSecretRead = components['schemas']['EncryptedSecretRead']
 // C6 telemetry wire schemas — the request bodies are validated against the
 // generated contract so the emitter allowlist can never drift from it silently.
 type TelemetryBatch = components['schemas']['TelemetryBatch']
+type AdminStatistics = components['schemas']['AdminStatistics']
+type AdminAccountSummary = components['schemas']['AdminAccountSummary']
 
 export interface TokenStore {
   read(): TokenPair | null
@@ -34,6 +36,8 @@ export interface InstallationDescriptor {
 export interface ControlPlaneClient {
   health(): Promise<boolean>
   accountState(): Promise<AccountState>
+  getAdminStatistics(periodDays: number, accountId?: string, country?: string, osFamily?: string): Promise<AdminStatistics>
+  searchAdminAccounts(search: string): Promise<AdminAccountSummary[]>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
   loginWithGoogleCredential(credential: string): Promise<AccountState>
@@ -311,6 +315,17 @@ export function createControlPlaneClient(
       if (!tokens.read()) return { mode: 'local', email: null, isAdmin: false }
       try { return state(await me()) } catch { return { mode: 'local', email: null, isAdmin: false } }
     },
+    getAdminStatistics: (periodDays, accountId, country, osFamily) => raw<AdminStatistics>(
+      `/api/v1/admin/statistics?${new URLSearchParams({
+        period_days: String(periodDays),
+        ...(accountId ? { account_id: accountId } : {}),
+        ...(country ? { country } : {}),
+        ...(osFamily ? { os_family: osFamily } : {}),
+      })}`, {}, true,
+    ),
+    searchAdminAccounts: (search) => raw<AdminAccountSummary[]>(
+      `/api/v1/admin/statistics/accounts?${new URLSearchParams({ search })}`, {}, true,
+    ),
     async register(email, password) {
       const prefix = email.split('@')[0] || 'Chronicle'
       await raw<User>('/api/v1/auth/register', {
@@ -369,7 +384,17 @@ export function createControlPlaneClient(
     deleteEncryptedSecret: () => raw<void>('/api/v1/account/secrets', { method: 'DELETE' }, true),
     async sendTelemetryBatch(payload) {
       // Typed against the generated C6 contract, not a hand-shaped object.
-      const batch: TelemetryBatch = payload
+      const batch: TelemetryBatch = {
+        ...payload,
+        hourly_usage: payload.hourly_usage.map((row) => ({
+          ...row,
+          keyword_search_count: row.keyword_search_count ?? row.search_count,
+          semantic_search_count: row.semantic_search_count ?? 0,
+          version_capture_count: row.version_capture_count ?? 0,
+          restore_count: row.restore_count ?? 0,
+          project_create_count: row.project_create_count ?? 0,
+        })),
+      }
       await raw<void>('/api/v1/telemetry/batches', {
         method: 'POST', body: JSON.stringify(batch),
       })

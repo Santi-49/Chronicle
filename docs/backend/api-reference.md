@@ -386,3 +386,24 @@ Normal desktop delivery occurs on startup and hourly only after changes. A batch
 **Response:** `204 No Content`
 
 **Errors:** `422` for an invalid or empty batch
+
+## Admin product analytics
+
+### `GET /api/v1/admin/statistics`
+
+Returns aggregate-only product analytics for a 7–90 day window. Optional `account_id`,
+two-letter `country`, and `os_family` filters scope inventory, activity, AI, search,
+geography, and grouped errors. The response includes weekly creative installations,
+activation and D7 retention, version/project/restore counters, current inventory,
+file types, AI outcomes/latency/provider-model mix, keyword/semantic search counts,
+coarse country distribution, and error groups. No event rows or telemetry identifiers
+are returned.
+
+**Auth:** JWT + OPA `admin_statistics:read`
+
+### `GET /api/v1/admin/statistics/accounts`
+
+Searches up to 50 accounts by email or display name for the admin user filter and reports
+whether each account is Google-linked plus content-free installation/project/version counts.
+
+**Auth:** JWT + OPA `admin_statistics:read`

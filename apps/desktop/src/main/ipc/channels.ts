@@ -44,6 +44,8 @@ const API_METHODS = {
   listApplicationDiagnostics: true,
   getTelemetryDiagnostics: true,
   getAccountState: true,
+  getAdminStatistics: true,
+  searchAdminAccounts: true,
   register: true,
   login: true,
   loginWithGoogle: true,

@@ -8,20 +8,23 @@ interface AppShellProps {
   route: AppRoute
   children: ReactNode
   developerMode: boolean
+  isAdmin: boolean
   onNavigate: (route: AppRoute) => void
   onOpenJobs: () => void
 }
 
-const primaryNavigation: { name: PrimaryRouteName; label: string; icon: IconName; developerOnly?: boolean }[] = [
+const primaryNavigation: { name: PrimaryRouteName; label: string; icon: IconName; developerOnly?: boolean; adminOnly?: boolean }[] = [
   { name: 'home', label: 'Home', icon: 'home' },
   { name: 'projects', label: 'Projects', icon: 'folder' },
   { name: 'search', label: 'Search', icon: 'search' },
+  { name: 'admin', label: 'Admin', icon: 'campaign', adminOnly: true },
   { name: 'diagnostics', label: 'Diagnostics', icon: 'terminal', developerOnly: true },
 ]
 
-export function AppShell({ route, children, developerMode, onNavigate, onOpenJobs }: AppShellProps) {
+export function AppShell({ route, children, developerMode, isAdmin, onNavigate, onOpenJobs }: AppShellProps) {
   const activeRoute = getPrimaryRoute(route)
-  const visibleNavigation = primaryNavigation.filter((item) => !item.developerOnly || developerMode)
+  const visibleNavigation = primaryNavigation.filter((item) =>
+    (!item.developerOnly || developerMode) && (!item.adminOnly || isAdmin))
 
   return (
     <div className="workspace-shell">

@@ -103,6 +103,7 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
+    "@svg-maps/world": "^1.0.1",
     "better-sqlite3": "12.11.1",
     "chokidar": "5.0.0",
     "dotenv": "^17.2.3"

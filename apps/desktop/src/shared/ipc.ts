@@ -13,6 +13,43 @@
  *   - No AI or network call is awaited by any UI action (spec §6.5): slow
  *     work returns immediately and completion arrives as an event.
  */
+export interface AdminAccountSummary {
+  id: string; email: string; display_name: string; google_linked: boolean
+  installation_count: number; current_project_count: number; current_version_count: number
+}
+export interface AdminStatistics {
+  generated_at: string; period_days: number
+  overview: {
+    registered_accounts: number; registered_installations: number
+    estimated_active_installations: number; reporting_installations: number
+    current_projects: number; tracked_files: number; current_versions: number
+    weekly_active_creative_installations: number; versions_captured: number
+    project_creations: number; restores: number
+    activation_rate: number; d7_retention_rate: number
+  }
+  inventory_averages: {
+    projects_per_registered_account: number; projects_per_registered_installation: number
+    tracked_files_per_project: number; versions_per_project: number
+    median_versions_per_project: number
+  }
+  file_type_distribution: { label: string; count: number }[]
+  version_inventory_over_time: { bucket_start: string; count: number }[]
+  ai: {
+    attempt_count: number; success_count: number; failure_count: number
+    success_rate: number; average_latency_ms: number; token_counts_available?: boolean
+    total_token_count?: number | null
+    provider_model_mix: unknown[]; over_time: { bucket_start: string; count: number }[]
+  }
+  search: {
+    total_count: number; mode_counts_available?: boolean
+    by_mode: { label: string; count: number }[]; over_time: { bucket_start: string; count: number }[]
+  }
+  errors: {
+    component: string; error_name: string; error_code?: string | null; stack_fingerprint: string
+    severity: 'warning' | 'error' | 'fatal'; count: number; last_seen_at: string
+  }[]
+  coarse_locations: { label: string; count: number }[]
+}
 
 import type { AppSettings } from './settings'
 
@@ -196,6 +233,8 @@ export interface TelemetryAppSession {
   opened_at: string
   app_version: string
   os_family: TelemetryOsFamily
+  first_project_at?: string
+  first_version_at?: string
 }
 
 export interface TelemetryProjectRemoval {
@@ -208,6 +247,11 @@ export interface TelemetryProjectRemoval {
 export interface TelemetryHourlyUsage {
   bucket_start: string
   search_count: number
+  keyword_search_count?: number
+  semantic_search_count?: number
+  version_capture_count?: number
+  restore_count?: number
+  project_create_count?: number
 }
 
 export interface TelemetryHourlyAiUsage {
@@ -410,6 +454,8 @@ export interface ChronicleApi {
   /** Current v2 usage buffer and an exact, non-consuming preview of the next batch. */
   getTelemetryDiagnostics(): Promise<TelemetryDiagnostics>
   getAccountState(): Promise<AccountState>
+  getAdminStatistics(periodDays: number, accountId?: string, country?: string, osFamily?: string): Promise<AdminStatistics>
+  searchAdminAccounts(search: string): Promise<AdminAccountSummary[]>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
   /** System-browser Google OAuth with desktop PKCE; returns after Chronicle JWT issuance. */

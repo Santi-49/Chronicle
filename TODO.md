@@ -1004,9 +1004,9 @@ and coarse location. Tests assert forbidden content cannot enter payloads; local
 same statistics; opt-out sends at most one final request and never retries; offline product
 behavior is unchanged.
 
-### [ ] POST-05 — Build the admin UI for control-plane data `Post-MVP`
+### [~] POST-05 — Build the admin UI for control-plane data `Post-MVP`
 
-**Owner:** Unassigned
+**Owner:** Codex (`feat/post-05-admin-ui`)
 **Depends on:** POST-04
 **Goal:** Give admins a real surface for the aggregated usage statistics (F10). MVP baseline
 was Swagger (`/docs`); this replaces it with a proper read-only admin view for the `admin`

@@ -65,6 +65,11 @@ async def ingest_batch(batch: TelemetryBatch, location: RequestLocation, db: Asy
             ))
         else:
             row.search_count = max(row.search_count, item.search_count)
+            row.keyword_search_count = max(row.keyword_search_count, item.keyword_search_count)
+            row.semantic_search_count = max(row.semantic_search_count, item.semantic_search_count)
+            row.version_capture_count = max(row.version_capture_count, item.version_capture_count)
+            row.restore_count = max(row.restore_count, item.restore_count)
+            row.project_create_count = max(row.project_create_count, item.project_create_count)
             row.country_code, row.region_code, row.city = loc.values()
 
     for item in batch.hourly_ai_usage:
@@ -98,7 +103,11 @@ async def ingest_batch(batch: TelemetryBatch, location: RequestLocation, db: Asy
             db.add(InstallationTelemetry(installation_id=installation_id, **data, **loc))
         elif data["captured_at"] >= row.captured_at:
             for key, value in {**data, **loc}.items():
-                setattr(row, key, value)
+                if key in {"first_project_at", "first_version_at"}:
+                    if value is not None and (getattr(row, key) is None or value < getattr(row, key)):
+                        setattr(row, key, value)
+                else:
+                    setattr(row, key, value)
 
     for item in batch.projects:
         data = item.model_dump(exclude={"project_telemetry_id"})

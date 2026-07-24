@@ -387,6 +387,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin Statistics */
+        get: operations["get_admin_statistics_api_v1_admin_statistics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/statistics/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Admin Accounts */
+        get: operations["search_admin_accounts_api_v1_admin_statistics_accounts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -427,6 +461,190 @@ export interface components {
             settings: components["schemas"]["PortableSettings-Input"];
             /** Expected Revision */
             expected_revision: number;
+        };
+        /** AdminAccountSummary */
+        AdminAccountSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Email */
+            email: string;
+            /** Display Name */
+            display_name: string;
+            /** Google Linked */
+            google_linked: boolean;
+            /** Installation Count */
+            installation_count: number;
+            /** Current Project Count */
+            current_project_count: number;
+            /** Current Version Count */
+            current_version_count: number;
+        };
+        /** AdminAiModelAggregate */
+        AdminAiModelAggregate: {
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "annotation" | "embedding";
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Attempt Count */
+            attempt_count: number;
+            /** Success Count */
+            success_count: number;
+            /** Failure Count */
+            failure_count: number;
+            /** Average Latency Ms */
+            average_latency_ms: number;
+            /** Token Count */
+            token_count?: number | null;
+        };
+        /** AdminAiStatistics */
+        AdminAiStatistics: {
+            /** Attempt Count */
+            attempt_count: number;
+            /** Success Count */
+            success_count: number;
+            /** Failure Count */
+            failure_count: number;
+            /** Success Rate */
+            success_rate: number;
+            /** Average Latency Ms */
+            average_latency_ms: number;
+            /**
+             * Token Counts Available
+             * @default false
+             */
+            token_counts_available: boolean;
+            /** Total Token Count */
+            total_token_count?: number | null;
+            /** Provider Model Mix */
+            provider_model_mix: components["schemas"]["AdminAiModelAggregate"][];
+            /** Over Time */
+            over_time: components["schemas"]["AdminTimeSeriesPoint"][];
+        };
+        /** AdminCategoryCount */
+        AdminCategoryCount: {
+            /** Label */
+            label: string;
+            /** Count */
+            count: number;
+        };
+        /** AdminErrorAggregate */
+        AdminErrorAggregate: {
+            /** Component */
+            component: string;
+            /** Error Name */
+            error_name: string;
+            /** Error Code */
+            error_code?: string | null;
+            /** Stack Fingerprint */
+            stack_fingerprint: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "warning" | "error" | "fatal";
+            /** Count */
+            count: number;
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+        };
+        /** AdminInventoryAverages */
+        AdminInventoryAverages: {
+            /** Projects Per Registered Account */
+            projects_per_registered_account: number;
+            /** Projects Per Registered Installation */
+            projects_per_registered_installation: number;
+            /** Tracked Files Per Project */
+            tracked_files_per_project: number;
+            /** Versions Per Project */
+            versions_per_project: number;
+            /** Median Versions Per Project */
+            median_versions_per_project: number;
+        };
+        /** AdminOverview */
+        AdminOverview: {
+            /** Registered Accounts */
+            registered_accounts: number;
+            /** Registered Installations */
+            registered_installations: number;
+            /** Estimated Active Installations */
+            estimated_active_installations: number;
+            /** Reporting Installations */
+            reporting_installations: number;
+            /** Current Projects */
+            current_projects: number;
+            /** Tracked Files */
+            tracked_files: number;
+            /** Current Versions */
+            current_versions: number;
+            /** Weekly Active Creative Installations */
+            weekly_active_creative_installations: number;
+            /** Versions Captured */
+            versions_captured: number;
+            /** Project Creations */
+            project_creations: number;
+            /** Restores */
+            restores: number;
+            /** Activation Rate */
+            activation_rate: number;
+            /** D7 Retention Rate */
+            d7_retention_rate: number;
+        };
+        /** AdminSearchStatistics */
+        AdminSearchStatistics: {
+            /** Total Count */
+            total_count: number;
+            /**
+             * Mode Counts Available
+             * @default false
+             */
+            mode_counts_available: boolean;
+            /** By Mode */
+            by_mode: components["schemas"]["AdminCategoryCount"][];
+            /** Over Time */
+            over_time: components["schemas"]["AdminTimeSeriesPoint"][];
+        };
+        /** AdminStatistics */
+        AdminStatistics: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Period Days */
+            period_days: number;
+            overview: components["schemas"]["AdminOverview"];
+            inventory_averages: components["schemas"]["AdminInventoryAverages"];
+            /** File Type Distribution */
+            file_type_distribution: components["schemas"]["AdminCategoryCount"][];
+            /** Version Inventory Over Time */
+            version_inventory_over_time: components["schemas"]["AdminTimeSeriesPoint"][];
+            ai: components["schemas"]["AdminAiStatistics"];
+            search: components["schemas"]["AdminSearchStatistics"];
+            /** Errors */
+            errors: components["schemas"]["AdminErrorAggregate"][];
+            /** Coarse Locations */
+            coarse_locations: components["schemas"]["AdminCategoryCount"][];
+        };
+        /** AdminTimeSeriesPoint */
+        AdminTimeSeriesPoint: {
+            /**
+             * Bucket Start
+             * Format: date-time
+             */
+            bucket_start: string;
+            /** Count */
+            count: number;
         };
         /** AiPreference */
         AiPreference: {
@@ -617,6 +835,31 @@ export interface components {
             bucket_start: string;
             /** Search Count */
             search_count: number;
+            /**
+             * Keyword Search Count
+             * @default 0
+             */
+            keyword_search_count: number;
+            /**
+             * Semantic Search Count
+             * @default 0
+             */
+            semantic_search_count: number;
+            /**
+             * Version Capture Count
+             * @default 0
+             */
+            version_capture_count: number;
+            /**
+             * Restore Count
+             * @default 0
+             */
+            restore_count: number;
+            /**
+             * Project Create Count
+             * @default 0
+             */
+            project_create_count: number;
         };
         /** InstallationRead */
         InstallationRead: {
@@ -683,6 +926,10 @@ export interface components {
              * @enum {string}
              */
             os_family: "windows" | "macos" | "linux" | "other";
+            /** First Project At */
+            first_project_at?: string | null;
+            /** First Version At */
+            first_version_at?: string | null;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -1843,6 +2090,71 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_admin_statistics_api_v1_admin_statistics_get: {
+        parameters: {
+            query?: {
+                period_days?: number;
+                account_id?: string | null;
+                country?: string | null;
+                os_family?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminStatistics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_admin_accounts_api_v1_admin_statistics_accounts_get: {
+        parameters: {
+            query?: {
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAccountSummary"][];
+                };
             };
             /** @description Validation Error */
             422: {

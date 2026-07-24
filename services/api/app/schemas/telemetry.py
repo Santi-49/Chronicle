@@ -34,6 +34,11 @@ class ProjectRemoval(StrictModel):
 class HourlyUsage(StrictModel):
     bucket_start: datetime
     search_count: int = Field(ge=0)
+    keyword_search_count: int = Field(default=0, ge=0)
+    semantic_search_count: int = Field(default=0, ge=0)
+    version_capture_count: int = Field(default=0, ge=0)
+    restore_count: int = Field(default=0, ge=0)
+    project_create_count: int = Field(default=0, ge=0)
 
 
 class HourlyAiUsage(StrictModel):
@@ -85,6 +90,8 @@ class InstallationState(StrictModel):
     embedding_model: str | None = Field(default=None, max_length=200)
     app_version: str = Field(min_length=1, max_length=32)
     os_family: OsFamily
+    first_project_at: datetime | None = None
+    first_version_at: datetime | None = None
 
 
 class ProjectState(StrictModel):

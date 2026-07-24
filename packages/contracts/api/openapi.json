@@ -1187,6 +1187,161 @@
         }
       }
     },
+    "/api/v1/admin/statistics": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get Admin Statistics",
+        "operationId": "get_admin_statistics_api_v1_admin_statistics_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "period_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 7,
+              "default": 30,
+              "title": "Period Days"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Country"
+            }
+          },
+          {
+            "name": "os_family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(windows|macos|linux|other)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Os Family"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStatistics"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/statistics/accounts": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Search Admin Accounts",
+        "operationId": "search_admin_accounts_api_v1_admin_statistics_accounts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminAccountSummary"
+                  },
+                  "title": "Response Search Admin Accounts Api V1 Admin Statistics Accounts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -1255,6 +1410,536 @@
           "expected_revision"
         ],
         "title": "AccountSettingsUpdate"
+      },
+      "AdminAccountSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "google_linked": {
+            "type": "boolean",
+            "title": "Google Linked"
+          },
+          "installation_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Installation Count"
+          },
+          "current_project_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Current Project Count"
+          },
+          "current_version_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Current Version Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "google_linked",
+          "installation_count",
+          "current_project_count",
+          "current_version_count"
+        ],
+        "title": "AdminAccountSummary"
+      },
+      "AdminAiModelAggregate": {
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "annotation",
+              "embedding"
+            ],
+            "title": "Operation"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempt Count"
+          },
+          "success_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Success Count"
+          },
+          "failure_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Failure Count"
+          },
+          "average_latency_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Average Latency Ms"
+          },
+          "token_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation",
+          "provider",
+          "model",
+          "attempt_count",
+          "success_count",
+          "failure_count",
+          "average_latency_ms"
+        ],
+        "title": "AdminAiModelAggregate"
+      },
+      "AdminAiStatistics": {
+        "properties": {
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempt Count"
+          },
+          "success_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Success Count"
+          },
+          "failure_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Failure Count"
+          },
+          "success_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Success Rate"
+          },
+          "average_latency_ms": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Average Latency Ms"
+          },
+          "token_counts_available": {
+            "type": "boolean",
+            "title": "Token Counts Available",
+            "default": false
+          },
+          "total_token_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Token Count"
+          },
+          "provider_model_mix": {
+            "items": {
+              "$ref": "#/components/schemas/AdminAiModelAggregate"
+            },
+            "type": "array",
+            "title": "Provider Model Mix"
+          },
+          "over_time": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTimeSeriesPoint"
+            },
+            "type": "array",
+            "title": "Over Time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "attempt_count",
+          "success_count",
+          "failure_count",
+          "success_rate",
+          "average_latency_ms",
+          "provider_model_mix",
+          "over_time"
+        ],
+        "title": "AdminAiStatistics"
+      },
+      "AdminCategoryCount": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "count"
+        ],
+        "title": "AdminCategoryCount"
+      },
+      "AdminErrorAggregate": {
+        "properties": {
+          "component": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Component"
+          },
+          "error_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Error Name"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "stack_fingerprint": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Stack Fingerprint"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "error",
+              "fatal"
+            ],
+            "title": "Severity"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Count"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "component",
+          "error_name",
+          "stack_fingerprint",
+          "severity",
+          "count",
+          "last_seen_at"
+        ],
+        "title": "AdminErrorAggregate"
+      },
+      "AdminInventoryAverages": {
+        "properties": {
+          "projects_per_registered_account": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Projects Per Registered Account"
+          },
+          "projects_per_registered_installation": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Projects Per Registered Installation"
+          },
+          "tracked_files_per_project": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Tracked Files Per Project"
+          },
+          "versions_per_project": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Versions Per Project"
+          },
+          "median_versions_per_project": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Median Versions Per Project"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "projects_per_registered_account",
+          "projects_per_registered_installation",
+          "tracked_files_per_project",
+          "versions_per_project",
+          "median_versions_per_project"
+        ],
+        "title": "AdminInventoryAverages"
+      },
+      "AdminOverview": {
+        "properties": {
+          "registered_accounts": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Registered Accounts"
+          },
+          "registered_installations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Registered Installations"
+          },
+          "estimated_active_installations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Estimated Active Installations"
+          },
+          "reporting_installations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reporting Installations"
+          },
+          "current_projects": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Current Projects"
+          },
+          "tracked_files": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Tracked Files"
+          },
+          "current_versions": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Current Versions"
+          },
+          "weekly_active_creative_installations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Weekly Active Creative Installations"
+          },
+          "versions_captured": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Versions Captured"
+          },
+          "project_creations": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Project Creations"
+          },
+          "restores": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Restores"
+          },
+          "activation_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Activation Rate"
+          },
+          "d7_retention_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "D7 Retention Rate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "registered_accounts",
+          "registered_installations",
+          "estimated_active_installations",
+          "reporting_installations",
+          "current_projects",
+          "tracked_files",
+          "current_versions",
+          "weekly_active_creative_installations",
+          "versions_captured",
+          "project_creations",
+          "restores",
+          "activation_rate",
+          "d7_retention_rate"
+        ],
+        "title": "AdminOverview"
+      },
+      "AdminSearchStatistics": {
+        "properties": {
+          "total_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Count"
+          },
+          "mode_counts_available": {
+            "type": "boolean",
+            "title": "Mode Counts Available",
+            "default": false
+          },
+          "by_mode": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCategoryCount"
+            },
+            "type": "array",
+            "title": "By Mode"
+          },
+          "over_time": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTimeSeriesPoint"
+            },
+            "type": "array",
+            "title": "Over Time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "total_count",
+          "by_mode",
+          "over_time"
+        ],
+        "title": "AdminSearchStatistics"
+      },
+      "AdminStatistics": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "period_days": {
+            "type": "integer",
+            "maximum": 90.0,
+            "minimum": 7.0,
+            "title": "Period Days"
+          },
+          "overview": {
+            "$ref": "#/components/schemas/AdminOverview"
+          },
+          "inventory_averages": {
+            "$ref": "#/components/schemas/AdminInventoryAverages"
+          },
+          "file_type_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCategoryCount"
+            },
+            "type": "array",
+            "title": "File Type Distribution"
+          },
+          "version_inventory_over_time": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTimeSeriesPoint"
+            },
+            "type": "array",
+            "title": "Version Inventory Over Time"
+          },
+          "ai": {
+            "$ref": "#/components/schemas/AdminAiStatistics"
+          },
+          "search": {
+            "$ref": "#/components/schemas/AdminSearchStatistics"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/AdminErrorAggregate"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "coarse_locations": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCategoryCount"
+            },
+            "type": "array",
+            "title": "Coarse Locations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "generated_at",
+          "period_days",
+          "overview",
+          "inventory_averages",
+          "file_type_distribution",
+          "version_inventory_over_time",
+          "ai",
+          "search",
+          "errors",
+          "coarse_locations"
+        ],
+        "title": "AdminStatistics"
+      },
+      "AdminTimeSeriesPoint": {
+        "properties": {
+          "bucket_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Bucket Start"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bucket_start",
+          "count"
+        ],
+        "title": "AdminTimeSeriesPoint"
       },
       "AiPreference": {
         "properties": {
@@ -1717,6 +2402,36 @@
             "type": "integer",
             "minimum": 0.0,
             "title": "Search Count"
+          },
+          "keyword_search_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Keyword Search Count",
+            "default": 0
+          },
+          "semantic_search_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Semantic Search Count",
+            "default": 0
+          },
+          "version_capture_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version Capture Count",
+            "default": 0
+          },
+          "restore_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Restore Count",
+            "default": 0
+          },
+          "project_create_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Project Create Count",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -1882,6 +2597,30 @@
               "other"
             ],
             "title": "Os Family"
+          },
+          "first_project_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Project At"
+          },
+          "first_version_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Version At"
           }
         },
         "additionalProperties": false,
