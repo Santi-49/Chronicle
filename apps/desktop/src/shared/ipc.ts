@@ -187,12 +187,119 @@ export interface ControlPlaneDiagnostic {
   error: string | null
 }
 
-/** One sanitized telemetry payload queued locally for later control-plane delivery. */
-export interface PendingControlPlaneEvent {
-  id: number
-  queuedAt: string
-  retryCount: number
-  payload: unknown
+export type TelemetryOsFamily = 'windows' | 'macos' | 'linux' | 'other'
+export type TelemetryAiOperation = 'annotation' | 'embedding'
+export type TelemetryErrorProcess = 'main' | 'renderer' | 'preload' | 'electron'
+
+export interface TelemetryAppSession {
+  id: string
+  opened_at: string
+  app_version: string
+  os_family: TelemetryOsFamily
+}
+
+export interface TelemetryProjectRemoval {
+  id: string
+  project_telemetry_id: string
+  occurred_at: string
+  history_deleted: boolean
+}
+
+export interface TelemetryHourlyUsage {
+  bucket_start: string
+  search_count: number
+}
+
+export interface TelemetryHourlyAiUsage {
+  bucket_start: string
+  operation: TelemetryAiOperation
+  provider: string
+  model: string
+  attempt_count: number
+  success_count: number
+  failure_count: number
+  total_latency_ms: number
+}
+
+export interface TelemetryAppError {
+  id: string
+  occurred_at: string
+  process: TelemetryErrorProcess
+  component: string
+  operation: string
+  error_name: string
+  error_code?: string
+  sanitized_message: string
+  stack_fingerprint: string
+  sanitized_stack: string[]
+  severity: 'warning' | 'error' | 'fatal'
+  fatal: boolean
+  handled: boolean
+  app_version: string
+  os_family: TelemetryOsFamily
+  provider?: string
+  model?: string
+}
+
+export interface TelemetryInstallationState {
+  captured_at: string
+  project_count: number
+  asset_count: number
+  version_count: number
+  ai_annotated_version_count: number
+  annotation_provider?: string
+  annotation_model?: string
+  embedding_provider?: string
+  embedding_model?: string
+  app_version: string
+  os_family: TelemetryOsFamily
+}
+
+export interface TelemetryProjectState {
+  project_telemetry_id: string
+  captured_at: string
+  asset_count: number
+  version_count: number
+  ai_annotated_version_count: number
+  png_count: number
+  jpg_count: number
+  other_count: number
+}
+
+/** Exact privacy-sanitized v2 wire envelope used by the next delivery attempt. */
+export interface TelemetryBatch {
+  schema_version: 2
+  batch_id: string
+  installation_id: string
+  sent_at: string
+  final: boolean
+  sessions: TelemetryAppSession[]
+  project_removals: TelemetryProjectRemoval[]
+  hourly_usage: TelemetryHourlyUsage[]
+  hourly_ai_usage: TelemetryHourlyAiUsage[]
+  errors: TelemetryAppError[]
+  installation_state?: TelemetryInstallationState
+  projects: TelemetryProjectState[]
+  deleted_project_ids: string[]
+}
+
+export interface TelemetryPendingCounts {
+  sessions: number
+  projectRemovals: number
+  searchHours: number
+  aiUsageHours: number
+  errors: number
+  projects: number
+  deletedProjects: number
+}
+
+/** Developer-only inspection of the persistent v2 buffer. It never consumes records. */
+export interface TelemetryDiagnostics {
+  enabled: boolean
+  pendingCount: number
+  counts: TelemetryPendingCounts
+  /** Null when reporting is disabled or no data/snapshot has changed. */
+  nextBatch: TelemetryBatch | null
 }
 
 export type ApplicationDiagnosticLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -217,11 +324,23 @@ export interface ApplicationDiagnostic {
   context: unknown | null
 }
 
+/** Sanitized renderer failure forwarded to the trusted main-process reporter. */
+export interface RendererErrorReport {
+  source: 'renderer' | 'preload'
+  kind: 'error' | 'unhandledrejection'
+  message: string
+  name?: string
+  stack?: string
+  occurredAt: string
+}
+
 // ── Renderer → main (request/response) ─────────────────────────────────
 
 export interface ChronicleApi {
   // Native window chrome — keeps Electron's caption controls aligned with the renderer theme.
   setWindowTheme(theme: WindowTheme): Promise<void>
+  /** Reports an unexpected renderer failure; never accepts arbitrary context or user data. */
+  reportRendererError(report: RendererErrorReport): Promise<void>
 
   // F2 — tracked folders
   listFolders(): Promise<TrackedFolder[]>
@@ -288,8 +407,8 @@ export interface ChronicleApi {
   clearControlPlaneDiagnostics(): Promise<void>
   /** Bounded, sanitized lifecycle/error log from the Electron main process. */
   listApplicationDiagnostics(): Promise<ApplicationDiagnostic[]>
-  /** Content-free telemetry events currently waiting in the offline SQLite queue. */
-  listPendingControlPlaneEvents(): Promise<PendingControlPlaneEvent[]>
+  /** Current v2 usage buffer and an exact, non-consuming preview of the next batch. */
+  getTelemetryDiagnostics(): Promise<TelemetryDiagnostics>
   getAccountState(): Promise<AccountState>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>

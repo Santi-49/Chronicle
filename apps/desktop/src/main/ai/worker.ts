@@ -23,10 +23,7 @@ import type { EmitEvent } from '../ipc/channels'
 import { embeddingModelIdentity } from '../search'
 import { libraryFilePathFor } from '../versioning'
 import { AiServiceError, type AiClient, type ProviderRequest } from './client'
-import {
-  buildAiSummaryGenerated,
-  type TelemetryPayload,
-} from '../telemetry/emitter'
+import type { TelemetryCollector } from '../telemetry/emitter'
 import type { ApplicationDiagnosticSink } from '../diagnostics'
 import { diagnosticError } from '../diagnostics'
 
@@ -50,8 +47,7 @@ export interface AiWorkerDependencies {
   isOnline: () => boolean
   ensureService: () => void
   onQueueChanged: () => void
-  /** Installation ID for telemetry; absent in tests (telemetry silently skipped). */
-  installationId?: () => string
+  telemetry?: Pick<TelemetryCollector, 'recordAiUsage'>
   diagnostic?: ApplicationDiagnosticSink
   pollMs?: number
 }
@@ -70,12 +66,6 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
   let running = false
   let stopped = false
   const diagnostic: ApplicationDiagnosticSink = deps.diagnostic ?? (() => {})
-
-  /** Silently enqueue a telemetry event — never throws, no-ops without installationId. */
-  function enqueueTelemetry(payload: TelemetryPayload): void {
-    if (!deps.installationId) return
-    try { enqueueJob(deps.db, 'telemetry', payload) } catch { /* never block AI work */ }
-  }
 
   async function providerConfig(kind: 'chat' | 'embeddings'): Promise<ProviderRequest | null> {
     const settings = await deps.getSettings()
@@ -151,10 +141,11 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     }
   }
 
-  async function processAnnotation(job: QueueItem, versionId: number): Promise<void> {
-    const config = await providerConfig('chat')
-    if (!config) return
-
+  async function processAnnotation(
+    job: QueueItem,
+    versionId: number,
+    config: ProviderRequest,
+  ): Promise<void> {
     const version = getVersion(deps.db, versionId)
     if (!version) {
       deleteJob(deps.db, job.id)
@@ -187,15 +178,7 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       latencyMs,
     })
     deleteJob(deps.db, job.id)
-    enqueueTelemetry(buildAiSummaryGenerated(
-      deps.installationId?.() ?? '',
-      undefined,
-      'annotation',
-      config.provider,
-      config.model,
-      'success',
-      latencyMs,
-    ))
+    deps.telemetry?.recordAiUsage('annotation', config.provider, config.model, 'success', latencyMs)
     if (!listJobs(deps.db, 'embedding').some((item) => versionIdOf(item) === versionId)) {
       enqueueJob(deps.db, 'embedding', { versionId })
     }
@@ -217,9 +200,11 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     })
   }
 
-  async function processEmbedding(job: QueueItem, versionId: number): Promise<void> {
-    const config = await providerConfig('embeddings')
-    if (!config) return
+  async function processEmbedding(
+    job: QueueItem,
+    versionId: number,
+    config: ProviderRequest,
+  ): Promise<void> {
     const annotation = getAnnotation(deps.db, versionId)
     if (!annotation) {
       deleteJob(deps.db, job.id)
@@ -237,15 +222,7 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     })
     const embeddingLatency = Date.now() - embeddingStart
     deleteJob(deps.db, job.id)
-    enqueueTelemetry(buildAiSummaryGenerated(
-      deps.installationId?.() ?? '',
-      undefined,
-      'embedding',
-      config.provider,
-      config.model,
-      'success',
-      embeddingLatency,
-    ))
+    deps.telemetry?.recordAiUsage('embedding', config.provider, config.model, 'success', embeddingLatency)
     deps.onQueueChanged()
     diagnostic({
       level: 'debug',
@@ -276,14 +253,21 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       deps.onQueueChanged()
       return
     }
+    const operation = job.jobType === 'ai_annotation' ? 'annotation' : 'embedding'
+    const config = await providerConfig(job.jobType === 'ai_annotation' ? 'chat' : 'embeddings')
+    if (!config) return
     deps.ensureService()
     if (!(await deps.client.health())) return
 
     running = true
+    const startedAt = Date.now()
     try {
-      if (job.jobType === 'ai_annotation') await processAnnotation(job, versionId)
-      else await processEmbedding(job, versionId)
+      if (job.jobType === 'ai_annotation') await processAnnotation(job, versionId, config)
+      else await processEmbedding(job, versionId, config)
     } catch (error) {
+      deps.telemetry?.recordAiUsage(
+        operation, config.provider, config.model, 'failure', Date.now() - startedAt,
+      )
       handleFailure(job, versionId, error)
     } finally {
       running = false

@@ -370,7 +370,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/telemetry/events": {
+    "/api/v1/telemetry/batches": {
         parameters: {
             query?: never;
             header?: never;
@@ -379,47 +379,9 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Ingest Events
-         * @description Batch-ingest content-free telemetry events.
-         *
-         *     The installation_id inside each event is taken directly from the client payload;
-         *     events with duplicate IDs are silently ignored for idempotent retry safety.
-         *     All events in a batch must share the same installation_id — the schema validates
-         *     the individual fields; the service enforces no cross-event constraint here.
-         */
-        post: operations["ingest_events_api_v1_telemetry_events_post"];
+        /** Ingest Batch */
+        post: operations["ingest_batch_api_v1_telemetry_batches_post"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/telemetry/projects/{project_telemetry_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Upsert Project
-         * @description Upsert the file-count inventory for one project.
-         *
-         *     `installation_id` is passed as a required query parameter so the backend can
-         *     scope records per-installation without requiring a Chronicle account.
-         */
-        put: operations["upsert_project_api_v1_telemetry_projects__project_telemetry_id__put"];
-        post?: never;
-        /**
-         * Delete Project
-         * @description Remove a project inventory record.
-         *
-         *     Called when a project is removed or telemetry is disabled. Silently succeeds
-         *     if the record is already gone.
-         */
-        delete: operations["delete_project_api_v1_telemetry_projects__project_telemetry_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -451,7 +413,7 @@ export interface components {
     schemas: {
         /** AccountSettingsRead */
         AccountSettingsRead: {
-            settings: components["schemas"]["PortableSettings"];
+            settings: components["schemas"]["PortableSettings-Output"];
             /** Revision */
             revision: number;
             /**
@@ -462,45 +424,9 @@ export interface components {
         };
         /** AccountSettingsUpdate */
         AccountSettingsUpdate: {
-            settings: components["schemas"]["PortableSettings"];
+            settings: components["schemas"]["PortableSettings-Input"];
             /** Expected Revision */
             expected_revision: number;
-        };
-        /** AccountSignedInEvent */
-        AccountSignedInEvent: {
-            /**
-             * Schema Version
-             * @default 1
-             * @constant
-             */
-            schema_version: 1;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event: "account_signed_in";
-            /**
-             * Method
-             * @enum {string}
-             */
-            method: "google" | "password";
         };
         /** AiPreference */
         AiPreference: {
@@ -513,90 +439,6 @@ export interface components {
             chat: components["schemas"]["AiTaskPreference"];
             embeddings: components["schemas"]["AiTaskPreference"];
         };
-        /** AiProviderConfiguredEvent */
-        AiProviderConfiguredEvent: {
-            /**
-             * Schema Version
-             * @default 1
-             * @constant
-             */
-            schema_version: 1;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event: "ai_provider_configured";
-            /** Provider */
-            provider: string;
-        };
-        /** AiSummaryGeneratedEvent */
-        AiSummaryGeneratedEvent: {
-            /**
-             * Schema Version
-             * @default 1
-             * @constant
-             */
-            schema_version: 1;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event: "ai_summary_generated";
-            /**
-             * Operation
-             * @enum {string}
-             */
-            operation: "annotation" | "embedding";
-            /** Provider */
-            provider: string;
-            /** Model */
-            model: string;
-            /**
-             * Outcome
-             * @enum {string}
-             */
-            outcome: "success" | "failure";
-            /** Latency Ms */
-            latency_ms: number;
-            /** Input Tokens */
-            input_tokens?: number | null;
-            /** Output Tokens */
-            output_tokens?: number | null;
-        };
         /** AiTaskPreference */
         AiTaskPreference: {
             /** Provider */
@@ -604,14 +446,8 @@ export interface components {
             /** Model */
             model: string;
         };
-        /** AppOpenedEvent */
-        AppOpenedEvent: {
-            /**
-             * Schema Version
-             * @default 1
-             * @constant
-             */
-            schema_version: 1;
+        /** AppError */
+        AppError: {
             /**
              * Id
              * Format: uuid
@@ -623,17 +459,57 @@ export interface components {
              */
             occurred_at: string;
             /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
+             * Process
              * @enum {string}
              */
-            event: "app_opened";
+            process: "main" | "renderer" | "preload" | "electron";
+            /** Component */
+            component: string;
+            /** Operation */
+            operation: string;
+            /** Error Name */
+            error_name: string;
+            /** Error Code */
+            error_code?: string | null;
+            /** Sanitized Message */
+            sanitized_message: string;
+            /** Stack Fingerprint */
+            stack_fingerprint: string;
+            /** Sanitized Stack */
+            sanitized_stack?: string[];
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "warning" | "error" | "fatal";
+            /** Fatal */
+            fatal: boolean;
+            /** Handled */
+            handled: boolean;
+            /** App Version */
+            app_version: string;
+            /**
+             * Os Family
+             * @enum {string}
+             */
+            os_family: "windows" | "macos" | "linux" | "other";
+            /** Provider */
+            provider?: string | null;
+            /** Model */
+            model?: string | null;
+        };
+        /** AppSession */
+        AppSession: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
             /** App Version */
             app_version: string;
             /**
@@ -707,6 +583,41 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** HourlyAiUsage */
+        HourlyAiUsage: {
+            /**
+             * Bucket Start
+             * Format: date-time
+             */
+            bucket_start: string;
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "annotation" | "embedding";
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Attempt Count */
+            attempt_count: number;
+            /** Success Count */
+            success_count: number;
+            /** Failure Count */
+            failure_count: number;
+            /** Total Latency Ms */
+            total_latency_ms: number;
+        };
+        /** HourlyUsage */
+        HourlyUsage: {
+            /**
+             * Bucket Start
+             * Format: date-time
+             */
+            bucket_start: string;
+            /** Search Count */
+            search_count: number;
+        };
         /** InstallationRead */
         InstallationRead: {
             /**
@@ -734,6 +645,37 @@ export interface components {
              * Format: uuid
              */
             installation_id: string;
+            /** App Version */
+            app_version: string;
+            /**
+             * Os Family
+             * @enum {string}
+             */
+            os_family: "windows" | "macos" | "linux" | "other";
+        };
+        /** InstallationState */
+        InstallationState: {
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Project Count */
+            project_count: number;
+            /** Asset Count */
+            asset_count: number;
+            /** Version Count */
+            version_count: number;
+            /** Ai Annotated Version Count */
+            ai_annotated_version_count: number;
+            /** Annotation Provider */
+            annotation_provider?: string | null;
+            /** Annotation Model */
+            annotation_model?: string | null;
+            /** Embedding Provider */
+            embedding_provider?: string | null;
+            /** Embedding Model */
+            embedding_model?: string | null;
             /** App Version */
             app_version: string;
             /**
@@ -776,7 +718,7 @@ export interface components {
             description: string | null;
         };
         /** PortableSettings */
-        PortableSettings: {
+        "PortableSettings-Input": {
             /**
              * Schema Version
              * @default 1
@@ -797,8 +739,8 @@ export interface components {
             ai: components["schemas"]["AiPreference"];
             telemetry: components["schemas"]["TelemetryPreference"];
         };
-        /** ProjectAddedEvent */
-        ProjectAddedEvent: {
+        /** PortableSettings */
+        "PortableSettings-Output": {
             /**
              * Schema Version
              * @default 1
@@ -806,96 +748,63 @@ export interface components {
              */
             schema_version: 1;
             /**
+             * Settings Sync Enabled
+             * @default false
+             */
+            settings_sync_enabled: boolean;
+            /**
+             * Api Key Sync Enabled
+             * @default false
+             */
+            api_key_sync_enabled: boolean;
+            appearance: components["schemas"]["AppearancePreference"];
+            ai: components["schemas"]["AiPreference"];
+            telemetry: components["schemas"]["TelemetryPreference"];
+        };
+        /** ProjectRemoval */
+        ProjectRemoval: {
+            /**
              * Id
              * Format: uuid
              */
             id: string;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event: "project_added";
-        };
-        /** ProjectInventoryRead */
-        ProjectInventoryRead: {
             /**
              * Project Telemetry Id
              * Format: uuid
              */
             project_telemetry_id: string;
             /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Tracked File Count */
-            tracked_file_count: number;
-            /** File Type Counts */
-            file_type_counts: {
-                [key: string]: number;
-            };
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * ProjectInventoryUpsert
-         * @description Allowlisted project metadata — no name, path, description, or IDs.
-         */
-        ProjectInventoryUpsert: {
-            /** Tracked File Count */
-            tracked_file_count: number;
-            /** File Type Counts */
-            file_type_counts: {
-                [key: string]: number;
-            };
-        };
-        /** ProjectRemovedEvent */
-        ProjectRemovedEvent: {
-            /**
-             * Schema Version
-             * @default 1
-             * @constant
-             */
-            schema_version: 1;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
              * Occurred At
              * Format: date-time
              */
             occurred_at: string;
-            /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event: "project_removed";
             /** History Deleted */
             history_deleted: boolean;
+        };
+        /** ProjectState */
+        ProjectState: {
+            /**
+             * Project Telemetry Id
+             * Format: uuid
+             */
+            project_telemetry_id: string;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Asset Count */
+            asset_count: number;
+            /** Version Count */
+            version_count: number;
+            /** Ai Annotated Version Count */
+            ai_annotated_version_count: number;
+            /** Png Count */
+            png_count: number;
+            /** Jpg Count */
+            jpg_count: number;
+            /** Other Count */
+            other_count: number;
         };
         /** RegisterRequest */
         RegisterRequest: {
@@ -910,42 +819,6 @@ export interface components {
             surname: string;
             /** Password */
             password: string;
-        };
-        /** RestorePerformedEvent */
-        RestorePerformedEvent: {
-            /**
-             * Schema Version
-             * @default 1
-             * @constant
-             */
-            schema_version: 1;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event: "restore_performed";
-            /**
-             * File Type
-             * @enum {string}
-             */
-            file_type: "png" | "jpg" | "other";
         };
         /** RoleCreate */
         RoleCreate: {
@@ -983,53 +856,49 @@ export interface components {
             /** Description */
             description?: string | null;
         };
-        /** SearchPerformedEvent */
-        SearchPerformedEvent: {
+        /** TelemetryBatch */
+        TelemetryBatch: {
             /**
              * Schema Version
-             * @default 1
+             * @default 2
              * @constant
              */
-            schema_version: 1;
+            schema_version: 2;
             /**
-             * Id
+             * Batch Id
              * Format: uuid
              */
-            id: string;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
+            batch_id: string;
             /**
              * Installation Id
              * Format: uuid
              */
             installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
             /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
+             * Sent At
+             * Format: date-time
              */
-            event: "search_performed";
+            sent_at: string;
             /**
-             * Mode
-             * @enum {string}
+             * Final
+             * @default false
              */
-            mode: "keyword" | "semantic" | "hybrid";
-            /** Latency Ms */
-            latency_ms: number;
-            /**
-             * Result Count Bucket
-             * @enum {string}
-             */
-            result_count_bucket: "0" | "1-5" | "6-20" | "21+";
-        };
-        /** TelemetryBatch */
-        TelemetryBatch: {
-            /** Events */
-            events: (components["schemas"]["AppOpenedEvent"] | components["schemas"]["VersionCapturedEvent"] | components["schemas"]["AiSummaryGeneratedEvent"] | components["schemas"]["SearchPerformedEvent"] | components["schemas"]["ProjectAddedEvent"] | components["schemas"]["ProjectRemovedEvent"] | components["schemas"]["AiProviderConfiguredEvent"] | components["schemas"]["AccountSignedInEvent"] | components["schemas"]["RestorePerformedEvent"] | components["schemas"]["VersionHistoryResetEvent"])[];
+            final: boolean;
+            /** Sessions */
+            sessions?: components["schemas"]["AppSession"][];
+            /** Project Removals */
+            project_removals?: components["schemas"]["ProjectRemoval"][];
+            /** Hourly Usage */
+            hourly_usage?: components["schemas"]["HourlyUsage"][];
+            /** Hourly Ai Usage */
+            hourly_ai_usage?: components["schemas"]["HourlyAiUsage"][];
+            /** Errors */
+            errors?: components["schemas"]["AppError"][];
+            installation_state?: components["schemas"]["InstallationState"] | null;
+            /** Projects */
+            projects?: components["schemas"]["ProjectState"][];
+            /** Deleted Project Ids */
+            deleted_project_ids?: string[];
         };
         /** TelemetryPreference */
         TelemetryPreference: {
@@ -1114,84 +983,6 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
-        };
-        /** VersionCapturedEvent */
-        VersionCapturedEvent: {
-            /**
-             * Schema Version
-             * @default 1
-             * @constant
-             */
-            schema_version: 1;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event: "version_captured";
-            /**
-             * File Type
-             * @enum {string}
-             */
-            file_type: "png" | "jpg" | "other";
-            /**
-             * Size Bucket
-             * @enum {string}
-             */
-            size_bucket: "<100KB" | "100KB-1MB" | "1-10MB" | "10-50MB";
-            /** Capture Ms */
-            capture_ms: number;
-        };
-        /** VersionHistoryResetEvent */
-        VersionHistoryResetEvent: {
-            /**
-             * Schema Version
-             * @default 1
-             * @constant
-             */
-            schema_version: 1;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            /**
-             * Installation Id
-             * Format: uuid
-             */
-            installation_id: string;
-            /** Project Telemetry Id */
-            project_telemetry_id?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            event: "version_history_reset";
         };
     };
     responses: never;
@@ -2033,7 +1824,7 @@ export interface operations {
             };
         };
     };
-    ingest_events_api_v1_telemetry_events_post: {
+    ingest_batch_api_v1_telemetry_batches_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2045,74 +1836,6 @@ export interface operations {
                 "application/json": components["schemas"]["TelemetryBatch"];
             };
         };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    upsert_project_api_v1_telemetry_projects__project_telemetry_id__put: {
-        parameters: {
-            query: {
-                installation_id: string;
-            };
-            header?: never;
-            path: {
-                project_telemetry_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectInventoryUpsert"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectInventoryRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_project_api_v1_telemetry_projects__project_telemetry_id__delete: {
-        parameters: {
-            query: {
-                installation_id: string;
-            };
-            header?: never;
-            path: {
-                project_telemetry_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
         responses: {
             /** @description Successful Response */
             204: {

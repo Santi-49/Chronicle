@@ -49,6 +49,23 @@ function formatValue(value: unknown): string {
   }
 }
 
+function reportUnexpectedRendererError(
+  kind: 'error' | 'unhandledrejection',
+  value: unknown,
+): void {
+  const error = value instanceof Error ? value : new Error(formatValue(value))
+  void window.chronicle.reportRendererError({
+    source: 'renderer',
+    kind,
+    message: redactString(error.message).slice(0, 2_000),
+    name: error.name.slice(0, 100),
+    stack: redactString(error.stack ?? '').slice(0, 8_000),
+    occurredAt: new Date().toISOString(),
+  }).catch(() => {
+    // Error telemetry must never create another unhandled rejection.
+  })
+}
+
 export function addDiagnosticLog(
   level: DiagnosticLogLevel,
   values: unknown[],
@@ -101,12 +118,14 @@ export function installRendererDiagnostics(target: Console = console): void {
   if (typeof globalThis.addEventListener === 'function') {
     globalThis.addEventListener('error', (event) => {
       const errorEvent = event as ErrorEvent
+      reportUnexpectedRendererError('error', errorEvent.error ?? errorEvent.message)
       addDiagnosticLog('error', [
         'Uncaught renderer error:',
         errorEvent.error ?? errorEvent.message,
       ])
     })
     globalThis.addEventListener('unhandledrejection', (event) => {
+      reportUnexpectedRendererError('unhandledrejection', (event as PromiseRejectionEvent).reason)
       addDiagnosticLog('error', [
         'Unhandled renderer promise rejection:',
         (event as PromiseRejectionEvent).reason,

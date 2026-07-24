@@ -1,153 +1,130 @@
-"""
-POST-04 telemetry schemas.
+"""Strict v2 usage-statistics contract.
 
-All event types use `extra="forbid"` (via StrictModel) so unknown fields —
-including any accidentally added private data — are rejected at the API boundary.
-Discriminated on the `event` literal field.
+The desktop sends independent typed records in one retry-safe transport batch.
+Location is deliberately absent: the API derives it from Cloudflare headers.
 """
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal, Union
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.schemas.control_plane import StrictModel
 
-# ── Shared base ─────────────────────────────────────────────────────────
-
-class TelemetryEventBase(StrictModel):
-    schema_version: Literal[1] = 1
-    id: uuid.UUID                          # client-generated; used for idempotency
-    occurred_at: datetime
-    installation_id: uuid.UUID
-    # Optional: absent for local mode or events unlinked to a specific project.
-    project_telemetry_id: uuid.UUID | None = None
+OsFamily = Literal["windows", "macos", "linux", "other"]
+AiOperation = Literal["annotation", "embedding"]
+ErrorProcess = Literal["main", "renderer", "preload", "electron"]
+ErrorSeverity = Literal["warning", "error", "fatal"]
 
 
-# ── app_opened ───────────────────────────────────────────────────────────
-
-class AppOpenedEvent(TelemetryEventBase):
-    event: Literal["app_opened"]
+class AppSession(StrictModel):
+    id: uuid.UUID
+    opened_at: datetime
     app_version: str = Field(min_length=1, max_length=32)
-    os_family: Literal["windows", "macos", "linux", "other"]
+    os_family: OsFamily
 
 
-# ── version_captured ─────────────────────────────────────────────────────
-
-# Allowlisted file types only; anything else maps to "other".
-AllowedFileType = Literal["png", "jpg", "other"]
-# Coarse size buckets: exact byte size and hashes must never appear.
-SizeBucket = Literal["<100KB", "100KB-1MB", "1-10MB", "10-50MB"]
-
-class VersionCapturedEvent(TelemetryEventBase):
-    event: Literal["version_captured"]
-    file_type: AllowedFileType
-    size_bucket: SizeBucket
-    capture_ms: int = Field(ge=0)
-
-
-# ── ai_summary_generated ─────────────────────────────────────────────────
-
-class AiSummaryGeneratedEvent(TelemetryEventBase):
-    event: Literal["ai_summary_generated"]
-    operation: Literal["annotation", "embedding"]
-    provider: str = Field(min_length=1, max_length=100)
-    model: str = Field(min_length=1, max_length=200)
-    outcome: Literal["success", "failure"]
-    latency_ms: int = Field(ge=0)
-    input_tokens: int | None = Field(default=None, ge=0)
-    output_tokens: int | None = Field(default=None, ge=0)
-
-
-# ── search_performed ─────────────────────────────────────────────────────
-
-ResultCountBucket = Literal["0", "1-5", "6-20", "21+"]
-
-class SearchPerformedEvent(TelemetryEventBase):
-    event: Literal["search_performed"]
-    mode: Literal["keyword", "semantic", "hybrid"]
-    latency_ms: int = Field(ge=0)
-    result_count_bucket: ResultCountBucket
-
-
-# ── project_added ────────────────────────────────────────────────────────
-
-class ProjectAddedEvent(TelemetryEventBase):
-    event: Literal["project_added"]
-    # project_telemetry_id in base is required for this event (enforced by callers).
-
-
-# ── project_removed ──────────────────────────────────────────────────────
-
-class ProjectRemovedEvent(TelemetryEventBase):
-    event: Literal["project_removed"]
+class ProjectRemoval(StrictModel):
+    id: uuid.UUID
+    project_telemetry_id: uuid.UUID
+    occurred_at: datetime
     history_deleted: bool
 
 
-# ── ai_provider_configured ───────────────────────────────────────────────
+class HourlyUsage(StrictModel):
+    bucket_start: datetime
+    search_count: int = Field(ge=0)
 
-class AiProviderConfiguredEvent(TelemetryEventBase):
-    event: Literal["ai_provider_configured"]
+
+class HourlyAiUsage(StrictModel):
+    bucket_start: datetime
+    operation: AiOperation
     provider: str = Field(min_length=1, max_length=100)
+    model: str = Field(min_length=1, max_length=200)
+    attempt_count: int = Field(ge=0)
+    success_count: int = Field(ge=0)
+    failure_count: int = Field(ge=0)
+    total_latency_ms: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def outcomes_match_attempts(self) -> "HourlyAiUsage":
+        if self.success_count + self.failure_count != self.attempt_count:
+            raise ValueError("success_count + failure_count must equal attempt_count")
+        return self
 
 
-# ── account_signed_in ────────────────────────────────────────────────────
-
-class AccountSignedInEvent(TelemetryEventBase):
-    event: Literal["account_signed_in"]
-    method: Literal["google", "password"]
-
-
-# ── restore_performed ────────────────────────────────────────────────────
-
-class RestorePerformedEvent(TelemetryEventBase):
-    event: Literal["restore_performed"]
-    file_type: AllowedFileType
-
-
-# ── version_history_reset ────────────────────────────────────────────────
-
-class VersionHistoryResetEvent(TelemetryEventBase):
-    event: Literal["version_history_reset"]
-
-
-# ── Discriminated union ──────────────────────────────────────────────────
-
-TelemetryEvent = Annotated[
-    Union[
-        AppOpenedEvent,
-        VersionCapturedEvent,
-        AiSummaryGeneratedEvent,
-        SearchPerformedEvent,
-        ProjectAddedEvent,
-        ProjectRemovedEvent,
-        AiProviderConfiguredEvent,
-        AccountSignedInEvent,
-        RestorePerformedEvent,
-        VersionHistoryResetEvent,
-    ],
-    Field(discriminator="event"),
-]
+class AppError(StrictModel):
+    id: uuid.UUID
+    occurred_at: datetime
+    process: ErrorProcess
+    component: str = Field(min_length=1, max_length=64)
+    operation: str = Field(min_length=1, max_length=100)
+    error_name: str = Field(min_length=1, max_length=100)
+    error_code: str | None = Field(default=None, max_length=100)
+    sanitized_message: str = Field(min_length=1, max_length=500)
+    stack_fingerprint: str = Field(min_length=16, max_length=128)
+    sanitized_stack: list[str] = Field(default_factory=list, max_length=20)
+    severity: ErrorSeverity
+    fatal: bool
+    handled: bool
+    app_version: str = Field(min_length=1, max_length=32)
+    os_family: OsFamily
+    provider: str | None = Field(default=None, max_length=100)
+    model: str | None = Field(default=None, max_length=200)
 
 
-# ── Batch request ────────────────────────────────────────────────────────
+class InstallationState(StrictModel):
+    captured_at: datetime
+    project_count: int = Field(ge=0)
+    asset_count: int = Field(ge=0)
+    version_count: int = Field(ge=0)
+    ai_annotated_version_count: int = Field(ge=0)
+    annotation_provider: str | None = Field(default=None, max_length=100)
+    annotation_model: str | None = Field(default=None, max_length=200)
+    embedding_provider: str | None = Field(default=None, max_length=100)
+    embedding_model: str | None = Field(default=None, max_length=200)
+    app_version: str = Field(min_length=1, max_length=32)
+    os_family: OsFamily
+
+
+class ProjectState(StrictModel):
+    project_telemetry_id: uuid.UUID
+    captured_at: datetime
+    asset_count: int = Field(ge=0)
+    version_count: int = Field(ge=0)
+    ai_annotated_version_count: int = Field(ge=0)
+    png_count: int = Field(ge=0)
+    jpg_count: int = Field(ge=0)
+    other_count: int = Field(ge=0)
+
 
 class TelemetryBatch(StrictModel):
-    events: list[TelemetryEvent] = Field(min_length=1, max_length=100)
-
-
-# ── Project inventory ────────────────────────────────────────────────────
-
-class ProjectInventoryUpsert(StrictModel):
-    """Allowlisted project metadata — no name, path, description, or IDs."""
-    tracked_file_count: int = Field(ge=0)
-    # Map of normalized extension ("png", "jpg", "other") → count.
-    file_type_counts: dict[AllowedFileType, int]  # type: ignore[type-arg]
-
-
-class ProjectInventoryRead(StrictModel):
-    project_telemetry_id: uuid.UUID
+    schema_version: Literal[2] = 2
+    batch_id: uuid.UUID
     installation_id: uuid.UUID
-    tracked_file_count: int
-    file_type_counts: dict[str, int]
-    updated_at: datetime
+    sent_at: datetime
+    final: bool = False
+    sessions: list[AppSession] = Field(default_factory=list, max_length=100)
+    project_removals: list[ProjectRemoval] = Field(default_factory=list, max_length=100)
+    hourly_usage: list[HourlyUsage] = Field(default_factory=list, max_length=168)
+    hourly_ai_usage: list[HourlyAiUsage] = Field(default_factory=list, max_length=500)
+    errors: list[AppError] = Field(default_factory=list, max_length=200)
+    installation_state: InstallationState | None = None
+    projects: list[ProjectState] = Field(default_factory=list, max_length=500)
+    deleted_project_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def contains_data(self) -> "TelemetryBatch":
+        if not any((
+            self.sessions,
+            self.project_removals,
+            self.hourly_usage,
+            self.hourly_ai_usage,
+            self.errors,
+            self.installation_state,
+            self.projects,
+            self.deleted_project_ids,
+            self.final,
+        )):
+            raise ValueError("telemetry batch must contain at least one record")
+        return self

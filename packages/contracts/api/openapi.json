@@ -184,6 +184,9 @@
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "HTTPBearer": []
           }
         ]
       }
@@ -1150,14 +1153,13 @@
         }
       }
     },
-    "/api/v1/telemetry/events": {
+    "/api/v1/telemetry/batches": {
       "post": {
         "tags": [
           "telemetry"
         ],
-        "summary": "Ingest Events",
-        "description": "Batch-ingest content-free telemetry events.\n\nThe installation_id inside each event is taken directly from the client payload;\nevents with duplicate IDs are silently ignored for idempotent retry safety.\nAll events in a batch must share the same installation_id \u2014 the schema validates\nthe individual fields; the service enforces no cross-event constraint here.",
-        "operationId": "ingest_events_api_v1_telemetry_events_post",
+        "summary": "Ingest Batch",
+        "operationId": "ingest_batch_api_v1_telemetry_batches_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1168,115 +1170,6 @@
           },
           "required": true
         },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/telemetry/projects/{project_telemetry_id}": {
-      "put": {
-        "tags": [
-          "telemetry"
-        ],
-        "summary": "Upsert Project",
-        "description": "Upsert the file-count inventory for one project.\n\n`installation_id` is passed as a required query parameter so the backend can\nscope records per-installation without requiring a Chronicle account.",
-        "operationId": "upsert_project_api_v1_telemetry_projects__project_telemetry_id__put",
-        "parameters": [
-          {
-            "name": "project_telemetry_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Project Telemetry Id"
-            }
-          },
-          {
-            "name": "installation_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Installation Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProjectInventoryUpsert"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProjectInventoryRead"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "telemetry"
-        ],
-        "summary": "Delete Project",
-        "description": "Remove a project inventory record.\n\nCalled when a project is removed or telemetry is disabled. Silently succeeds\nif the record is already gone.",
-        "operationId": "delete_project_api_v1_telemetry_projects__project_telemetry_id__delete",
-        "parameters": [
-          {
-            "name": "project_telemetry_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Project Telemetry Id"
-            }
-          },
-          {
-            "name": "installation_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Installation Id"
-            }
-          }
-        ],
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -1322,7 +1215,7 @@
       "AccountSettingsRead": {
         "properties": {
           "settings": {
-            "$ref": "#/components/schemas/PortableSettings"
+            "$ref": "#/components/schemas/PortableSettings-Output"
           },
           "revision": {
             "type": "integer",
@@ -1347,7 +1240,7 @@
       "AccountSettingsUpdate": {
         "properties": {
           "settings": {
-            "$ref": "#/components/schemas/PortableSettings"
+            "$ref": "#/components/schemas/PortableSettings-Input"
           },
           "expected_revision": {
             "type": "integer",
@@ -1362,66 +1255,6 @@
           "expected_revision"
         ],
         "title": "AccountSettingsUpdate"
-      },
-      "AccountSignedInEvent": {
-        "properties": {
-          "schema_version": {
-            "type": "integer",
-            "const": 1,
-            "title": "Schema Version",
-            "default": 1
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Occurred At"
-          },
-          "installation_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
-          },
-          "project_telemetry_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Telemetry Id"
-          },
-          "event": {
-            "type": "string",
-            "const": "account_signed_in",
-            "title": "Event"
-          },
-          "method": {
-            "type": "string",
-            "enum": [
-              "google",
-              "password"
-            ],
-            "title": "Method"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "occurred_at",
-          "installation_id",
-          "event",
-          "method"
-        ],
-        "title": "AccountSignedInEvent"
       },
       "AiPreference": {
         "properties": {
@@ -1449,177 +1282,6 @@
         ],
         "title": "AiPreference"
       },
-      "AiProviderConfiguredEvent": {
-        "properties": {
-          "schema_version": {
-            "type": "integer",
-            "const": 1,
-            "title": "Schema Version",
-            "default": 1
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Occurred At"
-          },
-          "installation_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
-          },
-          "project_telemetry_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Telemetry Id"
-          },
-          "event": {
-            "type": "string",
-            "const": "ai_provider_configured",
-            "title": "Event"
-          },
-          "provider": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Provider"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "occurred_at",
-          "installation_id",
-          "event",
-          "provider"
-        ],
-        "title": "AiProviderConfiguredEvent"
-      },
-      "AiSummaryGeneratedEvent": {
-        "properties": {
-          "schema_version": {
-            "type": "integer",
-            "const": 1,
-            "title": "Schema Version",
-            "default": 1
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Occurred At"
-          },
-          "installation_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
-          },
-          "project_telemetry_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Telemetry Id"
-          },
-          "event": {
-            "type": "string",
-            "const": "ai_summary_generated",
-            "title": "Event"
-          },
-          "operation": {
-            "type": "string",
-            "enum": [
-              "annotation",
-              "embedding"
-            ],
-            "title": "Operation"
-          },
-          "provider": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Provider"
-          },
-          "model": {
-            "type": "string",
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Model"
-          },
-          "outcome": {
-            "type": "string",
-            "enum": [
-              "success",
-              "failure"
-            ],
-            "title": "Outcome"
-          },
-          "latency_ms": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Latency Ms"
-          },
-          "input_tokens": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Input Tokens"
-          },
-          "output_tokens": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Tokens"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "occurred_at",
-          "installation_id",
-          "event",
-          "operation",
-          "provider",
-          "model",
-          "outcome",
-          "latency_ms"
-        ],
-        "title": "AiSummaryGeneratedEvent"
-      },
       "AiTaskPreference": {
         "properties": {
           "provider": {
@@ -1641,14 +1303,8 @@
         ],
         "title": "AiTaskPreference"
       },
-      "AppOpenedEvent": {
+      "AppError": {
         "properties": {
-          "schema_version": {
-            "type": "integer",
-            "const": 1,
-            "title": "Schema Version",
-            "default": 1
-          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -1659,27 +1315,154 @@
             "format": "date-time",
             "title": "Occurred At"
           },
-          "installation_id": {
+          "process": {
             "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
+            "enum": [
+              "main",
+              "renderer",
+              "preload",
+              "electron"
+            ],
+            "title": "Process"
           },
-          "project_telemetry_id": {
+          "component": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Component"
+          },
+          "operation": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Operation"
+          },
+          "error_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Error Name"
+          },
+          "error_code": {
             "anyOf": [
               {
                 "type": "string",
-                "format": "uuid"
+                "maxLength": 100
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Project Telemetry Id"
+            "title": "Error Code"
           },
-          "event": {
+          "sanitized_message": {
             "type": "string",
-            "const": "app_opened",
-            "title": "Event"
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Sanitized Message"
+          },
+          "stack_fingerprint": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Stack Fingerprint"
+          },
+          "sanitized_stack": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Sanitized Stack"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "error",
+              "fatal"
+            ],
+            "title": "Severity"
+          },
+          "fatal": {
+            "type": "boolean",
+            "title": "Fatal"
+          },
+          "handled": {
+            "type": "boolean",
+            "title": "Handled"
+          },
+          "app_version": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "App Version"
+          },
+          "os_family": {
+            "type": "string",
+            "enum": [
+              "windows",
+              "macos",
+              "linux",
+              "other"
+            ],
+            "title": "Os Family"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "occurred_at",
+          "process",
+          "component",
+          "operation",
+          "error_name",
+          "sanitized_message",
+          "stack_fingerprint",
+          "severity",
+          "fatal",
+          "handled",
+          "app_version",
+          "os_family"
+        ],
+        "title": "AppError"
+      },
+      "AppSession": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Opened At"
           },
           "app_version": {
             "type": "string",
@@ -1702,13 +1485,11 @@
         "type": "object",
         "required": [
           "id",
-          "occurred_at",
-          "installation_id",
-          "event",
+          "opened_at",
           "app_version",
           "os_family"
         ],
-        "title": "AppOpenedEvent"
+        "title": "AppSession"
       },
       "AppearancePreference": {
         "properties": {
@@ -1863,6 +1644,89 @@
         ],
         "title": "HealthResponse"
       },
+      "HourlyAiUsage": {
+        "properties": {
+          "bucket_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Bucket Start"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "annotation",
+              "embedding"
+            ],
+            "title": "Operation"
+          },
+          "provider": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempt Count"
+          },
+          "success_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Success Count"
+          },
+          "failure_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Failure Count"
+          },
+          "total_latency_ms": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Latency Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bucket_start",
+          "operation",
+          "provider",
+          "model",
+          "attempt_count",
+          "success_count",
+          "failure_count",
+          "total_latency_ms"
+        ],
+        "title": "HourlyAiUsage"
+      },
+      "HourlyUsage": {
+        "properties": {
+          "bucket_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Bucket Start"
+          },
+          "search_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Search Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bucket_start",
+          "search_count"
+        ],
+        "title": "HourlyUsage"
+      },
       "InstallationRead": {
         "properties": {
           "installation_id": {
@@ -1927,6 +1791,111 @@
           "os_family"
         ],
         "title": "InstallationRegister"
+      },
+      "InstallationState": {
+        "properties": {
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "project_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Project Count"
+          },
+          "asset_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Asset Count"
+          },
+          "version_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version Count"
+          },
+          "ai_annotated_version_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Ai Annotated Version Count"
+          },
+          "annotation_provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annotation Provider"
+          },
+          "annotation_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annotation Model"
+          },
+          "embedding_provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Provider"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "app_version": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "App Version"
+          },
+          "os_family": {
+            "type": "string",
+            "enum": [
+              "windows",
+              "macos",
+              "linux",
+              "other"
+            ],
+            "title": "Os Family"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "captured_at",
+          "project_count",
+          "asset_count",
+          "version_count",
+          "ai_annotated_version_count",
+          "app_version",
+          "os_family"
+        ],
+        "title": "InstallationState"
       },
       "LoginRequest": {
         "properties": {
@@ -2012,7 +1981,7 @@
         ],
         "title": "PermissionRead"
       },
-      "PortableSettings": {
+      "PortableSettings-Input": {
         "properties": {
           "schema_version": {
             "type": "integer",
@@ -2049,7 +2018,7 @@
         ],
         "title": "PortableSettings"
       },
-      "ProjectAddedEvent": {
+      "PortableSettings-Output": {
         "properties": {
           "schema_version": {
             "type": "integer",
@@ -2057,159 +2026,51 @@
             "title": "Schema Version",
             "default": 1
           },
+          "settings_sync_enabled": {
+            "type": "boolean",
+            "title": "Settings Sync Enabled",
+            "default": false
+          },
+          "api_key_sync_enabled": {
+            "type": "boolean",
+            "title": "Api Key Sync Enabled",
+            "default": false
+          },
+          "appearance": {
+            "$ref": "#/components/schemas/AppearancePreference"
+          },
+          "ai": {
+            "$ref": "#/components/schemas/AiPreference"
+          },
+          "telemetry": {
+            "$ref": "#/components/schemas/TelemetryPreference"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "appearance",
+          "ai",
+          "telemetry"
+        ],
+        "title": "PortableSettings"
+      },
+      "ProjectRemoval": {
+        "properties": {
           "id": {
             "type": "string",
             "format": "uuid",
             "title": "Id"
           },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Occurred At"
-          },
-          "installation_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
-          },
-          "project_telemetry_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Telemetry Id"
-          },
-          "event": {
-            "type": "string",
-            "const": "project_added",
-            "title": "Event"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "occurred_at",
-          "installation_id",
-          "event"
-        ],
-        "title": "ProjectAddedEvent"
-      },
-      "ProjectInventoryRead": {
-        "properties": {
           "project_telemetry_id": {
             "type": "string",
             "format": "uuid",
             "title": "Project Telemetry Id"
-          },
-          "installation_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
-          },
-          "tracked_file_count": {
-            "type": "integer",
-            "title": "Tracked File Count"
-          },
-          "file_type_counts": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "File Type Counts"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "project_telemetry_id",
-          "installation_id",
-          "tracked_file_count",
-          "file_type_counts",
-          "updated_at"
-        ],
-        "title": "ProjectInventoryRead"
-      },
-      "ProjectInventoryUpsert": {
-        "properties": {
-          "tracked_file_count": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Tracked File Count"
-          },
-          "file_type_counts": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "propertyNames": {
-              "enum": [
-                "png",
-                "jpg",
-                "other"
-              ]
-            },
-            "type": "object",
-            "title": "File Type Counts"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "tracked_file_count",
-          "file_type_counts"
-        ],
-        "title": "ProjectInventoryUpsert",
-        "description": "Allowlisted project metadata \u2014 no name, path, description, or IDs."
-      },
-      "ProjectRemovedEvent": {
-        "properties": {
-          "schema_version": {
-            "type": "integer",
-            "const": 1,
-            "title": "Schema Version",
-            "default": 1
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
           },
           "occurred_at": {
             "type": "string",
             "format": "date-time",
             "title": "Occurred At"
-          },
-          "installation_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
-          },
-          "project_telemetry_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Telemetry Id"
-          },
-          "event": {
-            "type": "string",
-            "const": "project_removed",
-            "title": "Event"
           },
           "history_deleted": {
             "type": "boolean",
@@ -2220,12 +2081,68 @@
         "type": "object",
         "required": [
           "id",
+          "project_telemetry_id",
           "occurred_at",
-          "installation_id",
-          "event",
           "history_deleted"
         ],
-        "title": "ProjectRemovedEvent"
+        "title": "ProjectRemoval"
+      },
+      "ProjectState": {
+        "properties": {
+          "project_telemetry_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Telemetry Id"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "asset_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Asset Count"
+          },
+          "version_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Version Count"
+          },
+          "ai_annotated_version_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Ai Annotated Version Count"
+          },
+          "png_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Png Count"
+          },
+          "jpg_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Jpg Count"
+          },
+          "other_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Other Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "project_telemetry_id",
+          "captured_at",
+          "asset_count",
+          "version_count",
+          "ai_annotated_version_count",
+          "png_count",
+          "jpg_count",
+          "other_count"
+        ],
+        "title": "ProjectState"
       },
       "RegisterRequest": {
         "properties": {
@@ -2255,67 +2172,6 @@
           "password"
         ],
         "title": "RegisterRequest"
-      },
-      "RestorePerformedEvent": {
-        "properties": {
-          "schema_version": {
-            "type": "integer",
-            "const": 1,
-            "title": "Schema Version",
-            "default": 1
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Occurred At"
-          },
-          "installation_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
-          },
-          "project_telemetry_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Telemetry Id"
-          },
-          "event": {
-            "type": "string",
-            "const": "restore_performed",
-            "title": "Event"
-          },
-          "file_type": {
-            "type": "string",
-            "enum": [
-              "png",
-              "jpg",
-              "other"
-            ],
-            "title": "File Type"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "occurred_at",
-          "installation_id",
-          "event",
-          "file_type"
-        ],
-        "title": "RestorePerformedEvent"
       },
       "RoleCreate": {
         "properties": {
@@ -2414,146 +2270,108 @@
         "type": "object",
         "title": "RoleUpdate"
       },
-      "SearchPerformedEvent": {
+      "TelemetryBatch": {
         "properties": {
           "schema_version": {
             "type": "integer",
-            "const": 1,
+            "const": 2,
             "title": "Schema Version",
-            "default": 1
+            "default": 2
           },
-          "id": {
+          "batch_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Id"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Occurred At"
+            "title": "Batch Id"
           },
           "installation_id": {
             "type": "string",
             "format": "uuid",
             "title": "Installation Id"
           },
-          "project_telemetry_id": {
+          "sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Sent At"
+          },
+          "final": {
+            "type": "boolean",
+            "title": "Final",
+            "default": false
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/AppSession"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Sessions"
+          },
+          "project_removals": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectRemoval"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Project Removals"
+          },
+          "hourly_usage": {
+            "items": {
+              "$ref": "#/components/schemas/HourlyUsage"
+            },
+            "type": "array",
+            "maxItems": 168,
+            "title": "Hourly Usage"
+          },
+          "hourly_ai_usage": {
+            "items": {
+              "$ref": "#/components/schemas/HourlyAiUsage"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Hourly Ai Usage"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/AppError"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Errors"
+          },
+          "installation_state": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "uuid"
+                "$ref": "#/components/schemas/InstallationState"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Project Telemetry Id"
+            ]
           },
-          "event": {
-            "type": "string",
-            "const": "search_performed",
-            "title": "Event"
-          },
-          "mode": {
-            "type": "string",
-            "enum": [
-              "keyword",
-              "semantic",
-              "hybrid"
-            ],
-            "title": "Mode"
-          },
-          "latency_ms": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Latency Ms"
-          },
-          "result_count_bucket": {
-            "type": "string",
-            "enum": [
-              "0",
-              "1-5",
-              "6-20",
-              "21+"
-            ],
-            "title": "Result Count Bucket"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "occurred_at",
-          "installation_id",
-          "event",
-          "mode",
-          "latency_ms",
-          "result_count_bucket"
-        ],
-        "title": "SearchPerformedEvent"
-      },
-      "TelemetryBatch": {
-        "properties": {
-          "events": {
+          "projects": {
             "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/AppOpenedEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/VersionCapturedEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/AiSummaryGeneratedEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/SearchPerformedEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/ProjectAddedEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/ProjectRemovedEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/AiProviderConfiguredEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/AccountSignedInEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/RestorePerformedEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/VersionHistoryResetEvent"
-                }
-              ],
-              "discriminator": {
-                "propertyName": "event",
-                "mapping": {
-                  "account_signed_in": "#/components/schemas/AccountSignedInEvent",
-                  "ai_provider_configured": "#/components/schemas/AiProviderConfiguredEvent",
-                  "ai_summary_generated": "#/components/schemas/AiSummaryGeneratedEvent",
-                  "app_opened": "#/components/schemas/AppOpenedEvent",
-                  "project_added": "#/components/schemas/ProjectAddedEvent",
-                  "project_removed": "#/components/schemas/ProjectRemovedEvent",
-                  "restore_performed": "#/components/schemas/RestorePerformedEvent",
-                  "search_performed": "#/components/schemas/SearchPerformedEvent",
-                  "version_captured": "#/components/schemas/VersionCapturedEvent",
-                  "version_history_reset": "#/components/schemas/VersionHistoryResetEvent"
-                }
-              }
+              "$ref": "#/components/schemas/ProjectState"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Projects"
+          },
+          "deleted_project_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
             },
             "type": "array",
             "maxItems": 100,
-            "minItems": 1,
-            "title": "Events"
+            "title": "Deleted Project Ids"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "events"
+          "batch_id",
+          "installation_id",
+          "sent_at"
         ],
         "title": "TelemetryBatch"
       },
@@ -2736,13 +2554,6 @@
           "type": {
             "type": "string",
             "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
           }
         },
         "type": "object",
@@ -2752,135 +2563,6 @@
           "type"
         ],
         "title": "ValidationError"
-      },
-      "VersionCapturedEvent": {
-        "properties": {
-          "schema_version": {
-            "type": "integer",
-            "const": 1,
-            "title": "Schema Version",
-            "default": 1
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Occurred At"
-          },
-          "installation_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
-          },
-          "project_telemetry_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Telemetry Id"
-          },
-          "event": {
-            "type": "string",
-            "const": "version_captured",
-            "title": "Event"
-          },
-          "file_type": {
-            "type": "string",
-            "enum": [
-              "png",
-              "jpg",
-              "other"
-            ],
-            "title": "File Type"
-          },
-          "size_bucket": {
-            "type": "string",
-            "enum": [
-              "<100KB",
-              "100KB-1MB",
-              "1-10MB",
-              "10-50MB"
-            ],
-            "title": "Size Bucket"
-          },
-          "capture_ms": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Capture Ms"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "occurred_at",
-          "installation_id",
-          "event",
-          "file_type",
-          "size_bucket",
-          "capture_ms"
-        ],
-        "title": "VersionCapturedEvent"
-      },
-      "VersionHistoryResetEvent": {
-        "properties": {
-          "schema_version": {
-            "type": "integer",
-            "const": 1,
-            "title": "Schema Version",
-            "default": 1
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "occurred_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Occurred At"
-          },
-          "installation_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Installation Id"
-          },
-          "project_telemetry_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Telemetry Id"
-          },
-          "event": {
-            "type": "string",
-            "const": "version_history_reset",
-            "title": "Event"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "occurred_at",
-          "installation_id",
-          "event"
-        ],
-        "title": "VersionHistoryResetEvent"
       }
     },
     "securitySchemes": {

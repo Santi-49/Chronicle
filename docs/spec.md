@@ -107,7 +107,7 @@ matter and are loaded from there rather than embedded in code.
 - Revisioned portable settings (appearance, preferred AI providers/models, sync flags, telemetry preference). Device-local paths, projects, and file history are excluded.
 - An optional encrypted-secret envelope. API-key sync is independently enabled, uses a user passphrase plus authenticated encryption on-device, and gives the backend neither plaintext keys nor the decryption key.
 - A random installation record for every reachable first-run profile, including local mode. It contains app/OS and first/last-seen metadata and measures installations—not unique people.
-- Telemetry events and aggregated stats (see F8 for the exact privacy rule).
+- Normalized usage statistics and aggregated admin views (see F8 for the exact privacy rule).
 - *(Stretch)* the AI-inference gateway.
 
 **Admin stats surface (decision):** admins consume stats through the API's built-in **Swagger UI** (`/docs`) — zero UI to build for the MVP. If time remains, an **Admin tab inside the desktop app** (visible only to the `admin` role, which RBAC already supports). We deliberately do **not** build a separate web app — we deleted it to avoid distraction.
@@ -219,9 +219,10 @@ The heart of the product. Exact rules:
 
 - Usage telemetry is **enabled by default** for signed-in and local profiles, with an adjacent warning that creative data remains local and a one-click off switch. This is default-enabled reporting, not an opt-in or affirmative consent, and the product must describe it honestly. New settings resolve it to `true`; existing profiles receive a one-time migration from the pre-POST-03 `false` placeholder that had no user-facing control. After that marker is stored, an explicit user choice of `false` is preserved.
 - Local profiles use only their random installation UUID; telemetry does not silently create a Chronicle login account. Installation registration is a separately disclosed, minimal operation and continues even when usage telemetry is disabled.
-- When enabled, the app reports allowlisted events — app opened, project/file/version counts, version captured, app version, supported file type, new-version count, AI summary generated (latency/provider), and search performed (never the query).
-- **Privacy rule (hard):** telemetry contains **no file contents, no file names, no summaries** — only counts, sizes, file types, timings. This is one sentence in the demo: "we can see usage, we cannot see your work."
-- Events queue offline and flush when online.
+- When enabled, the app records application opens and project removals; hourly search totals; hourly AI attempts/successes/failures/latency by operation, provider, and model; current project/asset/version/annotation counts; and sanitized unexpected Node/Electron/renderer/preload errors.
+- The API derives coarse country/region/city from Cloudflare visitor-location headers. It never stores the raw IP. Because location plus an installation UUID remains pseudonymous personal data, the disclosure, lawful basis, retention, export, and erasure policy must cover it explicitly.
+- **Privacy rule (hard):** telemetry contains **no file contents, file/project names, paths, summaries, tags, embeddings, search queries, exact sizes, credentials, or raw IP addresses.** Error messages/stacks are path-, identity-, URL-query-, and secret-sanitized before upload.
+- Records persist locally while offline. The app sends at startup and at most hourly when data changed. Turning reporting off attempts one final batch, clears local telemetry regardless of network outcome, and never retries after opt-out.
 - Admins read aggregates via Swagger (`/docs`). *(Stretch: admin tab in the desktop app.)*
 - **Done when:** after a demo run, an admin can answer "how many versions were captured today and how many AI calls did we make?"
 
@@ -255,9 +256,9 @@ SQLite schema remains implementation-owned and evolves through migrations:
 | **AI annotation** | The AI's output for a version | summary, changes, tags, provider used, latency |
 | **Embedding** | Search vector for a version | the vector + which text produced it |
 | **Tracked folder** | A folder/project the user watches | path, added date, display name, optional description, icon/color, excluded files, enabled extensions |
-| **Queue item** | Pending offline work | job type (AI / embedding / telemetry), payload, retry count |
+| **Queue item** | Pending offline AI work | job type (AI / embedding), payload, retry count |
 
-Backend keeps only: **User** (pre-built), **External identity**, **Installation**, revisioned **Account settings**, optional opaque **Encrypted secret**, and **Telemetry event** (POST-04, per F8 privacy rule) — all control-plane, all low priority.
+Backend keeps only: **User** (pre-built), **External identity**, **Installation**, revisioned **Account settings**, optional opaque **Encrypted secret**, and normalized usage tables for sessions, removals, hourly usage/AI, sanitized errors, and current installation/project state — all control-plane, all low priority.
 
 ---
 

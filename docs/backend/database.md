@@ -141,3 +141,20 @@ docker compose exec api alembic downgrade -1
 [`alembic/versions/002_control_plane_accounts.py`](../../services/api/alembic/versions/002_control_plane_accounts.py)
 makes password hashes nullable, creates the four POST-03 tables, and grants `account:read/write`
 to both `user` and `admin`. Verified against PostgreSQL 16 on 2026-07-21.
+
+### Migrations 003–004 — Usage statistics
+
+Migration 003 introduced the original generic event log. Migration 004 deliberately replaces it
+with dashboard-ready normalized storage:
+
+- `telemetry_sessions`
+- `telemetry_project_removals`
+- `telemetry_hourly_usage`
+- `telemetry_hourly_ai_usage`
+- `telemetry_errors`
+- `installation_telemetry`
+- `project_telemetry`
+
+Location columns contain only Cloudflare-derived country, region, and city. There is no raw-IP
+column. Error rows contain allowlisted metadata plus sanitized messages/stacks and a stable
+fingerprint; project rows contain only random telemetry UUIDs and counts.
