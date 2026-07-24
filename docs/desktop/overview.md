@@ -198,8 +198,9 @@ box — the user never chooses a "mode". Click a result → Version details.
 
 A **Diagnostics** tab appears directly below Search while running `npm run dev`. Packaged builds
 can expose the same tab through **Settings → Developer tools → Developer mode**, stored only on
-that device. The tab shows a non-sensitive runtime snapshot, live control-plane health, every
-content-free telemetry event pending in the offline SQLite queue, a 200-request control-plane audit,
+that device. The tab shows a non-sensitive runtime snapshot, live control-plane health, typed counts
+and an exact non-consuming preview of the next usage-statistics batch, the current session's recent
+telemetry delivery attempts, a 200-request control-plane audit,
 and two filterable in-memory logs: a 500-entry structured main-process application stream and a
 250-entry renderer console stream. Application events cover project create/update/remove, version
 capture/restore/reset, watcher activity, successful and failed AI summaries/embeddings, telemetry
@@ -207,12 +208,41 @@ delivery, failed IPC operations, and unexpected process errors. The request audi
 URL/query, method, status,
 latency, headers, request bodies, and response bodies after explicit redaction of authorization values, passwords,
 OAuth credentials, tokens, passphrases, API keys, and encrypted key envelopes. Clear and copy-report
-actions remain local and user initiated; clearing the request audit does not delete queued telemetry
-or server data and retains the latest independent health result. Structured application, pending,
+actions remain local and user initiated; sent payload history remains session-only, and clearing the
+request audit does not delete pending usage statistics
+or server data and retains the latest independent health result. Structured application, telemetry,
 and request entries are collapsed by default and expand individually to reveal their sanitized
 details. Every top-level Diagnostics card also has an explicit keyboard-accessible Collapse/Expand
 control in its header. Creative-file contents and privileged Node/Electron APIs never cross this
 diagnostics boundary. Rotating file logs and opt-in network/crash bundles remain separate future work.
+
+### 8.2 Admin — F8 (admin-only)
+
+An **Admin** tab is visible only while the signed-in Chronicle account has the `admin` role.
+It reads aggregate-only control-plane statistics through the authenticated Electron main
+process. The **Admin control center** uses five question-led views instead of one overloaded
+dashboard:
+
+- **Overview:** active/new installations, activation, eligible D7 retention, weekly creative
+  activity, error impact, and attention links.
+- **Product:** projects, versions, searches, restores, successful summaries, inventory, and
+  provider/model operation outcomes.
+- **Audience & releases:** installation growth, DAU/WAU, app-version adoption, OS distribution,
+  and a bundled offline country choropleth paired with accessible ranked values. The base map
+  always fits fully; `Ctrl` + scroll zooms around the pointer and `Ctrl` + drag pans while zoomed.
+- **Reliability:** grouped issue inbox with expandable sanitized message/stack, first/last seen,
+  affected installations, release/OS/provider context, and device-local acknowledge/flag/group/note
+  controls. A guarded **Delete occurrences** action removes the currently stored group events
+  without suppressing that fingerprint, so a later recurrence appears again. A separately
+  confirmed **Delete all errors** action applies the same recurrence-safe behavior to the inbox.
+- **Users & access:** searchable registered-account table with Google linkage, last login,
+  latest reported app/OS, inventory totals, account analytics drill-through, and guarded
+  administrator promotion/demotion.
+
+Preset periods and a custom inclusive start/end date share account/country/OS/app-version filters. Applied
+filters remain visible and account drill-through preserves context. Creative content, project telemetry IDs,
+installation IDs, paths, names, summaries, tags, search text, previews, hashes, credentials,
+and raw IP addresses never enter the renderer contract.
 
 ### 9. Settings — F1, F2, F4/F9 config
 
@@ -223,7 +253,7 @@ Five sections, in current order:
 | **Appearance** | Theme: System (default) · Dark · Light |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
 | **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker and an explicit task-specific **Test connection** action that uses the saved key without mutating settings. Packaged providers: **Google Gemini · Anthropic Claude · OpenAI**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Custom AI configuration** toggle permits free-text LangChain provider/model pairs for development environments that install them separately. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save/Test until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
-| **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved. Portable preferences sync automatically after each saved change, with no manual sync action. The usage control includes an explicit local-data warning and immediate off switch. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. Enabling key sync reveals a compact passphrase row with explicit **Save encrypted copy** and **Restore to this device** actions; disabling it removes the cloud envelope but keeps local keys. The passphrase is cleared after an action, cannot be recovered, and is never sent to Chronicle. Operation status/errors sit beside the related control. |
+| **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved. Usage reporting sends app opens, project removals, hourly search and provider/model usage, current count snapshots, sanitized application failures, and Cloudflare-derived coarse location—never creative content, names, paths, summaries/tags, search text, credentials, or raw IP. It sends on startup and hourly only after changes; turning it off attempts one final request, clears local state, and never retries. Portable preferences sync automatically after each saved change. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. |
 | **Developer tools** | Final section. Developer mode is forced on in development builds and is an explicit device-local checkbox in packaged builds. It controls the developer-only Diagnostics navigation tab. |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
@@ -236,14 +266,6 @@ failures go directly to this manual path to avoid repeated provider calls. Upgra
 older delete-on-failure queue reconstructs retained failed annotation jobs from failed versions.
 The same failure reason and next action appear outside Developer Diagnostics on Timeline, Version
 Details, Pending jobs, and the always-visible status-bar failure count.
-
-### 10. Admin `Stretch` — F10
-
-Aggregated usage stats from the control plane, visible only to the `admin` role. Until
-this exists, admins read stats via the API's Swagger UI — the desktop app has **no** MVP
-admin surface.
-
----
 
 ## Feature → Page Coverage
 

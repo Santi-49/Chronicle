@@ -362,3 +362,80 @@ Demonstrates the full auth + RBAC path. Returns the caller's name.
 ```json
 { "message": "Hello, Alice Smith!" }
 ```
+
+---
+
+## Usage statistics
+
+### `POST /api/v1/telemetry/batches`
+
+Public, strict schema-version-2 ingestion for local or signed-in installations. A batch contains
+separate typed collections for application sessions, project removals, UTC-hour search counters,
+UTC-hour AI counters keyed by operation/provider/model, sanitized application errors, and current
+installation/project count snapshots. Record IDs and cumulative upserts make retries idempotent.
+
+The endpoint rejects unknown fields. It never accepts creative content, names, paths, summaries,
+tags, embeddings, search text, credentials, exact file metadata, client-supplied location, or raw
+IP. Country, region, and city are derived from Cloudflare headers at the Tunnel origin.
+
+Normal desktop delivery occurs on startup and hourly only after changes. A batch with
+`final: true` is the final best-effort opt-out request and removes current state snapshots.
+
+**Auth:** —
+
+**Response:** `204 No Content`
+
+**Errors:** `422` for an invalid or empty batch
+
+## Admin product analytics
+
+### `GET /api/v1/admin/statistics`
+
+Returns aggregate-only product analytics for a preset 1–366 day window or an inclusive custom
+`start_date` + `end_date` range of at most 366 days. Optional `account_id`,
+two-letter `country`, `os_family`, and `app_version` filters scope inventory, activity, AI, search,
+geography, and grouped errors. The response includes weekly creative installations,
+activation and D7 retention, version/project/restore counters, current inventory,
+file types, AI outcomes/latency/provider-model mix, keyword/semantic search counts,
+new-installation/DAU/WAU series, app-version and OS distributions, coarse country distribution,
+and grouped errors. Error groups include only sanitized representative messages/stacks and
+aggregate impact/breakdowns; no telemetry identifiers or creative event rows are returned.
+
+**Auth:** JWT + OPA `admin_statistics:read`
+
+### `GET /api/v1/admin/statistics/accounts`
+
+Searches up to 200 accounts by email or display name for filters and the Users & access view.
+Each row reports Google linkage, active/admin state, last external login, content-free
+installation/project/version counts, and the latest reported app version/OS.
+
+**Auth:** JWT + OPA `admin_statistics:read`
+
+### `PUT /api/v1/admin/statistics/accounts/{user_id}/admin`
+
+Adds the administrator role while preserving the account's existing roles.
+
+### `DELETE /api/v1/admin/statistics/accounts/{user_id}/admin`
+
+Removes the administrator role. Returns `409` rather than demoting the last active administrator.
+
+**Auth:** JWT + OPA `admin_statistics:write`
+
+### `DELETE /api/v1/admin/statistics/errors/{stack_fingerprint}`
+
+Deletes the currently stored error occurrences in the selected fingerprint group. It does not
+create a suppression rule: a future telemetry event with the same fingerprint appears as a new
+group again.
+
+**Response:** `204`
+
+**Auth:** JWT + OPA `admin_statistics:write`
+
+### `DELETE /api/v1/admin/statistics/errors`
+
+Deletes every currently stored error occurrence. Future telemetry is not suppressed and starts
+new fingerprint groups normally.
+
+**Response:** `204`
+
+**Auth:** JWT + OPA `admin_statistics:write`

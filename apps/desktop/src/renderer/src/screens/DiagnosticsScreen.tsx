@@ -3,7 +3,7 @@ import type {
   ApplicationDiagnostic,
   ApplicationDiagnosticLevel,
   ControlPlaneDiagnostic,
-  PendingControlPlaneEvent,
+  TelemetryDiagnostics,
 } from '../../../shared/ipc'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
@@ -23,7 +23,7 @@ type DiagnosticSectionId =
   | 'runtime'
   | 'application-events'
   | 'control-plane-health'
-  | 'pending-control-plane'
+  | 'usage-statistics'
   | 'control-plane-requests'
   | 'renderer-logs'
 
@@ -51,7 +51,7 @@ export function DiagnosticsScreen({ developmentBuild }: { developmentBuild: bool
   const [applicationDiagnostics, setApplicationDiagnostics] = useState<ApplicationDiagnostic[]>([])
   const [applicationLevel, setApplicationLevel] = useState<ApplicationLevelFilter>('all')
   const [applicationQuery, setApplicationQuery] = useState('')
-  const [pendingControlPlaneEvents, setPendingControlPlaneEvents] = useState<PendingControlPlaneEvent[]>([])
+  const [telemetryDiagnostics, setTelemetryDiagnostics] = useState<TelemetryDiagnostics | null>(null)
   const [healthChecking, setHealthChecking] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState<Set<DiagnosticSectionId>>(
     () => new Set(),
@@ -68,9 +68,9 @@ export function DiagnosticsScreen({ developmentBuild }: { developmentBuild: bool
   useEffect(() => subscribeToDiagnosticLogs(() => setLogs(getDiagnosticLogs())), [])
   useEffect(() => {
     let disposed = false
-    const loadPending = () => {
-      void chronicle.listPendingControlPlaneEvents().then((events) => {
-        if (!disposed) setPendingControlPlaneEvents(events)
+    const loadTelemetry = () => {
+      void chronicle.getTelemetryDiagnostics().then((snapshot) => {
+        if (!disposed) setTelemetryDiagnostics(snapshot)
       })
     }
     void chronicle.listControlPlaneDiagnostics().then((entries) => {
@@ -89,15 +89,15 @@ export function DiagnosticsScreen({ developmentBuild }: { developmentBuild: bool
         })
       }
     })
-    loadPending()
+    loadTelemetry()
     const unsubscribe = chronicle.on('controlPlaneDiagnostic', (entry) => {
       setControlPlaneDiagnostics((current) => [...current, entry].slice(-200))
-      window.setTimeout(loadPending, 0)
+      window.setTimeout(loadTelemetry, 0)
     })
     const unsubscribeApplication = chronicle.on('applicationDiagnostic', (entry) => {
       setApplicationDiagnostics((current) => [...current, entry].slice(-500))
     })
-    const interval = window.setInterval(loadPending, 2_000)
+    const interval = window.setInterval(loadTelemetry, 2_000)
     return () => {
       disposed = true
       unsubscribe()
@@ -124,6 +124,12 @@ export function DiagnosticsScreen({ developmentBuild }: { developmentBuild: bool
   const controlPlaneRequests = useMemo(
     () => controlPlaneDiagnostics.filter((entry) => entry.kind === 'request'),
     [controlPlaneDiagnostics],
+  )
+  const telemetryDeliveries = useMemo(
+    () => controlPlaneRequests
+      .filter((entry) => entry.url.includes('/api/v1/telemetry/batches'))
+      .slice(-20),
+    [controlPlaneRequests],
   )
   const visibleApplicationDiagnostics = useMemo(() => {
     const normalizedQuery = applicationQuery.trim().toLocaleLowerCase()
@@ -187,8 +193,11 @@ export function DiagnosticsScreen({ developmentBuild }: { developmentBuild: bool
       `Versions: ${totalVersions(assets)}`,
       `Pending jobs: ${pendingJobCount}`,
       '',
-      'Pending control-plane events:',
-      prettyJson(pendingControlPlaneEvents),
+      'Usage statistics waiting to send:',
+      prettyJson(telemetryDiagnostics),
+      '',
+      'Usage-statistics delivery attempts (current session):',
+      prettyJson(telemetryDeliveries),
       '',
       'Application events:',
       prettyJson(applicationDiagnostics),
@@ -375,44 +384,121 @@ export function DiagnosticsScreen({ developmentBuild }: { developmentBuild: bool
         </div>
       </section>
 
-      <section className={sectionClass('pending-control-plane')} aria-labelledby="pending-control-plane-heading">
+      <section className={sectionClass('usage-statistics')} aria-labelledby="usage-statistics-heading">
         <div className="diagnostics-section-heading">
           <div>
-            <p className="section-label">Offline queue</p>
-            <h2 id="pending-control-plane-heading">Pending to send</h2>
+            <p className="section-label">Usage statistics</p>
+            <h2 id="usage-statistics-heading">Buffered data and deliveries</h2>
           </div>
           <div className="diagnostics-actions">
-            <span className="status-pill">{pendingControlPlaneEvents.length} queued</span>
-            {collapseButton('pending-control-plane', 'Pending to send')}
+            <span className={
+              telemetryDiagnostics?.enabled && telemetryDiagnostics.pendingCount === 0
+                ? 'status-pill status-pill-success'
+                : 'status-pill'
+            }>
+              {!telemetryDiagnostics
+                ? 'Loading…'
+                : !telemetryDiagnostics.enabled
+                  ? 'Disabled'
+                  : `${telemetryDiagnostics.pendingCount} pending`}
+            </span>
+            {collapseButton('usage-statistics', 'Buffered data and deliveries')}
           </div>
         </div>
-        <div id="diagnostics-pending-control-plane-content">
-        {pendingControlPlaneEvents.length === 0 ? (
+        <div id="diagnostics-usage-statistics-content">
+        <p className="control-plane-audit-disclosure">
+          Chronicle keeps changed usage records in one persistent local buffer. It attempts delivery
+          at startup and hourly when data changed; this preview does not consume or send anything.
+        </p>
+        {telemetryDiagnostics && (
+          <dl className="diagnostics-grid telemetry-counts">
+            <div><dt>App sessions</dt><dd>{telemetryDiagnostics.counts.sessions}</dd></div>
+            <div><dt>Project removals</dt><dd>{telemetryDiagnostics.counts.projectRemovals}</dd></div>
+            <div><dt>Search hours</dt><dd>{telemetryDiagnostics.counts.searchHours}</dd></div>
+            <div><dt>AI usage hours</dt><dd>{telemetryDiagnostics.counts.aiUsageHours}</dd></div>
+            <div><dt>Errors</dt><dd>{telemetryDiagnostics.counts.errors}</dd></div>
+            <div><dt>Project snapshots</dt><dd>{telemetryDiagnostics.counts.projects}</dd></div>
+            <div><dt>Deleted projects</dt><dd>{telemetryDiagnostics.counts.deletedProjects}</dd></div>
+            <div>
+              <dt>Installation snapshot</dt>
+              <dd>{telemetryDiagnostics.nextBatch?.installation_state ? 'Changed' : 'Unchanged'}</dd>
+            </div>
+          </dl>
+        )}
+        {!telemetryDiagnostics || telemetryDiagnostics.nextBatch === null ? (
           <div className="diagnostics-empty">
             <Icon name="check" />
-            <p>No control-plane events are waiting to be sent.</p>
+            <p>
+              {!telemetryDiagnostics
+                ? 'Reading the local usage buffer…'
+                : telemetryDiagnostics.enabled
+                  ? 'No changed usage data is waiting to be sent.'
+                  : 'Usage-statistics reporting is disabled and no data is retained.'}
+            </p>
+          </div>
+        ) : (
+          <div className="telemetry-preview">
+            <details className="diagnostic-item-disclosure">
+              <summary className="control-plane-request-summary">
+                <div>
+                  <strong>Next batch preview</strong>
+                  <span>
+                    Schema v{telemetryDiagnostics.nextBatch.schema_version} · generated{' '}
+                    {new Date(telemetryDiagnostics.nextBatch.sent_at).toLocaleString()}
+                  </span>
+                </div>
+                <span className="status-pill">Not sent</span>
+              </summary>
+              <div className="diagnostic-item-content">
+                <p>
+                  Delivery-time fields such as batch_id and sent_at are regenerated for the actual request.
+                </p>
+                <div className="control-plane-payload">
+                  <h3>Sanitized payload</h3>
+                  <pre>{prettyJson(telemetryDiagnostics.nextBatch)}</pre>
+                </div>
+              </div>
+            </details>
+          </div>
+        )}
+        <div className="telemetry-deliveries-heading">
+          <div>
+            <p className="section-label">Current session</p>
+            <h3>Recent delivery attempts</h3>
+          </div>
+          <span className="status-pill">{telemetryDeliveries.length} attempts</span>
+        </div>
+        {telemetryDeliveries.length === 0 ? (
+          <div className="diagnostics-empty diagnostics-empty-compact">
+            <p>No usage-statistics delivery has been attempted in this app session.</p>
           </div>
         ) : (
           <ol className="control-plane-request-list">
-            {pendingControlPlaneEvents.map((event) => (
-              <li className="control-plane-request" key={event.id}>
-                <details className="diagnostic-item-disclosure">
-                  <summary className="control-plane-request-summary">
-                    <div>
-                      <strong>Queue #{event.id}</strong>
-                      <span>{new Date(event.queuedAt).toLocaleString()} · {event.retryCount} retries</span>
+            {[...telemetryDeliveries].reverse().map((entry) => {
+              const body = entry.requestBody as { batch_id?: string; final?: boolean } | null
+              return (
+                <li className="control-plane-request" key={entry.id}>
+                  <details className="diagnostic-item-disclosure">
+                    <summary className="control-plane-request-summary">
+                      <div>
+                        <strong>{body?.batch_id ?? 'Telemetry batch'}</strong>
+                        <span>{new Date(entry.timestamp).toLocaleString()} · {entry.durationMs} ms</span>
+                      </div>
+                      <span className={entry.ok ? 'status-pill status-pill-success' : 'status-pill'}>
+                        {body?.final ? 'Final · ' : ''}{entry.status ?? 'Network error'}
+                      </span>
+                    </summary>
+                    <div className="diagnostic-item-content">
+                      <div className="control-plane-payload">
+                        <h3>Payload sent</h3>
+                        <pre>{prettyJson(entry.requestBody)}</pre>
+                      </div>
+                      {entry.error && <p className="diagnostics-request-error">{entry.error}</p>}
                     </div>
-                    <span className="status-pill">Pending</span>
-                  </summary>
-                  <div className="diagnostic-item-content">
-                    <div className="control-plane-payload">
-                      <h3>Payload</h3>
-                      <pre>{prettyJson(event.payload)}</pre>
-                    </div>
-                  </div>
-                </details>
-              </li>
-            ))}
+                  </details>
+                </li>
+              )
+            })}
           </ol>
         )}
         </div>

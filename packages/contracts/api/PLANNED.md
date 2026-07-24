@@ -59,21 +59,26 @@ installation linking requires an authenticated Chronicle session.
 
 ## Telemetry (POST-04)
 
-All telemetry endpoints are public (no Chronicle account required) so local-mode installations
-can participate when opted in. The installation ID from the request body is the only identity
-link; no account or device identity is required.
+`POST /api/v1/telemetry/batches` is public so local-mode installations can participate. Its
+strict schema-version-2 envelope carries separate typed collections that the server stores in
+normalised tables:
 
-- `POST /api/v1/telemetry/events` accepts a batch of 1–100 discriminated events. Unknown or
-  extra fields are rejected with 422. Duplicate event IDs are silently ignored for idempotent
-  retry. Event types: `app_opened`, `version_captured`, `ai_summary_generated`,
-  `search_performed`. No event may contain file content, file names or paths, project names or
-  descriptions, AI summaries, tags, search queries, exact byte sizes, or Chronicle/asset IDs.
-- `PUT /api/v1/telemetry/projects/{project_telemetry_id}?installation_id=…` upserts an
-  allowlisted per-project inventory: total tracked-file count and a map of counts by normalised
-  file type (`png`, `jpg`, `other`). No name, path, description, or database ID is accepted.
-- `DELETE /api/v1/telemetry/projects/{project_telemetry_id}?installation_id=…` removes the
-  inventory record. Silently succeeds if already absent.
+- timestamped application sessions and project removals;
+- cumulative UTC-hour search counters;
+- cumulative UTC-hour AI attempt/success/failure/latency counters keyed by operation,
+  provider, and model;
+- sanitized unexpected Node/Electron/renderer/preload errors with stable fingerprints;
+- one current installation snapshot and current per-project count snapshots.
 
-Disabling telemetry in Settings clears the local queue immediately and sends DELETE for every
-known project inventory record. Minimal installation registration (POST-03) is a separately
-disclosed operation that continues regardless of the telemetry preference.
+Unknown fields are rejected with 422. IDs and cumulative upserts make retries idempotent.
+The request cannot contain file content, file/project names, paths, summaries, tags, embeddings,
+search queries, exact sizes, credentials, or raw IP addresses.
+
+The API derives country, region, and city from Cloudflare visitor-location headers. The origin
+must be reachable only through the configured Cloudflare Tunnel; client-supplied location fields
+are not accepted and `CF-Connecting-IP` is never stored.
+
+The desktop sends at startup and once per hour only when data changed. Disabling reporting makes
+one final best-effort batch, clears local telemetry even if offline, and never retries after the
+user turns it off. A final batch removes current installation/project snapshots. Minimal
+installation registration remains a separately disclosed operation.

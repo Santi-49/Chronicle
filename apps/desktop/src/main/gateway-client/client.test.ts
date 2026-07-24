@@ -6,7 +6,7 @@ import {
   sanitizeControlPlaneData,
   type TokenStore,
 } from './client'
-import { buildAppOpened } from '../telemetry/emitter'
+import type { TelemetryBatch } from '../telemetry/emitter'
 import type { AppSettings } from '../../shared/settings'
 
 function tokenStore(initial: { access_token: string; refresh_token: string; token_type: string } | null = null): TokenStore {
@@ -27,6 +27,28 @@ const user = {
   created_at: '2026-07-21T00:00:00Z',
   updated_at: '2026-07-21T00:00:00Z',
   roles: ['user'],
+}
+
+function telemetryBatch(): TelemetryBatch {
+  return {
+    schema_version: 2,
+    batch_id: '00000000-0000-0000-0000-000000000002',
+    installation_id: '00000000-0000-0000-0000-000000000001',
+    sent_at: '2026-07-24T10:00:00.000Z',
+    final: false,
+    sessions: [{
+      id: '00000000-0000-0000-0000-000000000003',
+      opened_at: '2026-07-24T10:00:00.000Z',
+      app_version: '0.6.0',
+      os_family: 'windows',
+    }],
+    project_removals: [],
+    hourly_usage: [],
+    hourly_ai_usage: [],
+    errors: [],
+    projects: [],
+    deleted_project_ids: [],
+  }
 }
 
 afterEach(() => vi.unstubAllGlobals())
@@ -79,15 +101,11 @@ describe('control-plane client', () => {
       tokenStore(),
       (entry) => diagnostics.push(entry),
     )
-    const event = buildAppOpened(
-      '00000000-0000-0000-0000-000000000001',
-      '0.6.0',
-      'windows',
-    )
+    const batch = telemetryBatch()
 
-    await client.sendTelemetryBatch([event])
+    await client.sendTelemetryBatch(batch)
 
-    expect(diagnostics[0]?.requestBody).toEqual({ events: [event] })
+    expect(diagnostics[0]?.requestBody).toEqual(batch)
     expect(diagnostics[0]?.requestHeaders).toEqual({ 'content-type': 'application/json' })
     expect(sanitizeControlPlaneData({
       password: 'plain',
@@ -114,7 +132,7 @@ describe('control-plane client', () => {
       (entry) => diagnostics.push(entry),
     )
 
-    await expect(client.sendTelemetryBatch([])).rejects.toThrow('Control plane request failed (500)')
+    await expect(client.sendTelemetryBatch(telemetryBatch())).rejects.toThrow('Control plane request failed (500)')
     expect(diagnostics[0]).toMatchObject({
       status: 500,
       responseBody: {

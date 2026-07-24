@@ -90,7 +90,7 @@ describe('startup', () => {
     }
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
-    expect(db.pragma('user_version', { simple: true })).toBe(6)
+    expect(db.pragma('user_version', { simple: true })).toBe(7)
   })
 
   it('repeat startup is idempotent and keeps existing data', () => {

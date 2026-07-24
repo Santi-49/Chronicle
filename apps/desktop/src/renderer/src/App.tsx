@@ -10,6 +10,7 @@ import { ProjectScreen } from './screens/ProjectScreen'
 import { ProjectsScreen } from './screens/ProjectsScreen'
 import { SearchScreen } from './screens/SearchScreen'
 import { DiagnosticsScreen } from './screens/DiagnosticsScreen'
+import { AdminScreen } from './screens/AdminScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { TimelineScreen } from './screens/TimelineScreen'
 import { VersionDetailsScreen } from './screens/VersionDetailsScreen'
@@ -31,6 +32,7 @@ interface WorkspaceScreenProps {
   navigate: (route: AppRoute) => void
   onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
+  onAdminStateChange: (isAdmin: boolean) => void
   onCloseJobs: () => void
 }
 
@@ -42,6 +44,7 @@ function WorkspaceScreen({
   navigate,
   onDeveloperModeChange,
   onThemePreferenceChange,
+  onAdminStateChange,
   onCloseJobs,
 }: WorkspaceScreenProps) {
   switch (route.name) {
@@ -125,6 +128,8 @@ function WorkspaceScreen({
       )
     case 'diagnostics':
       return <DiagnosticsScreen developmentBuild={developmentBuild} />
+    case 'admin':
+      return <AdminScreen />
     case 'settings':
       return (
         <SettingsScreen
@@ -134,6 +139,7 @@ function WorkspaceScreen({
           onAddProject={() => navigate({ name: 'new-project' })}
           onDeveloperModeChange={onDeveloperModeChange}
           onThemePreferenceChange={onThemePreferenceChange}
+          onAdminStateChange={onAdminStateChange}
         />
       )
     case 'jobs':
@@ -151,6 +157,7 @@ export default function App() {
     () => localStorage.getItem(HAS_ONBOARDED_KEY) === 'true'
   )
   const [route, setRoute] = useState<AppRoute>({ name: 'home' })
+  const [isAdmin, setIsAdmin] = useState(false)
   const [developerMode, setDeveloperMode] = useState(
     () => DEVELOPMENT_BUILD || readDeveloperMode(),
   )
@@ -167,6 +174,7 @@ export default function App() {
 
   useEffect(() => {
     void chronicle.getSettings().then((settings) => setThemePreference(settings.appearance.theme))
+    void chronicle.getAccountState().then((state) => setIsAdmin(state.isAdmin))
   }, [])
 
   useLayoutEffect(() => {
@@ -207,6 +215,10 @@ export default function App() {
     return () => window.cancelAnimationFrame(frame)
   }, [hasEnteredWorkspace, route])
 
+  useEffect(() => {
+    if (!isAdmin && route.name === 'admin') setRoute({ name: 'home' })
+  }, [isAdmin, route.name])
+
   const toggleTheme = () => {
     changeThemePreference(theme === 'dark' ? 'light' : 'dark')
   }
@@ -244,7 +256,8 @@ export default function App() {
                 setHasEnteredWorkspace(true)
               }}
               onContinueGoogle={async () => {
-                await chronicle.loginWithGoogle()
+                const state = await chronicle.loginWithGoogle()
+                setIsAdmin(state.isAdmin)
                 const synced = await chronicle.getSettings()
                 setThemePreference(synced.appearance.theme)
                 localStorage.setItem(HAS_ONBOARDED_KEY, 'true')
@@ -255,6 +268,7 @@ export default function App() {
         ) : (
           <AppShell
             developerMode={developerMode}
+            isAdmin={isAdmin}
             route={route}
             onNavigate={setRoute}
             onOpenJobs={openJobs}
@@ -268,6 +282,7 @@ export default function App() {
                 navigate={setRoute}
                 onDeveloperModeChange={changeDeveloperMode}
                 onThemePreferenceChange={changeThemePreference}
+                onAdminStateChange={setIsAdmin}
                 onCloseJobs={() => setRoute(jobsReturnRoute)}
               />
             </div>

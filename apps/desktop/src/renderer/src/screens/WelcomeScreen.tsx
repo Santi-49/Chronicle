@@ -104,8 +104,10 @@ export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenPro
 
           <p className="privacy-note">
             <strong>Help improve Chronicle</strong> is enabled by default. Chronicle sends usage
-            counts such as version captures and AI provider/model in use. Your creative files,
-            project names, paths, AI summaries, tags, and search text are <em>not</em> sent.
+            statistics such as app opens, project/version counts, searches, AI provider/model use,
+            sanitized application failures, and coarse location derived by Cloudflare. Creative
+            files, project names, paths, AI summaries, tags, search text, credentials, and raw IP
+            addresses are <em>not</em> stored.
             You can turn this off in{' '}
             <strong>Settings → Account</strong> at any time.
           </p>

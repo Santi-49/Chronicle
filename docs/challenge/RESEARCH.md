@@ -230,15 +230,18 @@ Control-plane data has four distinct purposes and must not be presented as one p
 - optional portable settings sync, excluding device paths, project metadata, and secrets;
 - separate optional end-to-end-encrypted API-key sync for signed-in users, requiring a
   client-held recovery/decryption design before implementation; and
-- default-enabled usage statistics containing pseudonymous project inventory and allowlisted
-  events, never creative content or identifying project/file/search metadata.
+- default-enabled usage statistics containing pseudonymous current-state counts, hourly
+  search/AI rollups, app-open/project-removal records, sanitized application errors, and
+  Cloudflare-derived coarse location, never creative content or identifying project/file/search
+  metadata, credentials, or raw IP.
 
-Project counts can be measured without uploading project identity: each project receives a random
-telemetry-only ID, and the backend stores its current tracked-file count and allowlisted file-type
-distribution. A version-capture event supplies the count increment plus file type, coarse size
-bucket, and timing, but no asset/version ID, exact size, hash, path, or name. These IDs are
-pseudonymous—not anonymous—when linked to an installation/account. Installation registration also
-measures installations, not unique humans, so product/admin copy must use those terms accurately.
+Project/version averages do not require per-capture events: each project receives a random
+telemetry-only ID and the backend stores its current asset/version/annotation counts and
+allowlisted file-type distribution. Search and AI use are cumulative UTC-hour rollups; AI rows
+retain operation, provider, model, outcomes, and latency. Unexpected Node/Electron failures are
+individual sanitized records so reliability can be grouped by component and fingerprint. These
+IDs and IP-derived locations are pseudonymous—not anonymous—when linked to an installation, so
+product/admin copy must use those terms accurately.
 
 The GDPR principles of purpose limitation, data minimization, storage limitation, and security
 require each category to have a defined purpose, lawful basis, retention, export/erasure behavior,
@@ -395,6 +398,122 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
   shape, while authorization, passwords, OAuth credentials, tokens, passphrases, API keys, and
   encrypted envelopes are replaced by explicit redaction markers.
 
+### Admin analytics and reliability information architecture (2026-07-24)
+
+#### What established products separate
+
+- Amplitude's curated product analytics is not one giant dashboard. It separates **Product
+  Overview, Onboarding, Feature Engagement, and Retention**, while keeping filters and
+  segmentation consistent across those views. Its overview focuses on new/active users and
+  retention; funnels answer where users fail to reach value; feature engagement compares
+  adoption and frequency.
+  ([Amplitude product analytics](https://amplitude.com/docs/analytics/product-analytics),
+  [chart selection](https://amplitude.com/docs/analytics/charts/find-the-right-chart))
+- Sentry separates an issue inbox from issue details. The inbox is sortable by recency, trend,
+  frequency, and affected users. A detail page then exposes occurrences over time, affected users,
+  first/last seen, first/last release, stack trace, searchable tags, and lifecycle state. Its
+  states distinguish new/ongoing/escalating/regressed work from resolved or archived work; this is
+  more actionable than a single acknowledge/flag pair.
+  ([Sentry issue details](https://docs.sentry.io/product/issues/issue-details/),
+  [issue states](https://docs.sentry.io/product/issues/states-triage/),
+  [issue sorting](https://docs.sentry.io/api/events/list-a-projects-issues/))
+- Google Analytics gives technology its own overview: active users by operating system and app
+  version are visible cards, not merely hidden filter properties. Firebase's release monitoring
+  likewise combines version uptake, stability versus previous releases, and the highest-impact new
+  issues. This makes release adoption a product and reliability question at once.
+  ([GA4 Tech overview](https://support.google.com/analytics/answer/13820344),
+  [Firebase release monitoring](https://firebase.google.com/docs/release/release-monitoring))
+- Grafana recommends that each dashboard answer a question and progress from general to specific;
+  it explicitly warns that dashboards should reduce cognitive load. Power BI formalizes the same
+  approach as drill-through: inspect a summary, select the item that needs explanation, analyze it
+  in a focused detail page, then return with context preserved.
+  ([Grafana dashboard best practices](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/best-practices/),
+  [Power BI drill-through guidance](https://learn.microsoft.com/en-us/power-bi/guidance/report-drillthrough))
+
+#### Chronicle's available dimensions and measures
+
+Chronicle already stores more useful diagnostic context than the first admin page exposes:
+
+| Subject | Available now | Useful questions |
+|---|---|---|
+| Accounts | created/updated time, active state, roles, Google linkage, Google last login | How many registered people are there? Who has access? Who signed in recently? |
+| Installations | account link when signed in, app version, OS family, first/last seen | Are installs growing? Which releases and operating systems are active? How many profiles remain local-only? |
+| Sessions | opened time, installation, app version, OS, coarse country/region/city | DAU/WAU/MAU by installation; new versus returning activity; release and geographic adoption |
+| Product activity | hourly project creations, version captures, restores, keyword searches, semantic searches | Are people reaching Chronicle's value moment and repeatedly using capture/search/restore? |
+| Current inventory | projects, assets, versions, AI-annotated versions, PNG/JPG/other counts, first project/version milestones | How much work is managed now? What is annotation coverage? How quickly do installations reach first value? |
+| AI operations | annotation/embedding, provider, model, attempts, successes, failures, total latency | Which capabilities and models are used? Are success rate and latency improving? |
+| Reliability | process, component, operation, error type/code, sanitized message/stack, fingerprint, severity, fatal/handled, app version, OS, provider/model, location | Which issue affects the most installations? Is it isolated to a release, OS, process, or AI provider? |
+| Project removal | time and whether history was deleted | Are people abandoning projects or intentionally deleting local history? |
+
+The current contract does **not** support session duration, acquisition channel, screen navigation,
+revenue, user-authored goals, OS version, hardware/device model, language, installer/update channel,
+token totals, or exact crash-free sessions. Those values must be labelled unavailable, not inferred.
+An error can be related to an active installation and time window, but not reliably to the exact
+session that crashed.
+
+#### Recommended structure
+
+Use one role-gated **Admin control center** entry in the desktop shell, but make it a small
+multi-page report rather than one dashboard or a row of four overloaded tabs:
+
+1. **Overview — “Is Chronicle succeeding?”**
+   Show only six decision metrics with prior-period deltas: active installations, new
+   installations, activation within 24 hours, D7 retention, weekly creative-active
+   installations, and installations affected by errors. Below them, one active/new trend, the
+   activation path, and a short “needs attention” list linking to release or error details.
+   Registered accounts can appear as context, but must not be labelled total users because local
+   installations are anonymous and one person can have several installations.
+2. **Product — “Are people reaching and repeating value?”**
+   Separate activation, engagement, and retention sections. Show the path
+   installation → first project → first version → first successful annotation, then trends for
+   captures, searches by mode, restores, and successful annotations. Use medians and
+   per-active-installation rates alongside totals. Keep current project/file/version inventory and
+   annotation coverage here as secondary operational context, not headline success metrics.
+3. **Audience & releases — “Who can we support, and what are they running?”**
+   Make app-version adoption and OS share first-class ranked charts with counts and percentages.
+   Show new/returning installations, country map plus ranked accessible table, local versus
+   account-linked installations, and provider/model adoption. Selecting a country, OS, or release
+   should cross-filter the page; selecting a release should drill into its adoption, activity,
+   error impact, and comparison with the preceding release.
+4. **Reliability — “What should we fix next?”**
+   Start with fatal errors, affected installations, error occurrences, and AI failure rate, then
+   an issue inbox grouped by sanitized fingerprint. Rank primarily by affected installations and
+   recent trend, not raw occurrences alone. Expanding or opening an issue should show its
+   sanitized message/stack, occurrence trend, first/last seen, affected installations, releases,
+   OSes, processes/components/operations, and provider/model context. Persist server-side states
+   such as new, investigating, resolved, and muted; a local-only acknowledgement is unsuitable for
+   a shared control plane. Reopen a resolved issue if it recurs in a later release.
+5. **Users & access — “Who is registered and who can administer?”**
+   Search by Google email/name, show Google linkage and last login, active/admin state, linked
+   installation count, latest observed app version/OS, and compact activity totals. Allow
+   promote/demote with confirmation, auditability, and last-admin protection. A “View analytics”
+   action should open Product or Reliability already filtered to that account.
+
+Use a shared filter bar for date preset/custom range, account, country, OS, and app version, but
+only show dimensions relevant to the current page. Every applied filter should be visible as a
+removable chip and preserved during drill-through. Charts should expose exact values on keyboard
+focus and have a table alternative. Use line charts for time trends, sorted bars for categories,
+and a choropleth only for geographic pattern recognition; the map must be paired with a ranked
+table because area and color are poor tools for precise comparison.
+
+#### Metrics to remove or demote
+
+- Remove **projects per registered account** as a headline: local-only installations have no
+  account and multi-device users distort the denominator. Prefer median projects per reporting
+  installation, with the population stated.
+- Do not call current snapshot totals a historical inventory series. The API replaces each
+  installation/project snapshot; it does not retain daily snapshot history. Use the actual
+  `version_capture_count` event series for change over time and current versions for the present
+  inventory.
+- Do not combine annotation and embedding successes into “summaries.” Show successful annotations
+  separately from embedding/indexing operations.
+- Do not headline raw sessions, total AI attempts, file-type counts, provider/model mix, or the
+  country map. They are diagnostic breakdowns that explain outcomes rather than success outcomes
+  themselves.
+- Do not show a retention percentage without its eligible cohort size, activation definition, and
+  date window. Small post-launch cohorts can otherwise look dramatically better or worse than they
+  are.
+
 ## Recommendations
 
 > Update this section whenever a meaningful new finding changes the strategic picture.
@@ -438,6 +557,15 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
   Use strict allowlisted schemas, client-generated idempotency IDs, short raw-event retention, and
   aggregate admin views. Never claim “all data stays local”; say precisely that the creative
   library stays local and name the AI, telemetry, settings, and encrypted-secret exceptions.
+- Keep the usage model normalized for direct dashboard queries: timestamped sessions/removals,
+  hourly search and provider/model AI counters, individual sanitized errors, and replaceable
+  installation/project snapshots. Derive country/region/city at the Cloudflare edge-facing API,
+  never trust client-supplied location, and never retain `CF-Connecting-IP`.
+- Replace the single control-plane dashboard with a question-led Admin control center:
+  Overview, Product, Audience & releases, Reliability, and Users & access. Treat app version,
+  OS, geography, and provider/model as visible diagnostic distributions as well as filters.
+  Preserve filter context through drill-down, keep shared error state server-side, and distinguish
+  registered accounts from anonymous/local installations in every label and denominator.
 - Demonstrate release discipline as technical-execution evidence: one authored desktop version,
   generated/runtime derivations, protected `main` PR checks, a clean Windows build, and a
   health-smoked sidecar. Do not imply the unsigned build is signed or auto-updating. Keep the
@@ -480,6 +608,29 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 > Append entries here as new information surfaces. Never delete old entries — mark them
 > superseded if they become stale. Format: `YYYY-MM-DD — finding — source`.
 
+- 2026-07-24 — USAGE-STATISTICS V2: per-capture and reset events were unnecessary for the desired
+  overview. Chronicle now uses current project/version snapshots, hourly search and provider/model
+  AI rollups, timestamped app opens/removals, and first-class sanitized errors. Electron exposes
+  `render-process-gone` and `child-process-gone` for renderer/GPU/utility/OOM/crash coverage.
+  Cloudflare's visitor-location transform supplies country/region/city headers at the Tunnel
+  origin; the API discards raw IP. IP/location combined with persistent identifiers remains
+  personal data requiring explicit disclosure and retention/erasure decisions —
+  [Electron app events](https://www.electronjs.org/docs/latest/api/app),
+  [Cloudflare visitor location headers](https://developers.cloudflare.com/rules/transform/managed-transforms/reference/),
+  [Cloudflare HTTP headers](https://developers.cloudflare.com/fundamentals/reference/http-headers/),
+  [GDPR Recital 30](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679)
+- 2026-07-24 — ADMIN INFORMATION ARCHITECTURE: mature product analytics, error monitoring, and
+  release-health tools separate executive health, activation/engagement/retention, audience/release
+  adoption, issue triage, and user administration. Chronicle should use five question-led views,
+  expose app version/OS/geography/provider as visible breakdowns, rank errors by affected
+  installations plus recency/trend, and stop presenting replaceable snapshots as historical
+  inventory. The repository can support most of this with its existing privacy-safe fields; exact
+  session duration, acquisition, OS version, and crash-free sessions remain unavailable —
+  [Amplitude product analytics](https://amplitude.com/docs/analytics/product-analytics),
+  [Sentry issue details](https://docs.sentry.io/product/issues/issue-details/),
+  [GA4 Tech overview](https://support.google.com/analytics/answer/13820344),
+  [Firebase release monitoring](https://firebase.google.com/docs/release/release-monitoring),
+  [Grafana dashboard best practices](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/best-practices/)
 - 2026-07-23 — DESKTOP DIAGNOSTICS: Electron provides packaged/development signals rather than command-name detection, and separates renderer, main-process, network, and crash diagnostics. Chronicle auto-enables Diagnostics in development, offers a device-local packaged-build opt-in, and now includes a bounded/redacted renderer log, runtime state, live control-plane health, exact pending content-free telemetry payloads, and a 200-request sanitized control-plane audit. Rotating process files and explicit bounded network/crash bundles remain follow-up work — [Electron app](https://www.electronjs.org/docs/latest/api/app), [webContents](https://www.electronjs.org/docs/latest/api/web-contents/), [netLog](https://www.electronjs.org/docs/latest/api/net-log/), [crashReporter](https://www.electronjs.org/docs/latest/api/crash-reporter)
 - 2026-07-23 — DEVELOPMENT CONTROL-PLANE URL: electron-vite correctly injected the root `.env` `CHRONICLE_CONTROL_PLANE_URL`, but the gateway client could still prefer a URL persisted by an earlier run before settings migration executed. Development now treats the explicitly configured `.env` endpoint as authoritative from the first request and persists that resolved value when settings load; packaged builds preserve their existing user-override behavior. The current repository `.env` value resolves to `http://localhost:8000`, so a different development service requires changing that value and restarting `npm run dev` — local configuration trace + regression test
 - 2026-07-16 — Event identified: "AI Builders Challenge with IBM Bob", BeMyApp for IBM SkillsBuild; July theme "Reimagine Creative Industries with AI"; submissions due July 31, 2026 11:59 PM ET; prizes $2,250/$1,250/$750/$750 per month + $5,000 grand prize — event page

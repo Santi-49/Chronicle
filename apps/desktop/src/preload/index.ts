@@ -11,6 +11,23 @@ import { API_METHOD_NAMES, EVENT_NAMES, apiChannel, eventChannel } from '../main
 
 const bridge: Record<string, unknown> = {}
 
+function reportPreloadError(kind: 'error' | 'unhandledrejection', value: unknown): void {
+  const error = value instanceof Error ? value : new Error(String(value))
+  void ipcRenderer.invoke(apiChannel('reportRendererError'), {
+    source: 'preload',
+    kind,
+    message: error.message.slice(0, 2_000),
+    name: error.name.slice(0, 100),
+    stack: (error.stack ?? '').slice(0, 8_000),
+    occurredAt: new Date().toISOString(),
+  }).catch(() => {
+    // Reporting must never cause another unhandled rejection.
+  })
+}
+
+process.on('uncaughtExceptionMonitor', (error) => reportPreloadError('error', error))
+process.on('unhandledRejection', (reason) => reportPreloadError('unhandledrejection', reason))
+
 for (const method of API_METHOD_NAMES) {
   bridge[method] = (...args: unknown[]): Promise<unknown> =>
     ipcRenderer.invoke(apiChannel(method), ...args)

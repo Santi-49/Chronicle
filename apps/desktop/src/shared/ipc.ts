@@ -13,6 +13,70 @@
  *   - No AI or network call is awaited by any UI action (spec §6.5): slow
  *     work returns immediately and completion arrives as an event.
  */
+export interface AdminAccountSummary {
+  id: string; email: string; display_name: string; google_linked: boolean
+  is_active: boolean; is_admin: boolean; last_login_at?: string | null
+  installation_count: number; current_project_count: number; current_version_count: number
+  latest_app_version?: string | null; latest_os_family?: string | null
+}
+export interface AdminStatisticsFilters {
+  periodDays?: number; startDate?: string; endDate?: string
+  accountId?: string; country?: string; osFamily?: string; appVersion?: string
+}
+export interface AdminCategoryCount { label: string; count: number }
+export interface AdminTimeSeriesPoint { bucket_start: string; count: number }
+export interface AdminStatistics {
+  generated_at: string; period_start: string; period_end: string; period_days: number
+  overview: {
+    registered_accounts: number; registered_installations: number
+    estimated_active_installations: number; reporting_installations: number
+    current_projects: number; tracked_files: number; current_versions: number
+    weekly_active_creative_installations: number; versions_captured: number
+    project_creations: number; restores: number
+    new_installations: number; error_affected_installations: number
+    activation_eligible_installations: number; d7_eligible_installations: number
+    activation_rate: number; d7_retention_rate: number
+  }
+  inventory_averages: {
+    projects_per_registered_account: number; projects_per_registered_installation: number
+    tracked_files_per_project: number; versions_per_project: number
+    median_versions_per_project: number
+  }
+  file_type_distribution: AdminCategoryCount[]
+  version_inventory_over_time: AdminTimeSeriesPoint[]
+  ai: {
+    attempt_count: number; success_count: number; failure_count: number
+    success_rate: number; average_latency_ms: number; token_counts_available?: boolean
+    total_token_count?: number | null
+    provider_model_mix: {
+      operation: 'annotation' | 'embedding'; provider: string; model: string
+      attempt_count: number; success_count: number; failure_count: number
+      average_latency_ms: number
+    }[]
+    over_time: AdminTimeSeriesPoint[]
+  }
+  search: {
+    total_count: number; mode_counts_available?: boolean
+    by_mode: AdminCategoryCount[]; over_time: AdminTimeSeriesPoint[]
+  }
+  growth: {
+    new_installations: AdminTimeSeriesPoint[]
+    daily_active_installations: AdminTimeSeriesPoint[]
+    weekly_active_installations: AdminTimeSeriesPoint[]
+  }
+  errors: {
+    process: string; component: string; operation: string; error_name: string
+    error_code?: string | null; sanitized_message: string; sanitized_stack?: string[]
+    stack_fingerprint: string; severity: 'warning' | 'error' | 'fatal'
+    count: number; affected_installations: number
+    first_seen_at: string; last_seen_at: string
+    app_versions: AdminCategoryCount[]; os_families: AdminCategoryCount[]
+    provider_models: AdminCategoryCount[]
+  }[]
+  coarse_locations: AdminCategoryCount[]
+  os_distribution: AdminCategoryCount[]
+  app_version_distribution: AdminCategoryCount[]
+}
 
 import type { AppSettings } from './settings'
 
@@ -187,12 +251,126 @@ export interface ControlPlaneDiagnostic {
   error: string | null
 }
 
-/** One sanitized telemetry payload queued locally for later control-plane delivery. */
-export interface PendingControlPlaneEvent {
-  id: number
-  queuedAt: string
-  retryCount: number
-  payload: unknown
+export type TelemetryOsFamily = 'windows' | 'macos' | 'linux' | 'other'
+export type TelemetryAiOperation = 'annotation' | 'embedding'
+export type TelemetryErrorProcess = 'main' | 'renderer' | 'preload' | 'electron'
+
+export interface TelemetryAppSession {
+  id: string
+  opened_at: string
+  app_version: string
+  os_family: TelemetryOsFamily
+  first_project_at?: string
+  first_version_at?: string
+}
+
+export interface TelemetryProjectRemoval {
+  id: string
+  project_telemetry_id: string
+  occurred_at: string
+  history_deleted: boolean
+}
+
+export interface TelemetryHourlyUsage {
+  bucket_start: string
+  search_count: number
+  keyword_search_count?: number
+  semantic_search_count?: number
+  version_capture_count?: number
+  restore_count?: number
+  project_create_count?: number
+}
+
+export interface TelemetryHourlyAiUsage {
+  bucket_start: string
+  operation: TelemetryAiOperation
+  provider: string
+  model: string
+  attempt_count: number
+  success_count: number
+  failure_count: number
+  total_latency_ms: number
+}
+
+export interface TelemetryAppError {
+  id: string
+  occurred_at: string
+  process: TelemetryErrorProcess
+  component: string
+  operation: string
+  error_name: string
+  error_code?: string
+  sanitized_message: string
+  stack_fingerprint: string
+  sanitized_stack: string[]
+  severity: 'warning' | 'error' | 'fatal'
+  fatal: boolean
+  handled: boolean
+  app_version: string
+  os_family: TelemetryOsFamily
+  provider?: string
+  model?: string
+}
+
+export interface TelemetryInstallationState {
+  captured_at: string
+  project_count: number
+  asset_count: number
+  version_count: number
+  ai_annotated_version_count: number
+  annotation_provider?: string
+  annotation_model?: string
+  embedding_provider?: string
+  embedding_model?: string
+  app_version: string
+  os_family: TelemetryOsFamily
+}
+
+export interface TelemetryProjectState {
+  project_telemetry_id: string
+  captured_at: string
+  asset_count: number
+  version_count: number
+  ai_annotated_version_count: number
+  png_count: number
+  jpg_count: number
+  other_count: number
+}
+
+/** Exact privacy-sanitized v2 wire envelope used by the next delivery attempt. */
+export interface TelemetryBatch {
+  schema_version: 2
+  batch_id: string
+  installation_id: string
+  sent_at: string
+  final: boolean
+  sessions: TelemetryAppSession[]
+  project_removals: TelemetryProjectRemoval[]
+  hourly_usage: TelemetryHourlyUsage[]
+  hourly_ai_usage: TelemetryHourlyAiUsage[]
+  errors: TelemetryAppError[]
+  installation_state?: TelemetryInstallationState
+  projects: TelemetryProjectState[]
+  deleted_project_ids: string[]
+}
+
+export interface TelemetryPendingCounts {
+  sessions: number
+  projectRemovals: number
+  searchHours: number
+  aiUsageHours: number
+  errors: number
+  projects: number
+  deletedProjects: number
+}
+
+/** Developer-only inspection of the persistent v2 buffer. It never consumes records. */
+export interface TelemetryDiagnostics {
+  enabled: boolean
+  pendingCount: number
+  counts: TelemetryPendingCounts
+  /** Null when reporting is disabled or no data/snapshot has changed. */
+  nextBatch: TelemetryBatch | null
 }
 
 export type ApplicationDiagnosticLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -217,11 +395,23 @@ export interface ApplicationDiagnostic {
   context: unknown | null
 }
 
+/** Sanitized renderer failure forwarded to the trusted main-process reporter. */
+export interface RendererErrorReport {
+  source: 'renderer' | 'preload'
+  kind: 'error' | 'unhandledrejection'
+  message: string
+  name?: string
+  stack?: string
+  occurredAt: string
+}
+
 // ── Renderer → main (request/response) ─────────────────────────────────
 
 export interface ChronicleApi {
   // Native window chrome — keeps Electron's caption controls aligned with the renderer theme.
   setWindowTheme(theme: WindowTheme): Promise<void>
+  /** Reports an unexpected renderer failure; never accepts arbitrary context or user data. */
+  reportRendererError(report: RendererErrorReport): Promise<void>
 
   // F2 — tracked folders
   listFolders(): Promise<TrackedFolder[]>
@@ -288,9 +478,14 @@ export interface ChronicleApi {
   clearControlPlaneDiagnostics(): Promise<void>
   /** Bounded, sanitized lifecycle/error log from the Electron main process. */
   listApplicationDiagnostics(): Promise<ApplicationDiagnostic[]>
-  /** Content-free telemetry events currently waiting in the offline SQLite queue. */
-  listPendingControlPlaneEvents(): Promise<PendingControlPlaneEvent[]>
+  /** Current v2 usage buffer and an exact, non-consuming preview of the next batch. */
+  getTelemetryDiagnostics(): Promise<TelemetryDiagnostics>
   getAccountState(): Promise<AccountState>
+  getAdminStatistics(filters: AdminStatisticsFilters): Promise<AdminStatistics>
+  searchAdminAccounts(search: string): Promise<AdminAccountSummary[]>
+  setAdminRole(userId: string, enabled: boolean): Promise<AdminAccountSummary>
+  deleteAdminErrorGroup(stackFingerprint: string): Promise<void>
+  deleteAllAdminErrors(): Promise<void>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
   /** System-browser Google OAuth with desktop PKCE; returns after Chronicle JWT issuance. */

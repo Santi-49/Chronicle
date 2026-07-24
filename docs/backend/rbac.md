@@ -103,6 +103,7 @@ Seeded by [migration 001](../../services/api/alembic/versions/001_initial_schema
 | `permissions` | admin | admin | admin |
 | `hello` | admin, user | — | — |
 | `account` | admin, user | admin, user | — |
+| `admin_statistics` | admin | — | — |
 
 ---
 

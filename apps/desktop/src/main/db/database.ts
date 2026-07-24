@@ -83,7 +83,12 @@ export function openChronicleDb(filePath: string): ChronicleDb {
         );
     `)
   }
-  db.pragma('user_version = 6')
+  if (previousVersion < 7) {
+    // V2 usage statistics use a compact accumulator rather than v1 per-action
+    // telemetry jobs. Old telemetry payloads do not match the new API contract.
+    db.exec("DELETE FROM queue_items WHERE job_type = 'telemetry'")
+  }
+  db.pragma('user_version = 7')
   return db
 }
 

@@ -1,7 +1,11 @@
-import type { AccountState, ControlPlaneDiagnostic } from '../../shared/ipc'
+import type {
+  AccountState,
+  AdminStatisticsFilters,
+  ControlPlaneDiagnostic,
+} from '../../shared/ipc'
 import type { AppSettings } from '../../shared/settings'
 import type { components } from '../../../../../packages/contracts/api/generated'
-import type { ProjectInventoryPayload, TelemetryPayload } from '../telemetry/emitter'
+import type { TelemetryBatch as TelemetryBatchPayload } from '../telemetry/emitter'
 
 type TokenPair = components['schemas']['TokenPair']
 type User = components['schemas']['UserWithRoles']
@@ -14,7 +18,8 @@ type EncryptedSecretRead = components['schemas']['EncryptedSecretRead']
 // C6 telemetry wire schemas — the request bodies are validated against the
 // generated contract so the emitter allowlist can never drift from it silently.
 type TelemetryBatch = components['schemas']['TelemetryBatch']
-type ProjectInventoryUpsert = components['schemas']['ProjectInventoryUpsert']
+type AdminStatistics = components['schemas']['AdminStatistics']
+type AdminAccountSummary = components['schemas']['AdminAccountSummary']
 
 export interface TokenStore {
   read(): TokenPair | null
@@ -35,6 +40,11 @@ export interface InstallationDescriptor {
 export interface ControlPlaneClient {
   health(): Promise<boolean>
   accountState(): Promise<AccountState>
+  getAdminStatistics(filters: AdminStatisticsFilters): Promise<AdminStatistics>
+  searchAdminAccounts(search: string): Promise<AdminAccountSummary[]>
+  setAdminRole(userId: string, enabled: boolean): Promise<AdminAccountSummary>
+  deleteAdminErrorGroup(stackFingerprint: string): Promise<void>
+  deleteAllAdminErrors(): Promise<void>
   register(email: string, password: string): Promise<AccountState>
   login(email: string, password: string): Promise<AccountState>
   loginWithGoogleCredential(credential: string): Promise<AccountState>
@@ -47,12 +57,8 @@ export interface ControlPlaneClient {
   getEncryptedSecret(): Promise<EncryptedSecretRead | null>
   putEncryptedSecret(envelope: string, expectedRevision: number): Promise<EncryptedSecretRead>
   deleteEncryptedSecret(): Promise<void>
-  /** POST /api/v1/telemetry/events — best-effort, offline-tolerant. */
-  sendTelemetryBatch(events: TelemetryPayload[]): Promise<void>
-  /** PUT /api/v1/telemetry/projects/{id}?installation_id=… */
-  upsertProjectInventory(projectTelemetryId: string, installationId: string, data: ProjectInventoryPayload): Promise<void>
-  /** DELETE /api/v1/telemetry/projects/{id}?installation_id=… */
-  deleteProjectInventory(projectTelemetryId: string, installationId: string): Promise<void>
+  /** POST /api/v1/telemetry/batches — best-effort, offline-tolerant. */
+  sendTelemetryBatch(batch: TelemetryBatchPayload): Promise<void>
 }
 
 export class ControlPlaneError extends Error {
@@ -316,6 +322,35 @@ export function createControlPlaneClient(
       if (!tokens.read()) return { mode: 'local', email: null, isAdmin: false }
       try { return state(await me()) } catch { return { mode: 'local', email: null, isAdmin: false } }
     },
+    getAdminStatistics: (filters) => raw<AdminStatistics>(
+      `/api/v1/admin/statistics?${new URLSearchParams({
+        period_days: String(filters.periodDays ?? 30),
+        ...(filters.startDate ? { start_date: filters.startDate } : {}),
+        ...(filters.endDate ? { end_date: filters.endDate } : {}),
+        ...(filters.accountId ? { account_id: filters.accountId } : {}),
+        ...(filters.country ? { country: filters.country } : {}),
+        ...(filters.osFamily ? { os_family: filters.osFamily } : {}),
+        ...(filters.appVersion ? { app_version: filters.appVersion } : {}),
+      })}`, {}, true,
+    ),
+    searchAdminAccounts: (search) => raw<AdminAccountSummary[]>(
+      `/api/v1/admin/statistics/accounts?${new URLSearchParams({ search })}`, {}, true,
+    ),
+    setAdminRole: (userId, enabled) => raw<AdminAccountSummary>(
+      `/api/v1/admin/statistics/accounts/${encodeURIComponent(userId)}/admin`,
+      { method: enabled ? 'PUT' : 'DELETE' },
+      true,
+    ),
+    deleteAdminErrorGroup: (stackFingerprint) => raw<void>(
+      `/api/v1/admin/statistics/errors/${encodeURIComponent(stackFingerprint)}`,
+      { method: 'DELETE' },
+      true,
+    ),
+    deleteAllAdminErrors: () => raw<void>(
+      '/api/v1/admin/statistics/errors',
+      { method: 'DELETE' },
+      true,
+    ),
     async register(email, password) {
       const prefix = email.split('@')[0] || 'Chronicle'
       await raw<User>('/api/v1/auth/register', {
@@ -372,24 +407,21 @@ export function createControlPlaneClient(
       method: 'PUT', body: JSON.stringify({ envelope, expected_revision: expectedRevision }),
     }, true),
     deleteEncryptedSecret: () => raw<void>('/api/v1/account/secrets', { method: 'DELETE' }, true),
-    async sendTelemetryBatch(events) {
+    async sendTelemetryBatch(payload) {
       // Typed against the generated C6 contract, not a hand-shaped object.
-      const batch: TelemetryBatch = { events }
-      await raw<void>('/api/v1/telemetry/events', {
+      const batch: TelemetryBatch = {
+        ...payload,
+        hourly_usage: payload.hourly_usage.map((row) => ({
+          ...row,
+          keyword_search_count: row.keyword_search_count ?? row.search_count,
+          semantic_search_count: row.semantic_search_count ?? 0,
+          version_capture_count: row.version_capture_count ?? 0,
+          restore_count: row.restore_count ?? 0,
+          project_create_count: row.project_create_count ?? 0,
+        })),
+      }
+      await raw<void>('/api/v1/telemetry/batches', {
         method: 'POST', body: JSON.stringify(batch),
-      })
-    },
-    async upsertProjectInventory(projectTelemetryId, installationId, data) {
-      const qs = `?installation_id=${encodeURIComponent(installationId)}`
-      const body: ProjectInventoryUpsert = data
-      await raw<void>(`/api/v1/telemetry/projects/${encodeURIComponent(projectTelemetryId)}${qs}`, {
-        method: 'PUT', body: JSON.stringify(body),
-      })
-    },
-    async deleteProjectInventory(projectTelemetryId, installationId) {
-      const qs = `?installation_id=${encodeURIComponent(installationId)}`
-      await raw<void>(`/api/v1/telemetry/projects/${encodeURIComponent(projectTelemetryId)}${qs}`, {
-        method: 'DELETE',
       })
     },
   }

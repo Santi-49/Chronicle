@@ -25,6 +25,7 @@ interface SettingsScreenProps {
   onAddProject: () => void
   onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
+  onAdminStateChange: (isAdmin: boolean) => void
 }
 
 const appearanceOptions: { value: ThemePreference; label: string; description: string }[] = [
@@ -40,6 +41,7 @@ export function SettingsScreen({
   onAddProject,
   onDeveloperModeChange,
   onThemePreferenceChange,
+  onAdminStateChange,
 }: SettingsScreenProps) {
   return (
     <section className="page settings-page" aria-labelledby="settings-title">
@@ -53,7 +55,7 @@ export function SettingsScreen({
         <AppearanceSection themePreference={themePreference} onThemePreferenceChange={onThemePreferenceChange} />
         <TrackedFoldersSection onAddProject={onAddProject} />
         <AiSection />
-        <AccountSection />
+        <AccountSection onAdminStateChange={onAdminStateChange} />
         <DeveloperToolsSection
           developerBuild={developerBuild}
           developerMode={developerMode}
@@ -506,7 +508,7 @@ function ProviderModelPicker({
 
 // ── Account ────────────────────────────────────────────────────────────────
 
-function AccountSection() {
+function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdminStateChange'>) {
   const { settings, save } = useSettings()
   const [email, setEmail] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -520,6 +522,7 @@ function AccountSection() {
     const state = await chronicle.getAccountState()
     setEmail(state.email)
     setIsAdmin(state.isAdmin)
+    onAdminStateChange(state.isAdmin)
   }
 
   const checkControlPlane = async () => {
@@ -616,7 +619,7 @@ function AccountSection() {
               onChange={(event) => void updateControlPlane({ telemetryOptIn: event.target.checked })}
               type="checkbox"
             />
-            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends installation and usage counts only; no creative files, names, paths, summaries, tags, or search text.</small></span>
+            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends app activity, provider/model usage, sanitized failures, count snapshots, and coarse location derived by Cloudflare—never creative files, names, paths, summaries, tags, search text, credentials, or raw IP.</small></span>
           </label>
           <label className="toggle-field">
             <input
