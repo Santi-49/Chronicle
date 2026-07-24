@@ -80,6 +80,11 @@ class TelemetryHourlyUsage(Base, TimestampMixin, LocationColumns):
     installation_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     bucket_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     search_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    keyword_search_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    semantic_search_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    version_capture_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    restore_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    project_create_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class TelemetryHourlyAiUsage(Base, TimestampMixin, LocationColumns):
@@ -131,6 +136,8 @@ class InstallationTelemetry(Base, TimestampMixin, LocationColumns):
     embedding_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
     app_version: Mapped[str] = mapped_column(String(32), nullable=False)
     os_family: Mapped[str] = mapped_column(String(16), nullable=False)
+    first_project_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_version_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ProjectTelemetry(Base, TimestampMixin):

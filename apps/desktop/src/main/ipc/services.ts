@@ -371,6 +371,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         void captureVersion(db, libraryRoot, candidate.path)
           .then((result) => {
             if (result.outcome === 'captured') {
+              deps.telemetry?.recordProductActivity('version-capture')
               diagnostic({
                 level: 'debug',
                 source: 'capture',
@@ -658,6 +659,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       pushStatus()
       // POST-04: only enqueue for genuinely new projects, not re-tracks.
       if (!existing) {
+        deps.telemetry?.recordProductActivity('project-create')
         diagnostic({
           level: 'debug',
           source: 'project',
@@ -803,6 +805,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         return { ok: false, reason: 'folder-missing' }
       }
       emit('versionCaptured', { assetId: result.version.assetId, versionId: result.version.id })
+      deps.telemetry?.recordProductActivity('restore')
       pushStatus()
       diagnostic({
         level: 'debug',
@@ -855,7 +858,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         embedQuery,
         embeddingsModel: embeddingModelIdentity(provider, embeddingsModel),
       })
-      deps.telemetry?.recordSearch()
+      deps.telemetry?.recordSearch(embedQuery !== undefined)
       return results
     },
 
@@ -1047,6 +1050,41 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
     async getAccountState() {
       return deps.account?.accountState() ?? { mode: 'local', email: null, isAdmin: false }
+    },
+    async getAdminStatistics(filters) {
+      if (!filters || typeof filters !== 'object' || Array.isArray(filters)) {
+        throw new TypeError('filters must be an object')
+      }
+      if (filters.periodDays !== undefined &&
+          (!Number.isInteger(filters.periodDays) || filters.periodDays < 1 || filters.periodDays > 366)) {
+        throw new TypeError('periodDays must be 1 to 366')
+      }
+      const datePattern = /^\d{4}-\d{2}-\d{2}$/
+      if ((filters.startDate === undefined) !== (filters.endDate === undefined)) {
+        throw new TypeError('startDate and endDate must be provided together')
+      }
+      if ((filters.startDate && !datePattern.test(filters.startDate)) ||
+          (filters.endDate && !datePattern.test(filters.endDate))) {
+        throw new TypeError('custom dates must use YYYY-MM-DD')
+      }
+      return requireAccount().getAdminStatistics(filters)
+    },
+    async searchAdminAccounts(search) {
+      return requireAccount().searchAdminAccounts(expectString(search, 'search').trim())
+    },
+    async setAdminRole(userId, enabled) {
+      if (typeof enabled !== 'boolean') throw new TypeError('enabled must be a boolean')
+      return requireAccount().setAdminRole(expectString(userId, 'userId'), enabled)
+    },
+    async deleteAdminErrorGroup(stackFingerprint) {
+      const fingerprint = expectString(stackFingerprint, 'stackFingerprint')
+      if (fingerprint.length < 16 || fingerprint.length > 128) {
+        throw new TypeError('stackFingerprint must be 16 to 128 characters')
+      }
+      await requireAccount().deleteAdminErrorGroup(fingerprint)
+    },
+    async deleteAllAdminErrors() {
+      await requireAccount().deleteAllAdminErrors()
     },
     async register(email, password) {
       const state = await requireAccount().register(

@@ -15,7 +15,9 @@ role_permissions := {
         {"resource": "permissions", "action": "delete"},
         {"resource": "hello",       "action": "read"},
         {"resource": "account",     "action": "read"},
-        {"resource": "account",     "action": "write"}
+        {"resource": "account",     "action": "write"},
+        {"resource": "admin_statistics", "action": "read"},
+        {"resource": "admin_statistics", "action": "write"}
     ],
     "user": [
         {"resource": "hello",   "action": "read"},

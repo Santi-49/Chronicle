@@ -19,6 +19,7 @@ import homeIcon from '@material-symbols/svg-400/outlined/home.svg'
 import imageIcon from '@material-symbols/svg-400/outlined/image.svg'
 import infoIcon from '@material-symbols/svg-400/outlined/info.svg'
 import keyIcon from '@material-symbols/svg-400/outlined/key.svg'
+import monitoringIcon from '@material-symbols/svg-400/outlined/monitoring.svg'
 import refreshIcon from '@material-symbols/svg-400/outlined/refresh.svg'
 import restoreIcon from '@material-symbols/svg-400/outlined/settings_backup_restore.svg'
 import searchIcon from '@material-symbols/svg-400/outlined/search.svg'
@@ -50,6 +51,7 @@ export type IconName =
   | 'image'
   | 'info'
   | 'key'
+  | 'monitoring'
   | 'refresh'
   | 'restore'
   | 'search'
@@ -81,6 +83,7 @@ const icons: Record<IconName, string> = {
   image: imageIcon,
   info: infoIcon,
   key: keyIcon,
+  monitoring: monitoringIcon,
   refresh: refreshIcon,
   restore: restoreIcon,
   search: searchIcon,
