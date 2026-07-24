@@ -1004,7 +1004,7 @@ and coarse location. Tests assert forbidden content cannot enter payloads; local
 same statistics; opt-out sends at most one final request and never retries; offline product
 behavior is unchanged.
 
-### [~] POST-05 — Build the admin UI for control-plane data `Post-MVP`
+### [X] POST-05 — Build the admin UI for control-plane data `Post-MVP`
 
 **Owner:** Codex (`feat/post-05-admin-ui`)
 **Depends on:** POST-04
