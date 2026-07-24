@@ -17,19 +17,7 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
-import {
-  buildAppOpened,
-  buildVersionCaptured,
-  buildAiSummaryGenerated,
-  buildSearchPerformed,
-  buildProjectAdded,
-  buildProjectRemoved,
-  buildAiProviderConfigured,
-  buildAccountSignedIn,
-  buildRestorePerformed,
-  buildVersionHistoryReset,
-  type TelemetryPayload,
-} from '../telemetry/emitter'
+import type { TelemetryCollector } from '../telemetry/emitter'
 import type {
   AppStatus,
   ApplicationDiagnostic,
@@ -41,6 +29,7 @@ import type {
   ControlPlaneDiagnostic,
   PendingControlPlaneEvent,
   PendingJob,
+  RendererErrorReport,
   TrackedFolder,
   VersionDetails,
   VersionSummary,
@@ -70,7 +59,6 @@ import {
   retryAllFailedAiJobs,
   retryJob,
   getFolderTelemetryId,
-  clearTelemetryQueue,
   type JobType,
   type VersionRecord,
 } from '../db/repositories'
@@ -146,6 +134,8 @@ export interface ChronicleServicesDeps {
   /** Structured lifecycle/error log owned by the Electron wiring layer. */
   applicationDiagnostics?: () => ApplicationDiagnostic[]
   diagnostic?: ApplicationDiagnosticSink
+  rendererDiagnostic?: ApplicationDiagnosticSink
+  preloadDiagnostic?: ApplicationDiagnosticSink
   installation?: Omit<InstallationDescriptor, 'installationId'>
   /** Applies theme colors to native title-bar controls. */
   setWindowTheme: (theme: WindowTheme) => void
@@ -157,7 +147,8 @@ export interface ChronicleServicesDeps {
   /** Decrypts the stored API key for the given provider. Injected by register.ts. */
   readApiKey?: (provider: string) => string | null
   /** Callback fired when the user turns telemetry off — worker clears queue + server inventory. */
-  onTelemetryDisabled?: () => void
+  onTelemetryDisabled?: () => Promise<void>
+  telemetry?: TelemetryCollector
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
   settleMs?: number
   emitInitial?: boolean
@@ -177,6 +168,43 @@ function expectId(value: unknown, name: string): number {
     throw new TypeError(`${name} must be a positive integer`)
   }
   return value
+}
+
+function expectRendererErrorReport(value: unknown): RendererErrorReport {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('renderer error report must be an object')
+  }
+  const report = value as Record<string, unknown>
+  const allowed = new Set(['source', 'kind', 'message', 'name', 'stack', 'occurredAt'])
+  if (Object.keys(report).some((key) => !allowed.has(key))) {
+    throw new TypeError('renderer error report contains an unknown field')
+  }
+  if (report['kind'] !== 'error' && report['kind'] !== 'unhandledrejection') {
+    throw new TypeError('renderer error report kind is invalid')
+  }
+  if (report['source'] !== 'renderer' && report['source'] !== 'preload') {
+    throw new TypeError('renderer error report source is invalid')
+  }
+  for (const key of ['message', 'occurredAt']) {
+    if (typeof report[key] !== 'string' || report[key].length === 0) {
+      throw new TypeError(`renderer error report ${key} must be a non-empty string`)
+    }
+  }
+  for (const key of ['name', 'stack']) {
+    if (report[key] !== undefined && typeof report[key] !== 'string') {
+      throw new TypeError(`renderer error report ${key} must be a string`)
+    }
+  }
+  const message = report['message'] as string
+  const occurredAt = report['occurredAt'] as string
+  return {
+    source: report['source'],
+    kind: report['kind'],
+    message: message.slice(0, 2_000),
+    occurredAt,
+    ...(typeof report['name'] === 'string' ? { name: report['name'].slice(0, 100) } : {}),
+    ...(typeof report['stack'] === 'string' ? { stack: report['stack'].slice(0, 8_000) } : {}),
+  }
 }
 
 function expectString(value: unknown, name: string): string {
@@ -363,19 +391,6 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
                 versionId: result.version.id,
               })
               pushStatus()
-              // POST-04: enqueue a content-free telemetry event (fire-and-forget).
-              void api.getSettings().then((settings) => {
-                if (!settings.controlPlane.telemetryOptIn) return
-                const folder = owningFolder(candidate.path)
-                const projectTelemetryId = folder ? telemetryIdFor(folder.id) : undefined
-                enqueueJob(db, 'telemetry', buildVersionCaptured(
-                  installationId(),
-                  projectTelemetryId,
-                  path.extname(candidate.path),
-                  result.version.sizeBytes,
-                  Date.now() - captureStart,
-                ))
-              }).catch(() => {})
             } else {
               diagnostic({
                 level: 'debug',
@@ -561,6 +576,27 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       deps.setWindowTheme(theme)
     },
 
+    async reportRendererError(value) {
+      const report = expectRendererErrorReport(value)
+      const draft = {
+        timestamp: report.occurredAt,
+        level: 'error' as const,
+        source: 'application' as const,
+        event: report.kind === 'error' ? 'renderer_error' : 'renderer_unhandled_rejection',
+        message: 'The renderer encountered an unexpected error.',
+        context: {
+          operation: 'renderer_runtime',
+          error: {
+            name: report.name ?? 'Error',
+            message: report.message,
+            stack: report.stack ?? null,
+          },
+        },
+      }
+      const sink = report.source === 'preload' ? deps.preloadDiagnostic : deps.rendererDiagnostic
+      ;(sink ?? diagnostic)(draft)
+    },
+
     // F2 — tracked folders
     async listFolders() {
       return listTrackedFolders(db)
@@ -635,11 +671,6 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
             excludedFileCount: folder.excludedPaths.length,
           },
         })
-        void api.getSettings().then((s) => {
-          if (!s.controlPlane.telemetryOptIn) return
-          const tid = telemetryIdFor(folder.id)
-          if (tid) enqueueJob(db, 'telemetry', buildProjectAdded(installationId(), tid))
-        }).catch(() => {})
       }
       return folder
     },
@@ -692,11 +723,9 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         message: `Removed project ${folder.displayName}.`,
         context: { projectId: id, mode: validatedMode },
       })
-      // POST-04: enqueue after successful removal.
-      void api.getSettings().then((s) => {
-        if (!s.controlPlane.telemetryOptIn || !telemetryId) return
-        enqueueJob(db, 'telemetry', buildProjectRemoved(installationId(), telemetryId, validatedMode === 'delete-history'))
-      }).catch(() => {})
+      if (telemetryId) {
+        deps.telemetry?.recordProjectRemoved(telemetryId, validatedMode === 'delete-history')
+      }
     },
 
     // F5 — assets, timeline, details
@@ -756,14 +785,6 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         message: `Reset asset ${id} history to version 1.`,
         context: { assetId: id, versionId: result.version.id },
       })
-      // POST-04
-      void api.getSettings().then((s) => {
-        if (!s.controlPlane.telemetryOptIn) return
-        const asset = getAsset(db, id)
-        const folder = asset ? owningFolder(asset.path) : undefined
-        const tid = folder ? telemetryIdFor(folder.id) : undefined
-        enqueueJob(db, 'telemetry', buildVersionHistoryReset(installationId(), tid))
-      }).catch(() => {})
       return { versionId: result.version.id }
     },
 
@@ -796,14 +817,6 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           versionNumber: result.version.versionNumber,
         },
       })
-      // POST-04
-      void api.getSettings().then((s) => {
-        if (!s.controlPlane.telemetryOptIn) return
-        const asset = version ? getAsset(db, version.assetId) : undefined
-        const folder = asset ? owningFolder(asset.path) : undefined
-        const tid = folder ? telemetryIdFor(folder.id) : undefined
-        enqueueJob(db, 'telemetry', buildRestorePerformed(installationId(), tid, path.extname(asset?.path ?? '')))
-      }).catch(() => {})
       return { ok: true, newVersionNumber: result.version.versionNumber }
     },
 
@@ -843,18 +856,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         embedQuery,
         embeddingsModel: embeddingModelIdentity(provider, embeddingsModel),
       })
-      // POST-04: enqueue content-free search telemetry. Optional and
-      // best-effort — a telemetry failure must never break search itself.
-      if (settings.controlPlane.telemetryOptIn) {
-        try {
-          const mode = results.some((r) => r.matchedBy === 'semantic' || r.matchedBy === 'both')
-            ? (results.some((r) => r.matchedBy === 'keyword' || r.matchedBy === 'both') ? 'hybrid' : 'semantic')
-            : 'keyword'
-          enqueueJob(db, 'telemetry', buildSearchPerformed(
-            installationId(), mode, Date.now() - searchStart, results.length,
-          ))
-        } catch { /* telemetry is optional; never fail a user search */ }
-      }
+      deps.telemetry?.recordSearch()
       return results
     },
 
@@ -978,7 +980,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       const wasOn = current.controlPlane.telemetryOptIn
       const isOff = !next.controlPlane.telemetryOptIn
       if (wasOn && isOff) {
-        void deps.onTelemetryDisabled?.()
+        await deps.onTelemetryDisabled?.()
       }
       return next
     },
@@ -990,10 +992,6 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       if (plaintext.trim() === '') throw new TypeError('key must not be empty')
       await secrets.set(providerId, plaintext)
       pushStatus()
-      // POST-04: fire once per new provider key saved.
-      void api.getSettings().then((s) => {
-        if (s.controlPlane.telemetryOptIn) enqueueJob(db, 'telemetry', buildAiProviderConfigured(installationId(), providerId))
-      }).catch(() => {})
     },
 
     async clearApiKey(provider) {
@@ -1033,12 +1031,19 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       return deps.applicationDiagnostics?.() ?? []
     },
     async listPendingControlPlaneEvents() {
-      return listJobs(db, 'telemetry').map((job): PendingControlPlaneEvent => ({
+      const count = deps.telemetry?.pendingCount() ?? 0
+      const legacy = listJobs(db, 'telemetry').map((job): PendingControlPlaneEvent => ({
         id: job.id,
         queuedAt: job.createdAt,
         retryCount: job.retryCount,
         payload: sanitizeControlPlaneData(job.payload),
       }))
+      return count === 0 ? legacy : [...legacy, {
+        id: 1,
+        queuedAt: new Date().toISOString(),
+        retryCount: 0,
+        payload: sanitizeControlPlaneData({ pendingUsageStatisticRecords: count }),
+      } satisfies PendingControlPlaneEvent]
     },
     async getAccountState() {
       return deps.account?.accountState() ?? { mode: 'local', email: null, isAdmin: false }
@@ -1055,9 +1060,6 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         expectString(email, 'email'), expectString(password, 'password'),
       )
       await afterSignIn()
-      void api.getSettings().then((s) => {
-        if (s.controlPlane.telemetryOptIn) enqueueJob(db, 'telemetry', buildAccountSignedIn(installationId(), 'password'))
-      }).catch(() => {})
       return state
     },
     async loginWithGoogle() {
@@ -1072,9 +1074,6 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         ? await account.linkGoogleCredential(credential)
         : await account.loginWithGoogleCredential(credential)
       await afterSignIn()
-      void api.getSettings().then((s) => {
-        if (s.controlPlane.telemetryOptIn) enqueueJob(db, 'telemetry', buildAccountSignedIn(installationId(), 'google'))
-      }).catch(() => {})
       return state
     },
     async logout() {
@@ -1142,7 +1141,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         pendingJobs: {
           ai: count('ai_annotation'),
           embedding: count('embedding'),
-          telemetry: count('telemetry'),
+          telemetry: count('telemetry') + (deps.telemetry?.pendingCount() ?? 0),
         },
         failedJobs,
         // Ready when the annotation (chat) provider is fully configured AND has
@@ -1196,15 +1195,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           installationId: installationId(),
         }).catch(() => {})
       }
-      // POST-04: enqueue an app_opened event.
-      void api.getSettings().then((settings) => {
-        if (!settings.controlPlane.telemetryOptIn) return
-        enqueueJob(db, 'telemetry', buildAppOpened(
-          installationId(),
-          deps.installation?.appVersion ?? 'unknown',
-          deps.installation?.osFamily ?? 'other',
-        ))
-      }).catch(() => {})
+      deps.telemetry?.recordAppOpened()
     },
     dispose(): Promise<void> {
       return watcher.close()

@@ -217,11 +217,23 @@ export interface ApplicationDiagnostic {
   context: unknown | null
 }
 
+/** Sanitized renderer failure forwarded to the trusted main-process reporter. */
+export interface RendererErrorReport {
+  source: 'renderer' | 'preload'
+  kind: 'error' | 'unhandledrejection'
+  message: string
+  name?: string
+  stack?: string
+  occurredAt: string
+}
+
 // ── Renderer → main (request/response) ─────────────────────────────────
 
 export interface ChronicleApi {
   // Native window chrome — keeps Electron's caption controls aligned with the renderer theme.
   setWindowTheme(theme: WindowTheme): Promise<void>
+  /** Reports an unexpected renderer failure; never accepts arbitrary context or user data. */
+  reportRendererError(report: RendererErrorReport): Promise<void>
 
   // F2 — tracked folders
   listFolders(): Promise<TrackedFolder[]>

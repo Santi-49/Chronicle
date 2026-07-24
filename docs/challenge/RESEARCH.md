@@ -203,15 +203,18 @@ Control-plane data has four distinct purposes and must not be presented as one p
 - optional portable settings sync, excluding device paths, project metadata, and secrets;
 - separate optional end-to-end-encrypted API-key sync for signed-in users, requiring a
   client-held recovery/decryption design before implementation; and
-- default-enabled usage statistics containing pseudonymous project inventory and allowlisted
-  events, never creative content or identifying project/file/search metadata.
+- default-enabled usage statistics containing pseudonymous current-state counts, hourly
+  search/AI rollups, app-open/project-removal records, sanitized application errors, and
+  Cloudflare-derived coarse location, never creative content or identifying project/file/search
+  metadata, credentials, or raw IP.
 
-Project counts can be measured without uploading project identity: each project receives a random
-telemetry-only ID, and the backend stores its current tracked-file count and allowlisted file-type
-distribution. A version-capture event supplies the count increment plus file type, coarse size
-bucket, and timing, but no asset/version ID, exact size, hash, path, or name. These IDs are
-pseudonymous—not anonymous—when linked to an installation/account. Installation registration also
-measures installations, not unique humans, so product/admin copy must use those terms accurately.
+Project/version averages do not require per-capture events: each project receives a random
+telemetry-only ID and the backend stores its current asset/version/annotation counts and
+allowlisted file-type distribution. Search and AI use are cumulative UTC-hour rollups; AI rows
+retain operation, provider, model, outcomes, and latency. Unexpected Node/Electron failures are
+individual sanitized records so reliability can be grouped by component and fingerprint. These
+IDs and IP-derived locations are pseudonymous—not anonymous—when linked to an installation, so
+product/admin copy must use those terms accurately.
 
 The GDPR principles of purpose limitation, data minimization, storage limitation, and security
 require each category to have a defined purpose, lawful basis, retention, export/erasure behavior,
@@ -411,6 +414,10 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
   Use strict allowlisted schemas, client-generated idempotency IDs, short raw-event retention, and
   aggregate admin views. Never claim “all data stays local”; say precisely that the creative
   library stays local and name the AI, telemetry, settings, and encrypted-secret exceptions.
+- Keep the usage model normalized for direct dashboard queries: timestamped sessions/removals,
+  hourly search and provider/model AI counters, individual sanitized errors, and replaceable
+  installation/project snapshots. Derive country/region/city at the Cloudflare edge-facing API,
+  never trust client-supplied location, and never retain `CF-Connecting-IP`.
 - Demonstrate release discipline as technical-execution evidence: one authored desktop version,
   generated/runtime derivations, protected `main` PR checks, a clean Windows build, and a
   health-smoked sidecar. Do not imply the unsigned build is signed or auto-updating. Keep the
@@ -445,6 +452,17 @@ BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Editi
 > Append entries here as new information surfaces. Never delete old entries — mark them
 > superseded if they become stale. Format: `YYYY-MM-DD — finding — source`.
 
+- 2026-07-24 — USAGE-STATISTICS V2: per-capture and reset events were unnecessary for the desired
+  overview. Chronicle now uses current project/version snapshots, hourly search and provider/model
+  AI rollups, timestamped app opens/removals, and first-class sanitized errors. Electron exposes
+  `render-process-gone` and `child-process-gone` for renderer/GPU/utility/OOM/crash coverage.
+  Cloudflare's visitor-location transform supplies country/region/city headers at the Tunnel
+  origin; the API discards raw IP. IP/location combined with persistent identifiers remains
+  personal data requiring explicit disclosure and retention/erasure decisions —
+  [Electron app events](https://www.electronjs.org/docs/latest/api/app),
+  [Cloudflare visitor location headers](https://developers.cloudflare.com/rules/transform/managed-transforms/reference/),
+  [Cloudflare HTTP headers](https://developers.cloudflare.com/fundamentals/reference/http-headers/),
+  [GDPR Recital 30](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679)
 - 2026-07-23 — DESKTOP DIAGNOSTICS: Electron provides packaged/development signals rather than command-name detection, and separates renderer, main-process, network, and crash diagnostics. Chronicle auto-enables Diagnostics in development, offers a device-local packaged-build opt-in, and now includes a bounded/redacted renderer log, runtime state, live control-plane health, exact pending content-free telemetry payloads, and a 200-request sanitized control-plane audit. Rotating process files and explicit bounded network/crash bundles remain follow-up work — [Electron app](https://www.electronjs.org/docs/latest/api/app), [webContents](https://www.electronjs.org/docs/latest/api/web-contents/), [netLog](https://www.electronjs.org/docs/latest/api/net-log/), [crashReporter](https://www.electronjs.org/docs/latest/api/crash-reporter)
 - 2026-07-23 — DEVELOPMENT CONTROL-PLANE URL: electron-vite correctly injected the root `.env` `CHRONICLE_CONTROL_PLANE_URL`, but the gateway client could still prefer a URL persisted by an earlier run before settings migration executed. Development now treats the explicitly configured `.env` endpoint as authoritative from the first request and persists that resolved value when settings load; packaged builds preserve their existing user-override behavior. The current repository `.env` value resolves to `http://localhost:8000`, so a different development service requires changing that value and restarting `npm run dev` — local configuration trace + regression test
 - 2026-07-16 — Event identified: "AI Builders Challenge with IBM Bob", BeMyApp for IBM SkillsBuild; July theme "Reimagine Creative Industries with AI"; submissions due July 31, 2026 11:59 PM ET; prizes $2,250/$1,250/$750/$750 per month + $5,000 grand prize — event page

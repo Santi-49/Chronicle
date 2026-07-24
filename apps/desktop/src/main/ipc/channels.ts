@@ -15,6 +15,7 @@ import type { ChronicleApi, ChronicleEventName, ChronicleEvents } from '../../sh
 
 const API_METHODS = {
   setWindowTheme: true,
+  reportRendererError: true,
   listFolders: true,
   pickFolder: true,
   scanFolder: true,

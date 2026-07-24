@@ -1,7 +1,7 @@
 import type { AccountState, ControlPlaneDiagnostic } from '../../shared/ipc'
 import type { AppSettings } from '../../shared/settings'
 import type { components } from '../../../../../packages/contracts/api/generated'
-import type { ProjectInventoryPayload, TelemetryPayload } from '../telemetry/emitter'
+import type { TelemetryBatch as TelemetryBatchPayload } from '../telemetry/emitter'
 
 type TokenPair = components['schemas']['TokenPair']
 type User = components['schemas']['UserWithRoles']
@@ -14,7 +14,6 @@ type EncryptedSecretRead = components['schemas']['EncryptedSecretRead']
 // C6 telemetry wire schemas — the request bodies are validated against the
 // generated contract so the emitter allowlist can never drift from it silently.
 type TelemetryBatch = components['schemas']['TelemetryBatch']
-type ProjectInventoryUpsert = components['schemas']['ProjectInventoryUpsert']
 
 export interface TokenStore {
   read(): TokenPair | null
@@ -47,12 +46,8 @@ export interface ControlPlaneClient {
   getEncryptedSecret(): Promise<EncryptedSecretRead | null>
   putEncryptedSecret(envelope: string, expectedRevision: number): Promise<EncryptedSecretRead>
   deleteEncryptedSecret(): Promise<void>
-  /** POST /api/v1/telemetry/events — best-effort, offline-tolerant. */
-  sendTelemetryBatch(events: TelemetryPayload[]): Promise<void>
-  /** PUT /api/v1/telemetry/projects/{id}?installation_id=… */
-  upsertProjectInventory(projectTelemetryId: string, installationId: string, data: ProjectInventoryPayload): Promise<void>
-  /** DELETE /api/v1/telemetry/projects/{id}?installation_id=… */
-  deleteProjectInventory(projectTelemetryId: string, installationId: string): Promise<void>
+  /** POST /api/v1/telemetry/batches — best-effort, offline-tolerant. */
+  sendTelemetryBatch(batch: TelemetryBatchPayload): Promise<void>
 }
 
 export class ControlPlaneError extends Error {
@@ -372,24 +367,11 @@ export function createControlPlaneClient(
       method: 'PUT', body: JSON.stringify({ envelope, expected_revision: expectedRevision }),
     }, true),
     deleteEncryptedSecret: () => raw<void>('/api/v1/account/secrets', { method: 'DELETE' }, true),
-    async sendTelemetryBatch(events) {
+    async sendTelemetryBatch(payload) {
       // Typed against the generated C6 contract, not a hand-shaped object.
-      const batch: TelemetryBatch = { events }
-      await raw<void>('/api/v1/telemetry/events', {
+      const batch: TelemetryBatch = payload
+      await raw<void>('/api/v1/telemetry/batches', {
         method: 'POST', body: JSON.stringify(batch),
-      })
-    },
-    async upsertProjectInventory(projectTelemetryId, installationId, data) {
-      const qs = `?installation_id=${encodeURIComponent(installationId)}`
-      const body: ProjectInventoryUpsert = data
-      await raw<void>(`/api/v1/telemetry/projects/${encodeURIComponent(projectTelemetryId)}${qs}`, {
-        method: 'PUT', body: JSON.stringify(body),
-      })
-    },
-    async deleteProjectInventory(projectTelemetryId, installationId) {
-      const qs = `?installation_id=${encodeURIComponent(installationId)}`
-      await raw<void>(`/api/v1/telemetry/projects/${encodeURIComponent(projectTelemetryId)}${qs}`, {
-        method: 'DELETE',
       })
     },
   }

@@ -20,12 +20,13 @@ import { createAiClient } from '../ai/client'
 import { createAiServiceProcess } from '../ai/service-process'
 import { createAiWorker } from '../ai/worker'
 import type { ChronicleDb } from '../db/database'
-import { getFolderFileExts, getSetting } from '../db/repositories'
+import { getSetting } from '../db/repositories'
 import type { AppSettings } from '../../shared/settings'
 import { createControlPlaneClient, resolveControlPlaneBaseUrl } from '../gateway-client/client'
 import { obtainGoogleIdToken } from '../gateway-client/google-oauth'
 import { createSessionStore } from '../gateway-client/session-store'
 import { createTelemetryWorker } from '../telemetry/worker'
+import { createTelemetryCollector, type ErrorProcess } from '../telemetry/emitter'
 import {
   createApplicationDiagnostic,
   diagnosticError,
@@ -108,16 +109,32 @@ const emit: EmitEvent = (event, payload) => {
 
 /** Call once after `app.whenReady()`; returns the live api and a disposer. */
 export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): ChronicleIpc {
+  const osFamily =
+    process.platform === 'win32' ? 'windows'
+      : process.platform === 'darwin' ? 'macos'
+        : process.platform === 'linux' ? 'linux' : 'other'
+  const telemetryCollector = createTelemetryCollector(
+    db,
+    () => getSetting<string>(db, 'control-plane-installation-id') ?? 'unknown',
+    app.getVersion(),
+    osFamily,
+  )
   const applicationDiagnostics: ApplicationDiagnostic[] = []
   let nextApplicationDiagnosticId = 1
-  const recordApplicationDiagnostic: ApplicationDiagnosticSink = (draft): void => {
+  const recordDiagnosticWithProcess = (
+    draft: Parameters<ApplicationDiagnosticSink>[0],
+    processKind: ErrorProcess,
+  ): void => {
     const entry = createApplicationDiagnostic(nextApplicationDiagnosticId++, draft)
     applicationDiagnostics.push(entry)
     if (applicationDiagnostics.length > 500) {
       applicationDiagnostics.splice(0, applicationDiagnostics.length - 500)
     }
     emit('applicationDiagnostic', entry)
+    telemetryCollector.recordDiagnostic(draft, processKind)
   }
+  const recordApplicationDiagnostic: ApplicationDiagnosticSink = (draft): void =>
+    recordDiagnosticWithProcess(draft, 'main')
 
   const controlPlaneDiagnostics: ControlPlaneDiagnostic[] = []
   let nextControlPlaneDiagnosticId = 1
@@ -221,12 +238,11 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
     },
     applicationDiagnostics: () => [...applicationDiagnostics],
     diagnostic: recordApplicationDiagnostic,
+    rendererDiagnostic: (draft) => recordDiagnosticWithProcess(draft, 'renderer'),
+    preloadDiagnostic: (draft) => recordDiagnosticWithProcess(draft, 'preload'),
     installation: {
       appVersion: app.getVersion(),
-      osFamily:
-        process.platform === 'win32' ? 'windows'
-          : process.platform === 'darwin' ? 'macos'
-            : process.platform === 'linux' ? 'linux' : 'other',
+      osFamily,
     },
     setWindowTheme: (theme) => {
       if (process.platform === 'darwin') return
@@ -241,18 +257,17 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
     },
     aiClient,
     readApiKey: (provider) => readApiKey(db, provider),
-    onTelemetryDisabled: () => void telemetryWorker?.disableTelemetry().catch(() => {}),
+    onTelemetryDisabled: () => telemetryWorker?.disableTelemetry() ?? Promise.resolve(),
+    telemetry: telemetryCollector,
   })
 
   // POST-04: telemetry worker — only active when the control-plane client is configured.
   const telemetryWorker = account
-    ? createTelemetryWorker({
-        db,
+      ? createTelemetryWorker({
         account,
+        collector: telemetryCollector,
         getSettings: services.api.getSettings,
         isOnline: () => net.isOnline(),
-        installationId: () => getSetting<string>(db, 'control-plane-installation-id') ?? 'unknown',
-        getFolderFileExts: (folderId) => getFolderFileExts(db, folderId),
         diagnostic: recordApplicationDiagnostic,
       })
     : null
@@ -276,7 +291,7 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
     onQueueChanged: () => {
       void services.api.getAppStatus().then((status) => emit('statusChanged', status))
     },
-    installationId: () => getSetting<string>(db, 'control-plane-installation-id') ?? 'unknown',
+    telemetry: telemetryCollector,
     diagnostic: recordApplicationDiagnostic,
   })
 
@@ -310,6 +325,39 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
   process.on('uncaughtExceptionMonitor', onUncaughtException)
   process.on('unhandledRejection', onUnhandledRejection)
   process.on('warning', onWarning)
+  const onRenderProcessGone = (
+    _event: Electron.Event,
+    _webContents: Electron.WebContents,
+    details: Electron.RenderProcessGoneDetails,
+  ): void => {
+    recordDiagnosticWithProcess({
+      level: 'error',
+      source: 'application',
+      event: 'render_process_gone',
+      message: `Renderer process exited unexpectedly (${details.reason}).`,
+      context: { operation: 'renderer_process', reason: details.reason, exitCode: details.exitCode },
+    }, 'electron')
+  }
+  const onChildProcessGone = (
+    _event: Electron.Event,
+    details: Electron.Details,
+  ): void => {
+    recordDiagnosticWithProcess({
+      level: 'error',
+      source: 'application',
+      event: 'child_process_gone',
+      message: `${details.type} process exited unexpectedly (${details.reason}).`,
+      context: {
+        operation: 'child_process',
+        processType: details.type,
+        reason: details.reason,
+        exitCode: details.exitCode,
+        serviceName: details.serviceName,
+      },
+    }, 'electron')
+  }
+  app.on('render-process-gone', onRenderProcessGone)
+  app.on('child-process-gone', onChildProcessGone)
 
   for (const method of API_METHOD_NAMES) {
     ipcMain.handle(apiChannel(method), async (event, ...args: unknown[]) => {
@@ -354,6 +402,8 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
       process.off('uncaughtExceptionMonitor', onUncaughtException)
       process.off('unhandledRejection', onUnhandledRejection)
       process.off('warning', onWarning)
+      app.off('render-process-gone', onRenderProcessGone)
+      app.off('child-process-gone', onChildProcessGone)
       await aiProcess.stop()
       await services.dispose()
     },

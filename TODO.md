@@ -959,8 +959,8 @@ project/file metadata ever leave the device**.
 > POST-06 must establish and document a valid lawful basis; if consent is the selected basis,
 > this default must change before production because consent must be an affirmative choice.
 
-**May edit:** Desktop telemetry emitter + offline queue (`apps/desktop/src/main/**`),
-`POST /telemetry/events` (batch) and project-inventory upsert/delete endpoints in
+**May edit:** Desktop telemetry collector + offline accumulator (`apps/desktop/src/main/**`),
+`POST /telemetry/batches` and normalized usage-statistics tables/endpoints in
 `services/api/**`, `packages/contracts/api/**` (→ `make generate-types`), telemetry tests.
 **Must not edit:** The F8 privacy rule; C3; local capture/version data.
 
@@ -973,42 +973,36 @@ project/file metadata ever leave the device**.
    to your selected AI provider; API keys leave the device only if you separately enable encrypted
    key sync. You can turn usage reporting off now or later.” Exact final wording is a human/legal
    decision and must match the implemented payloads.
-2. **Project inventory.** Give every local project a random, resettable `projectTelemetryId`
-   unrelated to its database ID/name/path. Upsert only its tracked-file count and a map of counts
-   by allowlisted normalized file type (`png`, `jpg`, later contract-approved values, otherwise
-   `other`). Send on enablement, project/file-count change, and a low-frequency reconciliation.
-   Delete its server record when the project is removed or telemetry is disabled. This enables
-   projects per installation/account and tracked files per project without uploading project
-   identity. Do not claim that a project telemetry UUID is anonymous when linked to an account;
-   it remains pseudonymous control-plane data.
-3. **Usage events.** Batch `app_opened`, `version_captured`, `ai_summary_generated`, and
-   `search_performed` with a random event ID, schema version, occurrence time, installation ID,
-   and optional project telemetry ID. `version_captured` may contain only file type, a coarse
-   size bucket (`<100KB`, `100KB–1MB`, `1–10MB`, `10–50MB`) and capture timing—never an asset ID,
-   version ID/number, exact byte size or hash. AI events may contain provider/model,
-   annotation-vs-embedding operation, outcome, latency and token counts when available. Search
-   events may contain keyword/semantic/hybrid mode, timing and result-count bucket, never query
-   text or matched records.
-4. **Delivery and validation.** Queue offline, upload asynchronously, use event IDs for
-   idempotency, reject unknown event properties/file types server-side, and centralize payload
-   construction behind a strict allowlist plus tests that forbidden data cannot serialize.
-   Disabling telemetry stops new events, clears the local telemetry queue, and requests deletion
-   of the installation/project-level raw telemetry covered by the eventual retention policy;
-   minimal installation registration from POST-03 remains a separately disclosed operation.
+2. **Current state.** Give every local project a random, resettable `projectTelemetryId`
+   unrelated to its database ID/name/path. Upsert typed project asset/version/annotation and
+   PNG/JPG/other counts plus one typed installation snapshot containing totals and the currently
+   configured annotation/embedding provider and model.
+3. **Activity and reliability.** Store timestamped app opens and project removals; cumulative UTC
+   hourly search totals; and cumulative hourly AI attempt/success/failure/latency totals keyed by
+   annotation-vs-embedding operation, provider, and model. Capture unexpected main, preload,
+   renderer, IPC, and Electron renderer/child-process errors as typed records with stable
+   fingerprints and sanitized messages/stacks.
+4. **Location, delivery, and validation.** Derive coarse country/region/city at the API from
+   Cloudflare visitor-location headers; never accept client location or store raw IP. Persist
+   offline, send at startup and once per hour only after changes, and use IDs/cumulative upserts
+   for idempotency. Disabling telemetry attempts one final batch, clears local state regardless of
+   network outcome, and never retries. Reject unknown fields server-side and test that creative
+   content, names, paths, summaries/tags, embeddings, search text, credentials, exact metadata,
+   and raw IP cannot enter payloads.
 
-**Contracts touched:** C6 `POST /telemetry/events` plus `PUT/DELETE
-/telemetry/projects/{projectTelemetryId}` → regenerate TS types. Use discriminated event schemas
-with `extra="forbid"`; do not accept an arbitrary `props` dictionary.
+**Contracts touched:** C6 `POST /telemetry/batches` → regenerate TS types. Use separate strict
+typed collections in a schema-versioned batch; do not accept an arbitrary `props` dictionary.
 
 **Docs to update:** the F1/F8 and data/privacy sections of `docs/spec.md` (the previous signed-in
 opt-in wording is superseded), `docs/challenge/CONSTRAINTS.md`, `docs/backend/**`, and the
 telemetry/settings sections of `docs/desktop/overview.md`; one line in `docs/bob-log.md`.
 
-**Done when:** After a demo run, an admin can answer how many installations/accounts/projects
-are active, projects per account/installation, tracked files per project, file-type distribution,
-new versions captured today, and AI/search usage; tests assert forbidden content cannot enter any
-payload; local mode sends the same content-free statistics while enabled; disabling reporting
-sends no further usage events and removes queued events; offline product behavior is unchanged.
+**Done when:** After a demo run, an admin can answer when the app opened, how many projects were
+removed, searches per hour, average versions per project, configured and actually used AI
+providers/models, AI success/failure rates, and grouped application errors by component/fingerprint
+and coarse location. Tests assert forbidden content cannot enter payloads; local mode sends the
+same statistics; opt-out sends at most one final request and never retries; offline product
+behavior is unchanged.
 
 ### [ ] POST-05 — Build the admin UI for control-plane data `Post-MVP`
 
