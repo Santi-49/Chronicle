@@ -181,7 +181,8 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
   const configuredControlPlaneUrl =
     process.env['CHRONICLE_CONTROL_PLANE_URL']?.trim() ||
     bundledControlPlaneUrl
-  const controlPlaneBaseUrl = configuredControlPlaneUrl || 'http://localhost:8000'
+  const controlPlaneBaseUrl =
+    configuredControlPlaneUrl || 'https://chronicle-api.quick2query.com'
   // During `npm run dev`, the repository .env is the authoritative endpoint.
   // Packaged builds retain the user's persisted override/migration behavior.
   const developmentControlPlaneUrl =
