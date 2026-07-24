@@ -27,7 +27,6 @@ import type {
   FolderMetaPatch,
   FolderScanEntry,
   ControlPlaneDiagnostic,
-  PendingControlPlaneEvent,
   PendingJob,
   RendererErrorReport,
   TrackedFolder,
@@ -75,7 +74,7 @@ import type { EmitEvent } from './channels'
 import { imageUrlForHash } from './media'
 import type { SecretStore } from './secrets'
 import type { ControlPlaneClient, InstallationDescriptor } from '../gateway-client/client'
-import { portableSettings, sanitizeControlPlaneData } from '../gateway-client/client'
+import { portableSettings } from '../gateway-client/client'
 import { decryptProviderKeys, encryptProviderKeys } from '../gateway-client/secret-envelope'
 import { embeddingModelIdentity, search } from '../search'
 import type { AiClient } from '../ai/client'
@@ -1030,20 +1029,21 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     async listApplicationDiagnostics() {
       return deps.applicationDiagnostics?.() ?? []
     },
-    async listPendingControlPlaneEvents() {
-      const count = deps.telemetry?.pendingCount() ?? 0
-      const legacy = listJobs(db, 'telemetry').map((job): PendingControlPlaneEvent => ({
-        id: job.id,
-        queuedAt: job.createdAt,
-        retryCount: job.retryCount,
-        payload: sanitizeControlPlaneData(job.payload),
-      }))
-      return count === 0 ? legacy : [...legacy, {
-        id: 1,
-        queuedAt: new Date().toISOString(),
-        retryCount: 0,
-        payload: sanitizeControlPlaneData({ pendingUsageStatisticRecords: count }),
-      } satisfies PendingControlPlaneEvent]
+    async getTelemetryDiagnostics() {
+      return deps.telemetry?.diagnostics() ?? {
+        enabled: false,
+        pendingCount: 0,
+        counts: {
+          sessions: 0,
+          projectRemovals: 0,
+          searchHours: 0,
+          aiUsageHours: 0,
+          errors: 0,
+          projects: 0,
+          deletedProjects: 0,
+        },
+        nextBatch: null,
+      }
     },
     async getAccountState() {
       return deps.account?.accountState() ?? { mode: 'local', email: null, isAdmin: false }

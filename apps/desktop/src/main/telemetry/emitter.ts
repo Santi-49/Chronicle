@@ -7,6 +7,20 @@
  */
 import { createHash, randomUUID } from 'node:crypto'
 import path from 'node:path'
+import type {
+  TelemetryAiOperation,
+  TelemetryAppError,
+  TelemetryAppSession,
+  TelemetryBatch,
+  TelemetryDiagnostics,
+  TelemetryErrorProcess,
+  TelemetryHourlyAiUsage,
+  TelemetryHourlyUsage,
+  TelemetryInstallationState,
+  TelemetryProjectRemoval,
+  TelemetryProjectState,
+  TelemetryOsFamily,
+} from '../../shared/ipc'
 import type { AppSettings } from '../../shared/settings'
 import type { ApplicationDiagnosticDraft } from '../diagnostics'
 import type { ChronicleDb } from '../db/database'
@@ -19,100 +33,17 @@ import {
 } from '../db/repositories'
 import { sanitizeControlPlaneData } from '../gateway-client/client'
 
-export type OsFamily = 'windows' | 'macos' | 'linux' | 'other'
-export type AiOperation = 'annotation' | 'embedding'
-export type ErrorProcess = 'main' | 'renderer' | 'preload' | 'electron'
-
-export interface AppSessionRecord {
-  id: string
-  opened_at: string
-  app_version: string
-  os_family: OsFamily
-}
-
-export interface ProjectRemovalRecord {
-  id: string
-  project_telemetry_id: string
-  occurred_at: string
-  history_deleted: boolean
-}
-
-export interface HourlyUsageRecord {
-  bucket_start: string
-  search_count: number
-}
-
-export interface HourlyAiUsageRecord {
-  bucket_start: string
-  operation: AiOperation
-  provider: string
-  model: string
-  attempt_count: number
-  success_count: number
-  failure_count: number
-  total_latency_ms: number
-}
-
-export interface AppErrorRecord {
-  id: string
-  occurred_at: string
-  process: ErrorProcess
-  component: string
-  operation: string
-  error_name: string
-  error_code?: string
-  sanitized_message: string
-  stack_fingerprint: string
-  sanitized_stack: string[]
-  severity: 'warning' | 'error' | 'fatal'
-  fatal: boolean
-  handled: boolean
-  app_version: string
-  os_family: OsFamily
-  provider?: string
-  model?: string
-}
-
-export interface InstallationStateRecord {
-  captured_at: string
-  project_count: number
-  asset_count: number
-  version_count: number
-  ai_annotated_version_count: number
-  annotation_provider?: string
-  annotation_model?: string
-  embedding_provider?: string
-  embedding_model?: string
-  app_version: string
-  os_family: OsFamily
-}
-
-export interface ProjectStateRecord {
-  project_telemetry_id: string
-  captured_at: string
-  asset_count: number
-  version_count: number
-  ai_annotated_version_count: number
-  png_count: number
-  jpg_count: number
-  other_count: number
-}
-
-export interface TelemetryBatch {
-  schema_version: 2
-  batch_id: string
-  installation_id: string
-  sent_at: string
-  final: boolean
-  sessions: AppSessionRecord[]
-  project_removals: ProjectRemovalRecord[]
-  hourly_usage: HourlyUsageRecord[]
-  hourly_ai_usage: HourlyAiUsageRecord[]
-  errors: AppErrorRecord[]
-  installation_state?: InstallationStateRecord
-  projects: ProjectStateRecord[]
-  deleted_project_ids: string[]
-}
+export type OsFamily = TelemetryOsFamily
+export type AiOperation = TelemetryAiOperation
+export type ErrorProcess = TelemetryErrorProcess
+export type AppSessionRecord = TelemetryAppSession
+export type ProjectRemovalRecord = TelemetryProjectRemoval
+export type HourlyUsageRecord = TelemetryHourlyUsage
+export type HourlyAiUsageRecord = TelemetryHourlyAiUsage
+export type AppErrorRecord = TelemetryAppError
+export type InstallationStateRecord = TelemetryInstallationState
+export type ProjectStateRecord = TelemetryProjectState
+export type { TelemetryBatch }
 
 interface TelemetryBuffer {
   revision: number
@@ -217,6 +148,7 @@ export interface TelemetryCollector {
   commitBatch(result: { batch: TelemetryBatch; revision: number; snapshotHash: string }): void
   clear(): void
   pendingCount(): number
+  diagnostics(): TelemetryDiagnostics
 }
 
 export function createTelemetryCollector(
@@ -447,10 +379,31 @@ export function createTelemetryCollector(
       for (const folder of listTrackedFolders(db)) clearFolderTelemetryId(db, folder.id)
     },
     pendingCount() {
-      const buffer = read()
-      return buffer.sessions.length + buffer.projectRemovals.length +
-        Object.keys(buffer.hourlyUsage).length + Object.keys(buffer.hourlyAiUsage).length +
-        buffer.errors.length + buffer.deletedProjectIds.length
+      const batch = this.buildBatch()?.batch
+      if (!batch) return 0
+      return batch.sessions.length + batch.project_removals.length +
+        batch.hourly_usage.length + batch.hourly_ai_usage.length + batch.errors.length +
+        batch.projects.length + batch.deleted_project_ids.length +
+        (batch.installation_state ? 1 : 0)
+    },
+    diagnostics() {
+      const nextBatch = enabled() ? this.buildBatch()?.batch ?? null : null
+      const counts = {
+        sessions: nextBatch?.sessions.length ?? 0,
+        projectRemovals: nextBatch?.project_removals.length ?? 0,
+        searchHours: nextBatch?.hourly_usage.length ?? 0,
+        aiUsageHours: nextBatch?.hourly_ai_usage.length ?? 0,
+        errors: nextBatch?.errors.length ?? 0,
+        projects: nextBatch?.projects.length ?? 0,
+        deletedProjects: nextBatch?.deleted_project_ids.length ?? 0,
+      }
+      return {
+        enabled: enabled(),
+        pendingCount: Object.values(counts).reduce((total, count) => total + count, 0) +
+          (nextBatch?.installation_state ? 1 : 0),
+        counts,
+        nextBatch,
+      }
     },
   }
 }

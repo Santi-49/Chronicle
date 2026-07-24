@@ -104,6 +104,36 @@ describe('v2 usage-statistics collector', () => {
     expect(second.batch.hourly_usage[0]?.search_count).toBe(2)
   })
 
+  it('exposes the exact pending batch without consuming it', () => {
+    const telemetry = collector()
+    telemetry.recordAppOpened()
+    telemetry.recordSearch()
+
+    const diagnostics = telemetry.diagnostics()
+    expect(diagnostics.enabled).toBe(true)
+    expect(diagnostics.pendingCount).toBeGreaterThan(0)
+    expect(diagnostics.counts).toMatchObject({ sessions: 1, searchHours: 1 })
+    expect(diagnostics.nextBatch).toMatchObject({
+      schema_version: 2,
+      installation_id: INSTALLATION,
+      sessions: [{ app_version: '0.6.0' }],
+      hourly_usage: [{ search_count: 1 }],
+    })
+
+    expect(telemetry.buildBatch()?.batch.sessions).toHaveLength(1)
+  })
+
+  it('shows no pending batch after unchanged data is committed', () => {
+    const telemetry = collector()
+    telemetry.recordSearch()
+    const sent = telemetry.buildBatch(false, true)!
+    telemetry.commitBatch(sent)
+
+    const diagnostics = telemetry.diagnostics()
+    expect(diagnostics.pendingCount).toBe(0)
+    expect(diagnostics.nextBatch).toBeNull()
+  })
+
   it('does not build normal batches while disabled but permits one final batch', () => {
     const telemetry = collector()
     telemetry.recordAppOpened()
@@ -113,6 +143,11 @@ describe('v2 usage-statistics collector', () => {
     })
     expect(telemetry.buildBatch()).toBeNull()
     expect(telemetry.buildBatch(true, true)?.batch.final).toBe(true)
+    expect(telemetry.diagnostics()).toMatchObject({
+      enabled: false,
+      pendingCount: 0,
+      nextBatch: null,
+    })
   })
 
   it('redacts absolute paths, emails, URL queries, and credentials from error text', () => {

@@ -42,7 +42,7 @@ const API_METHODS = {
   listControlPlaneDiagnostics: true,
   clearControlPlaneDiagnostics: true,
   listApplicationDiagnostics: true,
-  listPendingControlPlaneEvents: true,
+  getTelemetryDiagnostics: true,
   getAccountState: true,
   register: true,
   login: true,

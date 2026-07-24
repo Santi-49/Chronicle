@@ -198,8 +198,9 @@ box — the user never chooses a "mode". Click a result → Version details.
 
 A **Diagnostics** tab appears directly below Search while running `npm run dev`. Packaged builds
 can expose the same tab through **Settings → Developer tools → Developer mode**, stored only on
-that device. The tab shows a non-sensitive runtime snapshot, live control-plane health, every
-content-free usage-statistics records pending in the local accumulator, a 200-request control-plane audit,
+that device. The tab shows a non-sensitive runtime snapshot, live control-plane health, typed counts
+and an exact non-consuming preview of the next usage-statistics batch, the current session's recent
+telemetry delivery attempts, a 200-request control-plane audit,
 and two filterable in-memory logs: a 500-entry structured main-process application stream and a
 250-entry renderer console stream. Application events cover project create/update/remove, version
 capture/restore/reset, watcher activity, successful and failed AI summaries/embeddings, telemetry
@@ -207,8 +208,9 @@ delivery, failed IPC operations, and unexpected process errors. The request audi
 URL/query, method, status,
 latency, headers, request bodies, and response bodies after explicit redaction of authorization values, passwords,
 OAuth credentials, tokens, passphrases, API keys, and encrypted key envelopes. Clear and copy-report
-actions remain local and user initiated; clearing the request audit does not delete pending usage statistics
-or server data and retains the latest independent health result. Structured application, pending,
+actions remain local and user initiated; sent payload history remains session-only, and clearing the
+request audit does not delete pending usage statistics
+or server data and retains the latest independent health result. Structured application, telemetry,
 and request entries are collapsed by default and expand individually to reveal their sanitized
 details. Every top-level Diagnostics card also has an explicit keyboard-accessible Collapse/Expand
 control in its header. Creative-file contents and privileged Node/Electron APIs never cross this

@@ -943,11 +943,19 @@ describe('getAppStatus', () => {
     expect(jobs[0]?.thumbnailUrl).toBe((await services.api.getVersionDetails(capture.versionId)).thumbnailUrl)
     expect(JSON.stringify(jobs)).not.toContain('internal')
 
-    const controlPlaneEvents = await services.api.listPendingControlPlaneEvents()
-    expect(controlPlaneEvents).toHaveLength(1)
-    expect(controlPlaneEvents[0]).toMatchObject({
-      retryCount: 0,
-      payload: { event: 'version_captured', secret: '[redacted]' },
+    expect(await services.api.getTelemetryDiagnostics()).toEqual({
+      enabled: false,
+      pendingCount: 0,
+      counts: {
+        sessions: 0,
+        projectRemovals: 0,
+        searchHours: 0,
+        aiUsageHours: 0,
+        errors: 0,
+        projects: 0,
+        deletedProjects: 0,
+      },
+      nextBatch: null,
     })
   })
 })

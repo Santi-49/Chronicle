@@ -787,6 +787,20 @@
 .control-plane-request-data { display: grid; margin-top: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .control-plane-payload { min-width: 0; }
 .control-plane-request > .control-plane-payload { margin-top: 16px; }
+.telemetry-counts { border-bottom: 1px solid var(--border); }
+.telemetry-preview { padding: 18px 22px; border-bottom: 1px solid var(--border); }
+.telemetry-preview .control-plane-payload { margin-top: 14px; }
+.telemetry-deliveries-heading {
+  display: flex;
+  padding: 18px 22px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.telemetry-deliveries-heading .section-label { margin: 0 0 5px; }
+.telemetry-deliveries-heading h3 { margin: 0; color: var(--text-primary); font-size: 14px; }
+.diagnostics-empty-compact { min-height: 100px; }
 .diagnostics-request-error { margin: 12px 0 0; color: var(--danger); font-size: 10px; }
 .application-event-list {
   max-height: 620px;
