@@ -3,7 +3,7 @@ import { AssetPreview } from '../components/AssetPreview'
 import { Icon } from '../components/Icon'
 import { chronicle } from '../lib/bridge'
 import { aiFailureFeedback } from '../lib/aiFailure'
-import { aiStatusExplanation, aiStatusLabel } from '../lib/aiStatus'
+import { aiStatusLabel, aiStatusLead } from '../lib/aiStatus'
 import { folderForAsset, relativeTime, useAssets, useFolders, useTimeline } from '../lib/useChronicle'
 
 interface TimelineScreenProps {
@@ -191,7 +191,7 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
               const failureFeedback = aiFailureFeedback(version.aiFailure)
               const fallbackSummary = version.aiStatus === 'failed'
                 ? failureFeedback.title
-                : aiStatusExplanation(version.aiStatus, version.format)
+                : aiStatusLead(version.aiStatus, version.format)
               return (
                 <button
                   className="timeline-row"

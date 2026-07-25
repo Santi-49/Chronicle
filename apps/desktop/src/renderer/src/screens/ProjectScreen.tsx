@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AssetPreview } from '../components/AssetPreview'
+import { assetSummaryFallback } from '../lib/aiStatus'
 import { FolderGlyph } from '../components/FolderGlyph'
 import { Icon } from '../components/Icon'
 import {
@@ -128,7 +129,7 @@ export function ProjectScreen({ projectId, onBack, onEdit, onOpenAsset }: Projec
                       {!asset.onDisk && <span className="asset-missing-badge"><Icon name="info" /> Missing</span>}
                       <Icon name="chevron-right" />
                     </span>
-                    <span className="asset-card-summary">{asset.lastSummary ?? 'Waiting for an AI change summary.'}</span>
+                    <span className="asset-card-summary">{asset.lastSummary ?? assetSummaryFallback(asset)}</span>
                     <span className="asset-card-meta"><span>{asset.versionCount} versions</span><span>{relativeTime(asset.lastCapturedAt)}</span></span>
                   </span>
                 </button>

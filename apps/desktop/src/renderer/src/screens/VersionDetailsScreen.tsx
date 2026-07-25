@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 import { formatById } from '../../../shared/formats'
 import { chronicle } from '../lib/bridge'
 import { aiFailureFeedback } from '../lib/aiFailure'
-import { aiStatusExplanation, aiStatusPill } from '../lib/aiStatus'
+import { aiStatusExplanation, aiStatusLead, aiStatusPill } from '../lib/aiStatus'
 import { folderForAsset, formatBytes, relativeTime, useAssets, useFolders, useTimeline, useVersionDetails } from '../lib/useChronicle'
 
 interface VersionDetailsScreenProps {
@@ -189,7 +189,7 @@ export function VersionDetailsScreen({
             <p className="summary-lead">
               {version.summary ?? (version.aiStatus === 'failed'
                 ? failureFeedback.title
-                : aiStatusExplanation(version.aiStatus, version.format))}
+                : aiStatusLead(version.aiStatus, version.format))}
             </p>
             {hasChanges ? (
               <ol className="changes-list">

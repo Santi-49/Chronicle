@@ -49,13 +49,22 @@ export interface ChronicleIpc {
 /**
  * Must run before `app.whenReady()` — Electron requires scheme privileges to
  * be declared before the default session exists. `standard` gives the URLs
- * normal origin/URL parsing; `stream` lets large images stream to <img>.
+ * normal origin/URL parsing; `stream` lets large images stream to <img>;
+ * `supportFetchAPI` + `corsEnabled` let the 3D viewer fetch() a version's
+ * stored bytes from the renderer's own origin (the handler answers with an
+ * allow-origin header).
  */
 export function registerChronicleScheme(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: CHRONICLE_SCHEME,
-      privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true },
+      privileges: {
+        standard: true,
+        secure: true,
+        stream: true,
+        supportFetchAPI: true,
+        corsEnabled: true,
+      },
     },
   ])
 }
@@ -102,6 +111,10 @@ function registerChronicleProtocol(libraryRoot: string, previewRoot: string): vo
         'content-type': contentType,
         // Content-addressed = immutable: the same URL can never change bytes.
         'cache-control': 'public, max-age=31536000, immutable',
+        // <img> loads need no CORS, but the 3D viewer fetch()es the stored bytes
+        // from the renderer's file:// origin. The scheme is registered only in
+        // this app's session, so nothing outside Chronicle can request it.
+        'access-control-allow-origin': '*',
       },
     })
   })

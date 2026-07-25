@@ -13,8 +13,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import * as three from 'three'
-import { objCube } from '../../../main/formats/fixtures'
 import { loadMeshGeometry } from './meshLoaders'
+
+/**
+ * A unit cube with quad faces, declared here rather than imported from the
+ * main-process fixtures so the renderer keeps its own dependency boundary.
+ */
+const OBJ_CUBE = [
+  'v -1 -1 -1', 'v  1 -1 -1', 'v  1  1 -1', 'v -1  1 -1',
+  'v -1 -1  1', 'v  1 -1  1', 'v  1  1  1', 'v -1  1  1',
+  'f 1 2 3 4', 'f 5 6 7 8', 'f 1 5 8 4', 'f 2 6 7 3', 'f 1 2 6 5', 'f 4 3 7 8',
+  '',
+].join('\n')
 
 /** Serve fixture bytes through the fetch() the loader uses for chronicle:// URLs. */
 function serve(bytes: Buffer | string): void {
@@ -39,7 +49,7 @@ vi.mock('occt-import-js/dist/occt-import-js.wasm?url', () => ({
 
 describe('loadMeshGeometry', () => {
   it('loads an OBJ file into positioned, normalled geometry', async () => {
-    serve(objCube())
+    serve(OBJ_CUBE)
     const geometry = await loadMeshGeometry('chronicle://image/obj/x', 'obj', three)
 
     // 6 quads → 12 triangles → 36 non-indexed vertices.
