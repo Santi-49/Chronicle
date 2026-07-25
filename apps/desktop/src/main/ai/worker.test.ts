@@ -5,14 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppSettings } from '../../shared/settings'
 import type { ChronicleDb } from '../db/database'
 import type { AnnotationRecord, QueueItem } from '../db/repositories'
+import { annotationFormatFor, createAiWorker } from './worker'
 import { AiServiceError } from './client'
-import { createAiWorker } from './worker'
+
 
 const state = vi.hoisted(() => ({
   jobs: [] as QueueItem[],
   annotations: new Map<number, AnnotationRecord>(),
   savedEmbedding: undefined as { versionId: number; model: string } | undefined,
   status: undefined as string | undefined,
+  assetPath: 'C:/design/logo.png',
 }))
 
 vi.mock('../db/repositories', () => ({
@@ -55,7 +57,11 @@ vi.mock('../db/repositories', () => ({
       1: { id: 1, assetId: 10, versionNumber: 1, contentHash: 'aa-old' },
       2: { id: 2, assetId: 10, versionNumber: 2, contentHash: 'bb-new' },
     })[id],
-  getAsset: () => ({ id: 10, path: 'C:/design/logo.png', displayName: 'logo.png' }),
+  getAsset: () => ({
+    id: 10,
+    path: state.assetPath,
+    displayName: path.basename(state.assetPath),
+  }),
   listVersions: () => [
     { id: 2, assetId: 10, versionNumber: 2, contentHash: 'bb-new' },
     { id: 1, assetId: 10, versionNumber: 1, contentHash: 'aa-old' },
@@ -102,6 +108,7 @@ beforeEach(() => {
   state.annotations.clear()
   state.savedEmbedding = undefined
   state.status = undefined
+  state.assetPath = 'C:/design/logo.png'
   libraryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ai-worker-'))
   fs.mkdirSync(path.join(libraryRoot, 'aa'))
   fs.mkdirSync(path.join(libraryRoot, 'bb'))
@@ -126,6 +133,11 @@ function workerWith(overrides: Record<string, unknown> = {}) {
       provider: 'openai',
       model: 'text-embedding-3-small',
       dimensions: 2,
+    }),
+    capabilities: vi.fn().mockResolvedValue({
+      service: 'chronicle-ai',
+      version: '0.1.0',
+      annotate: { formats: ['png', 'jpg', 'jpeg', 'psd'] },
     }),
     validateProviderModel: vi.fn().mockResolvedValue({
       valid: true,
@@ -152,6 +164,104 @@ function workerWith(overrides: Record<string, unknown> = {}) {
 }
 
 describe('AI queue worker', () => {
+  it('resolves the C3 format of an annotatable file and defers the rest', () => {
+    expect(annotationFormatFor('C:/design/campaign.psd')).toMatchObject({
+      format: 'psd',
+      mediaType: 'image/vnd.adobe.photoshop',
+    })
+    expect(annotationFormatFor('C:/design/logo.PNG')).toMatchObject({ format: 'png' })
+    // Captured and displayed by the app, but the AI service has no adapter yet.
+    expect(annotationFormatFor('C:/design/model.obj')).toBeNull()
+    // Never captured at all.
+    expect(annotationFormatFor('C:/design/logo.gif')).toBeNull()
+    expect(annotationFormatFor('C:/design/logo')).toBeNull()
+  })
+
+  it('passes original PSD bytes and the Photoshop media type to the local service', async () => {
+    state.assetPath = 'C:/design/campaign.psd'
+    const { worker, client } = workerWith()
+
+    await worker.runOnce()
+
+    expect(client.annotate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileName: 'campaign.psd',
+        format: 'psd',
+        previous: expect.objectContaining({
+          mediaType: 'image/vnd.adobe.photoshop',
+          format: 'psd',
+        }),
+        current: expect.objectContaining({
+          mediaType: 'image/vnd.adobe.photoshop',
+          format: 'psd',
+        }),
+      }),
+    )
+  })
+
+  it('leaves an annotation job queued when the format has no AI adapter', async () => {
+    state.assetPath = 'C:/design/model.obj'
+    const { worker, client, emit } = workerWith()
+
+    await worker.runOnce()
+    await worker.runOnce()
+
+    // Never sent, never failed, never retried — it simply waits for support.
+    expect(client.annotate).not.toHaveBeenCalled()
+    expect(state.jobs).toHaveLength(1)
+    expect(state.jobs[0]).toMatchObject({ status: 'pending', retryCount: 0 })
+    expect(state.status).toBeUndefined()
+    expect(emit).not.toHaveBeenCalled()
+  })
+
+  it('defers a job the running service does not list, even if the registry does', async () => {
+    state.assetPath = 'C:/design/campaign.psd'
+    const { worker, client } = workerWith()
+    // An older sidecar that only implements the two MVP image formats.
+    client.capabilities.mockResolvedValue({
+      service: 'chronicle-ai',
+      version: '0.0.1',
+      annotate: { formats: ['png', 'jpg'] },
+    })
+
+    await worker.runOnce()
+
+    expect(client.annotate).not.toHaveBeenCalled()
+    expect(state.jobs[0]).toMatchObject({ status: 'pending', retryCount: 0 })
+  })
+
+  it('does not let a deferred job block the jobs behind it', async () => {
+    state.assetPath = 'C:/design/model.obj'
+    const { worker, client } = workerWith()
+    // An embedding job queued behind the deferred annotation must still run.
+    state.annotations.set(2, {
+      versionId: 2,
+      summary: 'Existing summary',
+      changes: ['a'],
+      tags: ['tag'],
+      provider: 'google_genai',
+      model: 'gemini-2.5-flash',
+      latencyMs: 10,
+      createdAt: new Date().toISOString(),
+    })
+    state.jobs.push({
+      id: 2,
+      jobType: 'embedding',
+      payload: { versionId: 2 },
+      retryCount: 0,
+      status: 'pending',
+      lastError: null,
+      createdAt: new Date().toISOString(),
+    })
+
+    await worker.runOnce()
+
+    expect(client.embedText).toHaveBeenCalledTimes(1)
+    expect(state.savedEmbedding?.versionId).toBe(2)
+    // The deferred annotation is still the only job left.
+    expect(state.jobs).toEqual([expect.objectContaining({ id: 1, status: 'pending' })])
+  })
+
   it('annotates a version, then embeds and stores its searchable text', async () => {
     const { worker, client, emit } = workerWith()
 
@@ -159,8 +269,17 @@ describe('AI queue worker', () => {
     expect(client.annotate).toHaveBeenCalledWith(
       expect.objectContaining({
         fileName: 'logo.png',
-        previous: { base64: Buffer.from('old').toString('base64'), mediaType: 'image/png' },
-        current: { base64: Buffer.from('new').toString('base64'), mediaType: 'image/png' },
+        format: 'png',
+        previous: {
+          base64: Buffer.from('old').toString('base64'),
+          mediaType: 'image/png',
+          format: 'png',
+        },
+        current: {
+          base64: Buffer.from('new').toString('base64'),
+          mediaType: 'image/png',
+          format: 'png',
+        },
       }),
     )
     expect(state.annotations.get(2)?.summary).toBe('Background changed to teal.')

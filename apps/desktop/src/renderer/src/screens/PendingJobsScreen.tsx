@@ -5,6 +5,7 @@ import { PageHeader } from '../components/PageHeader'
 import { relativeTime, usePendingJobs } from '../lib/useChronicle'
 import { chronicle } from '../lib/bridge'
 import { aiFailureFeedback } from '../lib/aiFailure'
+import { aiStatusExplanation } from '../lib/aiStatus'
 
 const jobLabels = {
   ai_annotation: {
@@ -111,22 +112,34 @@ export function PendingJobsScreen({ onBack }: { onBack: () => void }) {
                 <AssetPreview
                   alt={job.assetName ? `Preview of ${job.assetName}` : 'Queued version preview'}
                   className="job-preview"
+                  format={job.format}
                   src={job.thumbnailUrl ?? undefined}
                 />
                 <div className="job-copy">
-                  <span className="job-kind"><Icon name={copy.icon} />{copy.title}</span>
+                  <span className="job-kind">
+                    <Icon name={job.deferred ? 'hourglass' : copy.icon} />
+                    {job.deferred ? 'Waiting for format support' : copy.title}
+                  </span>
                   <h2>{job.assetName ?? 'Unknown asset'}{job.versionNumber === null ? '' : ` · v${job.versionNumber}`}</h2>
                   <p>
                     {job.state === 'failed'
                       ? `${failureFeedback.title}: ${failureFeedback.explanation}`
-                      : copy.description}
+                      : job.deferred
+                        ? aiStatusExplanation('deferred', job.format)
+                        : copy.description}
                   </p>
                   {job.state === 'failed' && (
                     <p className="job-failure-action">{failureFeedback.action}</p>
                   )}
                 </div>
                 <div className="job-meta">
-                  <strong>{job.state === 'failed' ? 'Needs manual retry' : `#${index + 1} in queue`}</strong>
+                  <strong>
+                    {job.state === 'failed'
+                      ? 'Needs manual retry'
+                      : job.deferred
+                        ? 'Held in queue'
+                        : `#${index + 1} in queue`}
+                  </strong>
                   <span>Queued {relativeTime(job.queuedAt)}</span>
                   {job.retryCount > 0 && <span>{job.retryCount} {job.retryCount === 1 ? 'retry' : 'retries'}</span>}
                   {job.state === 'failed' && job.lastError?.status != null && (

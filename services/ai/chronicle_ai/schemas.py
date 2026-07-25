@@ -5,7 +5,9 @@ import binascii
 import re
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
+
+from .formats import adapter_for, supported_formats
 
 
 NonEmptyText = Annotated[str, Field(min_length=1)]
@@ -19,11 +21,19 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+# Kept explicit so it appears as an enum in the exported OpenAPI schema. A test
+# asserts it stays in step with the adapter registry in chronicle_ai.formats.
+SupportedFormat = Literal["png", "jpg", "jpeg", "psd"]
+
+
 class ImageInput(StrictModel):
-    """One PNG or JPEG transported across the local HTTP boundary."""
+    """Original creative-file bytes or a derived image preview."""
 
     base64: NonEmptyText
-    media_type: Literal["image/png", "image/jpeg"] = Field(alias="mediaType")
+    media_type: Literal[
+        "image/png", "image/jpeg", "image/vnd.adobe.photoshop"
+    ] = Field(alias="mediaType")
+    format: SupportedFormat
 
     @field_validator("base64")
     @classmethod
@@ -33,6 +43,17 @@ class ImageInput(StrictModel):
         except (binascii.Error, ValueError) as error:
             raise ValueError("base64 must contain a valid encoded image") from error
         return value
+
+    @model_validator(mode="after")
+    def format_must_match_media_type(self) -> "ImageInput":
+        adapter = adapter_for(self.format)
+        if adapter is None:
+            raise ValueError(f"format {self.format!r} has no annotation adapter")
+        if self.media_type != adapter.media_type:
+            raise ValueError(
+                f"format {self.format!r} requires mediaType {adapter.media_type!r}"
+            )
+        return self
 
 
 class ProviderConfig(StrictModel):
@@ -65,6 +86,7 @@ class ProviderConfig(StrictModel):
 
 class AnnotateRequest(ProviderConfig):
     file_name: Annotated[str, Field(alias="fileName", min_length=1, max_length=255)]
+    format: SupportedFormat
     previous: ImageInput | None = None
     current: ImageInput
 
@@ -75,6 +97,14 @@ class AnnotateRequest(ProviderConfig):
         if not value:
             raise ValueError("fileName must not be blank")
         return value
+
+    @model_validator(mode="after")
+    def inputs_must_match_request_format(self) -> "AnnotateRequest":
+        if self.current.format != self.format:
+            raise ValueError("current format must match the request format")
+        if self.previous is not None and self.previous.format != self.format:
+            raise ValueError("previous format must match the request format")
+        return self
 
 
 class EmbedTextRequest(ProviderConfig):
@@ -199,9 +229,30 @@ class HealthResponse(StrictModel):
     version: str
 
 
+class AnnotateCapability(StrictModel):
+    """Formats this build can annotate."""
+
+    formats: list[str] = Field(default_factory=lambda: list(supported_formats()))
+
+
+class CapabilitiesResponse(StrictModel):
+    """What the running service implements, so the app never guesses.
+
+    The desktop app captures and displays more formats than the AI service can
+    annotate. It asks here rather than assuming, and keeps a version's
+    annotation job queued while its format is absent from this list.
+    """
+
+    service: Literal["chronicle-ai"] = "chronicle-ai"
+    version: str
+    annotate: AnnotateCapability = Field(default_factory=AnnotateCapability)
+
+
 class ServiceErrorDetail(StrictModel):
     code: Literal[
         "configuration_error",
+        "unsupported_format",
+        "extraction_error",
         "invalid_model_output",
         "provider_unavailable",
         "provider_timeout",

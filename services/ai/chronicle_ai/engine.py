@@ -14,12 +14,14 @@ usage, and estimate the call's cost from the per-task prices. Both accept an
 optional factory argument so unit tests can inject a fake model.
 """
 
+import asyncio
 from typing import Any, Callable
 
 from langchain.chat_models import init_chat_model
 from langchain.embeddings import init_embeddings
 
 from .config import TaskConfig, load_config
+from .formats import adapter_for
 from .prompts import load_annotation_prompt
 from .schemas import (
     AnnotateRequest,
@@ -36,6 +38,10 @@ from .schemas import (
 
 class ConfigurationError(Exception):
     """No provider/model/key was supplied by the request or the environment."""
+
+
+class UnsupportedFormatError(Exception):
+    """The requested format has no adapter in this build (see formats.py)."""
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +135,18 @@ async def annotate_version(
     defaults. The response carries the C3 annotation plus the call's token
     usage and estimated cost.
     """
+    adapter = adapter_for(request.format)
+    if adapter is None:
+        raise UnsupportedFormatError(
+            f"The AI service cannot annotate {request.format!r} files yet."
+        )
+    # Local extraction (when the format needs it) runs off the event loop so a
+    # large document cannot stall other requests.
+    prepared = (
+        await asyncio.to_thread(adapter.prepare, request.previous, request.current)
+        if adapter.prepare is not None
+        else None
+    )
     config = load_config()
     provider = _resolve(request.provider, config.provider, "provider")
     model_name = _resolve(request.model, config.annotate.model, "model")
@@ -151,13 +169,20 @@ async def annotate_version(
     system_prompt, user_prompt = load_annotation_prompt(
         file_name=request.file_name,
         is_first_version=request.previous is None,
+        operation_prefix=adapter.prompt_operation,
     )
 
     # Text first so the model reads the instruction before the image(s).
-    content: list[dict[str, Any]] = [{"type": "text", "text": user_prompt}]
-    if request.previous is not None:
-        content.append(_image_block(request.previous))
-    content.append(_image_block(request.current))
+    if prepared is not None:
+        content: list[dict[str, Any]] = [
+            {"type": "text", "text": f"{user_prompt}\n\n{prepared.context}"}
+        ]
+        content.extend(_image_block(image) for image in prepared.images)
+    else:
+        content = [{"type": "text", "text": user_prompt}]
+        if request.previous is not None:
+            content.append(_image_block(request.previous))
+        content.append(_image_block(request.current))
 
     raw = await structured_model.ainvoke(
         [
@@ -167,6 +192,13 @@ async def annotate_version(
     )
 
     annotation, usage = _parse_structured(raw)
+    if prepared is not None and prepared.confidence_limit is not None:
+        confidence = (
+            prepared.confidence_limit
+            if annotation.confidence is None
+            else min(annotation.confidence, prepared.confidence_limit)
+        )
+        annotation = annotation.model_copy(update={"confidence": confidence})
     cost = _estimate_cost(usage, config.annotate)
     return AnnotateResponse(**annotation.model_dump(), usage=usage, cost=cost)
 
@@ -243,8 +275,9 @@ async def validate_provider_model(
             {
                 **common,
                 "fileName": "configuration-check.png",
+                "format": "png",
                 "previous": None,
-                "current": {"base64": _VALIDATION_PNG, "mediaType": "image/png"},
+                "current": {"base64": _VALIDATION_PNG, "mediaType": "image/png", "format": "png"},
             }
         ),
         model_factory=model_factory,

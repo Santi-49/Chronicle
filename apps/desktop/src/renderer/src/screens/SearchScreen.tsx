@@ -79,7 +79,7 @@ export function SearchScreen({ onOpenVersion }: SearchScreenProps) {
               onClick={() => onOpenVersion(version.assetId, version.id)}
               type="button"
             >
-              <AssetPreview src={version.thumbnailUrl} alt={assetName} />
+              <AssetPreview src={version.thumbnailUrl} alt={assetName} format={version.format} />
               <span className="search-result-copy">
                 <span className="search-result-title"><strong>{assetName}</strong><span>Version {version.versionNumber}</span></span>
                 <span>{snippet || version.summary || 'No summary yet'}</span>

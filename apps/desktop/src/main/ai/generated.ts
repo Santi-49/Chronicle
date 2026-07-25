@@ -24,6 +24,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Capabilities
+         * @description Report which annotation formats this build implements.
+         *
+         *     The desktop app captures and displays more creative formats than the AI
+         *     service can annotate. It reads this list instead of assuming, and leaves a
+         *     version's annotation job queued while its format is missing here.
+         */
+        get: operations["capabilities_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/annotate": {
         parameters: {
             query?: never;
@@ -82,6 +106,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AnnotateCapability
+         * @description Formats this build can annotate.
+         */
+        AnnotateCapability: {
+            /** Formats */
+            formats?: string[];
+        };
         /** AnnotateRequest */
         AnnotateRequest: {
             /** Provider */
@@ -92,6 +124,11 @@ export interface components {
             apiKey?: string | null;
             /** Filename */
             fileName: string;
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "png" | "jpg" | "jpeg" | "psd";
             previous?: components["schemas"]["ImageInput"] | null;
             current: components["schemas"]["ImageInput"];
         };
@@ -110,6 +147,25 @@ export interface components {
             confidence?: number | null;
             usage?: components["schemas"]["TokenUsage"] | null;
             cost?: components["schemas"]["CostEstimate"] | null;
+        };
+        /**
+         * CapabilitiesResponse
+         * @description What the running service implements, so the app never guesses.
+         *
+         *     The desktop app captures and displays more formats than the AI service can
+         *     annotate. It asks here rather than assuming, and keeps a version's
+         *     annotation job queued while its format is absent from this list.
+         */
+        CapabilitiesResponse: {
+            /**
+             * Service
+             * @default chronicle-ai
+             * @constant
+             */
+            service: "chronicle-ai";
+            /** Version */
+            version: string;
+            annotate?: components["schemas"]["AnnotateCapability"];
         };
         /**
          * CostEstimate
@@ -177,7 +233,7 @@ export interface components {
         };
         /**
          * ImageInput
-         * @description One PNG or JPEG transported across the local HTTP boundary.
+         * @description Original creative-file bytes or a derived image preview.
          */
         ImageInput: {
             /** Base64 */
@@ -186,7 +242,12 @@ export interface components {
              * Mediatype
              * @enum {string}
              */
-            mediaType: "image/png" | "image/jpeg";
+            mediaType: "image/png" | "image/jpeg" | "image/vnd.adobe.photoshop";
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "png" | "jpg" | "jpeg" | "psd";
         };
         /** ServiceErrorDetail */
         ServiceErrorDetail: {
@@ -194,7 +255,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "configuration_error" | "invalid_model_output" | "provider_unavailable" | "provider_timeout" | "provider_error";
+            code: "configuration_error" | "unsupported_format" | "extraction_error" | "invalid_model_output" | "provider_unavailable" | "provider_timeout" | "provider_error";
             /** Message */
             message: string;
         };
@@ -286,6 +347,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    capabilities_capabilities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapabilitiesResponse"];
                 };
             };
         };

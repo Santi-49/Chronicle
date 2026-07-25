@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 from chronicle_ai import routes
+from chronicle_ai.formats import supported_formats
 from chronicle_ai.main import app
 from chronicle_ai.schemas import (
     AnnotateResponse,
@@ -29,21 +30,22 @@ client = TestClient(app)
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
-VALID_IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png"}
+VALID_IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png", "format": "png"}
 
 ANNOTATE_PAYLOAD = {
     "provider": "test-provider",
     "model": "test-chat-model",
     "apiKey": "secret",
     "fileName": "logo.png",
+    "format": "png",
     "previous": None,
     "current": VALID_IMAGE,
 }
 
 ANNOTATE_DIFF_PAYLOAD = {
     **ANNOTATE_PAYLOAD,
-    "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png"},
-    "current": {"base64": "Y3VycmVudA==", "mediaType": "image/png"},
+    "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png", "format": "png"},
+    "current": {"base64": "Y3VycmVudA==", "mediaType": "image/png", "format": "png"},
 }
 
 ANNOTATION_RESULT = AnnotateResponse(
@@ -70,6 +72,25 @@ def test_health_does_not_require_provider_configuration() -> None:
         "service": "chronicle-ai",
         "version": __version__,
     }
+
+
+def test_capabilities_reports_the_annotatable_formats() -> None:
+    """The desktop app reads this instead of assuming what the service can do."""
+
+    response = client.get("/capabilities")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "service": "chronicle-ai",
+        "version": __version__,
+        "annotate": {"formats": list(supported_formats())},
+    }
+
+
+def test_capabilities_needs_no_provider_or_credential() -> None:
+    # It must answer while offline and unconfigured, because the app calls it
+    # before deciding whether a queued annotation job can run at all.
+    assert client.get("/capabilities").status_code == 200
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +144,49 @@ def test_annotate_rejects_unsupported_media_type() -> None:
     assert response.status_code == 422
 
 
+def test_annotate_rejects_unsupported_format_with_typed_validation_error() -> None:
+    response = client.post(
+        "/annotate",
+        json={
+            **ANNOTATE_PAYLOAD,
+            "format": "gif",
+            "current": {**VALID_IMAGE, "format": "gif"},
+        },
+    )
+
+    assert response.status_code == 422
+    errors = response.json()["detail"]
+    assert any(
+        error["type"] == "literal_error"
+        and error["loc"] in (["body", "format"], ["body", "current", "format"])
+        for error in errors
+    )
+
+
+def test_annotate_rejects_corrupt_psd_with_typed_extraction_error() -> None:
+    response = client.post(
+        "/annotate",
+        json={
+            **ANNOTATE_PAYLOAD,
+            "fileName": "broken.psd",
+            "format": "psd",
+            "current": {
+                "base64": "bm90IGEgcHNk",
+                "mediaType": "image/vnd.adobe.photoshop",
+                "format": "psd",
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": {
+            "code": "extraction_error",
+            "message": "The PSD file is corrupt or unsupported.",
+        }
+    }
+
+
 def test_provider_errors_are_sanitized(monkeypatch) -> None:
     async def fail(_request):
         raise RuntimeError("provider leaked secret-key")
@@ -135,8 +199,9 @@ def test_provider_errors_are_sanitized(monkeypatch) -> None:
             "model": "test-chat-model",
             "apiKey": "secret-key",
             "fileName": "logo.png",
+            "format": "png",
             "previous": None,
-            "current": {"base64": "aW1hZ2U=", "mediaType": "image/png"},
+            "current": {"base64": "aW1hZ2U=", "mediaType": "image/png", "format": "png"},
         },
     )
 

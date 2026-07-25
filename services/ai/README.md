@@ -14,12 +14,53 @@ to the configured provider.
 | Method | Route         | Purpose |
 |--------|---------------|---------|
 | `GET`  | `/health`     | Confirms the process is up without calling a provider. |
+| `GET`  | `/capabilities` | Reports which annotation formats **this build** implements, so the app never assumes. |
 | `POST` | `/annotate`   | First-version description (`previous: null`) or previous-vs-current diff. |
 | `POST` | `/embed-text` | One embedding vector for a version's summary+tags or a search query. |
 | `POST` | `/validate-provider-model` | Uses the supplied BYOK key to make a minimal task-specific provider call and report whether the model is reachable. |
 
-Images cross the boundary as base64 plus `image/png` / `image/jpeg`. Provider,
-model and the BYOK key arrive per request (or fall back to the env defaults
+### Format adapters
+
+Requests to `/annotate` carry an explicit file format enum (`format`: `"png"` | `"jpg"` |
+`"jpeg"` | `"psd"`) alongside base64 data and media types. The format selects an adapter from the
+registry in `chronicle_ai/formats.py`; nothing else in the service branches on a file type. An
+adapter declares its media type, which prompt sections to use, and — optionally — a local
+extraction step that converts opaque bytes into provider-safe evidence.
+
+PNG/JPEG have no extraction step and go through the direct image path. PSD bytes use
+`image/vnd.adobe.photoshop` and are parsed locally; opaque PSD bytes are never sent to the
+provider. A format with no adapter is rejected with a typed `unsupported_format` error.
+
+**Adding a format:** add one `FormatAdapter` to the registry, add its prompt sections to
+`packages/prompts/version-annotation.md`, and widen the `SupportedFormat` literal in
+`schemas.py` (a test asserts the literal and the registry stay in step). Then regenerate the C3
+types with `npm run generate-ai-types` from `apps/desktop`.
+
+The desktop app captures and displays more creative formats than this service can annotate. It
+reads `/capabilities` rather than assuming, and keeps a version's annotation job **queued** while
+its format is missing from that list — so shipping an adapter here is all it takes to make those
+queued versions summarize themselves.
+
+### PSD annotation path (POST-02)
+
+`psd-tools` opens PSD documents under a 64 MB declared-geometry allocation cap and Chronicle's
+existing 50 MB file cap. The service extracts a bounded document/layer inventory (IDs or paths,
+kind, visibility, opacity, bounds, and available type-layer text), then computes a deterministic
+structure diff. It derives at most one provider image:
+
+- first version: one JPEG composite preview, maximum edge 1024 px;
+- visual diff: one 1024×512 JPEG contact sheet (`BEFORE` left, `AFTER` right), using a padded crop
+  when the changed region occupies less than 40% of the canvas;
+- pixel-identical normalized composites: no image, only the compact structure diff.
+
+Parsing/compositing runs off the async event loop (as does any adapter's extraction step). Layer inventories stop at 40 records, diffs
+at 24 changes, and the final JSON evidence is capped at 7,000 characters. Font, Smart Object,
+adjustment-layer, truncation, and render limitations become
+explicit coverage warnings; warning-bearing results have confidence capped at 0.75. Corrupt or
+oversized PSD inputs return a typed `extraction_error` without calling a provider. PSB remains
+unsupported until its large-document isolation and resource policy are implemented.
+
+Provider, model and the BYOK key arrive per request (or fall back to the env defaults
 below). Annotation output is the C3 shape — `summary`, `changes`, `tags`,
 nullable `confidence` — plus `usage` (token counts) and `cost` (estimated USD
 from the configured per-task prices). Embedding responses carry the same
@@ -63,6 +104,7 @@ services/ai/
     schemas.py              # strict Pydantic v2 request/response models
     prompts.py              # loads the versioned prompt from packages/prompts/
     image_loader.py         # local-file helper for fixtures / smoke tests
+    psd_adapter.py          # bounded PSD extraction, structure diff, and derived preview
     export_openapi.py       # writes packages/contracts/ai/openapi.json
   tests/                    # provider-mocked contract + behaviour tests
 ```

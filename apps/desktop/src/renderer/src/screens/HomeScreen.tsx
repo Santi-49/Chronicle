@@ -1,4 +1,5 @@
 import { AssetPreview } from '../components/AssetPreview'
+import { assetSummaryFallback } from '../lib/aiStatus'
 import { FolderGlyph } from '../components/FolderGlyph'
 import { Icon } from '../components/Icon'
 import { PageHeader } from '../components/PageHeader'
@@ -93,10 +94,10 @@ export function HomeScreen({ onAddProject, onOpenProject, onOpenAsset, onViewPro
                 onClick={() => onOpenAsset(asset.id, folderForAsset(asset, folders)?.id)}
                 type="button"
               >
-                <AssetPreview src={asset.thumbnailUrl} alt={asset.displayName} />
+                <AssetPreview src={asset.thumbnailUrl} alt={asset.displayName} format={asset.format} />
                 <span className="activity-copy">
                   <span><strong>{asset.displayName}</strong><small>{asset.versionCount} versions</small></span>
-                  <span>{asset.lastSummary ?? 'Waiting for an AI change summary.'}</span>
+                  <span>{asset.lastSummary ?? assetSummaryFallback(asset)}</span>
                   <small>{relativeTime(asset.lastCapturedAt)}{asset.onDisk ? '' : ' · file no longer on disk'}</small>
                 </span>
                 <Icon name="chevron-right" />

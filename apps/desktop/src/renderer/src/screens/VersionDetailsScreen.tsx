@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { AssetPreview } from '../components/AssetPreview'
+import { VersionVisual } from '../components/VersionVisual'
 import { Icon } from '../components/Icon'
+import { formatById } from '../../../shared/formats'
 import { chronicle } from '../lib/bridge'
 import { aiFailureFeedback } from '../lib/aiFailure'
+import { aiStatusExplanation, aiStatusLead, aiStatusPill } from '../lib/aiStatus'
 import { folderForAsset, formatBytes, relativeTime, useAssets, useFolders, useTimeline, useVersionDetails } from '../lib/useChronicle'
 
 interface VersionDetailsScreenProps {
@@ -36,7 +38,7 @@ export function VersionDetailsScreen({
   const asset = assets.find((a) => a.id === assetId)
   const folder = asset ? folderForAsset(asset, folders) : undefined
   const folderId = projectId ?? folder?.id
-  const format = asset?.displayName.split('.').pop()?.toUpperCase()
+  const format = version?.format ? formatById(version.format).label : null
   const currentIndex = versions.findIndex((item) => item.id === versionId)
   const newerVersion = currentIndex > 0 ? versions[currentIndex - 1] : undefined
   const olderVersion = currentIndex >= 0 ? versions[currentIndex + 1] : undefined
@@ -163,7 +165,7 @@ export function VersionDetailsScreen({
       <div className="version-layout">
         <div className="version-visual-column">
           <div className="large-preview-frame">
-            <AssetPreview src={version.imageUrl} alt={`Version ${version.versionNumber}`} />
+            <VersionVisual version={version} />
           </div>
           <dl className="metadata-grid">
             <div><dt>File size</dt><dd>{formatBytes(version.sizeBytes)}</dd></div>
@@ -181,13 +183,13 @@ export function VersionDetailsScreen({
                 <h2>What changed</h2>
               </div>
               <span className={`version-status status-${version.aiStatus}`}>
-                <i /> {version.aiStatus === 'done' ? 'Ready' : version.aiStatus === 'none' ? 'Restore' : version.aiStatus}
+                <i /> {aiStatusPill(version.aiStatus)}
               </span>
             </div>
             <p className="summary-lead">
               {version.summary ?? (version.aiStatus === 'failed'
                 ? failureFeedback.title
-                : 'This version is stored locally. Its AI summary is not available yet.')}
+                : aiStatusLead(version.aiStatus, version.format))}
             </p>
             {hasChanges ? (
               <ol className="changes-list">
@@ -203,11 +205,7 @@ export function VersionDetailsScreen({
                       <p>{failureFeedback.action}</p>
                     </div>
                   ) : (
-                    <span>
-                      {version.aiStatus === 'pending'
-                        ? 'The AI change summary is being generated.'
-                        : 'This version is stored locally. Its AI summary is not available yet.'}
-                    </span>
+                    <span>{aiStatusExplanation(version.aiStatus, version.format)}</span>
                   )}
                 </div>
               )
