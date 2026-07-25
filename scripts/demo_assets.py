@@ -1,45 +1,51 @@
 #!/usr/bin/env python3
 """Chronicle demo asset generator.
 
-Produces a small, git-ignored pack of creative assets to exercise the app end
-to end: a tracked *workspace* folder you point Chronicle at, plus an untouched
-*sources* library holding several distinct versions of each file. Swapping a
-source version into the workspace overwrites the tracked file exactly like a
-designer re-saving in Photoshop — Chronicle then captures a new version and the
-AI describes the change (colour swap, price edit, removed tagline, ...).
+Produces a pack of creative files covering **every format Chronicle captures**,
+to exercise the app end to end: a watched *workspace* tree you point Chronicle
+at, plus an untouched *sources* library holding three versions of each file.
+Swapping a source version into the workspace overwrites the tracked file exactly
+like a designer re-saving — Chronicle then captures a new version, previews it,
+and (for the formats with AI support) describes what changed.
 
-Layout under demo-assets/ (sources/ is committed; workspace/ + state are git-ignored):
+Layout under demo-assets/ (sources/ is committed; workspace/ + state are ignored):
 
     demo-assets/
-      sources/                 <- COMMITTED untouched version library (never watched)
-        logo/    logo_v1.png  logo_v2.png  logo_v3.png
-        banner/  banner_v1.jpg ...
-        product/ product_v1.jpg ...
-      workspace/               <- POINT CHRONICLE HERE (files get replaced; git-ignored)
-        logo.png
-        banner.jpg
-        product.jpg
-      .state.json              <- which source version each workspace file holds (git-ignored)
+      sources/<asset>/<asset>_v<N>.<ext>   <- COMMITTED version library
+      workspace/                           <- POINT CHRONICLE HERE
+        brand/            chronicle-mark.svg
+        marketing/        banner.jpg · hero.jpg
+        marketing/print/  poster.psd · billboard.psb
+        marketing/social/ ad-square.psd
+        photography/      product.jpg
+        3d/               logo-badge.obj
+        cad/              mounting-bracket.step
+        blender/          product-scene.blend
+      .state.json                          <- current workspace version per asset
 
-Only ``generate`` needs Pillow (it re-renders the committed sources). The everyday
-commands — reset/set/next/status/clean — only copy files, so a fresh clone can drive
-the workspace straight from the committed sources with no extra dependency.
+The nested tree is deliberate: it exercises recursive watching, and the
+per-discipline subfolders make the project form's file-type toggles easy to demo.
+
+Only ``generate`` needs Pillow (it re-renders the committed sources). The
+everyday commands — reset/set/next/status/clean — only copy files, so a fresh
+clone can drive the workspace straight from the committed sources.
 
 Commands (usually driven by the Makefile):
 
-    generate            (re)build sources/ and reset workspace to v1
-    reset               copy every asset's v1 into workspace/
-    set   <asset> <n>   put a specific version into the workspace
-    next  [asset]       advance one asset (or all) to its next version, wrapping
-    status              print the current workspace version of each asset
-    clean               delete workspace/ and .state.json; preserve committed sources/
+    generate                 (re)build sources/ and reset the workspace to v1
+    reset                    copy every asset's v1 into workspace/
+    set   <asset|format> <n> put a specific version into the workspace
+    next  [asset|format]     advance one asset, one format, or everything
+    status [format]          print the current workspace version of each asset
+    clean                    delete workspace/ and .state.json; keep sources/
 
-The changes between versions are intentionally obvious so the AI diff has an
-easy, demo-friendly story to tell:
+`<asset|format>` accepts an asset id (``logo``), a format id (``psd`` — every
+PSD at once), or ``all``.
 
-    logo     navy w/ tagline  ->  teal w/ tagline  ->  teal, tagline removed
-    banner   40% OFF / orange ->  50% OFF / orange ->  50% OFF / purple + urgency
-    product  grey bottle      ->  green bottle     ->  green bottle + NEW badge
+Every version changes one obvious thing, so the diff has a story to tell. The
+full table lives in demo-assets/README.md; the highlight is the Chronicle mark,
+whose first version is the real mark mirrored left-to-right in an amber palette
+and whose third is today's blue mark.
 """
 
 from __future__ import annotations
@@ -47,156 +53,152 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 # Pillow is only needed to (re)render the source library. The everyday file-copy
 # commands work without it, so a fresh clone can drive the committed sources.
 try:
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image
 except ModuleNotFoundError:  # pragma: no cover - guidance only
-    Image = ImageDraw = ImageFont = None  # type: ignore[assignment]
+    Image = None  # type: ignore[assignment]
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 # --- Paths -----------------------------------------------------------------
-# demo-assets/ lives at the repo root (this file is scripts/demo_assets.py).
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ROOT = REPO_ROOT / "demo-assets"
 SOURCES = ROOT / "sources"
 WORKSPACE = ROOT / "workspace"
 STATE_FILE = ROOT / ".state.json"
 
-# --- Asset catalogue -------------------------------------------------------
-# Each asset renders to `versions` distinct source files; the workspace holds
-# one at a time under a stable name (so Chronicle treats it as one asset).
-ASSETS: dict[str, dict] = {
-    "logo": {"ext": "png", "size": (1000, 1000), "versions": 3},
-    "banner": {"ext": "jpg", "size": (1200, 400), "versions": 3},
-    "product": {"ext": "jpg", "size": (1000, 1000), "versions": 3},
-}
-
-# --- Palette ---------------------------------------------------------------
-NAVY = (18, 28, 71)
-TEAL = (13, 115, 119)
-ORANGE = (222, 106, 30)
-PURPLE = (91, 46, 138)
-INK = (24, 24, 27)
-PAPER = (247, 247, 248)
-CLOUD = (228, 230, 235)
-GREY = (120, 124, 132)
-GREEN = (46, 139, 87)
-RED = (200, 52, 52)
-WHITE = (250, 250, 250)
+#: Fixed timestamp so regenerating the pack produces byte-identical files.
+TIMESTAMP = "2026-07-25T00:00:00"
 
 
-# --- Font helper -----------------------------------------------------------
-def _font(size: int) -> ImageFont.FreeTypeFont:
-    """A scalable font at the requested size, falling back to Pillow's default.
+# --- Catalogue -------------------------------------------------------------
+@dataclass(frozen=True)
+class Asset:
+    """One tracked file: where it lives, and how each version is produced."""
 
-    Pillow bundles a scalable default font (``load_default(size=...)`` since
-    v10.1), so this needs no system fonts and stays deterministic across
-    machines.
+    #: Unique id; also the sources/ subdirectory name.
+    id: str
+    #: Workspace-relative directory, e.g. "brand/icons".
+    directory: str
+    #: Format id, matching apps/desktop/src/shared/formats.ts.
+    format: str
+    #: File extension without the dot (".stp" and ".step" are both STEP).
+    ext: str
+    #: One-line story, for the README and `status` output.
+    story: str
+    #: build(version) -> str | bytes | PIL.Image | Document | _Blend
+    build: Callable[[int], object] = field(repr=False, default=None)  # type: ignore[assignment]
+    versions: int = 3
+
+    @property
+    def filename(self) -> str:
+        return f"{self.id}.{self.ext}"
+
+
+@dataclass
+class _Blend:
+    """A `.blend` payload, written when the asset is saved."""
+
+    thumbnail: object
+    compress: bool
+
+
+def _catalogue() -> list[Asset]:
+    """Build the asset list.
+
+    The format writers are imported here rather than at module scope so the
+    copy-only commands keep working without Pillow installed.
     """
-    try:
-        return ImageFont.load_default(size=size)
-    except TypeError:  # very old Pillow: bitmap default, size ignored
-        return ImageFont.load_default()
+    from demo_formats import mesh, raster, step, vector
+    from demo_formats.photoshop import Document, Layer
 
+    def layered(
+        version: int,
+        size: tuple[int, int],
+        large: bool,
+        artwork: dict[str, Image.Image],
+        anchors: dict[str, tuple[float, float]],
+    ) -> Document:
+        """Place layer artwork on the canvas and flatten it into the composite.
 
-def _center_text(
-    draw: ImageDraw.ImageDraw,
-    xy: tuple[int, int],
-    text: str,
-    font: ImageFont.FreeTypeFont,
-    fill,
-    *,
-    weight: int = 1,
-) -> None:
-    """Draw horizontally-centred text at (cx, top). `weight` fakes bold by
-    overdrawing with small offsets (the bundled font has no bold variant)."""
-    cx, top = xy
-    left, t, right, b = draw.textbbox((0, 0), text, font=font)
-    w = right - left
-    x = cx - w // 2
-    for dx in range(weight):
-        draw.text((x + dx, top), text, font=font, fill=fill)
-
-
-# --- Renderers -------------------------------------------------------------
-def render_logo(version: int, size: tuple[int, int]) -> Image.Image:
-    w, h = size
-    bg = NAVY if version == 1 else TEAL
-    img = Image.new("RGB", size, bg)
-    d = ImageDraw.Draw(img)
-
-    # Emblem: a ring (version "orbit") above the wordmark.
-    cx, cy, r = w // 2, int(h * 0.34), int(h * 0.12)
-    d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=WHITE, width=int(h * 0.02))
-    d.ellipse((cx - 8, cy - r - 8, cx + 8, cy - r + 8), fill=WHITE)
-
-    _center_text(d, (cx, int(h * 0.52)), "Chronicle", _font(int(h * 0.12)), WHITE, weight=2)
-
-    if version in (1, 2):
-        _center_text(
-            d,
-            (cx, int(h * 0.68)),
-            "version control for creatives",
-            _font(int(h * 0.045)),
-            CLOUD,
+        `anchors` positions each layer as a fraction of the free space, so one
+        renderer works at any canvas size.
+        """
+        composite = Image.new("RGB", size, raster.PAPER)
+        layers: list[Layer] = []
+        for name, art in artwork.items():
+            x_ratio, y_ratio = anchors.get(name, (0.5, 0.5))
+            layers.append(
+                Layer(
+                    name,
+                    art,
+                    left=int((size[0] - art.width) * x_ratio),
+                    top=int((size[1] - art.height) * y_ratio),
+                )
+            )
+        for layer in layers:
+            composite.paste(layer.image, (layer.left, layer.top), layer.image)
+        return Document(
+            width=size[0], height=size[1], composite=composite, layers=layers, large=large
         )
-    return img
+
+    return [
+        # --- JPG ---------------------------------------------------------
+        Asset("banner", "marketing", "jpg", "jpg",
+              "40% OFF orange → 50% OFF orange → purple + urgency line",
+              lambda v: raster.banner(v, (1200, 400))),
+        Asset("hero", "marketing", "jpg", "jpg",
+              "warm dawn → cool dusk → dusk + headline",
+              lambda v: raster.hero(v, (1600, 900))),
+        Asset("product", "photography", "jpg", "jpg",
+              "grey bottle → green bottle → green bottle + NEW badge",
+              lambda v: raster.product(v, (1000, 1000))),
+        # --- SVG ---------------------------------------------------------
+        Asset("chronicle-mark", "brand", "svg", "svg",
+              "mirrored amber draft → orientation corrected → official blue",
+              vector.chronicle_mark),
+        # --- PSD ---------------------------------------------------------
+        Asset("poster", "marketing/print", "psd", "psd",
+              "navy OPEN STUDIO → teal STUDIO NIGHT → tagline layer removed",
+              lambda v: layered(v, (900, 1200), False, raster.poster_layers(v, (900, 1200)),
+                                {"backdrop": (0, 0), "headline": (0.5, 0.22),
+                                 "tagline": (0.5, 0.62)})),
+        Asset("ad-square", "marketing/social", "psd", "psd",
+              "£49 on blue → £39 on blue → dark background + SALE badge layer",
+              lambda v: layered(v, (1080, 1080), False, raster.ad_layers(v, (1080, 1080)),
+                                {"backdrop": (0, 0), "product": (0.5, 0.28),
+                                 "price": (0.5, 0.74), "badge": (0.88, 0.08)})),
+        # --- PSB ---------------------------------------------------------
+        Asset("billboard", "marketing/print", "psb", "psb",
+              "dusk artwork → dawn artwork + reworded headline → logo lockup added",
+              lambda v: layered(v, (2400, 800), True, raster.billboard_layers(v, (2400, 800)),
+                                {"artwork": (0, 0), "headline": (0.5, 0.3),
+                                 "logo-lockup": (0.94, 0.78)})),
+        # --- OBJ ---------------------------------------------------------
+        Asset("logo-badge", "3d", "obj", "obj",
+              "plain plate → chamfer rail added → raised emblem boss",
+              mesh.logo_badge),
+        # --- STEP --------------------------------------------------------
+        Asset("mounting-bracket", "cad", "step", "step",
+              "8 mm wall → 12 mm wall → gusset added",
+              lambda v: step.mounting_bracket(v, TIMESTAMP)),
+        # --- BLEND -------------------------------------------------------
+        # The embedded preview is what Chronicle reads from a .blend; see the
+        # caveat in demo_formats/blend.py about these containers.
+        Asset("product-scene", "blender", "blend", "blend",
+              "grey product preview → green product → green + NEW badge",
+              lambda v: _Blend(raster.product(v, (256, 256)), compress=True)),
+    ]
 
 
-def render_banner(version: int, size: tuple[int, int]) -> Image.Image:
-    w, h = size
-    bg = PURPLE if version == 3 else ORANGE
-    img = Image.new("RGB", size, bg)
-    d = ImageDraw.Draw(img)
-
-    pad = int(h * 0.18)
-    d.text((pad, int(h * 0.16)), "SUMMER SALE", font=_font(int(h * 0.22)), fill=WHITE)
-
-    discount = "40% OFF" if version == 1 else "50% OFF"
-    d.text((pad, int(h * 0.44)), discount, font=_font(int(h * 0.34)), fill=WHITE)
-
-    if version == 3:
-        d.text(
-            (pad, int(h * 0.83)),
-            "Limited time only",
-            font=_font(int(h * 0.11)),
-            fill=CLOUD,
-        )
-    return img
-
-
-def render_product(version: int, size: tuple[int, int]) -> Image.Image:
-    w, h = size
-    bg = CLOUD if version == 3 else PAPER
-    img = Image.new("RGB", size, bg)
-    d = ImageDraw.Draw(img)
-
-    body = GREY if version == 1 else GREEN
-    # A stylised bottle: shoulders + body + cap.
-    bx0, bx1 = int(w * 0.36), int(w * 0.64)
-    by0, by1 = int(h * 0.34), int(h * 0.82)
-    d.rounded_rectangle((bx0, by0, bx1, by1), radius=int(w * 0.06), fill=body)
-    # neck + cap
-    nx0, nx1 = int(w * 0.44), int(w * 0.56)
-    d.rectangle((nx0, int(h * 0.26), nx1, by0 + 10), fill=body)
-    d.rounded_rectangle(
-        (nx0 - 6, int(h * 0.22), nx1 + 6, int(h * 0.27)), radius=8, fill=INK
-    )
-    # label band
-    d.rectangle((bx0, int(h * 0.5), bx1, int(h * 0.62)), fill=WHITE)
-
-    if version == 3:
-        # "NEW" badge, top-right.
-        r = int(w * 0.1)
-        ccx, ccy = int(w * 0.76), int(h * 0.24)
-        d.ellipse((ccx - r, ccy - r, ccx + r, ccy + r), fill=RED)
-        _center_text(d, (ccx, ccy - int(r * 0.35)), "NEW", _font(int(r * 0.55)), WHITE, weight=2)
-    return img
-
-
-RENDERERS = {"logo": render_logo, "banner": render_banner, "product": render_product}
+def _assets() -> dict[str, Asset]:
+    return {asset.id: asset for asset in _catalogue()}
 
 
 # --- State -----------------------------------------------------------------
@@ -210,25 +212,38 @@ def _load_state() -> dict[str, int]:
 
 
 def _save_state(state: dict[str, int]) -> None:
-    STATE_FILE.write_text(json.dumps(state, indent=2) + "\n")
+    STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
 
 
-def _source_path(asset: str, version: int) -> Path:
-    ext = ASSETS[asset]["ext"]
-    return SOURCES / asset / f"{asset}_v{version}.{ext}"
+def _source_path(asset: Asset, version: int) -> Path:
+    return SOURCES / asset.id / f"{asset.id}_v{version}.{asset.ext}"
 
 
-def _workspace_path(asset: str) -> Path:
-    ext = ASSETS[asset]["ext"]
-    return WORKSPACE / f"{asset}.{ext}"
+def _workspace_path(asset: Asset) -> Path:
+    return WORKSPACE / asset.directory / asset.filename
 
 
-def _save_image(img: Image.Image, path: Path, ext: str) -> None:
+# --- Writing ---------------------------------------------------------------
+def _write(asset: Asset, version: int, path: Path) -> None:
+    """Render one version of one asset to `path`."""
+    from demo_formats.blend import write_blend
+    from demo_formats.photoshop import Document, write_document
+
+    payload = asset.build(version)
     path.parent.mkdir(parents=True, exist_ok=True)
-    if ext in ("jpg", "jpeg"):
-        img.save(path, "JPEG", quality=90)
+
+    if isinstance(payload, str):
+        path.write_text(payload, encoding="utf-8", newline="\n")
+    elif isinstance(payload, bytes):
+        path.write_bytes(payload)
+    elif isinstance(payload, Document):
+        write_document(payload, path)
+    elif isinstance(payload, _Blend):
+        write_blend(payload.thumbnail, path, compress=payload.compress)
+    elif asset.ext in ("jpg", "jpeg"):
+        payload.convert("RGB").save(path, "JPEG", quality=90)
     else:
-        img.save(path, "PNG")
+        payload.save(path, "PNG")
 
 
 # --- Commands --------------------------------------------------------------
@@ -241,69 +256,91 @@ def cmd_generate() -> None:
             "(A fresh clone already ships the committed sources — you can run\n"
             " `make demo-reset` / `demo-set` / `demo-next` without Pillow.)"
         )
-    for asset, spec in ASSETS.items():
-        for v in range(1, spec["versions"] + 1):
-            img = RENDERERS[asset](v, spec["size"])
-            _save_image(img, _source_path(asset, v), spec["ext"])
-        print(f"  sources/{asset}: {spec['versions']} versions")
-    print(f"Sources written to {SOURCES}")
+    assets = _assets()
+    per_format: dict[str, int] = {}
+    for asset in assets.values():
+        for version in range(1, asset.versions + 1):
+            _write(asset, version, _source_path(asset, version))
+        per_format[asset.format] = per_format.get(asset.format, 0) + 1
+        print(f"  sources/{asset.id}: {asset.versions} versions ({asset.format})")
+    summary = " · ".join(f"{count}x {fmt}" for fmt, count in sorted(per_format.items()))
+    print(f"Sources written to {SOURCES}\n  {summary}")
     cmd_reset()
 
 
-def _place(asset: str, version: int, state: dict[str, int]) -> None:
-    src = _source_path(asset, version)
-    if not src.exists():
-        sys.exit(f"Missing source {src}. Run: make demo-assets")
-    dst = _workspace_path(asset)
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(src, dst)
-    state[asset] = version
+def _place(asset: Asset, version: int, state: dict[str, int]) -> None:
+    source = _source_path(asset, version)
+    if not source.exists():
+        sys.exit(f"Missing source {source}. Run: make demo-assets")
+    destination = _workspace_path(asset)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
+    state[asset.id] = version
 
 
 def cmd_reset() -> None:
+    assets = _assets()
     state = _load_state()
-    for asset in ASSETS:
+    for asset in assets.values():
         _place(asset, 1, state)
     _save_state(state)
-    print(f"Workspace reset to v1 at {WORKSPACE}")
-    cmd_status()
+    print(f"Workspace reset to v1 at {WORKSPACE} ({len(assets)} assets)")
 
 
-def cmd_set(asset: str, version: int) -> None:
-    if asset not in ASSETS:
-        sys.exit(f"Unknown asset '{asset}'. Choices: {', '.join(ASSETS)}")
-    if not (1 <= version <= ASSETS[asset]["versions"]):
-        sys.exit(f"{asset} has versions 1..{ASSETS[asset]['versions']}")
+def _resolve(assets: dict[str, Asset], selector: str) -> list[Asset]:
+    """Resolve an asset id, a format id (every asset of that format), or 'all'."""
+    if selector in ("all", ""):
+        return list(assets.values())
+    if selector in assets:
+        return [assets[selector]]
+    matching = [asset for asset in assets.values() if asset.format == selector]
+    if matching:
+        return matching
+    formats = sorted({asset.format for asset in assets.values()})
+    sys.exit(
+        f"Unknown asset or format '{selector}'.\n"
+        f"  assets:  {', '.join(assets)}\n"
+        f"  formats: {', '.join(formats)}"
+    )
+
+
+def cmd_set(selector: str, version: int) -> None:
+    assets = _assets()
     state = _load_state()
-    _place(asset, version, state)
+    for asset in _resolve(assets, selector):
+        if not 1 <= version <= asset.versions:
+            sys.exit(f"{asset.id} has versions 1..{asset.versions}")
+        _place(asset, version, state)
+        print(f"{asset.id} -> v{version}")
     _save_state(state)
-    print(f"{asset} -> v{version}")
 
 
-def cmd_next(asset: str | None) -> None:
+def cmd_next(selector: str | None) -> None:
+    assets = _assets()
     state = _load_state()
-    targets = [asset] if asset else list(ASSETS)
-    for a in targets:
-        if a not in ASSETS:
-            sys.exit(f"Unknown asset '{a}'. Choices: {', '.join(ASSETS)}")
-        current = state.get(a, 1)
-        nxt = current + 1
-        if nxt > ASSETS[a]["versions"]:
-            nxt = 1  # wrap around for repeatable demos
-        _place(a, nxt, state)
-        print(f"{a}: v{current} -> v{nxt}")
+    for asset in _resolve(assets, selector or "all"):
+        current = state.get(asset.id, 1)
+        following = current + 1
+        if following > asset.versions:
+            following = 1  # wrap around for repeatable demos
+        _place(asset, following, state)
+        print(f"{asset.id}: v{current} -> v{following}")
     _save_state(state)
 
 
-def cmd_status() -> None:
-    state = _load_state()
+def cmd_status(selector: str | None = None) -> None:
+    assets = _assets()
     if not WORKSPACE.exists():
-        print("Workspace not generated yet. Run: make demo-assets")
+        print("Workspace not generated yet. Run: make demo-reset")
         return
-    print("Workspace versions:")
-    for asset, spec in ASSETS.items():
-        cur = state.get(asset, "?")
-        print(f"  {asset:<8} v{cur}/{spec['versions']}  ({_workspace_path(asset).name})")
+    state = _load_state()
+    selected = _resolve(assets, selector or "all")
+    width = max(len(asset.id) for asset in selected)
+    print(f"Workspace versions ({len(selected)} assets under {WORKSPACE}):")
+    for asset in selected:
+        current = state.get(asset.id, "?")
+        location = f"{asset.directory}/{asset.filename}"
+        print(f"  {asset.format:<5} {asset.id:<{width}} v{current}/{asset.versions}  {location}")
 
 
 def cmd_clean() -> None:
@@ -328,23 +365,23 @@ def main(argv: list[str]) -> None:
     if not argv:
         print(__doc__)
         return
-    cmd, *rest = argv
-    if cmd == "generate":
+    command, *rest = argv
+    if command == "generate":
         cmd_generate()
-    elif cmd == "reset":
+    elif command == "reset":
         cmd_reset()
-    elif cmd == "set":
+    elif command == "set":
         if len(rest) != 2:
-            sys.exit("Usage: demo_assets.py set <asset> <version>")
+            sys.exit("Usage: demo_assets.py set <asset|format> <version>")
         cmd_set(rest[0], int(rest[1]))
-    elif cmd == "next":
+    elif command == "next":
         cmd_next(rest[0] if rest else None)
-    elif cmd == "status":
-        cmd_status()
-    elif cmd == "clean":
+    elif command == "status":
+        cmd_status(rest[0] if rest else None)
+    elif command == "clean":
         cmd_clean()
     else:
-        sys.exit(f"Unknown command '{cmd}'.\n{__doc__}")
+        sys.exit(f"Unknown command '{command}'.\n{__doc__}")
 
 
 if __name__ == "__main__":

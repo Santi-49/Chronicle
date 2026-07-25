@@ -222,16 +222,18 @@ demo-assets:
 demo-reset:
 	$(DEMO) reset
 
-# Put a specific version in the workspace: make demo-set ASSET=logo V=3
+# Put a specific version in the workspace: make demo-set ASSET=poster V=3
+# ASSET accepts an asset id, a format id (psd, obj, ...), or all.
 demo-set:
 	$(DEMO) set $(ASSET) $(V)
 
-# Advance one asset (ASSET=logo) or all assets to the next version, wrapping.
+# Advance one asset, one format, or everything to the next version, wrapping.
 demo-next:
 	$(DEMO) next $(ASSET)
 
+# Optionally filtered by format: make demo-status ASSET=psd
 demo-status:
-	$(DEMO) status
+	$(DEMO) status $(ASSET)
 
 demo-clean:
 	$(DEMO) clean
