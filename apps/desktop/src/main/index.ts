@@ -3,7 +3,7 @@ import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
 import path from 'node:path'
 import { openAppDatabase, type ChronicleDb } from './db'
 import { registerChronicleScheme, startChronicleIpc, type ChronicleIpc } from './ipc/register'
-import { ensureAppDirs, libraryDir } from './paths'
+import { ensureAppDirs, libraryDir, previewDir } from './paths'
 
 /** Single app-lifetime database handle; the IPC services receive this. */
 let db: ChronicleDb
@@ -63,7 +63,7 @@ app.whenReady().then(() => {
 
   // C1 bridge: chronicle:// protocol, ipcMain handlers, and the watcher →
   // capture pipeline for every tracked folder.
-  ipc = startChronicleIpc(db, libraryDir())
+  ipc = startChronicleIpc(db, libraryDir(), previewDir())
 
   // Windows and Linux otherwise add Electron's default File/Edit/View/Window row.
   // macOS keeps its platform-standard application menu at the top of the screen.

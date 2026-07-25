@@ -26,6 +26,8 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 | Styling | **Tailwind CSS 4** | Fast to build clean UI; no component library unless a real need appears |
 | Local database | **SQLite** via **better-sqlite3** (runs inside the app, single file) | Zero-setup embedded DB; metadata, AI summaries, search index all in one file |
 | File watching | **chokidar** | Battle-tested cross-platform watcher; same code on Windows and macOS |
+| 3D viewing | **three.js** (renderer, lazily loaded) | Interactive view of captured mesh versions (OBJ, STEP); dynamically imported so the assets/timeline/search screens never pay for it |
+| CAD tessellation | **occt-import-js** (OpenCascade compiled to WebAssembly, renderer, lazily loaded) | Turns STEP/STP into a mesh the viewer can show; runs in the renderer so a heavy assembly cannot stall capture or IPC |
 | Hashing | Node.js built-in `crypto` (**SHA-256**) | Detects "did the content actually change"; no dependency |
 | AI engine | **Local Python AI service** (`services/ai/`): **FastAPI** + **LangChain (Python)**, model-agnostic, **default classes/methods only**; `psd-tools` for safe local PSD structure/composite extraction — the Electron main process calls it on `127.0.0.1` | AI features are developed in Python (team decision 2026-07-19, replaces LangChain.js in-app); provider swappable (Anthropic, watsonx/Granite, OpenAI…); one AI codebase shared with the stretch gateway |
 | Embeddings storage | Vectors stored **in SQLite**, similarity computed in-process | Hundreds of versions ≠ vector DB territory; simplest thing that works |
@@ -55,6 +57,27 @@ Everything below is decided. Anything not listed here is **not** part of the sta
 | Lint/format | **ESLint + Prettier** (TS) · **Ruff** (Python) |
 | Dev tool | **IBM Bob** — mandatory, judged. Every member logs usage in [bob-log.md](bob-log.md) |
 | Runtimes | Node 20+, Python 3.12 (AI service + backend), Docker Desktop (control plane only — never needed for the AI service) |
+
+### Format support: declared once, annotated separately
+
+`apps/desktop/src/shared/formats.ts` is the only place a supported file format
+is declared. Every format-aware path reads it — the watcher's extension set,
+capture metadata, the `chronicle://` media protocol, derived previews, the AI
+request shape, telemetry buckets, and the renderer's viewer choice and copy.
+Per-format behavior (header parsing, preview generation) lives in
+`apps/desktop/src/main/formats/`, keyed by format id; see its README for the
+safety rules every handler follows.
+
+Capturing and displaying a format is independent from summarizing it. The AI
+service publishes the formats it can annotate through `GET /capabilities`; a
+captured version whose format has no adapter yet keeps its annotation job
+**queued** and is shown as such, rather than failing. So a format can ship to
+users — versioned, previewed, restorable, keyword-searchable — before its AI
+adapter exists, and the queued work drains automatically when that lands.
+
+Derived previews (PSD/PSB, OBJ, BLEND) are generated lazily on first request
+and cached beside the library under their content hash. Capture stays a
+hash-and-store operation, and the cache is disposable.
 
 ### One important subtlety: where the AI code runs (decided 2026-07-19)
 
@@ -146,7 +169,13 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
   exclude individual files and disable a supported file type. These selections persist and
   are enforced on both the initial capture and later saves; editing a project can change them.
 - Watching is recursive (subfolders included), subject to the project's saved exclusions.
-- Only `.png`, `.jpg`, `.jpeg` files count (case-insensitive). Other formats are ignored. The UI lists `.svg`, `.blend`, `.obj`, `.step`/`.stp`, `.psd`, and `.psb` as "coming soon". These future labels are roadmap communication, not supported MVP behavior.
+- The capturable extensions are exactly those declared in the format registry
+  (`apps/desktop/src/shared/formats.ts`), matched case-insensitively: `.png`,
+  `.jpg`/`.jpeg`, `.svg`, `.psd`, `.psb`, `.obj`, `.step`/`.stp`, `.blend`
+  (POST-02). Anything else is ignored. Each type is a toggle in the project
+  form; types whose AI change summaries are not implemented yet are labelled as
+  such on the toggle, because capture, versioning, preview, restore, and keyword
+  search work for them while their summaries stay queued.
 - Hidden files/folders and temp files (e.g. `~$…`, `.tmp`, editor autosave/swap files) are ignored.
 - **Done when:** add a folder, save a PNG in a subfolder → version appears; save a `.txt` → nothing happens.
 
@@ -182,7 +211,10 @@ The heart of the product. Exact rules:
   Both task selectors show a missing-key error and AI settings cannot be saved until keys exist
   for their selected providers. Changed selections are live-validated before persistence.
 - Version 1 of an asset has no predecessor → the AI writes a **description** instead of a diff.
-- The version's AI status is visible in the UI: *pending → done* or *failed (retry button)*.
+- The version's AI status is visible in the UI: *pending → done*, *failed (retry
+  button)*, or *deferred* — captured and queued, but its file format has no AI
+  adapter in the running service yet (discovered through `GET /capabilities`, not
+  assumed). A deferred job is never retried or failed and never blocks the queue.
 - **The UI never waits for AI.** Versions appear instantly; the summary fills in when ready.
 - **Offline rule:** jobs queue and run automatically when connectivity returns.
 - The AI input/output format is fixed by C3. Prompt wording and orchestration are versioned implementation assets in `packages/prompts/` and evolve through research and testing.
@@ -238,9 +270,15 @@ Only after everything above works. Landing page = marketing only, no product fun
 
 ### Explicitly out of scope (MVP)
 
-Future formats (`.svg`, `.blend`, `.obj`, `.step`/`.stp`, `.psd`, `.psb`) are not part of the
-MVP · Word/PDF remain out · rename/move tracking · side-by-side visual diff · branching · cloud
+**AI change summaries** for `.svg`, `.psb`, `.obj`, `.step`/`.stp`, and `.blend` (their capture,
+preview, restore, and keyword search shipped in POST-02; their annotation jobs stay queued) ·
+Word/PDF remain out · rename/move tracking · side-by-side visual diff · branching · cloud
 sync/collaboration · delta storage/compression · auto-updates · code signing · mobile/web clients.
+
+Deliberately not attempted for the new formats: rendering a `.blend` scene (that needs Blender
+itself; only the thumbnail Blender embeds is read), faithful PSD layer compositing (the embedded
+preview is used instead), and any execution of macros, expressions, or plug-in code carried inside
+a file.
 
 ---
 

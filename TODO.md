@@ -795,6 +795,20 @@ output-schema change. AI work stays async.
 first-version descriptions still pass on the demo fixtures through the running service;
 generated TS types compile; an unsupported format returns a typed error.
 
+> **Closed 2026-07-25 (audit + hardening).** The `format` field, its cross-validation, the
+> threading through capture → queue → worker → service, the generated OpenAPI/TS types, and the
+> docs were all verified present and in sync (regenerating both artifacts produced no diff).
+> Three gaps were closed at the same time: dispatch became a real adapter registry
+> (`chronicle_ai/formats.py`) instead of two `if format == "psd"` branches; a format with no
+> adapter now returns a typed `unsupported_format` error and a rejected request body is reported
+> with the failing field instead of a bare `HTTP 422`; and the service publishes
+> `GET /capabilities` so the app stops assuming what it can annotate.
+>
+> **Still unverified:** no successful *live provider* call has been made since the `format` field
+> landed — the last one predates it, and the 2026-07-23 attempt died on an HTTP 401 credential
+> before inference. Mock-level coverage is complete (73 Python tests). One valid BYOK key closes
+> this and POST-02's PSD acceptance together.
+
 ### [ ] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
 
 **Owner:** Unassigned
@@ -808,17 +822,23 @@ understands a proprietary container.
 Version-Sprawl Opportunity" (extraction approach, safety rules, and the agreed prioritization
 order: PSD/PSB and SVG first, then BLEND, then OBJ and STEP/STP).
 
-**Format checklist** (mark `[x]` when its extraction + preview + annotation path ships and
-is tested on a fixture pair; PNG/JPG are the MVP baseline, already done):
+**Format checklist.** Two independent capabilities per format, because they ship separately:
 
-- [x] PNG *(MVP)*
-- [x] JPG / JPEG *(MVP)*
-- [ ] PSD
-- [ ] PSB
-- [ ] SVG
-- [ ] BLEND
-- [ ] OBJ
-- [ ] STEP / STP
+- **Desktop** — captured, versioned, restorable, keyword-searchable, and displayed with a
+  correct visual (still preview, or an interactive 3D view for meshes).
+- **AI** — an adapter in `services/ai/` produces a factual, coverage-aware annotation. Until
+  this lands, the format's versions keep their annotation jobs queued (`deferred`), never failed.
+
+| Format | Desktop | AI summary | Notes |
+|--------|---------|-----------|-------|
+| PNG | [x] | [x] | MVP baseline |
+| JPG / JPEG | [x] | [x] | MVP baseline |
+| SVG | [x] | [ ] | Rendered natively; text format, so a structure diff should be cheap |
+| PSD | [x] | [ ] | Preview from the embedded thumbnail; adapter exists but its live acceptance is still blocked on a credential |
+| PSB | [x] | [ ] | Same header and preview path as PSD; adapter still rejects version 2 |
+| OBJ | [x] | [ ] | Interactive 3D view; thumbnail is a flat-shaded SVG projection |
+| STEP / STP | [x] | [ ] | Tessellated in the renderer (OpenCascade WASM); no still thumbnail |
+| BLEND | [x] | [ ] | Only the thumbnail Blender embeds is read; Blender is never invoked |
 
 > **PSD implementation in progress (2026-07-23):** C3/C4 and the project file-type selector now
 > accept PSD; the local service performs bounded `psd-tools` extraction, compact structural diff,

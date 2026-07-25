@@ -31,9 +31,11 @@ import {
   setVersionAiStatus,
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
+import { SUPPORTED_EXTENSIONS } from '../../shared/formats'
+import { objCube, pngBytes } from '../formats/fixtures'
 import { captureVersion, libraryFilePathFor } from '../versioning'
 import { API_METHOD_NAMES } from './channels'
-import { chronicleUrlToHash, imageUrlForHash, sniffImageContentType } from './media'
+import { imageUrlForHash, parseChronicleUrl, previewUrlForHash, thumbnailUrlForHash } from './media'
 import {
   createChronicleServices,
   DEFAULT_SETTINGS,
@@ -97,6 +99,11 @@ beforeEach(() => {
     readApiKey: (provider) => secretKeys.get(provider) ?? null,
     aiClient: {
       health: async () => true,
+      capabilities: async () => ({
+        service: 'chronicle-ai' as const,
+        version: '0.1.0',
+        annotate: { formats: ['png', 'jpg', 'jpeg', 'psd'] },
+      }),
       annotate: async () => { throw new Error('not used in IPC tests') },
       embedText: async () => { throw new Error('not used in IPC tests') },
       validateProviderModel: async ({ task, provider, model }) => {
@@ -133,17 +140,6 @@ async function waitFor(predicate: () => boolean, what: string, timeoutMs = 8_000
 
 function eventsOf<E extends ChronicleEventName>(event: E): Array<ChronicleEvents[E]> {
   return events.filter((e) => e.event === event).map((e) => e.payload as ChronicleEvents[E])
-}
-
-/** Minimal PNG header: signature + IHDR chunk carrying the dimensions. */
-function pngBytes(width: number, height: number, extra = ''): Buffer {
-  const head = Buffer.alloc(24)
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(head, 0)
-  head.writeUInt32BE(13, 8) // IHDR length
-  head.write('IHDR', 12, 'latin1')
-  head.writeUInt32BE(width, 16)
-  head.writeUInt32BE(height, 20)
-  return Buffer.concat([head, Buffer.from(`\x08\x06\x00\x00\x00${extra}`, 'latin1')])
 }
 
 function writeFile(name: string, content: Buffer | string): string {
@@ -217,7 +213,7 @@ describe('tracked folders and capture events', () => {
     expect(folder.icon).toBe('folder')
     expect(folder.color).toMatch(/^#/)
     expect(folder.excludedPaths).toEqual([])
-    expect(folder.allowedExtensions).toEqual(['.png', '.jpg', '.jpeg', '.psd'])
+    expect(folder.allowedExtensions).toEqual([...SUPPORTED_EXTENSIONS])
     expect(await services.api.listFolders()).toHaveLength(1)
     await waitFor(() => eventsOf('statusChanged').length > 0, 'statusChanged')
     expect((await services.api.getAppStatus()).watchedFolders).toBe(1)
@@ -341,7 +337,7 @@ describe('tracked folders and capture events', () => {
       const assets = await services.api.listAssets()
       expect(assets).toHaveLength(1)
       expect(assets[0]!.id).toBe(captured!.assetId)
-      expect(chronicleUrlToHash(assets[0]!.thumbnailUrl)).not.toBeNull()
+      expect(parseChronicleUrl(assets[0]!.thumbnailUrl!)).not.toBeNull()
     },
     15_000,
   )
@@ -410,7 +406,38 @@ describe('timeline and version details', () => {
     expect(timeline[0]!.aiStatus).toBe('none')
     expect(timeline[1]!.summary).toBeNull() // still pending
     expect(timeline[2]!.summary).toBe('Initial logo on navy background')
-    for (const v of timeline) expect(chronicleUrlToHash(v.thumbnailUrl)).not.toBeNull()
+    for (const v of timeline) expect(parseChronicleUrl(v.thumbnailUrl!)).not.toBeNull()
+  })
+
+  it('reports a format the AI cannot annotate yet as deferred, not pending', async () => {
+    const { versionId } = await seedCapture('model.obj', Buffer.from(objCube()))
+
+    const details = await services.api.getVersionDetails(versionId)
+    expect(details.format).toBe('obj')
+    // Captured and displayable, with its queued annotation honestly labelled.
+    expect(details.aiStatus).toBe('deferred')
+    expect(details.aiFailure).toBeNull()
+    expect(parseChronicleUrl(details.imageUrl!)).toMatchObject({ kind: 'image' })
+    expect(parseChronicleUrl(details.thumbnailUrl!)).toMatchObject({ kind: 'preview' })
+
+    const jobs = await services.api.listPendingJobs()
+    const annotation = jobs.find((job) => job.jobType === 'ai_annotation')
+    expect(annotation).toMatchObject({ deferred: true, state: 'pending', format: 'obj' })
+
+    // A PNG in the same project keeps the normal pending path.
+    const png = await seedCapture('logo.png', pngBytes(8, 8))
+    const pngDetails = await services.api.getVersionDetails(png.versionId)
+    expect(pngDetails.aiStatus).toBe('pending')
+    expect(pngDetails.format).toBe('png')
+  })
+
+  it('has no thumbnail URL for a format with no still preview', async () => {
+    const { versionId } = await seedCapture('part.step', Buffer.from('ISO-10303-21;\nENDSEC;\n'))
+    const details = await services.api.getVersionDetails(versionId)
+    expect(details.format).toBe('step')
+    expect(details.thumbnailUrl).toBeNull()
+    // The original bytes are still reachable — the 3D viewer loads them.
+    expect(parseChronicleUrl(details.imageUrl!)).toMatchObject({ kind: 'image' })
   })
 
   it('getVersionDetails returns full C1 shape after annotation', async () => {
@@ -433,7 +460,7 @@ describe('timeline and version details', () => {
     expect(details.tags).toEqual(['teal', 'background'])
     expect(details.aiProvider).toBe('anthropic')
     expect(details.restoredFromVersion).toBeNull()
-    expect(chronicleUrlToHash(details.imageUrl)).toBe(details.contentHash)
+    expect(parseChronicleUrl(details.imageUrl!)?.contentHash).toBe(details.contentHash)
   })
 
   it('rejects unknown versions and invalid ids', async () => {
@@ -965,28 +992,44 @@ describe('getAppStatus', () => {
 // ---------------------------------------------------------------------------
 
 describe('media helpers', () => {
-  it('round-trips a hash through the URL', () => {
+  it('round-trips a hash and its format through the URL', () => {
     const hash = 'ab'.repeat(32)
-    expect(chronicleUrlToHash(imageUrlForHash(hash))).toBe(hash)
+    expect(parseChronicleUrl(imageUrlForHash(hash, 'png'))).toEqual({
+      kind: 'image',
+      format: expect.objectContaining({ id: 'png' }),
+      contentHash: hash,
+    })
+    expect(parseChronicleUrl(previewUrlForHash(hash, 'psd'))).toMatchObject({
+      kind: 'preview',
+      contentHash: hash,
+    })
   })
 
-  it('rejects everything that is not a library hash URL', () => {
+  it('serves a derived preview for formats the UI cannot decode', () => {
+    const hash = 'cd'.repeat(32)
+    // Natively decodable: the original bytes are the thumbnail.
+    expect(thumbnailUrlForHash(hash, 'png')).toBe(imageUrlForHash(hash, 'png'))
+    expect(thumbnailUrlForHash(hash, 'svg')).toBe(imageUrlForHash(hash, 'svg'))
+    // Needs conversion first.
+    expect(thumbnailUrlForHash(hash, 'psd')).toBe(previewUrlForHash(hash, 'psd'))
+    expect(thumbnailUrlForHash(hash, 'obj')).toBe(previewUrlForHash(hash, 'obj'))
+    // No still image exists at all — the UI shows the format placeholder.
+    expect(thumbnailUrlForHash(hash, 'step')).toBeNull()
+  })
+
+  it('rejects everything that is not a library media URL', () => {
     for (const url of [
       'not a url',
       'https://image/aa',
-      `chronicle://other/${'a'.repeat(64)}`,
-      'chronicle://image/short',
-      'chronicle://image/' + 'g'.repeat(64), // not hex
-      'chronicle://image/../../etc/passwd',
-      `chronicle://image/${'a'.repeat(64)}/extra`,
+      `chronicle://other/png/${'a'.repeat(64)}`,
+      'chronicle://image/png/short',
+      `chronicle://image/gif/${'a'.repeat(64)}`, // unknown format
+      `chronicle://image/${'a'.repeat(64)}`, // missing format segment
+      'chronicle://image/png/' + 'g'.repeat(64), // not hex
+      'chronicle://image/png/../../etc/passwd',
+      `chronicle://image/png/${'a'.repeat(64)}/extra`,
     ]) {
-      expect(chronicleUrlToHash(url), url).toBeNull()
+      expect(parseChronicleUrl(url), url).toBeNull()
     }
-  })
-
-  it('sniffs content types from stored magic bytes', () => {
-    expect(sniffImageContentType(pngBytes(1, 1))).toBe('image/png')
-    expect(sniffImageContentType(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg')
-    expect(sniffImageContentType(Buffer.from('plain text'))).toBe('application/octet-stream')
   })
 })

@@ -21,13 +21,36 @@ restricted to a one-file PR.
 
 | ID | Boundary | Fixes what | Single source of truth | Priority |
 |----|----------|-----------|------------------------|----------|
-| **C1** | Renderer (React) ↔ Main process | IPC channel names + request/response/event types for every feature: folders, assets, timeline, version details, safeguarded history reset, restore, search, retained AI job status/error plus individual/bulk manual retry, settings, account, renderer/preload error forwarding, and sanitized developer diagnostics (application lifecycle/errors, health, completed/clearable control-plane requests, pending usage statistics) | `apps/desktop/src/shared/ipc.ts` (one TS file imported by main, preload, and renderer) | **Highest** |
+| **C1** | Renderer (React) ↔ Main process | IPC channel names + request/response/event types for every feature: folders, assets, timeline, version details (including each version's file format and the `chronicle://` URLs for its original bytes and derived preview), safeguarded history reset, restore, search, retained AI job status/error plus individual/bulk manual retry, settings, account, renderer/preload error forwarding, and sanitized developer diagnostics (application lifecycle/errors, health, completed/clearable control-plane requests, pending usage statistics) | `apps/desktop/src/shared/ipc.ts` (one TS file imported by main, preload, and renderer), with the format vocabulary in `apps/desktop/src/shared/formats.ts` | **Highest** |
 | **C2** | Persistence behavior | Repository operations and domain data returned to callers. The SQLite DDL is an implementation specification, not a public contract. | Contract to be defined with the versioning implementation; implementation at `apps/desktop/src/main/db/schema.sql` | High |
-| **C3** | Electron main ↔ local AI service (`services/ai/`, HTTP on `127.0.0.1`) | Annotation (explicit format routing for PNG/JPEG and locally extracted PSD), embedding, and task-specific provider/model validation functionality plus typed inputs/outputs and error/status behavior. PSD extraction failures are typed and opaque PSD bytes never reach the provider. Prompts, models, and pipelines stay implementation-owned. | The AI service's OpenAPI schema + `packages/contracts/ai/output.schema.json` → generated TS client types (never hand-written). | High |
-| **C4** | Filesystem ↔ watcher | Candidate-evaluation input/output, rejection reasons, supported formats, settle guarantee, and size cap. Globs, regexes, event handling, and debounce algorithms are implementation details. | `apps/desktop/src/main/watcher/rules.ts` | High |
+| **C3** | Electron main ↔ local AI service (`services/ai/`, HTTP on `127.0.0.1`) | Capability discovery (which formats this build annotates), annotation (explicit format routing for PNG/JPEG and locally extracted PSD), embedding, and task-specific provider/model validation functionality plus typed inputs/outputs and error/status behavior. Extraction failures and formats without an adapter are typed errors, and opaque PSD bytes never reach the provider. Prompts, models, adapters, and pipelines stay implementation-owned. | The AI service's OpenAPI schema + `packages/contracts/ai/output.schema.json` → generated TS client types (never hand-written). | High |
+| **C4** | Filesystem ↔ watcher | Candidate-evaluation input/output, rejection reasons, supported formats, settle guarantee, and size cap. Globs, regexes, event handling, and debounce algorithms are implementation details. | `apps/desktop/src/main/watcher/rules.ts`, whose supported-extension set is derived from `apps/desktop/src/shared/formats.ts` | High |
 | **C5** | Everything ↔ settings | Typed settings read/write data and the security guarantee that secrets never enter the renderer-visible settings object. Defaults and supported-provider discovery are implementation policy. | `apps/desktop/src/shared/settings.ts` | High |
 | **C6** | App ↔ control-plane API | Public API health/identity preflight; Google credential exchange; installation registration/linking; revisioned portable settings; opaque client-encrypted secret CRUD; strict usage-statistics ingestion; and admin-only aggregate product analytics/account search. | `packages/contracts/api/openapi.json` → `packages/contracts/api/generated/index.ts` (guarantees in `PLANNED.md`) | Low |
 | **C7** | Backend ↔ module | Optional gateway operations and Python input/output formats. The gateway reuses the `services/ai/` Python implementation rather than maintaining a second AI pipeline. | `packages/contracts/module/interface.py` | Stretch |
+
+### Format support is one registry, two independent capabilities
+
+Chronicle captures and displays more creative formats than the AI service can
+annotate, and those two capabilities advance separately.
+
+`apps/desktop/src/shared/formats.ts` is the single place a format is declared.
+Every format-aware code path in the desktop app — the C4 extension set, capture
+metadata, the `chronicle://` media protocol, derived previews, the AI worker's
+request shape, telemetry buckets, and the renderer's viewer and copy — reads it
+instead of testing file extensions. A format's *displayed* behavior therefore
+changes in one place.
+
+Whether a format can be **annotated** is a separate, runtime question. The AI
+service publishes its adapter registry through `GET /capabilities`, and the app
+asks rather than assumes. A captured version whose format has no adapter keeps
+its annotation job queued and reports the C1 status `deferred`; it is never
+failed, never retried, and never blocks other queued work. When an adapter
+ships, the queued jobs drain on their own.
+
+Adding a format is consequently two independent changes: one registry entry
+plus its handler in the desktop app, and — later, separately — one adapter plus
+its prompt sections in the AI service.
 
 Prompt assets live only in `packages/prompts/` as Markdown with YAML front matter.
 Every process that uses a repository prompt loads it from there. Prompt revisions are

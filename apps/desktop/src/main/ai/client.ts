@@ -19,6 +19,7 @@ export type ValidateProviderModelRequest = components['schemas']['ValidateProvid
 export type ValidateProviderModelResponse = components['schemas']['ValidateProviderModelResponse']
 export type TokenUsage = components['schemas']['TokenUsage']
 export type CostEstimate = components['schemas']['CostEstimate']
+export type CapabilitiesResponse = components['schemas']['CapabilitiesResponse']
 
 export class AiServiceError extends Error {
   constructor(
@@ -36,16 +37,41 @@ export class AiServiceError extends Error {
 
 export interface AiClient {
   health(): Promise<boolean>
+  /**
+   * Which annotation formats the running service actually implements. Null when
+   * the service is unreachable or too old to report them, in which case the
+   * caller falls back to the format registry's own declaration.
+   */
+  capabilities(): Promise<CapabilitiesResponse | null>
   annotate(request: AnnotateRequest): Promise<AnnotateResponse>
   embedText(request: ProviderRequest & { text: string }): Promise<EmbedTextResponse>
   validateProviderModel(request: ValidateProviderModelRequest): Promise<ValidateProviderModelResponse>
+}
+
+/** One FastAPI request-validation failure (its `detail` is a list of these). */
+interface ValidationIssue {
+  loc?: (string | number)[]
+  msg?: string
 }
 
 async function readError(response: Response): Promise<AiServiceError> {
   const fallback = `AI service returned HTTP ${response.status}`
   try {
     const body = (await response.json()) as {
-      detail?: { code?: string; message?: string }
+      detail?: { code?: string; message?: string } | ValidationIssue[]
+    }
+    // A rejected request body arrives as FastAPI's validation-error list rather
+    // than the service's own typed error shape; report which field failed
+    // instead of a bare status code.
+    if (Array.isArray(body.detail)) {
+      const issues = body.detail
+        .map((issue) => `${(issue.loc ?? []).join('.') || 'request'}: ${issue.msg ?? 'invalid'}`)
+        .join('; ')
+      return new AiServiceError(
+        `The AI service rejected the request (${issues || 'invalid request'}).`,
+        response.status,
+        'invalid_request',
+      )
     }
     return new AiServiceError(
       body.detail?.message ?? fallback,
@@ -78,6 +104,16 @@ export function createAiClient(baseUrl = 'http://127.0.0.1:8765'): AiClient {
         return response.ok
       } catch {
         return false
+      }
+    },
+    async capabilities(): Promise<CapabilitiesResponse | null> {
+      try {
+        const response = await fetch(`${baseUrl}/capabilities`, {
+          signal: AbortSignal.timeout(2_000),
+        })
+        return response.ok ? ((await response.json()) as CapabilitiesResponse) : null
+      } catch {
+        return null
       }
     },
     annotate: (request) => post<AnnotateResponse>(baseUrl, '/annotate', request),

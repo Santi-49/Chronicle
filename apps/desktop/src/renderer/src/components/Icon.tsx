@@ -29,9 +29,15 @@ import sparkIcon from '@material-symbols/svg-400/outlined/wand_stars.svg'
 import themeDarkIcon from '@material-symbols/svg-400/outlined/dark_mode.svg'
 import themeLightIcon from '@material-symbols/svg-400/outlined/light_mode.svg'
 import terminalIcon from '@material-symbols/svg-400/outlined/terminal.svg'
+import cubeIcon from '@material-symbols/svg-400/outlined/deployed_code.svg'
+import layersIcon from '@material-symbols/svg-400/outlined/layers.svg'
+import shapesIcon from '@material-symbols/svg-400/outlined/shapes.svg'
+import architectureIcon from '@material-symbols/svg-400/outlined/architecture.svg'
+import hourglassIcon from '@material-symbols/svg-400/outlined/hourglass_top.svg'
 
 export type IconName =
   | 'archive'
+  | 'architecture'
   | 'arrow-left'
   | 'arrow-down'
   | 'arrow-up'
@@ -43,15 +49,19 @@ export type IconName =
   | 'chevron-right'
   | 'clock'
   | 'close'
+  | 'cube'
   | 'edit'
   | 'delete'
   | 'folder-plus'
   | 'folder'
   | 'home'
+  | 'hourglass'
   | 'image'
   | 'info'
   | 'key'
+  | 'layers'
   | 'monitoring'
+  | 'shapes'
   | 'refresh'
   | 'restore'
   | 'search'
@@ -64,6 +74,7 @@ export type IconName =
 
 const icons: Record<IconName, string> = {
   archive: archiveIcon,
+  architecture: architectureIcon,
   'arrow-left': arrowLeftIcon,
   'arrow-down': arrowDownIcon,
   'arrow-up': arrowUpIcon,
@@ -75,15 +86,19 @@ const icons: Record<IconName, string> = {
   'chevron-right': chevronRightIcon,
   clock: clockIcon,
   close: closeIcon,
+  cube: cubeIcon,
   edit: editIcon,
   delete: deleteIcon,
   'folder-plus': folderPlusIcon,
   folder: folderIcon,
   home: homeIcon,
+  hourglass: hourglassIcon,
   image: imageIcon,
   info: infoIcon,
   key: keyIcon,
+  layers: layersIcon,
   monitoring: monitoringIcon,
+  shapes: shapesIcon,
   refresh: refreshIcon,
   restore: restoreIcon,
   search: searchIcon,

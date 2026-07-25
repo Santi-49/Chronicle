@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 from chronicle_ai import routes
+from chronicle_ai.formats import supported_formats
 from chronicle_ai.main import app
 from chronicle_ai.schemas import (
     AnnotateResponse,
@@ -71,6 +72,25 @@ def test_health_does_not_require_provider_configuration() -> None:
         "service": "chronicle-ai",
         "version": __version__,
     }
+
+
+def test_capabilities_reports_the_annotatable_formats() -> None:
+    """The desktop app reads this instead of assuming what the service can do."""
+
+    response = client.get("/capabilities")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "service": "chronicle-ai",
+        "version": __version__,
+        "annotate": {"formats": list(supported_formats())},
+    }
+
+
+def test_capabilities_needs_no_provider_or_credential() -> None:
+    # It must answer while offline and unconfigured, because the app calls it
+    # before deciding whether a queued annotation job can run at all.
+    assert client.get("/capabilities").status_code == 200
 
 
 # ---------------------------------------------------------------------------

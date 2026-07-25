@@ -5,6 +5,7 @@ import { PageHeader } from '../components/PageHeader'
 import { chronicle } from '../lib/bridge'
 import { formatBytes } from '../lib/useChronicle'
 import type { FolderScanEntry, TrackedFolder } from '../../../shared/ipc'
+import { FORMATS, supportsAnnotation, type FormatId } from '../../../shared/formats'
 
 interface NewProjectScreenProps {
   onCancel: () => void
@@ -15,14 +16,12 @@ interface NewProjectScreenProps {
   footer?: ReactElement
 }
 
-/** File-type toggles offered in the tree. Each maps to one or more extensions. */
-type FileTypeId = 'png' | 'jpg' | 'psd'
-
-const FILE_TYPES: { id: FileTypeId; label: string; extensions: string[] }[] = [
-  { id: 'png', label: 'PNG', extensions: ['.png'] },
-  { id: 'jpg', label: 'JPG / JPEG', extensions: ['.jpg', '.jpeg'] },
-  { id: 'psd', label: 'Photoshop PSD', extensions: ['.psd'] },
-]
+/**
+ * File-type toggles offered in the tree — one per registered format, so a new
+ * supported format appears here automatically (see shared/formats.ts).
+ */
+const FILE_TYPES = FORMATS
+type FileTypeId = FormatId
 
 function baseName(p: string): string {
   const parts = p.split(/[\\/]/).filter(Boolean)
@@ -97,12 +96,15 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
   const [scanning, setScanning] = useState(false)
   const [excluded, setExcluded] = useState<Set<string>>(new Set(project?.excludedPaths ?? []))
   const [enabledTypes, setEnabledTypes] = useState<Set<FileTypeId>>(() => {
-    if (!project) return new Set(['png', 'jpg', 'psd'])
-    const enabled = new Set<FileTypeId>()
-    if (project.allowedExtensions.includes('.png')) enabled.add('png')
-    if (project.allowedExtensions.includes('.jpg') || project.allowedExtensions.includes('.jpeg')) enabled.add('jpg')
-    if (project.allowedExtensions.includes('.psd')) enabled.add('psd')
-    return enabled
+    // A new project tracks every supported type; an existing one keeps the
+    // format selection stored on it (a format is on when any of its
+    // extensions is allowed).
+    if (!project) return new Set(FORMATS.map((format) => format.id))
+    return new Set(
+      FORMATS.filter((format) =>
+        format.extensions.some((extension) => project.allowedExtensions.includes(extension)),
+      ).map((format) => format.id),
+    )
   })
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -460,21 +462,32 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
             <div className="file-type-chips">
               {FILE_TYPES.map((type) => {
                 const on = enabledTypes.has(type.id)
+                const aiPending = !supportsAnnotation(type)
                 return (
                   <button
                     aria-pressed={on}
                     className={on ? 'file-type-chip file-type-active' : 'file-type-chip'}
                     key={type.id}
                     onClick={() => toggleType(type.id)}
+                    title={
+                      aiPending
+                        ? `${type.label} versions are captured and displayed; AI change summaries for this format are not implemented yet.`
+                        : `${type.label} versions are captured, displayed, and summarized by AI.`
+                    }
                     type="button"
                   >
                     <Icon name={on ? 'check' : 'close'} />
                     {type.label}
+                    {aiPending && <em className="file-type-note">no AI summary yet</em>}
                   </button>
                 )
               })}
-              <span className="file-type-chip file-type-soon">SVG · PSD · BLEND <em>Coming soon</em></span>
             </div>
+            <p className="field-hint">
+              Every type here is captured, versioned, restorable, and searchable by file name.
+              Types marked <em>no AI summary yet</em> keep their change-summary jobs queued until
+              AI support for that format ships.
+            </p>
           </div>
 
           {folderPath && (

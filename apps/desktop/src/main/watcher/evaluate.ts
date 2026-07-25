@@ -39,7 +39,7 @@ export function isTemporaryPath(filePath: string): boolean {
 /** True when the extension is one of WATCHED_EXTENSIONS (case-insensitive). */
 export function hasWatchedExtension(filePath: string): boolean {
   const ext = path.extname(filePath).toLowerCase()
-  return (WATCHED_EXTENSIONS as readonly string[]).includes(ext)
+  return WATCHED_EXTENSIONS.includes(ext)
 }
 
 /**

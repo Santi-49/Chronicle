@@ -359,6 +359,82 @@ Sources:
   ten minutes inspecting unrelated installed packages, so clean, declared build environments are
   a reproducibility requirement, not merely a CI speed optimization.
 
+### Desktop Format Architecture and Per-Format Support (POST-01/POST-02, 2026-07-25)
+
+#### Why the previous shape did not scale
+
+The 2026-07-23 `format` field made C3 format-*aware* but the code underneath stayed format-*bound*:
+fourteen places independently hardcoded the extension list (C4 rules, the AI worker's enum and
+media-type map, capture's dimension reader, the media protocol's magic-byte sniffer, the save
+dialog, the project file-type toggles, telemetry buckets, the details screen's filename parsing,
+plus two `if format == "psd"` branches in the AI service). Adding one format meant touching all of
+them. Worse, the media protocol only sniffed PNG and JPEG, so **PSD was already shipping with a
+permanently broken preview** — every list, timeline, and details view fell back to a grey icon.
+
+Chronicle now declares each format once (`apps/desktop/src/shared/formats.ts`) and derives every
+format-aware path from it. Capture/display and AI annotation are deliberately separate
+capabilities: the app reads `GET /capabilities` from the local AI service and keeps a version's
+annotation job queued (`deferred`) while its format has no adapter, rather than failing it. A
+deferred job is skipped during queue selection, so it never blocks the work behind it, and it
+drains by itself once an adapter ships.
+
+#### Preview generation without new heavy dependencies
+
+Preferring embedded, already-derived data over re-rendering avoided both an image dependency in
+the main process and a second extraction implementation per format:
+
+- **PSD/PSB** — Adobe's specification stores a JFIF thumbnail in image resource **1036**, behind a
+  28-byte header (`format`, width, height, padded row bytes, total size, compressed size, bits per
+  pixel, planes); resource **1033** is the Photoshop 4.0 variant whose data is BGR-ordered and is
+  therefore skipped rather than shown with swapped channels. Reading 1036 gives a ready-to-display
+  JPEG for **both** PSD and PSB, whereas `ag-psd` — the obvious JavaScript alternative — explicitly
+  does not support PSB and needs a canvas implementation for composites.
+  ([Adobe specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/),
+  [Photoshop image resources](http://fileformats.archiveteam.org/wiki/Photoshop_Image_Resources),
+  [ag-psd README](https://github.com/Agamnentzar/ag-psd/blob/master/README.md))
+- **OBJ** — parsed as text (bounded to 16 MB and 400k elements so main-process parsing cannot stall
+  IPC) and projected into a small flat-shaded **SVG**. SVG rather than a bitmap because Chromium
+  renders it natively: no GPU in the main process, no raster encoder, a few kilobytes per thumbnail.
+- **BLEND** — Blender writes a screenshot into a `TEST` file-block for the OS file browser. Its
+  body layout is **not covered by public Blender documentation** (the Kaitai spec documents the
+  12-byte header and the block header but not this block), so the implementation validates width,
+  height, and the declared pixel count against the block length before allocating, and yields no
+  preview when anything looks wrong. Compressed saves (gzip, and Zstandard since Blender 3.0) are
+  handled through a bounded leading-bytes decompression. Blender itself is never invoked and no
+  embedded Python is executed.
+  ([blend format spec](https://formats.kaitai.io/blender_blend/index.html),
+  [Blender thumbnail extraction](https://developer.blender.org/D6408))
+- **STEP** — tessellation needs a CAD kernel, so there is no still thumbnail; `occt-import-js`
+  (OpenCascade compiled to WebAssembly, ~7.6 MB, lazily fetched) runs in the **renderer**, where a
+  heavy assembly cannot stall capture or IPC. Verified end to end against a real STEP file.
+  ([occt-import-js](https://github.com/kovacsv/occt-import-js/blob/main/README.md))
+
+#### Findings worth remembering
+
+- **`<img>` and `fetch()` have different requirements for a custom scheme.** Thumbnails worked
+  immediately, but the 3D viewer's `fetch('chronicle://…')` failed until the scheme was registered
+  with `corsEnabled` *and* the handler answered with an allow-origin header. The failure only
+  surfaced when a mesh version was opened, which is exactly the kind of gap unit tests miss and
+  driving the built app catches.
+- **The format must travel in the media URL.** Library files are stored under their content hash
+  with no extension, and magic bytes cannot distinguish PSD from PSB or an OBJ from any other text
+  file. URLs are now `chronicle://{image,preview}/<format>/<hash>`, with both segments validated.
+- **Previews belong off the capture path.** They are generated lazily on first request and cached
+  per content hash beside the library, so capture stays hash-and-store, conversion is shared across
+  every asset and version with identical bytes, and the cache is disposable.
+- **Untrusted length fields are the real hazard.** Every declared size (PSD thumbnail, BLEND
+  thumbnail, OBJ element counts) is checked against the container before allocation; a test asserts
+  that a `.blend` claiming a 40,000-pixel-wide thumbnail is rejected rather than allocated.
+- **A closed enum plus runtime capability discovery beats either alone.** The published C3 enum
+  keeps unimplemented formats out of requests; `/capabilities` stops the app from assuming that a
+  running sidecar matches its own registry (an older sidecar simply defers instead of failing).
+
+#### Deliberate non-goals
+
+Rendering a `.blend` scene (needs Blender), faithful PSD layer compositing (the embedded preview is
+used instead), image embeddings for visual similarity, and any execution of macros, expressions, or
+plug-in code carried inside a file.
+
 ### Past Hackathon Winners (if available)
 
 BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Edition, NextGen Hackathon). No public winner list found for this specific series yet — check the hub's community/Discord for July examples. (2026-07-16)
@@ -686,3 +762,16 @@ table because area and color are poor tools for precise comparison.
 - 2026-07-22 — MACOS PACKAGING FOLLOW-UP: tagged releases now build native PyInstaller sidecars and electron-builder installers in parallel on Windows x64 and a pinned macOS 15 Apple Silicon runner; manual snapshot dispatch does the same. The DMG is deliberately unsigned and unnotarized, so it is a test/distribution artifact rather than a frictionless public Mac release; Intel packaging, Apple signing/notarization, and auto-update remain separate work.
 - 2026-07-21 — MULTI-PROVIDER PACKAGING/PERFORMANCE: the frozen Windows sidecar now imports Gemini, OpenAI, and Anthropic successfully and passes `/health`; it grew from 25.2 MB to 30.0 MB, while the unsigned installer grew from about 135 MB to 139.7 MB. A clean warm build measured 6.5 seconds for PyInstaller and about 7 seconds for Vite inside a 255.7-second `make package`, showing Electron staging/NSIS creation—not bundling every globally installed Python module—is the dominant repeat cost; `make package-unpacked` measured 177.7 seconds. Packaging now uses a cached isolated provider-only environment and avoids duplicate native rebuilding. Bedrock was removed because its AWS credential set/region does not fit Chronicle's single-key BYOK contract — team local measurement + official LangChain provider and electron-builder lifecycle guidance
 - 2026-07-21 — ZERO-TOUCH RELEASE PROMOTION: GitHub auto-merge waits for required checks/reviews, while PR authors cannot satisfy their own required approval. Chronicle therefore preserves all three protected-main checks but uses zero required approvals for the solo workflow; a no-checkout `pull_request_target` coordinator enables auto-merge only for the same-repository `dev` head or a correctly labeled Release Please branch. It uses the release PAT so follow-on push workflows run, validates a releasing `feat:`/`fix:` squash title, and deletes only the merged temporary release branch. Teams can restore required approvals, which intentionally reintroduces a manual gate — [GitHub auto-merge](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/automatically-merging-a-pull-request), [required reviews](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews), [GitHub CLI merge](https://cli.github.com/manual/gh_pr_merge)
+- 2026-07-25 — DESKTOP FORMAT ARCHITECTURE (POST-01 closure + POST-02 desktop half): replaced
+  fourteen hardcoded extension checks with one shared format registry, and split "captured and
+  displayed" from "annotated by AI" into independent capabilities negotiated through a new
+  `GET /capabilities`. SVG, PSD, PSB, OBJ, STEP/STP, and BLEND now capture, version, restore,
+  keyword-search, and display (OBJ/STEP as interactive 3D), while their annotation jobs stay
+  queued instead of failing. Previews avoid new heavy dependencies by reading data the containers
+  already carry: Photoshop image resource 1036 (works for PSB, unlike `ag-psd`), Blender's `TEST`
+  thumbnail block (layout undocumented, so validated before allocation), and an SVG projection for
+  meshes. A custom scheme needs `corsEnabled` **and** an allow-origin header before `fetch()` works
+  even though `<img>` already did — found by driving the built app, not by tests. Also fixed: PSD
+  had been shipping with a permanently broken preview because the media protocol only sniffed
+  PNG/JPEG — Adobe specification, Photoshop image resources, ag-psd README, Kaitai blend spec,
+  Blender D6408, and occt-import-js linked in the format-architecture section above

@@ -13,6 +13,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { evaluateWatchCandidate } from './evaluate'
 import { MAX_FILE_BYTES, type WatchCandidate, type WatchDecision } from './rules'
+import { SUPPORTED_EXTENSIONS } from '../../shared/formats'
 import { createFolderWatcher, type FolderWatcher } from './watcher'
 
 // ---------------------------------------------------------------------------
@@ -25,13 +26,17 @@ function decide(p: string, sizeBytes = 1024): WatchDecision {
 
 describe('evaluateWatchCandidate', () => {
   it('accepts supported extensions case-insensitively', () => {
-    for (const name of ['a.png', 'a.PNG', 'a.jpg', 'a.JPG', 'a.jpeg', 'a.JpEg', 'a.psd', 'a.PSD']) {
-      expect(decide(`C:\\Designs\\${name}`)).toEqual({ accepted: true })
+    // Every registered format, in both cases — the list comes from the format
+    // registry, so a newly supported format is covered automatically.
+    for (const extension of SUPPORTED_EXTENSIONS) {
+      for (const name of [`a${extension}`, `a${extension.toUpperCase()}`]) {
+        expect(decide(`C:\\Designs\\${name}`), name).toEqual({ accepted: true })
+      }
     }
   })
 
   it('rejects unsupported types', () => {
-    for (const name of ['a.txt', 'a.psb', 'a.gif', 'a.dwg', 'a']) {
+    for (const name of ['a.txt', 'a.gif', 'a.dwg', 'a.aep', 'a']) {
       expect(decide(`C:\\Designs\\${name}`)).toEqual({
         accepted: false,
         reason: 'unsupported-type',
