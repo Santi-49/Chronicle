@@ -16,8 +16,8 @@ import { DATABASE_FILE_NAME, openChronicleDb, type ChronicleDb } from '../db/dat
 import { createAsset, getAsset, getAssetByPath, listJobs, listVersions } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
 import { captureVersion, markFileMissing } from './capture'
+import { jpegBytes, pngBytes } from '../formats/fixtures'
 import { libraryFilePathFor } from './library'
-import { readImageDimensions } from './dimensions'
 
 let dir: string
 let libraryRoot: string
@@ -45,30 +45,6 @@ function writeFile(name: string, content: Buffer | string): string {
 
 function sha256(content: Buffer | string): string {
   return createHash('sha256').update(content).digest('hex')
-}
-
-/** Minimal PNG header: signature + IHDR chunk carrying the dimensions. */
-function pngBytes(width: number, height: number, extra = ''): Buffer {
-  const head = Buffer.alloc(24)
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(head, 0)
-  head.writeUInt32BE(13, 8) // IHDR length
-  head.write('IHDR', 12, 'latin1')
-  head.writeUInt32BE(width, 16)
-  head.writeUInt32BE(height, 20)
-  return Buffer.concat([head, Buffer.from(`\x08\x06\x00\x00\x00${extra}`, 'latin1')])
-}
-
-/** Minimal JPEG header: SOI, an APP0 segment, then SOF0 with the dimensions. */
-function jpegBytes(width: number, height: number, extra = ''): Buffer {
-  const sof = Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08, 0, 0, 0, 0, 0x03])
-  sof.writeUInt16BE(height, 5)
-  sof.writeUInt16BE(width, 7)
-  return Buffer.concat([
-    Buffer.from([0xff, 0xd8]), // SOI
-    Buffer.from([0xff, 0xe0, 0x00, 0x04, 0x4a, 0x46]), // APP0, length 4
-    sof,
-    Buffer.from(`tail-${extra}`, 'latin1'),
-  ])
 }
 
 describe('captureVersion', () => {
@@ -267,35 +243,5 @@ describe('markFileMissing', () => {
     markFileMissing(db, asset.path)
     markFileMissing(db, asset.path)
     expect(getAsset(db, asset.id)!.onDisk).toBe(false)
-  })
-})
-
-describe('readImageDimensions', () => {
-  it('parses PNG and JPEG headers and rejects other content', async () => {
-    const png = writeFile('a.png', pngBytes(321, 123))
-    const jpg = writeFile('a.jpg', jpegBytes(45, 67))
-    const txt = writeFile('a.txt', 'plain text, long enough to fill the header read')
-    const empty = writeFile('empty.png', '')
-
-    expect(await readImageDimensions(png)).toEqual({ width: 321, height: 123 })
-    expect(await readImageDimensions(jpg)).toEqual({ width: 45, height: 67 })
-    expect(await readImageDimensions(txt)).toBeNull()
-    expect(await readImageDimensions(empty)).toBeNull()
-    expect(await readImageDimensions(path.join(workDir, 'missing.png'))).toBeNull()
-  })
-
-  it('walks past JPEG fill bytes and standalone markers to the frame header', async () => {
-    const sof = Buffer.from([0xff, 0xc2, 0x00, 0x11, 0x08, 0x00, 0x02, 0x00, 0x03, 0x01]) // progressive
-    const file = writeFile(
-      'tricky.jpg',
-      Buffer.concat([
-        Buffer.from([0xff, 0xd8]), // SOI
-        Buffer.from([0xff, 0xff]), // fill byte before next marker
-        Buffer.from([0xff, 0x01]), // standalone TEM marker
-        Buffer.from([0xff, 0xe1, 0x00, 0x06, 1, 2, 3, 4]), // APP1, length 6
-        sof,
-      ]),
-    )
-    expect(await readImageDimensions(file)).toEqual({ width: 3, height: 2 })
   })
 })

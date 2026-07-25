@@ -25,6 +25,25 @@
         }
       }
     },
+    "/capabilities": {
+      "get": {
+        "summary": "Capabilities",
+        "description": "Report which annotation formats this build implements.\n\nThe desktop app captures and displays more creative formats than the AI\nservice can annotate. It reads this list instead of assuming, and leaves a\nversion's annotation job queued while its format is missing here.",
+        "operationId": "capabilities_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilitiesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/annotate": {
       "post": {
         "summary": "Annotate",
@@ -283,6 +302,21 @@
   },
   "components": {
     "schemas": {
+      "AnnotateCapability": {
+        "properties": {
+          "formats": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Formats"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AnnotateCapability",
+        "description": "Formats this build can annotate."
+      },
       "AnnotateRequest": {
         "properties": {
           "provider": {
@@ -330,6 +364,16 @@
             "minLength": 1,
             "title": "Filename"
           },
+          "format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpg",
+              "jpeg",
+              "psd"
+            ],
+            "title": "Format"
+          },
           "previous": {
             "anyOf": [
               {
@@ -348,6 +392,7 @@
         "type": "object",
         "required": [
           "fileName",
+          "format",
           "current"
         ],
         "title": "AnnotateRequest"
@@ -421,6 +466,30 @@
         ],
         "title": "AnnotateResponse",
         "description": "C3 annotation plus token usage and the estimated cost of the call."
+      },
+      "CapabilitiesResponse": {
+        "properties": {
+          "service": {
+            "type": "string",
+            "const": "chronicle-ai",
+            "title": "Service",
+            "default": "chronicle-ai"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "annotate": {
+            "$ref": "#/components/schemas/AnnotateCapability"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "CapabilitiesResponse",
+        "description": "What the running service implements, so the app never guesses.\n\nThe desktop app captures and displays more formats than the AI service can\nannotate. It asks here rather than assuming, and keeps a version's\nannotation job queued while its format is absent from this list."
       },
       "CostEstimate": {
         "properties": {
@@ -628,19 +697,31 @@
             "type": "string",
             "enum": [
               "image/png",
-              "image/jpeg"
+              "image/jpeg",
+              "image/vnd.adobe.photoshop"
             ],
             "title": "Mediatype"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpg",
+              "jpeg",
+              "psd"
+            ],
+            "title": "Format"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "base64",
-          "mediaType"
+          "mediaType",
+          "format"
         ],
         "title": "ImageInput",
-        "description": "One PNG or JPEG transported across the local HTTP boundary."
+        "description": "Original creative-file bytes or a derived image preview."
       },
       "ServiceErrorDetail": {
         "properties": {
@@ -648,6 +729,8 @@
             "type": "string",
             "enum": [
               "configuration_error",
+              "unsupported_format",
+              "extraction_error",
               "invalid_model_output",
               "provider_unavailable",
               "provider_timeout",

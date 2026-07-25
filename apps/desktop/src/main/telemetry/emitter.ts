@@ -22,6 +22,7 @@ import type {
   TelemetryOsFamily,
 } from '../../shared/ipc'
 import type { AppSettings } from '../../shared/settings'
+import { formatForPath } from '../../shared/formats'
 import type { ApplicationDiagnosticDraft } from '../diagnostics'
 import type { ChronicleDb } from '../db/database'
 import {
@@ -192,13 +193,15 @@ export function createTelemetryCollector(
         const relative = path.relative(folder.path, asset.path)
         return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
       })
+      // The C6 payload keeps three content-free buckets, so every format other
+      // than the two MVP image types is counted as "other".
       let png = 0
       let jpg = 0
       let other = 0
       for (const asset of owned) {
-        const ext = path.extname(asset.path).toLowerCase()
-        if (ext === '.png') png++
-        else if (ext === '.jpg' || ext === '.jpeg') jpg++
+        const format = formatForPath(asset.path)?.id
+        if (format === 'png') png++
+        else if (format === 'jpg') jpg++
         else other++
       }
       return {

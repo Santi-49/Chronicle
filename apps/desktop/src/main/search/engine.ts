@@ -16,7 +16,8 @@
 
 import type { SearchResult, VersionSummary } from '../../shared/ipc'
 import type { ChronicleDb } from '../db/database'
-import { imageUrlForHash } from '../ipc/media'
+import { thumbnailUrlForHash } from '../ipc/media'
+import { formatForPath, supportsAnnotation } from '../../shared/formats'
 import { searchFts, searchGetVersionsForResults, listEmbeddingsForModel } from './repositories'
 
 // ── Cosine similarity ───────────────────────────────────────────────────
@@ -115,15 +116,20 @@ export async function search(query: string, deps: SearchDependencies): Promise<S
     const matchedBy: SearchResult['matchedBy'] =
       inKeyword && semScore > 0 ? 'both' : inKeyword ? 'keyword' : 'semantic'
 
+    const format = formatForPath(row.assetPath)
     const versionSummary: VersionSummary = {
       id: row.versionId,
       assetId: row.assetId,
       versionNumber: row.versionNumber,
       capturedAt: row.capturedAt,
-      aiStatus: row.aiStatus,
+      aiStatus:
+        row.aiStatus === 'pending' && format && !supportsAnnotation(format)
+          ? 'deferred'
+          : row.aiStatus,
       aiFailure: null,
       summary: row.summary,
-      thumbnailUrl: imageUrlForHash(row.contentHash),
+      thumbnailUrl: format ? thumbnailUrlForHash(row.contentHash, format.id) : null,
+      format: format?.id ?? null,
     }
 
     // Snippet: first 120 chars of the summary, or the tags if no summary yet.

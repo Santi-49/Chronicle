@@ -3,10 +3,18 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
-from .engine import ConfigurationError, annotate_version, embed_text, validate_provider_model
+from .engine import (
+    ConfigurationError,
+    UnsupportedFormatError,
+    annotate_version,
+    embed_text,
+    validate_provider_model,
+)
+from .psd_adapter import PsdExtractionError
 from .schemas import (
     AnnotateRequest,
     AnnotateResponse,
+    CapabilitiesResponse,
     EmbedTextRequest,
     EmbedTextResponse,
     HealthResponse,
@@ -25,6 +33,18 @@ async def health() -> HealthResponse:
     """Report process health without contacting an external provider."""
 
     return HealthResponse(version=__version__)
+
+
+@router.get("/capabilities", response_model=CapabilitiesResponse)
+async def capabilities() -> CapabilitiesResponse:
+    """Report which annotation formats this build implements.
+
+    The desktop app captures and displays more creative formats than the AI
+    service can annotate. It reads this list instead of assuming, and leaves a
+    version's annotation job queued while its format is missing here.
+    """
+
+    return CapabilitiesResponse(version=__version__)
 
 
 ERROR_RESPONSES = {
@@ -114,6 +134,16 @@ def _provider_error(error: Exception, operation: str, api_key: str | None = None
 async def annotate(request: AnnotateRequest) -> AnnotateResponse:
     try:
         return await annotate_version(request)
+    except UnsupportedFormatError as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "unsupported_format", "message": str(error)},
+        ) from error
+    except PsdExtractionError as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "extraction_error", "message": str(error)},
+        ) from error
     except ConfigurationError as error:
         raise HTTPException(
             status_code=400,

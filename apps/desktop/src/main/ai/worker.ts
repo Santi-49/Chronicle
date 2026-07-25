@@ -1,7 +1,7 @@
 /** FIFO worker that turns queued versions into annotations and embeddings. */
 import fs from 'node:fs/promises'
-import path from 'node:path'
 import type { AppSettings } from '../../shared/settings'
+import { formatForPath } from '../../shared/formats'
 import type { ChronicleDb } from '../db/database'
 import {
   bumpJobRetry,
@@ -22,7 +22,12 @@ import {
 import type { EmitEvent } from '../ipc/channels'
 import { embeddingModelIdentity } from '../search'
 import { libraryFilePathFor } from '../versioning'
-import { AiServiceError, type AiClient, type ProviderRequest } from './client'
+import {
+  AiServiceError,
+  type AiClient,
+  type AnnotateRequest,
+  type ProviderRequest,
+} from './client'
 import type { TelemetryCollector } from '../telemetry/emitter'
 import type { ApplicationDiagnosticSink } from '../diagnostics'
 import { diagnosticError } from '../diagnostics'
@@ -52,8 +57,22 @@ export interface AiWorkerDependencies {
   pollMs?: number
 }
 
-function mediaType(fileName: string): 'image/png' | 'image/jpeg' {
-  return path.extname(fileName).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg'
+type AnnotationInput = AnnotateRequest['current']
+
+/**
+ * The C3 request values for a captured file, or null when the AI service has no
+ * adapter for its format yet. Null is not an error: the annotation job stays
+ * queued and drains once support ships (POST-02).
+ */
+export function annotationFormatFor(filePath: string): AnnotationInput | null {
+  const format = formatForPath(filePath)
+  if (!format || format.aiFormat === null) return null
+  return {
+    base64: '',
+    // C3 keeps a media type beside the format; the registry owns the mapping.
+    mediaType: format.mediaType as AnnotationInput['mediaType'],
+    format: format.aiFormat as AnnotationInput['format'],
+  }
 }
 
 function versionIdOf(job: QueueItem): number | null {
@@ -65,6 +84,8 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
   let timer: NodeJS.Timeout | undefined
   let running = false
   let stopped = false
+  /** undefined = not asked yet, null = the service reported nothing. */
+  let capabilities: string[] | null | undefined
   const diagnostic: ApplicationDiagnosticSink = deps.diagnostic ?? (() => {})
 
   async function providerConfig(kind: 'chat' | 'embeddings'): Promise<ProviderRequest | null> {
@@ -76,13 +97,11 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     return { provider: selected.provider, model: selected.model, apiKey }
   }
 
-  async function image(versionId: number): Promise<{ base64: string; mediaType: 'image/png' | 'image/jpeg' }> {
+  async function image(versionId: number, shape: AnnotationInput): Promise<AnnotationInput> {
     const version = getVersion(deps.db, versionId)
     if (!version) throw new Error(`Unknown version ${versionId}`)
-    const asset = getAsset(deps.db, version.assetId)
-    if (!asset) throw new Error(`Unknown asset ${version.assetId}`)
     const bytes = await fs.readFile(libraryFilePathFor(deps.libraryRoot, version.contentHash))
-    return { base64: bytes.toString('base64'), mediaType: mediaType(asset.path) }
+    return { ...shape, base64: bytes.toString('base64') }
   }
 
   function failureDetails(error: unknown): QueueFailure {
@@ -160,11 +179,15 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       (candidate) => candidate.versionNumber === version.versionNumber - 1,
     )
     const startedAt = Date.now()
+    // drainOne only selects jobs whose format is supported, so this is set.
+    const shape = annotationFormatFor(asset.path)
+    if (!shape) return
     const annotation = await deps.client.annotate({
       ...config,
       fileName: asset.displayName,
-      previous: previous ? await image(previous.id) : null,
-      current: await image(version.id),
+      format: shape.format,
+      previous: previous ? await image(previous.id, shape) : null,
+      current: await image(version.id, shape),
     })
 
     const latencyMs = Date.now() - startedAt
@@ -239,13 +262,51 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     })
   }
 
+  /**
+   * True when this job can be attempted now. An annotation job for a format the
+   * AI service has no adapter for is skipped — not failed and not retried — so
+   * it drains automatically once POST-02 adds support. Skipping (rather than
+   * returning) matters: otherwise one deferred job would block the whole FIFO
+   * queue behind it.
+   */
+  async function isProcessable(job: QueueItem): Promise<boolean> {
+    if (job.jobType !== 'ai_annotation') return true
+    const versionId = versionIdOf(job)
+    const version = versionId === null ? undefined : getVersion(deps.db, versionId)
+    const asset = version ? getAsset(deps.db, version.assetId) : undefined
+    // A job whose version or asset vanished is handled (deleted) by drainOne.
+    if (!asset) return true
+    const shape = annotationFormatFor(asset.path)
+    if (!shape) return false
+    // Defence in depth: an older sidecar may not accept a format the registry
+    // already declares. Skipping keeps the job queued instead of failing it.
+    const supported = await annotationFormats()
+    return supported === null || supported.includes(shape.format)
+  }
+
+  /** Formats the running service accepts; null when it did not report any. */
+  async function annotationFormats(): Promise<string[] | null> {
+    if (capabilities === undefined) {
+      const reported = await deps.client.capabilities()
+      capabilities = reported?.annotate?.formats ?? null
+    }
+    return capabilities
+  }
+
   async function drainOne(): Promise<void> {
     if (running || stopped || !deps.isOnline()) return
-    const job = listJobs(deps.db).find(
+    const candidates = listJobs(deps.db).filter(
       (candidate) =>
         candidate.status === 'pending' &&
         (candidate.jobType === 'ai_annotation' || candidate.jobType === 'embedding'),
     )
+    let job: QueueItem | undefined
+    for (const candidate of candidates) {
+      if (await isProcessable(candidate)) {
+        job = candidate
+        break
+      }
+    }
     if (!job) return
     const versionId = versionIdOf(job)
     if (versionId === null) {

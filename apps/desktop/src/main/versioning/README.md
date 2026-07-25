@@ -10,7 +10,7 @@ version** (spec F3). Consumers: watcher wiring (`onAccepted` → `captureVersion
 |---|---|
 | `capture.ts` | `captureVersion(db, libraryRoot, filePath)` — the F3 pipeline; `markFileMissing` for F3.7. |
 | `library.ts` | Content-addressed store: single-pass stream copy + SHA-256, `library/<hash first 2>/<hash>` layout. |
-| `dimensions.ts` | PNG/JPEG width/height from format headers (positioned reads, no image dependency). |
+| `dimensions.ts` | PNG/JPEG/PSD width/height from format headers (positioned reads, no image dependency). |
 | `capture.test.ts` | MVP-04 acceptance tests against a real SQLite file + real library dir. |
 
 Everything is Electron-free: production passes `libraryDir()` from

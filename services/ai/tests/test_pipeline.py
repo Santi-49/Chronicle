@@ -71,6 +71,14 @@ def _load_as_b64(path: Path) -> tuple[str, str]:
     return b64, record["mime_type"]
 
 
+def _format_from_path(path: Path) -> str:
+    """Derive the SupportedFormat value from a file extension."""
+    ext = path.suffix.lower().lstrip(".")
+    if ext in ("jpg", "jpeg"):
+        return ext
+    return "png"
+
+
 ANNOTATION_DICT = {
     "summary": "A red square logo on a white background.",
     "changes": ["Red square logo present", "White background"],
@@ -93,14 +101,16 @@ DIFF_DICT = {
 
 def _first_version_request(image_path: Path) -> AnnotateRequest:
     b64, media_type = _load_as_b64(image_path)
+    fmt = _format_from_path(image_path)
     return AnnotateRequest.model_validate(
         {
             "provider": "test-provider",
             "model": "test-chat-model",
             "apiKey": "test-key",
             "fileName": image_path.name,
+            "format": fmt,
             "previous": None,
-            "current": {"base64": b64, "mediaType": media_type},
+            "current": {"base64": b64, "mediaType": media_type, "format": fmt},
         }
     )
 
@@ -108,14 +118,17 @@ def _first_version_request(image_path: Path) -> AnnotateRequest:
 def _diff_request(previous_path: Path, current_path: Path) -> AnnotateRequest:
     prev_b64, prev_media = _load_as_b64(previous_path)
     curr_b64, curr_media = _load_as_b64(current_path)
+    prev_fmt = _format_from_path(previous_path)
+    curr_fmt = _format_from_path(current_path)
     return AnnotateRequest.model_validate(
         {
             "provider": "test-provider",
             "model": "test-chat-model",
             "apiKey": "test-key",
             "fileName": current_path.name,
-            "previous": {"base64": prev_b64, "mediaType": prev_media},
-            "current": {"base64": curr_b64, "mediaType": curr_media},
+            "format": curr_fmt,
+            "previous": {"base64": prev_b64, "mediaType": prev_media, "format": prev_fmt},
+            "current": {"base64": curr_b64, "mediaType": curr_media, "format": curr_fmt},
         }
     )
 

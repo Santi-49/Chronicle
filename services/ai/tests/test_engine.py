@@ -12,7 +12,7 @@ from chronicle_ai.engine import annotate_version, embed_text, validate_provider_
 from chronicle_ai.schemas import AnnotateRequest, EmbedTextRequest, ValidateProviderModelRequest
 
 
-IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png"}
+IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png", "format": "png"}
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +75,7 @@ async def test_first_version_uses_description_prompt() -> None:
                 "model": "test-chat-model",
                 "apiKey": "secret",
                 "fileName": "logo.png",
+                "format": "png",
                 "previous": None,
                 "current": IMAGE,
             }
@@ -129,8 +130,9 @@ async def test_diff_sends_previous_image_before_current_image() -> None:
                 "model": "test-chat-model",
                 "apiKey": "secret",
                 "fileName": "logo.png",
-                "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png"},
-                "current": {"base64": "Y3VycmVudA==", "mediaType": "image/png"},
+                "format": "png",
+                "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png", "format": "png"},
+                "current": {"base64": "Y3VycmVudA==", "mediaType": "image/png", "format": "png"},
             }
         ),
         model_factory=lambda **_: chat_model,
@@ -169,8 +171,9 @@ async def test_diff_prompt_instructs_change_description() -> None:
                 "model": "test-chat-model",
                 "apiKey": "secret",
                 "fileName": "banner.png",
-                "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png"},
-                "current": {"base64": "Y3VycmVudA==", "mediaType": "image/png"},
+                "format": "png",
+                "previous": {"base64": "cHJldmlvdXM=", "mediaType": "image/png", "format": "png"},
+                "current": {"base64": "Y3VycmVudA==", "mediaType": "image/png", "format": "png"},
             }
         ),
         model_factory=lambda **_: chat_model,
@@ -214,6 +217,7 @@ async def test_annotate_accepts_version_annotation_instance_from_model() -> None
                 "model": "test-chat-model",
                 "apiKey": "secret",
                 "fileName": "logo.png",
+                "format": "png",
                 "previous": None,
                 "current": IMAGE,
             }
@@ -351,7 +355,7 @@ async def test_annotate_falls_back_to_env_and_reports_tokens_and_cost(monkeypatc
         return _FakeChatWithUsage(structured)
 
     result = await annotate_version(
-        AnnotateRequest.model_validate({"fileName": "logo.png", "current": IMAGE}),
+        AnnotateRequest.model_validate({"fileName": "logo.png", "format": "png", "current": IMAGE}),
         model_factory=factory,
     )
 
@@ -374,6 +378,6 @@ async def test_annotate_without_provider_or_env_raises_configuration_error() -> 
 
     with pytest.raises(ConfigurationError):
         await annotate_version(
-            AnnotateRequest.model_validate({"fileName": "logo.png", "current": IMAGE}),
+            AnnotateRequest.model_validate({"fileName": "logo.png", "format": "png", "current": IMAGE}),
             model_factory=lambda **_: None,
         )

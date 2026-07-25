@@ -79,12 +79,18 @@ export interface AdminStatistics {
 }
 
 import type { AppSettings } from './settings'
+import type { FormatId } from './formats'
 
 // ── Data shapes ────────────────────────────────────────────────────────
 
 export type WindowTheme = 'dark' | 'light'
 
-export type AiStatus = 'pending' | 'done' | 'failed' | 'none' // 'none' = restore versions, no AI needed
+/**
+ * 'none'     = restore versions, no AI needed
+ * 'deferred' = captured and queued, but the AI service has no adapter for this
+ *              file format yet; the job waits instead of failing (POST-02)
+ */
+export type AiStatus = 'pending' | 'done' | 'failed' | 'none' | 'deferred'
 export interface AiFailure {
   /** Safe provider/service explanation; never contains credentials or request content. */
   message: string
@@ -156,7 +162,10 @@ export interface AssetSummary {
   versionCount: number
   lastCapturedAt: string
   lastSummary: string | null
-  thumbnailUrl: string
+  /** null when the format has no still preview (see shared/formats.ts). */
+  thumbnailUrl: string | null
+  /** Format id from the registry; null when the extension is no longer supported. */
+  format: FormatId | null
 }
 
 export interface VersionSummary {
@@ -167,11 +176,15 @@ export interface VersionSummary {
   aiStatus: AiStatus
   aiFailure: AiFailure | null
   summary: string | null // null while pending/failed; "Restored from version N" for restores
-  thumbnailUrl: string
+  /** null when the format has no still preview (see shared/formats.ts). */
+  thumbnailUrl: string | null
+  /** Format id from the registry; null when the extension is no longer supported. */
+  format: FormatId | null
 }
 
 export interface VersionDetails extends VersionSummary {
-  imageUrl: string
+  /** The stored original bytes — what a format-specific viewer (e.g. 3D) loads. */
+  imageUrl: string | null
   contentHash: string
   sizeBytes: number
   width: number
@@ -231,6 +244,9 @@ export interface PendingJob {
   assetName: string | null
   versionNumber: number | null
   thumbnailUrl: string | null
+  format: FormatId | null
+  /** True while this job waits for AI support for its file format (POST-02). */
+  deferred: boolean
 }
 
 /** Sanitized record of one outbound Chronicle control-plane request. */
@@ -418,7 +434,7 @@ export interface ChronicleApi {
   /** Opens the native folder picker and returns the chosen path; null if cancelled. No side effects. */
   pickFolder(): Promise<string | null>
   /**
-   * Lists every supported (png/jpg/jpeg) file under a folder tree, skipping
+   * Lists every supported (png/jpg/jpeg/psd) file under a folder tree, skipping
    * hidden and temporary files. Read-only — used by the New Project flow to
    * preview matches and let the user deselect files/types before tracking.
    */

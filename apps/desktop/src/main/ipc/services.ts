@@ -19,6 +19,7 @@ import fs from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import type { TelemetryCollector } from '../telemetry/emitter'
 import type {
+  AiStatus,
   AppStatus,
   ApplicationDiagnostic,
   AssetSummary,
@@ -71,7 +72,12 @@ import {
   libraryFilePathFor,
 } from '../versioning'
 import type { EmitEvent } from './channels'
-import { imageUrlForHash } from './media'
+import { imageUrlForHash, thumbnailUrlForHash } from './media'
+import {
+  formatForPath,
+  supportsAnnotation,
+  type FormatDescriptor,
+} from '../../shared/formats'
 import type { SecretStore } from './secrets'
 import type { ControlPlaneClient, InstallationDescriptor } from '../gateway-client/client'
 import { portableSettings } from '../gateway-client/client'
@@ -534,16 +540,37 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     return job?.lastError ?? null
   }
 
+  /**
+   * The format of the asset a version belongs to, from the registry. Null when
+   * the asset's extension is no longer supported (history stays visible).
+   */
+  function formatOf(assetId: number): FormatDescriptor | null {
+    const asset = getAsset(db, assetId)
+    return asset ? formatForPath(asset.path) : null
+  }
+
+  /**
+   * A queued annotation for a format the AI service cannot handle yet is
+   * reported as 'deferred', not 'pending': the job stays in the queue and the
+   * UI says so instead of implying a summary is seconds away (POST-02).
+   */
+  function aiStatusOf(version: VersionRecord, format: FormatDescriptor | null): AiStatus {
+    if (version.aiStatus !== 'pending') return version.aiStatus
+    return format && !supportsAnnotation(format) ? 'deferred' : 'pending'
+  }
+
   function toVersionSummary(version: VersionRecord): VersionSummary {
+    const format = formatOf(version.assetId)
     return {
       id: version.id,
       assetId: version.assetId,
       versionNumber: version.versionNumber,
       capturedAt: version.capturedAt,
-      aiStatus: version.aiStatus,
+      aiStatus: aiStatusOf(version, format),
       aiFailure: version.aiStatus === 'failed' ? aiFailureOf(version.id) : null,
       summary: summaryTextOf(version),
-      thumbnailUrl: imageUrlForHash(version.contentHash),
+      thumbnailUrl: format ? thumbnailUrlForHash(version.contentHash, format.id) : null,
+      format: format?.id ?? null,
     }
   }
 
@@ -735,6 +762,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       for (const item of listAssets(db)) {
         const latest = getLatestVersion(db, item.id)
         if (!latest) continue // capture creates the first version moments later
+        const format = formatForPath(item.path)
         summaries.push({
           id: item.id,
           displayName: item.displayName,
@@ -743,7 +771,8 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           versionCount: item.versionCount,
           lastCapturedAt: item.lastCapturedAt ?? item.createdAt,
           lastSummary: item.lastSummary,
-          thumbnailUrl: imageUrlForHash(latest.contentHash),
+          thumbnailUrl: format ? thumbnailUrlForHash(latest.contentHash, format.id) : null,
+          format: format?.id ?? null,
         })
       }
       return summaries
@@ -757,9 +786,10 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       const version = getVersion(db, expectId(versionId, 'versionId'))
       if (!version) throw new Error(`Unknown version: ${versionId}`)
       const annotation = getAnnotation(db, version.id)
+      const format = formatOf(version.assetId)
       const details: VersionDetails = {
         ...toVersionSummary(version),
-        imageUrl: imageUrlForHash(version.contentHash),
+        imageUrl: format ? imageUrlForHash(version.contentHash, format.id) : null,
         contentHash: version.contentHash,
         sizeBytes: version.sizeBytes,
         // C1 declares dimensions as numbers; 0 = "could not be parsed" (rare —
@@ -1205,6 +1235,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
             : null
         const version = versionId === null ? undefined : getVersion(db, versionId)
         const asset = version ? getAsset(db, version.assetId) : undefined
+        const format = asset ? formatForPath(asset.path) : null
         pending.push({
           id: job.id,
           jobType: job.jobType,
@@ -1216,7 +1247,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           assetId: version?.assetId ?? null,
           assetName: asset?.displayName ?? null,
           versionNumber: version?.versionNumber ?? null,
-          thumbnailUrl: version ? imageUrlForHash(version.contentHash) : null,
+          thumbnailUrl:
+            version && format ? thumbnailUrlForHash(version.contentHash, format.id) : null,
+          format: format?.id ?? null,
+          // An annotation job for a format the AI service cannot handle yet
+          // waits here instead of failing (POST-02).
+          deferred:
+            job.jobType === 'ai_annotation' && format !== null && !supportsAnnotation(format),
         })
       }
       return pending

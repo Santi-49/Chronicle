@@ -33,8 +33,10 @@ import {
   type ApplicationDiagnosticSink,
 } from '../diagnostics'
 import { libraryFilePathFor } from '../versioning'
+import { resolvePreview } from '../formats/preview-cache'
+import { SUPPORTED_EXTENSIONS } from '../../shared/formats'
 import { API_METHOD_NAMES, apiChannel, eventChannel, type EmitEvent } from './channels'
-import { CHRONICLE_SCHEME, chronicleUrlToHash, sniffImageContentType } from './media'
+import { CHRONICLE_SCHEME, parseChronicleUrl } from './media'
 import { createSafeStorageSecretStore, readApiKey } from './secrets'
 import { createChronicleServices } from './services'
 
@@ -47,47 +49,72 @@ export interface ChronicleIpc {
 /**
  * Must run before `app.whenReady()` — Electron requires scheme privileges to
  * be declared before the default session exists. `standard` gives the URLs
- * normal origin/URL parsing; `stream` lets large images stream to <img>.
+ * normal origin/URL parsing; `stream` lets large images stream to <img>;
+ * `supportFetchAPI` + `corsEnabled` let the 3D viewer fetch() a version's
+ * stored bytes from the renderer's own origin (the handler answers with an
+ * allow-origin header).
  */
 export function registerChronicleScheme(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: CHRONICLE_SCHEME,
-      privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true },
+      privileges: {
+        standard: true,
+        secure: true,
+        stream: true,
+        supportFetchAPI: true,
+        corsEnabled: true,
+      },
     },
   ])
 }
 
 /**
- * Serves library bytes to the renderer as chronicle://image/<hash> (C1 rule:
- * URLs, never raw bytes or filesystem paths over IPC). The hash is validated
- * by chronicleUrlToHash, so only files inside the library are reachable.
+ * Serves version media to the renderer (C1 rule: URLs, never raw bytes or
+ * filesystem paths over IPC):
+ *
+ *   chronicle://image/<format>/<hash>    the stored original bytes
+ *   chronicle://preview/<format>/<hash>  a derived, displayable image
+ *
+ * Both parts of the path are validated by parseChronicleUrl, so only files
+ * inside the library or its preview cache are reachable. A preview that cannot
+ * be produced is a 404 and the UI falls back to the format placeholder.
  */
-function registerChronicleProtocol(libraryRoot: string): void {
-  protocol.handle(CHRONICLE_SCHEME, async (request) => {
-    const hash = chronicleUrlToHash(request.url)
-    if (!hash) return new Response('Not found', { status: 404 })
-    const filePath = libraryFilePathFor(libraryRoot, hash)
+function registerChronicleProtocol(libraryRoot: string, previewRoot: string): void {
+  const notFound = (): Response => new Response('Not found', { status: 404 })
 
-    let head: Buffer
-    try {
-      const file = await fs.promises.open(filePath, 'r')
-      try {
-        head = Buffer.alloc(8)
-        await file.read(head, 0, 8, 0)
-      } finally {
-        await file.close()
-      }
-    } catch {
-      return new Response('Not found', { status: 404 })
+  protocol.handle(CHRONICLE_SCHEME, async (request) => {
+    const media = parseChronicleUrl(request.url)
+    if (!media) return notFound()
+
+    let filePath: string
+    let contentType: string
+    if (media.kind === 'preview') {
+      const preview = await resolvePreview(
+        { libraryRoot, previewRoot },
+        media.contentHash,
+        media.format.id,
+      )
+      if (!preview) return notFound()
+      filePath = preview.filePath
+      contentType = preview.mediaType
+    } else {
+      filePath = libraryFilePathFor(libraryRoot, media.contentHash)
+      // The format id in the URL is the content type — library files carry no
+      // extension, and the bytes alone cannot distinguish PSD from PSB.
+      contentType = media.format.mediaType
+      if (!fs.existsSync(filePath)) return notFound()
     }
 
     return new Response(Readable.toWeb(fs.createReadStream(filePath)) as ReadableStream, {
       headers: {
-        // Library files carry no extension — sniff the stored magic bytes.
-        'content-type': sniffImageContentType(head),
+        'content-type': contentType,
         // Content-addressed = immutable: the same URL can never change bytes.
         'cache-control': 'public, max-age=31536000, immutable',
+        // <img> loads need no CORS, but the 3D viewer fetch()es the stored bytes
+        // from the renderer's file:// origin. The scheme is registered only in
+        // this app's session, so nothing outside Chronicle can request it.
+        'access-control-allow-origin': '*',
       },
     })
   })
@@ -108,7 +135,11 @@ const emit: EmitEvent = (event, payload) => {
 }
 
 /** Call once after `app.whenReady()`; returns the live api and a disposer. */
-export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): ChronicleIpc {
+export function startChronicleIpc(
+  db: ChronicleDb,
+  libraryRoot: string,
+  previewRoot: string,
+): ChronicleIpc {
   const osFamily =
     process.platform === 'win32' ? 'windows'
       : process.platform === 'darwin' ? 'macos'
@@ -213,7 +244,12 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
       const result = await dialog.showSaveDialog({
         title: 'Save a version copy',
         defaultPath: suggestedName,
-        filters: [{ name: 'Image', extensions: ['png', 'jpg', 'jpeg'] }],
+        filters: [
+          {
+            name: 'Creative file',
+            extensions: SUPPORTED_EXTENSIONS.map((extension) => extension.slice(1)),
+          },
+        ],
       })
       return result.canceled || !result.filePath ? null : result.filePath
     },
@@ -273,7 +309,7 @@ export function startChronicleIpc(db: ChronicleDb, libraryRoot: string): Chronic
       })
     : null
 
-  registerChronicleProtocol(libraryRoot)
+  registerChronicleProtocol(libraryRoot, previewRoot)
 
   const repositoryRoot = path.resolve(app.getAppPath(), '..', '..')
   const aiProcess = createAiServiceProcess(
