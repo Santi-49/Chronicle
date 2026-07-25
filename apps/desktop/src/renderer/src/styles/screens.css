@@ -274,6 +274,12 @@
   object-fit: cover;
 }
 
+/* Vector artwork and rendered geometry must stay whole, never be cropped. */
+.asset-preview img.preview-contain {
+  object-fit: contain;
+  padding: 8px;
+}
+
 .asset-preview-placeholder {
   display: flex;
   align-items: center;
@@ -375,6 +381,8 @@
 .status-pending { color: var(--warning); }
 .status-failed { color: var(--danger); }
 .status-none { color: var(--text-muted); }
+/* Captured, queued, and waiting for AI support for its file format (POST-02). */
+.status-deferred { color: var(--text-muted); }
 .timeline-history-tools { display: flex; min-height: 44px; margin-top: 20px; align-items: center; justify-content: flex-end; gap: 16px; }
 .timeline-history-tools p { margin: 0; color: var(--success); font-size: 11px; }
 .timeline-reset-trigger { color: var(--text-muted); font-size: 11px; }
@@ -468,8 +476,19 @@
 
 .version-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .version-layout { display: grid; margin-top: 32px; grid-template-columns: minmax(340px, .82fr) minmax(420px, 1.18fr); gap: 32px; }
+/* 3D viewer (OBJ, STEP) — fills the same frame as a still preview. */
+.mesh-viewer { display: flex; width: 100%; height: 100%; flex-direction: column; gap: 10px; }
+.mesh-viewer-canvas { width: 100%; min-height: 320px; flex: 1; overflow: hidden; background: var(--surface-hover); border: 1px solid var(--border); touch-action: none; cursor: grab; }
+.mesh-viewer-canvas:active { cursor: grabbing; }
+.mesh-viewer-canvas canvas { display: block; }
+.mesh-viewer-detail { margin: 0; color: var(--text-muted); font-size: 10px; text-align: center; }
+.mesh-viewer-empty { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; min-height: 320px; padding: 24px; color: var(--text-muted); text-align: center; background: var(--surface-hover); border: 1px solid var(--border); }
+.mesh-viewer-empty .icon { width: 32px; height: 32px; }
+.mesh-viewer-empty p { margin: 0; font-size: 12px; }
+
 .large-preview-frame { display: grid; min-height: 460px; padding: 32px; place-items: center; background: var(--surface); border: 1px solid var(--border); }
 .large-preview-frame .asset-preview { width: min(100%, 430px); min-height: 360px; }
+.large-preview-frame .mesh-viewer { width: 100%; min-height: 400px; align-self: stretch; }
 .large-preview-frame .asset-preview-campaign { padding: 42px; }
 .large-preview-frame .asset-preview-campaign strong { left: 42px; bottom: 42px; font-size: 40px; }
 .large-preview-frame .asset-preview-campaign i { width: 76px; height: 112px; right: 72px; top: 64px; }
@@ -1094,6 +1113,7 @@ button.file-type-chip:not(.file-type-active) { color: var(--text-muted); }
 button.file-type-chip:hover { border-color: var(--border-strong); }
 .file-type-active { color: var(--text-primary); border-color: var(--accent); }
 .file-type-soon { color: var(--text-muted); }
+.file-type-note { opacity: .75; }
 
 /* New project — folder scan + file selection tree */
 .scan-panel { margin-top: 6px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }

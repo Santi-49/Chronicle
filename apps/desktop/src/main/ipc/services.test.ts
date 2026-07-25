@@ -32,6 +32,7 @@ import {
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
 import { SUPPORTED_EXTENSIONS } from '../../shared/formats'
+import { objCube, pngBytes } from '../formats/fixtures'
 import { captureVersion, libraryFilePathFor } from '../versioning'
 import { API_METHOD_NAMES } from './channels'
 import { imageUrlForHash, parseChronicleUrl, previewUrlForHash, thumbnailUrlForHash } from './media'
@@ -139,17 +140,6 @@ async function waitFor(predicate: () => boolean, what: string, timeoutMs = 8_000
 
 function eventsOf<E extends ChronicleEventName>(event: E): Array<ChronicleEvents[E]> {
   return events.filter((e) => e.event === event).map((e) => e.payload as ChronicleEvents[E])
-}
-
-/** Minimal PNG header: signature + IHDR chunk carrying the dimensions. */
-function pngBytes(width: number, height: number, extra = ''): Buffer {
-  const head = Buffer.alloc(24)
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(head, 0)
-  head.writeUInt32BE(13, 8) // IHDR length
-  head.write('IHDR', 12, 'latin1')
-  head.writeUInt32BE(width, 16)
-  head.writeUInt32BE(height, 20)
-  return Buffer.concat([head, Buffer.from(`\x08\x06\x00\x00\x00${extra}`, 'latin1')])
 }
 
 function writeFile(name: string, content: Buffer | string): string {
@@ -417,6 +407,37 @@ describe('timeline and version details', () => {
     expect(timeline[1]!.summary).toBeNull() // still pending
     expect(timeline[2]!.summary).toBe('Initial logo on navy background')
     for (const v of timeline) expect(parseChronicleUrl(v.thumbnailUrl!)).not.toBeNull()
+  })
+
+  it('reports a format the AI cannot annotate yet as deferred, not pending', async () => {
+    const { versionId } = await seedCapture('model.obj', Buffer.from(objCube()))
+
+    const details = await services.api.getVersionDetails(versionId)
+    expect(details.format).toBe('obj')
+    // Captured and displayable, with its queued annotation honestly labelled.
+    expect(details.aiStatus).toBe('deferred')
+    expect(details.aiFailure).toBeNull()
+    expect(parseChronicleUrl(details.imageUrl!)).toMatchObject({ kind: 'image' })
+    expect(parseChronicleUrl(details.thumbnailUrl!)).toMatchObject({ kind: 'preview' })
+
+    const jobs = await services.api.listPendingJobs()
+    const annotation = jobs.find((job) => job.jobType === 'ai_annotation')
+    expect(annotation).toMatchObject({ deferred: true, state: 'pending', format: 'obj' })
+
+    // A PNG in the same project keeps the normal pending path.
+    const png = await seedCapture('logo.png', pngBytes(8, 8))
+    const pngDetails = await services.api.getVersionDetails(png.versionId)
+    expect(pngDetails.aiStatus).toBe('pending')
+    expect(pngDetails.format).toBe('png')
+  })
+
+  it('has no thumbnail URL for a format with no still preview', async () => {
+    const { versionId } = await seedCapture('part.step', Buffer.from('ISO-10303-21;\nENDSEC;\n'))
+    const details = await services.api.getVersionDetails(versionId)
+    expect(details.format).toBe('step')
+    expect(details.thumbnailUrl).toBeNull()
+    // The original bytes are still reachable — the 3D viewer loads them.
+    expect(parseChronicleUrl(details.imageUrl!)).toMatchObject({ kind: 'image' })
   })
 
   it('getVersionDetails returns full C1 shape after annotation', async () => {

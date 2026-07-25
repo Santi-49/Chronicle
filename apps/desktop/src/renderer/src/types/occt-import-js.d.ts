@@ -26,7 +26,17 @@ declare module 'occt-import-js' {
     ReadStepFile(content: Uint8Array, params: null): OcctResult
   }
 
+  /** Emscripten module overrides; `locateFile` resolves the .wasm asset. */
+  interface OcctOptions {
+    locateFile?: (fileName: string) => string
+  }
+
   /** The module default export is a factory returning a promise of the runtime. */
-  const factory: () => Promise<Occt>
+  const factory: (options?: OcctOptions) => Promise<Occt>
   export default factory
+}
+
+declare module '*.wasm?url' {
+  const url: string
+  export default url
 }

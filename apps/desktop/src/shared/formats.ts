@@ -51,6 +51,12 @@ export interface FormatDescriptor {
    */
   icon: 'image' | 'layers' | 'cube' | 'architecture' | 'shapes'
   /**
+   * How a still preview fills its frame. Photographic content is cropped to
+   * fill ('cover'); vector artwork and rendered geometry must stay whole
+   * ('contain'), because cropping a diagram or a model loses its subject.
+   */
+  fit: 'cover' | 'contain'
+  /**
    * The C3 `format` value to send with an annotation request, or null while the
    * AI service has no adapter for this format. Null keeps captured versions'
    * annotation jobs queued instead of failing them (spec F4, POST-02).
@@ -74,6 +80,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     preview: 'native',
     viewer: 'raster',
     icon: 'image',
+    fit: 'cover',
     aiFormat: 'png',
   },
   {
@@ -84,6 +91,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     preview: 'native',
     viewer: 'raster',
     icon: 'image',
+    fit: 'cover',
     aiFormat: 'jpg',
   },
   {
@@ -94,6 +102,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     preview: 'native',
     viewer: 'svg',
     icon: 'shapes',
+    fit: 'contain',
     aiFormat: null,
   },
   {
@@ -104,6 +113,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     preview: 'derived',
     viewer: 'raster',
     icon: 'layers',
+    fit: 'cover',
     aiFormat: 'psd',
   },
   {
@@ -114,6 +124,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     preview: 'derived',
     viewer: 'raster',
     icon: 'layers',
+    fit: 'cover',
     aiFormat: null,
   },
   {
@@ -124,6 +135,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     preview: 'derived',
     viewer: 'mesh3d',
     icon: 'cube',
+    fit: 'contain',
     aiFormat: null,
   },
   {
@@ -136,6 +148,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     preview: 'none',
     viewer: 'mesh3d',
     icon: 'architecture',
+    fit: 'contain',
     aiFormat: null,
   },
   {
@@ -146,6 +159,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     preview: 'derived',
     viewer: 'raster',
     icon: 'cube',
+    fit: 'cover',
     aiFormat: null,
   },
 ]

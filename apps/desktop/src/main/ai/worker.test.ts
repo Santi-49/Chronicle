@@ -199,6 +199,69 @@ describe('AI queue worker', () => {
     )
   })
 
+  it('leaves an annotation job queued when the format has no AI adapter', async () => {
+    state.assetPath = 'C:/design/model.obj'
+    const { worker, client, emit } = workerWith()
+
+    await worker.runOnce()
+    await worker.runOnce()
+
+    // Never sent, never failed, never retried — it simply waits for support.
+    expect(client.annotate).not.toHaveBeenCalled()
+    expect(state.jobs).toHaveLength(1)
+    expect(state.jobs[0]).toMatchObject({ status: 'pending', retryCount: 0 })
+    expect(state.status).toBeUndefined()
+    expect(emit).not.toHaveBeenCalled()
+  })
+
+  it('defers a job the running service does not list, even if the registry does', async () => {
+    state.assetPath = 'C:/design/campaign.psd'
+    const { worker, client } = workerWith()
+    // An older sidecar that only implements the two MVP image formats.
+    client.capabilities.mockResolvedValue({
+      service: 'chronicle-ai',
+      version: '0.0.1',
+      annotate: { formats: ['png', 'jpg'] },
+    })
+
+    await worker.runOnce()
+
+    expect(client.annotate).not.toHaveBeenCalled()
+    expect(state.jobs[0]).toMatchObject({ status: 'pending', retryCount: 0 })
+  })
+
+  it('does not let a deferred job block the jobs behind it', async () => {
+    state.assetPath = 'C:/design/model.obj'
+    const { worker, client } = workerWith()
+    // An embedding job queued behind the deferred annotation must still run.
+    state.annotations.set(2, {
+      versionId: 2,
+      summary: 'Existing summary',
+      changes: ['a'],
+      tags: ['tag'],
+      provider: 'google_genai',
+      model: 'gemini-2.5-flash',
+      latencyMs: 10,
+      createdAt: new Date().toISOString(),
+    })
+    state.jobs.push({
+      id: 2,
+      jobType: 'embedding',
+      payload: { versionId: 2 },
+      retryCount: 0,
+      status: 'pending',
+      lastError: null,
+      createdAt: new Date().toISOString(),
+    })
+
+    await worker.runOnce()
+
+    expect(client.embedText).toHaveBeenCalledTimes(1)
+    expect(state.savedEmbedding?.versionId).toBe(2)
+    // The deferred annotation is still the only job left.
+    expect(state.jobs).toEqual([expect.objectContaining({ id: 1, status: 'pending' })])
+  })
+
   it('annotates a version, then embeds and stores its searchable text', async () => {
     const { worker, client, emit } = workerWith()
 

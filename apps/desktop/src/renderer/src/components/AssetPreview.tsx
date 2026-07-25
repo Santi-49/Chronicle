@@ -24,12 +24,19 @@ export function AssetPreview({
   const [failed, setFailed] = useState(false)
   useEffect(() => setFailed(false), [src])
 
-  const placeholderIcon = format ? formatById(format).icon : 'image'
+  const descriptor = format ? formatById(format) : null
+  const placeholderIcon = descriptor?.icon ?? 'image'
 
   return (
     <div className={`asset-preview ${className}`}>
       {src && !failed ? (
-        <img alt={alt} loading="lazy" onError={() => setFailed(true)} src={src} />
+        <img
+          alt={alt}
+          className={descriptor?.fit === 'contain' ? 'preview-contain' : undefined}
+          loading="lazy"
+          onError={() => setFailed(true)}
+          src={src}
+        />
       ) : (
         <span className="asset-preview-placeholder" aria-hidden="true">
           <Icon name={placeholderIcon} />

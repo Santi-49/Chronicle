@@ -40,8 +40,14 @@ const loadObj: Loader = async (bytes, three) => {
  * stall capture, IPC, or the watcher.
  */
 const loadStep: Loader = async (bytes, three) => {
-  const { default: initOcct } = await import('occt-import-js')
-  const occt = await initOcct()
+  const [{ default: initOcct }, { default: wasmUrl }] = await Promise.all([
+    import('occt-import-js'),
+    // `?url` makes the bundler emit the .wasm as an asset and hand back its
+    // final path; without it the tessellator would look for a file that the
+    // packaged app does not contain.
+    import('occt-import-js/dist/occt-import-js.wasm?url'),
+  ])
+  const occt = await initOcct({ locateFile: () => wasmUrl })
 
   const result = occt.ReadStepFile(new Uint8Array(bytes), null)
   if (!result.success || result.meshes.length === 0) {
