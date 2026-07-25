@@ -281,6 +281,7 @@ export function startChronicleIpc(
       appVersion: app.getVersion(),
       osFamily,
     },
+    installationIdPath: path.join(app.getPath('userData'), 'installation-id'),
     setWindowTheme: (theme) => {
       if (process.platform === 'darwin') return
       const dark = theme === 'dark'

@@ -521,8 +521,9 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
   const refreshAccount = async () => {
     const state = await chronicle.getAccountState()
     setEmail(state.email)
-    setIsAdmin(state.isAdmin)
-    onAdminStateChange(state.isAdmin)
+    const admin = state.mode === 'signed-in' && state.isAdmin
+    setIsAdmin(admin)
+    onAdminStateChange(admin)
   }
 
   const checkControlPlane = async () => {

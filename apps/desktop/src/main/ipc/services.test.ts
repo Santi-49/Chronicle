@@ -40,6 +40,7 @@ import {
   createChronicleServices,
   DEFAULT_SETTINGS,
   type ChronicleServices,
+  type ChronicleServicesDeps,
 } from './services'
 
 interface RecordedEvent {
@@ -1031,5 +1032,65 @@ describe('media helpers', () => {
     ]) {
       expect(parseChronicleUrl(url), url).toBeNull()
     }
+  })
+})
+
+/**
+ * POST-03 — the installation ID identifies one installation over its lifetime.
+ * Deleting the local database (routine in development) or updating the app must
+ * not make the control plane see a brand-new installation.
+ */
+describe('installation identity', () => {
+  let root: string
+  let registered: string[]
+
+  function startOnce(): void {
+    const database = openChronicleDb(path.join(root, DATABASE_FILE_NAME))
+    const instance = createChronicleServices({
+      db: database,
+      libraryRoot: path.join(root, 'library'),
+      emit: () => {},
+      pickFolder: async () => null,
+      pickVersionCopyPath: async () => null,
+      secrets: {
+        set: () => {},
+        has: () => false,
+        clear: () => {},
+        providers: () => [],
+        entries: () => ({}),
+      },
+      isOnline: () => true,
+      setWindowTheme: () => {},
+      installation: { appVersion: '0.8.0', osFamily: 'windows' },
+      installationIdPath: path.join(root, 'installation-id'),
+      // Only registerInstallation is exercised; start() calls nothing else.
+      account: {
+        registerInstallation: async (descriptor) => {
+          registered.push(descriptor.installationId)
+        },
+      } as ChronicleServicesDeps['account'],
+    })
+    instance.start()
+    database.close()
+  }
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-install-'))
+    registered = []
+  })
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true })
+  })
+
+  it('reuses the same ID across restarts and after the database is deleted', async () => {
+    startOnce()
+    fs.rmSync(path.join(root, DATABASE_FILE_NAME))
+    startOnce()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(registered).toHaveLength(2)
+    expect(registered[0]).toBe(registered[1])
+    expect(fs.readFileSync(path.join(root, 'installation-id'), 'utf8')).toBe(registered[0])
   })
 })

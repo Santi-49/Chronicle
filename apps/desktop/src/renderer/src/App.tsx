@@ -174,7 +174,21 @@ export default function App() {
 
   useEffect(() => {
     void chronicle.getSettings().then((settings) => setThemePreference(settings.appearance.theme))
-    void chronicle.getAccountState().then((state) => setIsAdmin(state.isAdmin))
+  }, [])
+
+  // Admin is a control-plane role, so it exists only while signed in. The
+  // session can end while the app is open (expired refresh token, sign-out on
+  // another device), and a one-shot check at mount would leave Admin in the
+  // navigation for a profile that is back in local mode — re-check on focus.
+  useEffect(() => {
+    const syncAccount = () => {
+      void chronicle.getAccountState()
+        .then((state) => setIsAdmin(state.mode === 'signed-in' && state.isAdmin))
+        .catch(() => setIsAdmin(false))
+    }
+    syncAccount()
+    window.addEventListener('focus', syncAccount)
+    return () => window.removeEventListener('focus', syncAccount)
   }, [])
 
   useLayoutEffect(() => {
@@ -257,7 +271,7 @@ export default function App() {
               }}
               onContinueGoogle={async () => {
                 const state = await chronicle.loginWithGoogle()
-                setIsAdmin(state.isAdmin)
+                setIsAdmin(state.mode === 'signed-in' && state.isAdmin)
                 const synced = await chronicle.getSettings()
                 setThemePreference(synced.appearance.theme)
                 localStorage.setItem(HAS_ONBOARDED_KEY, 'true')

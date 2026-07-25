@@ -22,6 +22,7 @@ ENV_FILE := .env
 	typecheck test test-local test-desktop test-ai smoke-ai lint check \
 	migrate makemigration seed generate-types generate-ai-types clean \
 	admin-promote admin-demote admin-list \
+	app-show app-reset-onboarding app-reset-session app-clear-telemetry stats-clear \
 	demo-assets demo-reset demo-set demo-next demo-status demo-clean
 
 # --- Setup -----------------------------------------------------------------
@@ -169,6 +170,32 @@ admin-demote:
 admin-list:
 	$(PYTHON) scripts/admin_role.py list
 
+# --- Local profile / statistics resets --------------------------------------
+# app-* act on this machine's Chronicle profile (Electron user data); stats-clear
+# acts on the local control-plane database. Add PACKAGED=1 to target the
+# installed build instead of the development profile. Close Chronicle first.
+APP_DATA := $(PYTHON) scripts/app_data.py
+PACKAGED ?=
+APP_DATA_FLAGS := $(if $(PACKAGED),--packaged,)
+
+app-show:
+	$(APP_DATA) show $(APP_DATA_FLAGS)
+
+# Forget that the welcome screen was dismissed (also resets theme + triage).
+app-reset-onboarding:
+	$(APP_DATA) reset-onboarding $(APP_DATA_FLAGS)
+
+app-reset-session:
+	$(APP_DATA) reset-session $(APP_DATA_FLAGS)
+
+app-clear-telemetry:
+	$(APP_DATA) clear-telemetry $(APP_DATA_FLAGS)
+
+# Truncate usage statistics in the LOCAL control plane. A deployed API is not
+# affected. INSTALLATIONS=1 also drops installation records.
+stats-clear:
+	$(PYTHON) scripts/stats_reset.py $(if $(INSTALLATIONS),--installations,)
+
 # --- Contracts -------------------------------------------------------------
 generate-types: setup-env
 	$(DOCKER_COMPOSE) run --rm api python -c \
@@ -264,6 +291,11 @@ help:
 	$(info   make admin-promote EMAIL=user@example.com  Grant the admin role locally)
 	$(info   make admin-demote EMAIL=user@example.com  Remove admin and retain user locally)
 	$(info   make admin-list  List local administrator accounts)
+	$(info   make app-show        Show this machine's Chronicle profile state)
+	$(info   make app-reset-onboarding  Show the welcome screen again)
+	$(info   make app-reset-session     Sign out of the control plane locally)
+	$(info   make app-clear-telemetry   Drop the pending usage-statistics buffer)
+	$(info   make stats-clear    Clear LOCAL control-plane statistics [INSTALLATIONS=1])
 	$(info   make generate-types Generate API TypeScript types)
 	$(info   make test           Run backend tests in Docker)
 	$(info   make test-desktop   Run desktop tests)

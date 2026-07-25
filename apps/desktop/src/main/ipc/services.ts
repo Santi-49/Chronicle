@@ -16,6 +16,7 @@
  */
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { TelemetryCollector } from '../telemetry/emitter'
 import type {
@@ -91,6 +92,7 @@ import { diagnosticError } from '../diagnostics'
 
 const SETTINGS_KEY = 'app-settings'
 const INSTALLATION_ID_KEY = 'control-plane-installation-id'
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TELEMETRY_DEFAULT_MIGRATION_KEY = 'post03-telemetry-default-applied'
 const SETTINGS_SYNC_DEFAULT_MIGRATION_KEY = 'post03-settings-sync-default-applied'
 const TELEMETRY_NOTICE_SHOWN_KEY = 'post04-telemetry-notice-shown'
@@ -142,6 +144,11 @@ export interface ChronicleServicesDeps {
   rendererDiagnostic?: ApplicationDiagnosticSink
   preloadDiagnostic?: ApplicationDiagnosticSink
   installation?: Omit<InstallationDescriptor, 'installationId'>
+  /**
+   * File the installation ID is mirrored to, outside the database. Optional:
+   * without it the ID lives only in `settings` (the behavior tests rely on).
+   */
+  installationIdPath?: string
   /** Applies theme colors to native title-bar controls. */
   setWindowTheme: (theme: WindowTheme) => void
   /**
@@ -481,12 +488,32 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     }
   }
 
+  /**
+   * The installation's stable random ID (POST-03). It is mirrored to a small
+   * file beside the database so that resetting or deleting `chronicle.db` —
+   * routine during development — does not register a brand-new installation
+   * with the control plane. An app update touches neither copy, so updating
+   * keeps the existing installation record and only bumps its app version.
+   */
   function installationId(): string {
-    const existing = getSetting<string>(db, INSTALLATION_ID_KEY)
-    if (existing) return existing
-    const created = randomUUID()
-    setSetting(db, INSTALLATION_ID_KEY, created)
-    return created
+    const stored = getSetting<string>(db, INSTALLATION_ID_KEY)
+    const mirrored = readMirroredInstallationId()
+    const id = stored ?? mirrored ?? randomUUID()
+    if (stored !== id) setSetting(db, INSTALLATION_ID_KEY, id)
+    if (mirrored !== id && deps.installationIdPath) {
+      try { writeFileSync(deps.installationIdPath, id, 'utf8') } catch { /* best effort */ }
+    }
+    return id
+  }
+
+  function readMirroredInstallationId(): string | undefined {
+    if (!deps.installationIdPath) return undefined
+    try {
+      const contents = readFileSync(deps.installationIdPath, 'utf8').trim()
+      return UUID_PATTERN.test(contents) ? contents : undefined
+    } catch {
+      return undefined
+    }
   }
 
   function requireAccount(): ControlPlaneClient {

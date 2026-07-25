@@ -186,6 +186,8 @@ export function createControlPlaneClient(
   tokens: TokenStore,
   onDiagnostic: ControlPlaneDiagnosticSink = () => {},
 ): ControlPlaneClient {
+  let refreshInFlight: Promise<boolean> | null = null
+
   async function auditedFetch(path: string, init: RequestInit): Promise<Response> {
     const startedAt = Date.now()
     const method = init.method?.toUpperCase() ?? 'GET'
@@ -226,6 +228,42 @@ export function createControlPlaneClient(
     }
   }
 
+  /**
+   * Renews the session at most once at a time, returning whether a usable
+   * access token exists afterwards.
+   *
+   * The control plane rotates refresh tokens and revokes the presented one
+   * immediately, so a refresh token is single-use. Two authenticated requests
+   * that hit 401 together would otherwise each post the *same* refresh token:
+   * the first rotates it and the second is told the token was revoked, which
+   * cleared the session and signed the user out. Startup makes that the normal
+   * case — the access token has usually expired between runs, and React
+   * StrictMode double-invokes the effect that reads the account state.
+   */
+  async function renewSession(staleAccessToken: string): Promise<boolean> {
+    const current = tokens.read()
+    if (!current) return false
+    // Another caller already rotated the pair while this request was in
+    // flight; its access token is fresh, so just retry with it.
+    if (current.access_token !== staleAccessToken) return true
+    if (!refreshInFlight) {
+      const attempt = (async () => {
+        const response = await auditedFetch('/api/v1/auth/refresh', {
+          method: 'POST',
+          headers: { authorization: `Bearer ${current.refresh_token}` },
+        })
+        if (!response.ok) {
+          tokens.clear()
+          return false
+        }
+        tokens.write((await response.json()) as TokenPair)
+        return true
+      })()
+      refreshInFlight = attempt.finally(() => { refreshInFlight = null })
+    }
+    return refreshInFlight
+  }
+
   async function raw<T>(path: string, init: RequestInit = {}, authenticated = false): Promise<T> {
     const headers = new Headers(init.headers)
     if (init.body !== undefined) headers.set('content-type', 'application/json')
@@ -235,18 +273,11 @@ export function createControlPlaneClient(
       headers.set('authorization', `Bearer ${current.access_token}`)
     }
     let response = await auditedFetch(path, { ...init, headers })
-    if (response.status === 401 && authenticated && tokens.read()) {
-      const refresh = tokens.read()!.refresh_token
-      const refreshed = await auditedFetch('/api/v1/auth/refresh', {
-        method: 'POST',
-        headers: { authorization: `Bearer ${refresh}` },
-      })
-      if (refreshed.ok) {
-        tokens.write((await refreshed.json()) as TokenPair)
+    if (response.status === 401 && authenticated) {
+      const stale = headers.get('authorization')?.replace(/^Bearer /, '') ?? ''
+      if (await renewSession(stale)) {
         headers.set('authorization', `Bearer ${tokens.read()!.access_token}`)
         response = await auditedFetch(path, { ...init, headers })
-      } else {
-        tokens.clear()
       }
     }
     if (!response.ok) {

@@ -185,6 +185,38 @@ describe('control-plane client', () => {
     expect(store.read()?.access_token).toBe('new')
   })
 
+  it('keeps the session when two requests hit an expired access token together', async () => {
+    // The control plane rotates refresh tokens and revokes the presented one,
+    // so a second concurrent refresh with the same token is rejected. React
+    // StrictMode double-invokes the effect that reads the account state, which
+    // used to sign the user out on every development launch.
+    const store = tokenStore({ access_token: 'old', refresh_token: 'refresh', token_type: 'bearer' })
+    const spent = new Set<string>()
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const authorization = new Headers(init?.headers).get('authorization')
+      if (String(_url).endsWith('/auth/refresh')) {
+        const presented = authorization?.replace('Bearer ', '') ?? ''
+        if (spent.has(presented)) return new Response('{"detail":"Token revoked"}', { status: 401 })
+        spent.add(presented)
+        return new Response(JSON.stringify({
+          access_token: 'new', refresh_token: 'new-refresh', token_type: 'bearer',
+        }), { status: 200 })
+      }
+      return authorization === 'Bearer new'
+        ? new Response(JSON.stringify(user), { status: 200 })
+        : new Response('{}', { status: 401 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createControlPlaneClient(() => 'http://control-plane', store)
+    const [first, second] = await Promise.all([client.accountState(), client.accountState()])
+
+    expect(first).toMatchObject({ mode: 'signed-in' })
+    expect(second).toMatchObject({ mode: 'signed-in' })
+    expect(store.read()?.refresh_token).toBe('new-refresh')
+    expect(spent.size).toBe(1)
+  })
+
   it('serializes only the portable settings allowlist', () => {
     const settings: AppSettings = {
       appearance: { theme: 'dark' },

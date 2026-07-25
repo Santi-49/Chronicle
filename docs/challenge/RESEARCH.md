@@ -762,6 +762,21 @@ table because area and color are poor tools for precise comparison.
 - 2026-07-22 — MACOS PACKAGING FOLLOW-UP: tagged releases now build native PyInstaller sidecars and electron-builder installers in parallel on Windows x64 and a pinned macOS 15 Apple Silicon runner; manual snapshot dispatch does the same. The DMG is deliberately unsigned and unnotarized, so it is a test/distribution artifact rather than a frictionless public Mac release; Intel packaging, Apple signing/notarization, and auto-update remain separate work.
 - 2026-07-21 — MULTI-PROVIDER PACKAGING/PERFORMANCE: the frozen Windows sidecar now imports Gemini, OpenAI, and Anthropic successfully and passes `/health`; it grew from 25.2 MB to 30.0 MB, while the unsigned installer grew from about 135 MB to 139.7 MB. A clean warm build measured 6.5 seconds for PyInstaller and about 7 seconds for Vite inside a 255.7-second `make package`, showing Electron staging/NSIS creation—not bundling every globally installed Python module—is the dominant repeat cost; `make package-unpacked` measured 177.7 seconds. Packaging now uses a cached isolated provider-only environment and avoids duplicate native rebuilding. Bedrock was removed because its AWS credential set/region does not fit Chronicle's single-key BYOK contract — team local measurement + official LangChain provider and electron-builder lifecycle guidance
 - 2026-07-21 — ZERO-TOUCH RELEASE PROMOTION: GitHub auto-merge waits for required checks/reviews, while PR authors cannot satisfy their own required approval. Chronicle therefore preserves all three protected-main checks but uses zero required approvals for the solo workflow; a no-checkout `pull_request_target` coordinator enables auto-merge only for the same-repository `dev` head or a correctly labeled Release Please branch. It uses the release PAT so follow-on push workflows run, validates a releasing `feat:`/`fix:` squash title, and deletes only the merged temporary release branch. Teams can restore required approvals, which intentionally reintroduces a manual gate — [GitHub auto-merge](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/automatically-merging-a-pull-request), [required reviews](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews), [GitHub CLI merge](https://cli.github.com/manual/gh_pr_merge)
+- 2026-07-25 — SESSION AND INSTALLATION IDENTITY FINDING: the control plane rotates refresh
+  tokens and revokes the presented one on use, so a refresh token is single-use. Two authenticated
+  requests that hit 401 together each posted the *same* token; the loser was told the token was
+  revoked and cleared the session. React StrictMode double-invokes the effect that reads the
+  account state, and the 30-minute access token has always expired between development runs, so
+  this signed the user out on essentially every `make run`. The desktop client now single-flights
+  the refresh. Two consequences were also fixed: the admin role was read once at mount, so the
+  Admin tab could outlive the session that granted it (now re-checked on window focus), and the
+  installation ID lived only in `chronicle.db`, so deleting the local database minted a new
+  control-plane installation — it is now mirrored to a file in the Electron user-data directory.
+  An in-place app update never created a new installation; the API upserts by installation ID and
+  only bumps the app version. Development and packaged builds legitimately differ because Electron
+  names the user-data directory after the app (`chronicle-desktop` vs `Chronicle`) — local session
+  trace + code review
+
 - 2026-07-25 — DESKTOP FORMAT ARCHITECTURE (POST-01 closure + POST-02 desktop half): replaced
   fourteen hardcoded extension checks with one shared format registry, and split "captured and
   displayed" from "annotated by AI" into independent capabilities negotiated through a new
