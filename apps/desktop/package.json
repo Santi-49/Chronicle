@@ -89,6 +89,7 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "0.185.1",
     "@vitejs/plugin-react": "^5.0.0",
     "cross-env": "10.1.0",
     "electron": "^43.1.1",
@@ -106,6 +107,8 @@
     "@svg-maps/world": "^1.0.1",
     "better-sqlite3": "12.11.1",
     "chokidar": "5.0.0",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "occt-import-js": "0.0.23",
+    "three": "0.185.1"
   }
 }

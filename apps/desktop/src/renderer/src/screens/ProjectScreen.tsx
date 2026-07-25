@@ -121,7 +121,7 @@ export function ProjectScreen({ projectId, onBack, onEdit, onOpenAsset }: Projec
             <div className="asset-grid">
               {visibleAssets.map((asset) => (
                 <button className="asset-card" key={asset.id} onClick={() => onOpenAsset(asset.id)} type="button">
-                  <AssetPreview src={asset.thumbnailUrl} alt={asset.displayName} />
+                  <AssetPreview src={asset.thumbnailUrl} alt={asset.displayName} format={asset.format} />
                   <span className="asset-card-body">
                     <span className="asset-card-heading">
                       <strong>{asset.displayName}</strong>

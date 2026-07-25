@@ -31,9 +31,10 @@ import {
   setVersionAiStatus,
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
+import { SUPPORTED_EXTENSIONS } from '../../shared/formats'
 import { captureVersion, libraryFilePathFor } from '../versioning'
 import { API_METHOD_NAMES } from './channels'
-import { chronicleUrlToHash, imageUrlForHash, sniffImageContentType } from './media'
+import { imageUrlForHash, parseChronicleUrl, previewUrlForHash, thumbnailUrlForHash } from './media'
 import {
   createChronicleServices,
   DEFAULT_SETTINGS,
@@ -97,6 +98,11 @@ beforeEach(() => {
     readApiKey: (provider) => secretKeys.get(provider) ?? null,
     aiClient: {
       health: async () => true,
+      capabilities: async () => ({
+        service: 'chronicle-ai' as const,
+        version: '0.1.0',
+        annotate: { formats: ['png', 'jpg', 'jpeg', 'psd'] },
+      }),
       annotate: async () => { throw new Error('not used in IPC tests') },
       embedText: async () => { throw new Error('not used in IPC tests') },
       validateProviderModel: async ({ task, provider, model }) => {
@@ -217,7 +223,7 @@ describe('tracked folders and capture events', () => {
     expect(folder.icon).toBe('folder')
     expect(folder.color).toMatch(/^#/)
     expect(folder.excludedPaths).toEqual([])
-    expect(folder.allowedExtensions).toEqual(['.png', '.jpg', '.jpeg', '.psd'])
+    expect(folder.allowedExtensions).toEqual([...SUPPORTED_EXTENSIONS])
     expect(await services.api.listFolders()).toHaveLength(1)
     await waitFor(() => eventsOf('statusChanged').length > 0, 'statusChanged')
     expect((await services.api.getAppStatus()).watchedFolders).toBe(1)
@@ -341,7 +347,7 @@ describe('tracked folders and capture events', () => {
       const assets = await services.api.listAssets()
       expect(assets).toHaveLength(1)
       expect(assets[0]!.id).toBe(captured!.assetId)
-      expect(chronicleUrlToHash(assets[0]!.thumbnailUrl)).not.toBeNull()
+      expect(parseChronicleUrl(assets[0]!.thumbnailUrl!)).not.toBeNull()
     },
     15_000,
   )
@@ -410,7 +416,7 @@ describe('timeline and version details', () => {
     expect(timeline[0]!.aiStatus).toBe('none')
     expect(timeline[1]!.summary).toBeNull() // still pending
     expect(timeline[2]!.summary).toBe('Initial logo on navy background')
-    for (const v of timeline) expect(chronicleUrlToHash(v.thumbnailUrl)).not.toBeNull()
+    for (const v of timeline) expect(parseChronicleUrl(v.thumbnailUrl!)).not.toBeNull()
   })
 
   it('getVersionDetails returns full C1 shape after annotation', async () => {
@@ -433,7 +439,7 @@ describe('timeline and version details', () => {
     expect(details.tags).toEqual(['teal', 'background'])
     expect(details.aiProvider).toBe('anthropic')
     expect(details.restoredFromVersion).toBeNull()
-    expect(chronicleUrlToHash(details.imageUrl)).toBe(details.contentHash)
+    expect(parseChronicleUrl(details.imageUrl!)?.contentHash).toBe(details.contentHash)
   })
 
   it('rejects unknown versions and invalid ids', async () => {
@@ -965,28 +971,44 @@ describe('getAppStatus', () => {
 // ---------------------------------------------------------------------------
 
 describe('media helpers', () => {
-  it('round-trips a hash through the URL', () => {
+  it('round-trips a hash and its format through the URL', () => {
     const hash = 'ab'.repeat(32)
-    expect(chronicleUrlToHash(imageUrlForHash(hash))).toBe(hash)
+    expect(parseChronicleUrl(imageUrlForHash(hash, 'png'))).toEqual({
+      kind: 'image',
+      format: expect.objectContaining({ id: 'png' }),
+      contentHash: hash,
+    })
+    expect(parseChronicleUrl(previewUrlForHash(hash, 'psd'))).toMatchObject({
+      kind: 'preview',
+      contentHash: hash,
+    })
   })
 
-  it('rejects everything that is not a library hash URL', () => {
+  it('serves a derived preview for formats the UI cannot decode', () => {
+    const hash = 'cd'.repeat(32)
+    // Natively decodable: the original bytes are the thumbnail.
+    expect(thumbnailUrlForHash(hash, 'png')).toBe(imageUrlForHash(hash, 'png'))
+    expect(thumbnailUrlForHash(hash, 'svg')).toBe(imageUrlForHash(hash, 'svg'))
+    // Needs conversion first.
+    expect(thumbnailUrlForHash(hash, 'psd')).toBe(previewUrlForHash(hash, 'psd'))
+    expect(thumbnailUrlForHash(hash, 'obj')).toBe(previewUrlForHash(hash, 'obj'))
+    // No still image exists at all — the UI shows the format placeholder.
+    expect(thumbnailUrlForHash(hash, 'step')).toBeNull()
+  })
+
+  it('rejects everything that is not a library media URL', () => {
     for (const url of [
       'not a url',
       'https://image/aa',
-      `chronicle://other/${'a'.repeat(64)}`,
-      'chronicle://image/short',
-      'chronicle://image/' + 'g'.repeat(64), // not hex
-      'chronicle://image/../../etc/passwd',
-      `chronicle://image/${'a'.repeat(64)}/extra`,
+      `chronicle://other/png/${'a'.repeat(64)}`,
+      'chronicle://image/png/short',
+      `chronicle://image/gif/${'a'.repeat(64)}`, // unknown format
+      `chronicle://image/${'a'.repeat(64)}`, // missing format segment
+      'chronicle://image/png/' + 'g'.repeat(64), // not hex
+      'chronicle://image/png/../../etc/passwd',
+      `chronicle://image/png/${'a'.repeat(64)}/extra`,
     ]) {
-      expect(chronicleUrlToHash(url), url).toBeNull()
+      expect(parseChronicleUrl(url), url).toBeNull()
     }
-  })
-
-  it('sniffs content types from stored magic bytes', () => {
-    expect(sniffImageContentType(pngBytes(1, 1))).toBe('image/png')
-    expect(sniffImageContentType(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg')
-    expect(sniffImageContentType(Buffer.from('plain text'))).toBe('application/octet-stream')
   })
 })

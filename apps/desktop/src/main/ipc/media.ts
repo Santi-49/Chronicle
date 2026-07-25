@@ -1,47 +1,77 @@
 /**
- * chronicle:// image URLs (C1 rule: images reach the renderer as URLs served
- * by main from the library — never as raw bytes over IPC, never as
- * filesystem paths the renderer could roam).
+ * chronicle:// media URLs (C1 rule: images reach the renderer as URLs served
+ * by main from the library — never as raw bytes over IPC, never as filesystem
+ * paths the renderer could roam).
  *
- * URL shape: chronicle://image/<sha256 hex>. The hash is the only variable
- * part and is strictly validated, so the protocol handler can only ever
- * serve files that exist inside the content-addressed library.
+ * URL shapes:
+ *   chronicle://image/<format>/<sha256 hex>    the stored original bytes
+ *   chronicle://preview/<format>/<sha256 hex>  a derived, displayable image
+ *
+ * Only the format id and the hash vary, and both are strictly validated, so the
+ * protocol handler can only ever serve files inside the content-addressed
+ * library (or the derived-preview cache beside it).
+ *
+ * The format travels in the URL because library files are stored under their
+ * content hash with no extension: the bytes alone do not always identify the
+ * format, and magic-byte sniffing cannot distinguish PSD from PSB or tell an
+ * OBJ from any other text file.
  */
+import { formatById, isFormatId, type FormatDescriptor, type FormatId } from '../../shared/formats'
 
 export const CHRONICLE_SCHEME = 'chronicle'
 
 const SHA256_HEX = /^[0-9a-f]{64}$/
 
-/** Renderer-safe URL for one version's stored bytes (thumbnail and full view alike). */
-export function imageUrlForHash(contentHash: string): string {
-  return `${CHRONICLE_SCHEME}://image/${contentHash}`
+export type MediaKind = 'image' | 'preview'
+
+export interface MediaRequest {
+  kind: MediaKind
+  format: FormatDescriptor
+  contentHash: string
+}
+
+/** Renderer-safe URL for one version's stored bytes. */
+export function imageUrlForHash(contentHash: string, format: FormatId): string {
+  return `${CHRONICLE_SCHEME}://image/${format}/${contentHash}`
+}
+
+/** Renderer-safe URL for one version's derived preview image. */
+export function previewUrlForHash(contentHash: string, format: FormatId): string {
+  return `${CHRONICLE_SCHEME}://preview/${format}/${contentHash}`
 }
 
 /**
- * Parses and validates a chronicle:// request URL back to a content hash.
- * Anything else — wrong scheme/host, traversal attempts, non-hash paths —
- * returns null and is served as 404.
+ * The URL a list or timeline should use as a version's thumbnail: the derived
+ * preview for formats Chromium cannot decode, the original otherwise. Formats
+ * with no still image at all return null so the UI shows a placeholder.
  */
-export function chronicleUrlToHash(url: string): string | null {
+export function thumbnailUrlForHash(contentHash: string, format: FormatId): string | null {
+  const descriptor = formatById(format)
+  if (descriptor.preview === 'none') return null
+  return descriptor.preview === 'derived'
+    ? previewUrlForHash(contentHash, format)
+    : imageUrlForHash(contentHash, format)
+}
+
+/**
+ * Parse and validate a chronicle:// request URL. Anything else — wrong
+ * scheme/host, unknown format, traversal attempts, non-hash paths — returns
+ * null and is served as 404.
+ */
+export function parseChronicleUrl(url: string): MediaRequest | null {
   let parsed: URL
   try {
     parsed = new URL(url)
   } catch {
     return null
   }
-  if (parsed.protocol !== `${CHRONICLE_SCHEME}:` || parsed.hostname !== 'image') return null
-  const hash = parsed.pathname.replace(/^\//, '').toLowerCase()
-  return SHA256_HEX.test(hash) ? hash : null
-}
+  if (parsed.protocol !== `${CHRONICLE_SCHEME}:`) return null
+  const kind = parsed.hostname
+  if (kind !== 'image' && kind !== 'preview') return null
 
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-
-/**
- * Content type from the stored bytes' magic numbers — library files carry no
- * extension, and the two MVP formats are unambiguous from the first bytes.
- */
-export function sniffImageContentType(head: Buffer): string {
-  if (head.length >= 8 && head.subarray(0, 8).equals(PNG_SIGNATURE)) return 'image/png'
-  if (head.length >= 2 && head[0] === 0xff && head[1] === 0xd8) return 'image/jpeg'
-  return 'application/octet-stream'
+  const segments = parsed.pathname.replace(/^\//, '').split('/')
+  if (segments.length !== 2) return null
+  const [format, hash] = segments as [string, string]
+  if (!isFormatId(format) || !SHA256_HEX.test(hash.toLowerCase())) return null
+  return { kind, format: formatById(format), contentHash: hash.toLowerCase() }
 }

@@ -62,15 +62,18 @@ def _operation_sections(lines: list[str]) -> dict[str, str]:
 def load_annotation_prompt(
     file_name: str,
     is_first_version: bool,
-    file_format: str = "png",
+    operation_prefix: str = "",
 ) -> tuple[str, str]:
-    """Return the system and user text for the requested annotation mode."""
+    """Return the system and user text for the requested annotation mode.
+
+    ``operation_prefix`` comes from the format's adapter (chronicle_ai.formats),
+    so a format's prompt wording is selected by its registry entry rather than
+    by a branch here. An empty prefix uses the plain image sections.
+    """
 
     sections = _prompt_sections()
-    if file_format == "psd":
-        operation = "PSD first-version description" if is_first_version else "PSD version diff"
-    else:
-        operation = "First-version description" if is_first_version else "Version diff"
+    base = "first-version description" if is_first_version else "version diff"
+    operation = f"{operation_prefix}{base}" if operation_prefix else base.capitalize()
     # The prompt says first-version mode uses the same system guidance as a diff.
     system = sections.get("Version diff.System")
     user = sections.get(f"{operation}.User")

@@ -21,8 +21,8 @@ from langchain.chat_models import init_chat_model
 from langchain.embeddings import init_embeddings
 
 from .config import TaskConfig, load_config
+from .formats import adapter_for
 from .prompts import load_annotation_prompt
-from .psd_adapter import prepare_psd_annotation
 from .schemas import (
     AnnotateRequest,
     AnnotateResponse,
@@ -38,6 +38,10 @@ from .schemas import (
 
 class ConfigurationError(Exception):
     """No provider/model/key was supplied by the request or the environment."""
+
+
+class UnsupportedFormatError(Exception):
+    """The requested format has no adapter in this build (see formats.py)."""
 
 
 # ---------------------------------------------------------------------------
@@ -131,13 +135,18 @@ async def annotate_version(
     defaults. The response carries the C3 annotation plus the call's token
     usage and estimated cost.
     """
-    prepared = None
-    if request.format == "psd":
-        prepared = await asyncio.to_thread(
-            prepare_psd_annotation,
-            request.previous,
-            request.current,
+    adapter = adapter_for(request.format)
+    if adapter is None:
+        raise UnsupportedFormatError(
+            f"The AI service cannot annotate {request.format!r} files yet."
         )
+    # Local extraction (when the format needs it) runs off the event loop so a
+    # large document cannot stall other requests.
+    prepared = (
+        await asyncio.to_thread(adapter.prepare, request.previous, request.current)
+        if adapter.prepare is not None
+        else None
+    )
     config = load_config()
     provider = _resolve(request.provider, config.provider, "provider")
     model_name = _resolve(request.model, config.annotate.model, "model")
@@ -160,7 +169,7 @@ async def annotate_version(
     system_prompt, user_prompt = load_annotation_prompt(
         file_name=request.file_name,
         is_first_version=request.previous is None,
-        file_format=request.format,
+        operation_prefix=adapter.prompt_operation,
     )
 
     # Text first so the model reads the instruction before the image(s).

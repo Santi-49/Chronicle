@@ -7,6 +7,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
+from .formats import adapter_for, supported_formats
+
 
 NonEmptyText = Annotated[str, Field(min_length=1)]
 ProviderName = Annotated[str, Field(min_length=1, max_length=50)]
@@ -19,6 +21,8 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+# Kept explicit so it appears as an enum in the exported OpenAPI schema. A test
+# asserts it stays in step with the adapter registry in chronicle_ai.formats.
 SupportedFormat = Literal["png", "jpg", "jpeg", "psd"]
 
 
@@ -42,14 +46,13 @@ class ImageInput(StrictModel):
 
     @model_validator(mode="after")
     def format_must_match_media_type(self) -> "ImageInput":
-        expected = {
-            "png": "image/png",
-            "jpg": "image/jpeg",
-            "jpeg": "image/jpeg",
-            "psd": "image/vnd.adobe.photoshop",
-        }[self.format]
-        if self.media_type != expected:
-            raise ValueError(f"format {self.format!r} requires mediaType {expected!r}")
+        adapter = adapter_for(self.format)
+        if adapter is None:
+            raise ValueError(f"format {self.format!r} has no annotation adapter")
+        if self.media_type != adapter.media_type:
+            raise ValueError(
+                f"format {self.format!r} requires mediaType {adapter.media_type!r}"
+            )
         return self
 
 
@@ -226,9 +229,29 @@ class HealthResponse(StrictModel):
     version: str
 
 
+class AnnotateCapability(StrictModel):
+    """Formats this build can annotate."""
+
+    formats: list[str] = Field(default_factory=lambda: list(supported_formats()))
+
+
+class CapabilitiesResponse(StrictModel):
+    """What the running service implements, so the app never guesses.
+
+    The desktop app captures and displays more formats than the AI service can
+    annotate. It asks here rather than assuming, and keeps a version's
+    annotation job queued while its format is absent from this list.
+    """
+
+    service: Literal["chronicle-ai"] = "chronicle-ai"
+    version: str
+    annotate: AnnotateCapability = Field(default_factory=AnnotateCapability)
+
+
 class ServiceErrorDetail(StrictModel):
     code: Literal[
         "configuration_error",
+        "unsupported_format",
         "extraction_error",
         "invalid_model_output",
         "provider_unavailable",

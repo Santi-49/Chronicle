@@ -24,8 +24,9 @@ import {
   type VersionRecord,
 } from '../db/repositories'
 import { MAX_FILE_BYTES } from '../watcher/rules'
+import { formatForPath } from '../../shared/formats'
+import { readFormatDimensions } from '../formats'
 import { snapshotToLibrary } from './library'
-import { readImageDimensions } from './dimensions'
 import { serializedByPath } from './operation-queue'
 
 export type CaptureResult =
@@ -93,8 +94,10 @@ async function runCapture(
   }
 
   // Dimensions come from the immutable library copy, never the still-editable
-  // source, so metadata always describes exactly the stored bytes.
-  const dimensions = await readImageDimensions(snapshot.libraryPath)
+  // source, so metadata always describes exactly the stored bytes. The library
+  // copy has no extension, so the format comes from the watched path.
+  const format = formatForPath(resolved)
+  const dimensions = format ? await readFormatDimensions(snapshot.libraryPath, format.id) : null
 
   const asset = existing ?? createAsset(db, resolved)
   // appendVersion + enqueueJob commit atomically (the nested transaction

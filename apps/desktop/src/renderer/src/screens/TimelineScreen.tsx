@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { AssetPreview } from '../components/AssetPreview'
 import { Icon } from '../components/Icon'
-import type { AiStatus } from '../../../shared/ipc'
 import { chronicle } from '../lib/bridge'
 import { aiFailureFeedback } from '../lib/aiFailure'
+import { aiStatusExplanation, aiStatusLabel } from '../lib/aiStatus'
 import { folderForAsset, relativeTime, useAssets, useFolders, useTimeline } from '../lib/useChronicle'
 
 interface TimelineScreenProps {
@@ -12,13 +12,6 @@ interface TimelineScreenProps {
   onBack: (projectId?: number) => void
   onOpenProjects: () => void
   onOpenVersion: (versionId: number) => void
-}
-
-const statusLabels: Record<AiStatus, string> = {
-  done: 'Summary ready',
-  pending: 'Summary pending',
-  failed: 'Summary failed',
-  none: 'Restored version',
 }
 
 function HistoryResetControl({
@@ -169,7 +162,7 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
       </nav>
 
       <header className="asset-detail-header">
-        <AssetPreview src={asset?.thumbnailUrl} alt={asset?.displayName} className="asset-header-preview" />
+        <AssetPreview src={asset?.thumbnailUrl} alt={asset?.displayName} className="asset-header-preview" format={asset?.format ?? null} />
         <div>
           <p className="eyebrow">Version timeline</p>
           <h1 id="timeline-title">{asset?.displayName ?? 'Asset'}</h1>
@@ -198,11 +191,7 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
               const failureFeedback = aiFailureFeedback(version.aiFailure)
               const fallbackSummary = version.aiStatus === 'failed'
                 ? failureFeedback.title
-                : version.aiStatus === 'pending'
-                  ? 'Waiting for an AI change summary.'
-                  : version.aiStatus === 'none'
-                    ? 'Restored version.'
-                    : 'No change summary is available.'
+                : aiStatusExplanation(version.aiStatus, version.format)
               return (
                 <button
                   className="timeline-row"
@@ -223,7 +212,7 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
                       <small className="version-failure-guidance">{failureFeedback.action}</small>
                     )}
                     <span className={`version-status status-${version.aiStatus}`}>
-                      <i /> {statusLabels[version.aiStatus]}
+                      <i /> {aiStatusLabel(version.aiStatus)}
                     </span>
                   </span>
                   <Icon name="chevron-right" />

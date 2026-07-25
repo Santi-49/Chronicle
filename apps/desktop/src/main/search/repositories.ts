@@ -38,6 +38,8 @@ export interface SearchVersionRow {
   versionId: number
   assetId: number
   assetName: string
+  /** Absolute asset path — the format registry resolves the file type from it. */
+  assetPath: string
   versionNumber: number
   contentHash: string
   capturedAt: string
@@ -66,6 +68,7 @@ export function searchGetVersionsForResults(
       `SELECT v.id            AS version_id,
               v.asset_id,
               a.display_name  AS asset_name,
+              a.path          AS asset_path,
               v.version_number,
               v.content_hash,
               v.captured_at,
@@ -81,6 +84,7 @@ export function searchGetVersionsForResults(
     version_id: number
     asset_id: number
     asset_name: string
+    asset_path: string
     version_number: number
     content_hash: string
     captured_at: string
@@ -93,6 +97,7 @@ export function searchGetVersionsForResults(
     versionId: r.version_id,
     assetId: r.asset_id,
     assetName: r.asset_name,
+    assetPath: r.asset_path,
     versionNumber: r.version_number,
     contentHash: r.content_hash,
     capturedAt: r.captured_at,

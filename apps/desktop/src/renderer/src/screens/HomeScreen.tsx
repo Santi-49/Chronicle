@@ -93,7 +93,7 @@ export function HomeScreen({ onAddProject, onOpenProject, onOpenAsset, onViewPro
                 onClick={() => onOpenAsset(asset.id, folderForAsset(asset, folders)?.id)}
                 type="button"
               >
-                <AssetPreview src={asset.thumbnailUrl} alt={asset.displayName} />
+                <AssetPreview src={asset.thumbnailUrl} alt={asset.displayName} format={asset.format} />
                 <span className="activity-copy">
                   <span><strong>{asset.displayName}</strong><small>{asset.versionCount} versions</small></span>
                   <span>{asset.lastSummary ?? 'Waiting for an AI change summary.'}</span>

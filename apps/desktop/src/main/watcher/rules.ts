@@ -6,8 +6,14 @@
  * editor-specific heuristics belong to the implementation and its tests.
  */
 
-/** F2 — only these count, matched case-insensitively against the extension. */
-export const WATCHED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.psd'] as const
+import { SUPPORTED_EXTENSIONS } from '../../shared/formats'
+
+/**
+ * F2 — only these count, matched case-insensitively against the extension.
+ * Derived from the format registry so a new format is declared in exactly one
+ * place (`src/shared/formats.ts`).
+ */
+export const WATCHED_EXTENSIONS: readonly string[] = SUPPORTED_EXTENSIONS
 
 /** F3.1 — a save is finished when the file stops changing for this long. */
 export const SETTLE_MS = 2_000

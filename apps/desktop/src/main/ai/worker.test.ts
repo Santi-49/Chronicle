@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppSettings } from '../../shared/settings'
 import type { ChronicleDb } from '../db/database'
 import type { AnnotationRecord, QueueItem } from '../db/repositories'
-import { createAiWorker, formatFromPath } from './worker'
+import { annotationFormatFor, createAiWorker } from './worker'
 import { AiServiceError } from './client'
 
 
@@ -134,6 +134,11 @@ function workerWith(overrides: Record<string, unknown> = {}) {
       model: 'text-embedding-3-small',
       dimensions: 2,
     }),
+    capabilities: vi.fn().mockResolvedValue({
+      service: 'chronicle-ai',
+      version: '0.1.0',
+      annotate: { formats: ['png', 'jpg', 'jpeg', 'psd'] },
+    }),
     validateProviderModel: vi.fn().mockResolvedValue({
       valid: true,
       reachable: true,
@@ -159,14 +164,17 @@ function workerWith(overrides: Record<string, unknown> = {}) {
 }
 
 describe('AI queue worker', () => {
-  it('rejects unsupported formats instead of silently treating them as PNG', () => {
-    expect(formatFromPath('C:/design/campaign.psd')).toBe('psd')
-    expect(() => formatFromPath('C:/design/logo.gif')).toThrow(
-      'Unsupported annotation format: gif',
-    )
-    expect(() => formatFromPath('C:/design/logo')).toThrow(
-      'Unsupported annotation format: (missing extension)',
-    )
+  it('resolves the C3 format of an annotatable file and defers the rest', () => {
+    expect(annotationFormatFor('C:/design/campaign.psd')).toMatchObject({
+      format: 'psd',
+      mediaType: 'image/vnd.adobe.photoshop',
+    })
+    expect(annotationFormatFor('C:/design/logo.PNG')).toMatchObject({ format: 'png' })
+    // Captured and displayed by the app, but the AI service has no adapter yet.
+    expect(annotationFormatFor('C:/design/model.obj')).toBeNull()
+    // Never captured at all.
+    expect(annotationFormatFor('C:/design/logo.gif')).toBeNull()
+    expect(annotationFormatFor('C:/design/logo')).toBeNull()
   })
 
   it('passes original PSD bytes and the Photoshop media type to the local service', async () => {

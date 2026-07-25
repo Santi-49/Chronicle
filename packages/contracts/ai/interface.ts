@@ -9,8 +9,22 @@
  * contract.
  */
 
-/** A supported creative-file format supplied to an annotation operation. */
+/**
+ * A creative-file format the AI service can annotate today.
+ *
+ * The desktop app captures and displays more formats than this list (see
+ * `apps/desktop/src/shared/formats.ts`). It discovers which ones are annotatable
+ * from `GET /capabilities` and keeps a version's annotation job queued while its
+ * format is absent, so a new format never fails a capture.
+ */
 export type SupportedFormat = 'png' | 'jpg' | 'jpeg' | 'psd'
+
+/** What the running service implements — reported by `GET /capabilities`. */
+export interface ServiceCapabilities {
+  service: 'chronicle-ai'
+  version: string
+  annotate: { formats: SupportedFormat[] }
+}
 
 /** Original creative-file bytes or a derived image preview supplied to annotation. */
 export interface ImageInput {
@@ -43,9 +57,13 @@ export interface AnnotateVersionInput {
 }
 
 export interface AiEngine {
+  /** Which operations and formats this build implements. */
+  capabilities(): Promise<ServiceCapabilities>
+
   /**
    * Explain a version in a searchable form. When `previous` is present the
    * output describes the change; otherwise it describes the first version.
+   * A format with no adapter is rejected with `unsupported_format`.
    */
   annotateVersion(input: AnnotateVersionInput): Promise<VersionAnnotation>
 
