@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/Santi-49/Chronicle/compare/v0.8.0...v0.9.0) (2026-07-25)
+
+
+### Features
+
+* post-01  ([735d0c8](https://github.com/Santi-49/Chronicle/commit/735d0c8368ae5fb7b282f9c2267cfbff547035a5))
+
 ## [0.8.0](https://github.com/Santi-49/Chronicle/compare/v0.7.0...v0.8.0) (2026-07-24)
 
 
