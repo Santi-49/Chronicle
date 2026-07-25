@@ -137,6 +137,7 @@ function WorkspaceScreen({
           developerMode={developerMode}
           themePreference={themePreference}
           onAddProject={() => navigate({ name: 'new-project' })}
+          onOpenProjects={() => navigate({ name: 'projects' })}
           onDeveloperModeChange={onDeveloperModeChange}
           onThemePreferenceChange={onThemePreferenceChange}
           onAdminStateChange={onAdminStateChange}

@@ -23,6 +23,12 @@
 > headers and never stores raw IP. Creative content, names, paths, summaries/tags, search text,
 > credentials, and exact file metadata remain prohibited. Turning reporting off attempts one final
 > request, clears the local accumulator, and never retries.
+>
+> **Privacy controls (2026-07-25):** Chronicle records the installed privacy-notice version and
+> reporting preference per random installation, exposes JSON access/export and cloud erasure in
+> Settings, and provides transactional account deletion without touching local history or local
+> provider keys. The lawful-basis/LIA decision and configured retention schedule live in
+> `docs/privacy-policy.md`; production release remains gated on human legal/controller review.
 
 ## 3D / Immersive Elements
 

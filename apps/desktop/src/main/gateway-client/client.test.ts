@@ -250,4 +250,39 @@ describe('control-plane client', () => {
     expect(body).toContain('installation_id')
     expect(body).not.toMatch(/hostname|path|project|file/i)
   })
+
+  it('records the installed notice and server-derived telemetry preference', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createControlPlaneClient(() => 'http://control-plane', tokenStore())
+
+    await client.recordTelemetryPreference(
+      '00000000-0000-0000-0000-000000000001',
+      false,
+      '2026-07-25',
+    )
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'http://control-plane/api/v1/telemetry/preference',
+    )
+    expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).toMatchObject({
+      installation_id: '00000000-0000-0000-0000-000000000001',
+      enabled: false,
+      notice_version: '2026-07-25',
+    })
+  })
+
+  it('clears local Chronicle tokens only after account erasure succeeds', async () => {
+    const store = tokenStore({
+      access_token: 'access',
+      refresh_token: 'refresh',
+      token_type: 'bearer',
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
+    const client = createControlPlaneClient(() => 'http://control-plane', store)
+
+    await client.deleteAccount()
+
+    expect(store.read()).toBeNull()
+  })
 })

@@ -963,6 +963,50 @@ describe('settings and the secret boundary', () => {
     await services.api.clearApiKey('google')
     expect(await services.api.configuredProviders()).toEqual(['openai'])
   })
+
+  it('deletes only cloud account state and preserves local history and provider keys', async () => {
+    const capture = await seedCapture('local-history.png', pngBytes(4, 4))
+    await services.api.setApiKey('google_genai', 'local-provider-key')
+    setSetting(db, 'app-settings', {
+      ...DEFAULT_SETTINGS,
+      controlPlane: {
+        ...DEFAULT_SETTINGS.controlPlane,
+        settingsSyncEnabled: true,
+        apiKeySyncEnabled: true,
+      },
+    })
+    await services.dispose()
+    let cloudDeleted = false
+    services = createChronicleServices({
+      db,
+      libraryRoot,
+      emit: () => {},
+      pickFolder: async () => null,
+      pickVersionCopyPath: async () => null,
+      secrets: {
+        set: (provider, plaintext) => { secretKeys.set(provider, plaintext) },
+        has: (provider) => secretKeys.has(provider),
+        clear: (provider) => { secretKeys.delete(provider) },
+        providers: () => [...secretKeys.keys()],
+        entries: () => Object.fromEntries(secretKeys),
+      },
+      isOnline: () => true,
+      setWindowTheme: () => {},
+      account: {
+        deleteAccount: async () => { cloudDeleted = true },
+      } as ChronicleServicesDeps['account'],
+    })
+
+    await services.api.deleteCloudAccount()
+
+    expect(cloudDeleted).toBe(true)
+    expect(getVersion(db, capture.versionId)).not.toBeNull()
+    expect(await services.api.configuredProviders()).toContain('google_genai')
+    expect((await services.api.getSettings()).controlPlane).toMatchObject({
+      settingsSyncEnabled: false,
+      apiKeySyncEnabled: false,
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

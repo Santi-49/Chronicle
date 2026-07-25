@@ -23,6 +23,7 @@ interface SettingsScreenProps {
   developerMode: boolean
   themePreference: ThemePreference
   onAddProject: () => void
+  onOpenProjects: () => void
   onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
   onAdminStateChange: (isAdmin: boolean) => void
@@ -39,6 +40,7 @@ export function SettingsScreen({
   developerMode,
   themePreference,
   onAddProject,
+  onOpenProjects,
   onDeveloperModeChange,
   onThemePreferenceChange,
   onAdminStateChange,
@@ -55,7 +57,10 @@ export function SettingsScreen({
         <AppearanceSection themePreference={themePreference} onThemePreferenceChange={onThemePreferenceChange} />
         <TrackedFoldersSection onAddProject={onAddProject} />
         <AiSection />
-        <AccountSection onAdminStateChange={onAdminStateChange} />
+        <AccountSection
+          onAdminStateChange={onAdminStateChange}
+          onOpenProjects={onOpenProjects}
+        />
         <DeveloperToolsSection
           developerBuild={developerBuild}
           developerMode={developerMode}
@@ -508,7 +513,10 @@ function ProviderModelPicker({
 
 // ── Account ────────────────────────────────────────────────────────────────
 
-function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdminStateChange'>) {
+function AccountSection({
+  onAdminStateChange,
+  onOpenProjects,
+}: Pick<SettingsScreenProps, 'onAdminStateChange' | 'onOpenProjects'>) {
   const { settings, save } = useSettings()
   const [email, setEmail] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -517,6 +525,8 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
   const [authBusy, setAuthBusy] = useState(false)
   const [authStatus, setAuthStatus] = useState<string | null>(null)
   const [keyStatus, setKeyStatus] = useState<string | null>(null)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showUsageDeleteConfirmation, setShowUsageDeleteConfirmation] = useState(false)
 
   const refreshAccount = async () => {
     const state = await chronicle.getAccountState()
@@ -584,6 +594,32 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
     } catch (error) {
       setKeyStatus(friendlyError(error))
     }
+  }
+
+  const exportAccount = async () => {
+    await runAuth(async () => {
+      const saved = await chronicle.exportAccountData()
+      if (!saved) throw new Error('Export cancelled.')
+    }, 'Account data exported.')
+  }
+
+  const deleteAccount = async () => {
+    await runAuth(async () => {
+      await chronicle.deleteCloudAccount()
+      setShowDeleteConfirmation(false)
+    }, 'Account and linked cloud data permanently deleted. Chronicle is now in local mode; local history and provider keys were kept.')
+  }
+
+  const deleteUsageData = async () => {
+    await runAuth(async () => {
+      await chronicle.deleteCloudUsageData()
+      if (settings) {
+        await save({
+          controlPlane: { ...settings.controlPlane, telemetryOptIn: false },
+        })
+      }
+      setShowUsageDeleteConfirmation(false)
+    }, 'This installation’s registered and usage data was deleted, and usage reporting was turned off.')
   }
 
   return (
@@ -654,6 +690,97 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
                 <button className="text-button" onClick={() => void toggleKeySync(false)} type="button">Disable and delete cloud copy</button>
               </div>
               {keyStatus && <span className="inline-status" role="status">{keyStatus}</span>}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="privacy-links">
+        <a href="https://chronicle.quick2query.com/privacy/" rel="noreferrer" target="_blank">
+          Read the Chronicle Privacy Policy
+        </a>
+        <button
+          className="secondary-button compact-button"
+          disabled={authBusy || !controlPlaneAvailable}
+          onClick={() => void exportAccount()}
+          type="button"
+        >
+          Export my cloud data
+        </button>
+      </div>
+
+      {!email && controlPlaneAvailable && (
+        <div className="account-danger-zone">
+          <div>
+            <strong>Delete this installation’s cloud data</strong>
+            <p>Erase its random registration, preference record, and uploaded usage statistics. Local creative data is not affected.</p>
+          </div>
+          {!showUsageDeleteConfirmation ? (
+            <button className="danger-button" onClick={() => setShowUsageDeleteConfirmation(true)} type="button">
+              Delete cloud usage data
+            </button>
+          ) : (
+            <div className="account-delete-confirmation" role="alert">
+              <strong>Delete cloud usage data?</strong>
+              <p>This turns usage reporting off and permanently deletes server data for this random installation ID. Watched folders, original files, the version library, and provider keys stay on this device.</p>
+              <div className="account-delete-actions">
+                <button className="secondary-button compact-button" onClick={() => setShowUsageDeleteConfirmation(false)} type="button">Cancel</button>
+                <button className="danger-button" disabled={authBusy} onClick={() => void deleteUsageData()} type="button">Delete cloud usage data</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {email && (
+        <div className="account-danger-zone">
+          <div>
+            <strong>Delete account and cloud data</strong>
+            <p>Permanently erase the Chronicle account and all data linked to it on Chronicle's control plane.</p>
+          </div>
+          {!showDeleteConfirmation ? (
+            <button
+              className="danger-button"
+              disabled={authBusy}
+              onClick={() => setShowDeleteConfirmation(true)}
+              type="button"
+            >
+              Delete account and cloud data
+            </button>
+          ) : (
+            <div className="account-delete-confirmation" role="alert">
+              <strong>This cannot be undone.</strong>
+              <p>
+                Chronicle will permanently delete your account, Google identity link, synced
+                preferences, encrypted key envelope, linked installations, and account-linked
+                usage statistics.
+              </p>
+              <p>
+                Watched folders, original files, the local version library, and provider keys
+                saved on this device will not be deleted. Usage reporting is an independent
+                control above.
+              </p>
+              <button className="text-button" onClick={onOpenProjects} type="button">
+                Open Projects to manage local project/history deletion
+              </button>
+              <div className="account-delete-actions">
+                <button
+                  className="secondary-button compact-button"
+                  disabled={authBusy}
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="danger-button"
+                  disabled={authBusy}
+                  onClick={() => void deleteAccount()}
+                  type="button"
+                >
+                  {authBusy ? 'Deleting…' : 'Permanently delete account'}
+                </button>
+              </div>
             </div>
           )}
         </div>

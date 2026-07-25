@@ -507,6 +507,12 @@ export interface ChronicleApi {
   /** System-browser Google OAuth with desktop PKCE; returns after Chronicle JWT issuance. */
   loginWithGoogle(): Promise<AccountState>
   logout(): Promise<void>
+  /** Save a portable JSON copy of account-linked or anonymous installation cloud data. */
+  exportAccountData(): Promise<boolean>
+  /** Withdraw reporting and erase this installation's registered/usage cloud data. */
+  deleteCloudUsageData(): Promise<void>
+  /** Permanently erase the signed-in account/cloud data; local history and keys remain. */
+  deleteCloudAccount(): Promise<void>
   /** Push the current portable C5 preferences now (requires a signed-in account). */
   syncSettings(): Promise<void>
   /** Encrypt all saved provider keys client-side and upload one opaque envelope. */

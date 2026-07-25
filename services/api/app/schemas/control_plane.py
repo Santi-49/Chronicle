@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -72,6 +72,41 @@ class InstallationRead(StrictModel):
     linked_to_account: bool
     first_seen_at: datetime
     last_seen_at: datetime
+
+
+class TelemetryPreferenceWrite(StrictModel):
+    installation_id: uuid.UUID
+    enabled: bool
+    notice_version: str = Field(min_length=1, max_length=32)
+    updated_at: datetime
+
+
+class TelemetryPreferenceRead(TelemetryPreferenceWrite):
+    id: uuid.UUID
+    account_linked: bool
+    recorded_at: datetime
+
+
+class AccountDataExport(StrictModel):
+    """Portable, machine-readable copy of all account-linked control-plane data."""
+
+    schema_version: Literal[1] = 1
+    exported_at: datetime
+    account: dict[str, Any]
+    external_identities: list[dict[str, Any]]
+    settings: dict[str, Any] | None
+    encrypted_secret: dict[str, Any] | None
+    installations: list[dict[str, Any]]
+    telemetry_preferences: list[dict[str, Any]]
+    usage_statistics: dict[str, list[dict[str, Any]]]
+
+
+class InstallationDataExport(StrictModel):
+    schema_version: Literal[1] = 1
+    exported_at: datetime
+    installation: dict[str, Any]
+    telemetry_preferences: list[dict[str, Any]]
+    usage_statistics: dict[str, list[dict[str, Any]]]
 
 
 class GoogleCredentialRequest(StrictModel):
