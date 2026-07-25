@@ -133,10 +133,14 @@ Grid of all projects (tracked folders) with the same card treatment. Header acti
 Creates a tracked folder: display name, optional description, native **folder picker**,
 icon picker (bundled Material Symbols + custom glyph), and color picker (palette + custom).
 After selection, C1 `scanFolder()` supplies a recursive file tree. The user can select all,
-exclude individual PNG/JPG/JPEG files, and enable/disable supported file types while a live
-count shows how many files will be tracked. Those rules persist and apply to initial capture
-and future saves. **SVG, BLEND, OBJ, STEP/STP, PSD, and PSB** are marked "Coming soon".
-Breadcrumb back to Projects.
+exclude individual files, and enable/disable file types while a live count shows how many files
+will be tracked. Those rules persist and apply to initial capture and future saves.
+
+One toggle appears per format in the registry — PNG, JPG/JPEG, SVG, PSD, PSB, OBJ, STEP/STP,
+BLEND. Every one of them is captured, versioned, previewed, restorable, and keyword-searchable.
+Toggles for formats whose **AI change summaries** are not implemented yet carry a
+*no AI summary yet* note, and a hint below the row explains that those versions' summary jobs
+stay queued until support ships. Breadcrumb back to Projects.
 
 ### 5. Project — F2, F5
 
@@ -172,8 +176,24 @@ One asset's history, newest first, on a vertical rail. Each row: version number,
 
 ### 7. Version Details — F4, F5, F6
 
-Everything about one version: large preview, the full AI output (summary, changes list,
-tags), metadata, and actions:
+Everything about one version: its visual, the full AI output (summary, changes list, tags),
+metadata, and actions.
+
+The visual is chosen by the version's format (`shared/formats.ts`), so this screen never
+special-cases file types:
+
+- **Raster** (PNG, JPG, PSD, PSB, BLEND) — the still image: the stored bytes for the two MVP
+  image formats, or the preview the main process derived for the rest.
+- **Vector** (SVG) — the stored markup, displayed whole rather than cropped.
+- **3D** (OBJ, STEP/STP) — an interactive view of the real geometry: drag to rotate, scroll to
+  zoom, with the vertex count shown. three.js and the CAD tessellator load only when such a
+  version is opened. A file that cannot be tessellated says so in place of the viewer.
+
+A version whose format has no AI adapter yet shows a *queued* status and explains that Chronicle
+captures, versions, restores, and searches the format while its summary waits for support —
+never a spinner implying an imminent result.
+
+Actions:
 
 - **Newer / older arrows** — move directly through the asset's version history in the
   same newest-first order as the Timeline; each end disables its unavailable direction.
