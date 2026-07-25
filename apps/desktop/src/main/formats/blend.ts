@@ -10,6 +10,7 @@
  *   header   'BLENDER'(7) pointerSize(1: '_'=4, '-'=8) endianness(1: 'v'|'V')
  *            version(3)
  *   blocks   code(4) length(4) address(pointerSize) sdnaIndex(4) count(4) body
+ *            — so a body starts 16 + pointerSize bytes after its block header
  *   TEST     width(4) height(4) then width*height RGBA pixels, bottom row first
  *
  * The `TEST` body layout is not covered by public Blender documentation, so it
@@ -123,7 +124,8 @@ export async function readBlendPreview(filePath: string): Promise<DerivedPreview
 
     let cursor = 12
     for (let block = 0; block < MAX_BLOCKS; block++) {
-      const bodyStart = cursor + 12 + header.pointerSize
+      // Block header: code(4) size(4) address(pointerSize) sdnaIndex(4) count(4).
+      const bodyStart = cursor + 16 + header.pointerSize
       if (bodyStart > bytes.length) return null
       const code = bytes.toString('ascii', cursor, cursor + 4)
       const bodyLength = readU32(cursor + 4)

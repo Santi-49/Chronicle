@@ -79,7 +79,7 @@ export function ProjectScreen({ projectId, onBack, onEdit, onOpenAsset }: Projec
         <div className="empty-state">
           <Icon name="image" />
           <h3>No versions captured yet</h3>
-          <p>Save a PNG or JPG inside this folder and it will appear here within seconds.</p>
+          <p>Save a supported creative file inside this folder and it will appear here within seconds.</p>
         </div>
       ) : (
         <>

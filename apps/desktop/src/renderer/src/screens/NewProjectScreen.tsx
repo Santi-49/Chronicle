@@ -511,7 +511,7 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
               </div>
 
               {scan && !scanning && scan.length === 0 && (
-                <p className="scan-empty">No PNG or JPG files here yet — versions will appear as you save them.</p>
+                <p className="scan-empty">No supported creative files here yet — versions will appear as you save them.</p>
               )}
 
               {tree && scan && scan.length > 0 && (

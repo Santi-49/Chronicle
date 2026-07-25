@@ -131,9 +131,13 @@ afterEach(async () => {
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-async function waitFor(predicate: () => boolean, what: string, timeoutMs = 8_000): Promise<void> {
+async function waitFor(
+  predicate: () => boolean | Promise<boolean>,
+  what: string,
+  timeoutMs = 8_000,
+): Promise<void> {
   const start = Date.now()
-  while (!predicate()) {
+  while (!(await predicate())) {
     if (Date.now() - start > timeoutMs) throw new Error(`timed out waiting for ${what}`)
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
@@ -270,6 +274,54 @@ describe('tracked folders and capture events', () => {
     await expect(services.api.updateFolder(999, { displayName: 'x' })).rejects.toThrow(/Unknown folder/)
     await expect(services.api.updateFolder(1.5, {})).rejects.toThrow(TypeError)
   })
+
+  it(
+    'enabling a file type captures the files already in the folder',
+    async () => {
+      // A project created before a format shipped stores the old selection, so
+      // its existing files of that type must be captured when it is enabled —
+      // not left waiting for someone to re-save them.
+      const folder = await services.api.addFolder(workDir, { allowedExtensions: ['.png'] })
+      writeFile('mark.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"></svg>')
+      writeFile('logo.png', pngBytes(12, 12))
+      await waitFor(() => eventsOf('versionCaptured').length === 1, 'the PNG capture')
+      expect((await services.api.listAssets()).map((asset) => asset.format)).toEqual(['png'])
+
+      await services.api.updateFolder(folder.id, {
+        allowedExtensions: [...SUPPORTED_EXTENSIONS],
+      })
+
+      await waitFor(() => eventsOf('versionCaptured').length === 2, 'the SVG capture')
+      const assets = await services.api.listAssets()
+      expect(assets.map((asset) => asset.format).sort()).toEqual(['png', 'svg'])
+      // Re-scanning must not add a second version of the unchanged PNG.
+      expect(assets.every((asset) => asset.versionCount === 1)).toBe(true)
+    },
+    20_000,
+  )
+
+  it(
+    'marks assets missing whose files disappeared while Chronicle was closed',
+    async () => {
+      const capture = await seedCapture('gone.png', pngBytes(14, 14))
+      const asset = getVersion(db, capture.versionId)!.assetId
+      // Delete before the folder is watched: no unlink event ever reaches the
+      // watcher, so only the post-scan reconciliation can notice.
+      fs.rmSync(path.join(workDir, 'gone.png'))
+
+      await services.api.addFolder(workDir)
+
+      await waitFor(
+        async () => (await services.api.listAssets()).some((item) => !item.onDisk),
+        'the missing-file reconciliation',
+      )
+      const listed = (await services.api.listAssets()).find((item) => item.id === asset)
+      expect(listed?.onDisk).toBe(false)
+      // History is kept (F3.7) — only the on-disk flag changes.
+      expect(listed?.versionCount).toBe(1)
+    },
+    20_000,
+  )
 
   it('removeFolder stops watching and keeps history by default', async () => {
     const capture = await seedCapture('kept.png', pngBytes(20, 20))

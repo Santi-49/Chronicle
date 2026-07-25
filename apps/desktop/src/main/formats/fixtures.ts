@@ -137,11 +137,13 @@ export function blendBytes(options: BlendOptions = {}): Buffer {
   return options.gzip ? zlib.gzipSync(file) : file
 }
 
+/** code(4) size(4) address(pointerSize) sdnaIndex(4) count(4), then the body. */
 function blendBlock(code: string, pointerSize: number, body: Buffer): Buffer {
-  const head = Buffer.alloc(12 + pointerSize)
+  const head = Buffer.alloc(16 + pointerSize)
   head.write(code.padEnd(4, '\0'), 0, 'ascii')
   head.writeUInt32LE(body.length, 4)
-  // memory address (pointerSize bytes), sdna index, count all stay zero.
+  // The original memory address, SDNA index, and struct count all stay zero.
+  head.writeUInt32LE(1, 12 + pointerSize) // count
   return Buffer.concat([head, body])
 }
 

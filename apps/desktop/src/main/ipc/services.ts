@@ -373,6 +373,52 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     return folder.allowedExtensions.includes(path.extname(abs).toLowerCase())
   }
 
+  /** Order-insensitive comparison of a folder's saved selection lists. */
+  function sameSelection(left: readonly string[], right: readonly string[]): boolean {
+    if (left.length !== right.length) return false
+    const a = [...left].sort()
+    const b = [...right].sort()
+    return a.every((value, index) => value === b[index])
+  }
+
+  /** Assets stored under a tracked folder's path. */
+  function assetsUnder(folderPath: string): ReturnType<typeof listAssets> {
+    const root = path.resolve(folderPath)
+    return listAssets(db).filter((asset) => {
+      const relative = path.relative(root, asset.path)
+      return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
+    })
+  }
+
+  /**
+   * After a folder's initial scan, mark assets whose files are gone.
+   *
+   * The watcher only reports deletions it witnesses, so a file removed while
+   * Chronicle was closed would otherwise still look present — its history stays
+   * (F3.7), but the UI must say the file is no longer on disk.
+   */
+  async function reconcileMissingFiles(folderPath: string): Promise<void> {
+    let marked = 0
+    for (const asset of assetsUnder(folderPath)) {
+      if (!asset.onDisk) continue
+      try {
+        await fs.access(asset.path)
+      } catch {
+        markFileMissing(db, asset.path)
+        marked += 1
+      }
+    }
+    if (marked === 0) return
+    diagnostic({
+      level: 'debug',
+      source: 'watcher',
+      event: 'missing_files_reconciled',
+      message: `Marked ${marked} asset(s) as no longer on disk after scanning a project.`,
+      context: { count: marked },
+    })
+    pushStatus()
+  }
+
   // Watcher → capture → events (the wiring MVP-03/04 left open). Capture
   // results are handled asynchronously; nothing here blocks an IPC reply.
   const watcher: FolderWatcher = createFolderWatcher(
@@ -447,6 +493,11 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           event: 'file_removed',
           message: `Marked ${path.basename(filePath)} as missing.`,
           context: { fileName: path.basename(filePath) },
+        })
+      },
+      onReady: (folderPath) => {
+        void reconcileMissingFiles(folderPath).catch((error) => {
+          console.error('[chronicle] could not reconcile missing files:', folderPath, error)
         })
       },
       onError: (error) => {
@@ -733,14 +784,35 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     async updateFolder(folderId, patch) {
       const id = expectId(folderId, 'folderId')
       const validatedPatch = expectFolderMeta(patch, 'patch')
+      const before = listTrackedFolders(db).find((folder) => folder.id === id)
       const updated = updateTrackedFolder(db, id, validatedPatch)
       if (!updated) throw new Error(`Unknown folder: ${folderId}`)
+
+      // A changed file-type or exclusion selection changes which *existing*
+      // files are capturable. The watcher's initial scan already ran, so
+      // re-watch the folder to scan it again under the new rules — otherwise a
+      // newly enabled file type would only be captured at its next save.
+      // Capture dedupes by content hash, so re-scanning adds no versions for
+      // files Chronicle already stores.
+      const selectionChanged =
+        before !== undefined &&
+        (!sameSelection(before.allowedExtensions, updated.allowedExtensions) ||
+          !sameSelection(before.excludedPaths, updated.excludedPaths))
+      if (selectionChanged) {
+        await watcher.unwatch(updated.path)
+        watcher.watch(updated.path)
+      }
+
       diagnostic({
         level: 'debug',
         source: 'project',
         event: 'project_updated',
         message: `Updated project ${updated.displayName}.`,
-        context: { projectId: id, changedFields: Object.keys(validatedPatch) },
+        context: {
+          projectId: id,
+          changedFields: Object.keys(validatedPatch),
+          rescanned: selectionChanged,
+        },
       })
       return updated
     },

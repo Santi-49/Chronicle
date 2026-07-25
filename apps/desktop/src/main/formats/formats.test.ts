@@ -248,8 +248,11 @@ describe('createFormatPreview', () => {
     }
 
     // A .blend claiming a 4 GB thumbnail must be rejected, not allocated.
+    // Offsets: 12-byte file header, then the REND block (24-byte header + an
+    // 8-byte body), then the TEST block's 24-byte header — so its declared
+    // width sits at 12 + 32 + 24.
     const lying = blendBytes({ thumbnail: { width: 2, height: 2, rgba: Buffer.alloc(16) } })
-    lying.writeUInt32LE(40_000, 12 + 8 + 12 + 8) // overwrite the TEST width
+    lying.writeUInt32LE(40_000, 12 + 32 + 24)
     expect(await createFormatPreview(write('lying.blend', lying), 'blend')).toBeNull()
   })
 })

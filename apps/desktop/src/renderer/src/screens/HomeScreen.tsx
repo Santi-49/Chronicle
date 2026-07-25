@@ -56,7 +56,7 @@ export function HomeScreen({ onAddProject, onOpenProject, onOpenAsset, onViewPro
           <div className="empty-state">
             <Icon name="folder-plus" />
             <h3>No folders tracked yet</h3>
-            <p>Point Chronicle at a folder you work in. Every PNG or JPG you save there becomes a version automatically.</p>
+            <p>Point Chronicle at a folder you work in. Every supported creative file you save there becomes a version automatically.</p>
             <button className="primary-button compact-button" onClick={onAddProject} type="button">
               <Icon name="folder-plus" /> Add your first project
             </button>
