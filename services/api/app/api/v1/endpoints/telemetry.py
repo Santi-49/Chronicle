@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.schemas.control_plane import TelemetryPreferenceRead, TelemetryPreferenceWrite
 from app.schemas.telemetry import TelemetryBatch
-from app.services import telemetry_service
+from app.services import privacy_service, telemetry_service
 from app.services.telemetry_service import RequestLocation
 
 router = APIRouter(prefix="/telemetry", tags=["telemetry"])
@@ -37,3 +38,11 @@ async def ingest_batch(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     await telemetry_service.ingest_batch(batch, cloudflare_location(request), db)
+
+
+@router.post("/preference", response_model=TelemetryPreferenceRead)
+async def record_preference(
+    preference: TelemetryPreferenceWrite,
+    db: AsyncSession = Depends(get_db),
+) -> TelemetryPreferenceRead:
+    return await privacy_service.record_telemetry_preference(preference, db)

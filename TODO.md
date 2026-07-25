@@ -1061,7 +1061,7 @@ line in `docs/bob-log.md`.
 **Done when:** An `admin` user reads live aggregates through the admin UI; a non-admin cannot
 reach it; no file-level data is ever exposed.
 
-### [ ] POST-06 — Make Chronicle GDPR-compliant `Post-MVP`
+### [x] POST-06 — Make Chronicle GDPR-compliant `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-03, POST-04 (data handling, consent, and account data must exist first)
@@ -1106,7 +1106,7 @@ and read an accurate privacy policy; the team has recorded a defensible lawful b
 collection purpose; disclosures and retention match what the app/API/logging infrastructure
 actually send/store; and the local creative library is never uploaded.
 
-### [ ] POST-06A — Add self-service account and cloud-data deletion `Post-MVP`
+### [x] POST-06A — Add self-service account and cloud-data deletion `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-03; coordinate with POST-04 before telemetry tables ship

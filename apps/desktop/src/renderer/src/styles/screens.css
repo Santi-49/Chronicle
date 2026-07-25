@@ -447,6 +447,19 @@
 .key-sync-passphrase input:focus { border-color: var(--focus); }
 .key-sync-passphrase small { color: var(--text-muted); font-size: 10px; font-weight: 400; line-height: 1.45; }
 .key-sync-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.privacy-links { display: flex; margin: 24px 0 0 44px; align-items: center; flex-wrap: wrap; gap: 12px; }
+.privacy-links a { color: var(--accent); font-size: 12px; }
+.account-danger-zone { display: grid; max-width: 720px; margin: 28px 0 0 44px; padding-top: 22px; gap: 16px; border-top: 1px solid var(--border); }
+.account-danger-zone > div:first-child strong { color: var(--danger); font-size: 13px; }
+.account-danger-zone > div:first-child p { margin: 6px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.danger-button { width: fit-content; min-height: 40px; padding: 8px 14px; color: var(--danger); background: transparent; border: 1px solid var(--danger); border-radius: 5px; cursor: pointer; }
+.danger-button:hover { color: white; background: var(--danger); }
+.danger-button:disabled { cursor: wait; opacity: .55; }
+.account-delete-confirmation { display: grid; padding: 18px; gap: 10px; background: color-mix(in srgb, var(--danger) 7%, var(--surface)); border: 1px solid var(--danger); border-radius: 8px; }
+.account-delete-confirmation > strong { color: var(--danger); font-size: 13px; }
+.account-delete-confirmation p { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.55; }
+.account-delete-confirmation .text-button { width: fit-content; }
+.account-delete-actions { display: flex; margin-top: 6px; flex-wrap: wrap; gap: 8px; }
 .folder-row .project-folder { width: 28px; height: 28px; flex: none; }
 .dev-toggle { margin: 24px 0 4px 44px; }
 .ai-task { margin: 20px 0 0 44px; padding: 18px 20px 20px; border: 1px solid var(--border); border-radius: 10px; }
@@ -947,6 +960,8 @@
   .settings-google-button,
   .account-access,
   .account-preferences,
+  .privacy-links,
+  .account-danger-zone,
   .appearance-options,
   .developer-tools-toggle,
   .dev-toggle,

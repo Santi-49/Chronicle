@@ -36,3 +36,18 @@ async def get_user_refresh_jti(user_id: str) -> str | None:
 
 async def delete_user_refresh_jti(user_id: str) -> None:
     await get_redis_client().delete(f"refresh:{user_id}")
+
+
+async def revoke_all_user_tokens(user_id: str) -> None:
+    """Remove every access/refresh whitelist entry belonging to an account."""
+    client = get_redis_client()
+    keys: list[str] = []
+    async for key in client.scan_iter(match="token:*"):
+        if await client.get(key) == user_id:
+            keys.append(key)
+    refresh_jti = await get_user_refresh_jti(user_id)
+    if refresh_jti:
+        keys.append(f"token:{refresh_jti}")
+    keys.append(f"refresh:{user_id}")
+    if keys:
+        await client.delete(*set(keys))

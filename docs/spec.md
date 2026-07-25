@@ -131,6 +131,10 @@ matter and are loaded from there rather than embedded in code.
 - An optional encrypted-secret envelope. API-key sync is independently enabled, uses a user passphrase plus authenticated encryption on-device, and gives the backend neither plaintext keys nor the decryption key.
 - A random installation record for every reachable first-run profile, including local mode. It contains app/OS and first/last-seen metadata and measures installations—not unique people.
 - Normalized usage statistics and aggregated admin views (see F8 for the exact privacy rule).
+- Auditable telemetry-preference records containing the installed notice version, timestamp,
+  random installation, and server-derived account link when present.
+- JSON access/export plus transactional account and installation erasure. Account deletion
+  revokes every Chronicle session but never deletes the device's creative library or provider keys.
 - *(Stretch)* the AI-inference gateway.
 
 **Admin stats surface (decision):** admins consume stats through the API's built-in **Swagger UI** (`/docs`) — zero UI to build for the MVP. If time remains, an **Admin tab inside the desktop app** (visible only to the `admin` role, which RBAC already supports). We deliberately do **not** build a separate web app — we deleted it to avoid distraction.
@@ -255,6 +259,14 @@ The heart of the product. Exact rules:
 - The API derives coarse country/region/city from Cloudflare visitor-location headers. It never stores the raw IP. Because location plus an installation UUID remains pseudonymous personal data, the disclosure, lawful basis, retention, export, and erasure policy must cover it explicitly.
 - **Privacy rule (hard):** telemetry contains **no file contents, file/project names, paths, summaries, tags, embeddings, search queries, exact sizes, credentials, or raw IP addresses.** Error messages/stacks are path-, identity-, URL-query-, and secret-sanitized before upload.
 - Records persist locally while offline. The app sends at startup and at most hourly when data changed. Turning reporting off attempts one final batch, clears local telemetry regardless of network outcome, and never retries after opt-out.
+- The implemented lawful-basis record selects legitimate interests for minimal registration and
+  content-free reporting; account/sync and user-directed AI operations use contract. The
+  legitimate-interests assessment, production legal-review gate, retention windows, and rights
+  implementation are maintained in `docs/privacy-policy.md`.
+- Raw session/removal/error rows retain for 90 days, hourly rollups for 400 days, current inventory
+  for 30 days, and anonymous installations/preferences for 400 inactive days by default. Signed-in
+  users can export or transactionally erase all linked cloud data; local profiles can export or
+  erase data for their random installation ID.
 - Admins read aggregates via Swagger (`/docs`). *(Stretch: admin tab in the desktop app.)*
 - **Done when:** after a demo run, an admin can answer "how many versions were captured today and how many AI calls did we make?"
 

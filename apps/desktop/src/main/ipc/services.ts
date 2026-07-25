@@ -95,7 +95,7 @@ const INSTALLATION_ID_KEY = 'control-plane-installation-id'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TELEMETRY_DEFAULT_MIGRATION_KEY = 'post03-telemetry-default-applied'
 const SETTINGS_SYNC_DEFAULT_MIGRATION_KEY = 'post03-settings-sync-default-applied'
-const TELEMETRY_NOTICE_SHOWN_KEY = 'post04-telemetry-notice-shown'
+const TELEMETRY_NOTICE_VERSION = '2026-07-25'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   appearance: { theme: 'system' },
@@ -598,8 +598,22 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
 
   async function afterSignIn(): Promise<void> {
     if (!deps.account) return
-    void deps.account.linkInstallation(installationId()).catch(() => {})
+    try {
+      await deps.account.linkInstallation(installationId())
+    } catch {
+      // Account sign-in remains usable if installation linking is temporarily unavailable.
+    }
     await applyRemoteSettings()
+    try {
+      const effective = await api.getSettings()
+      await deps.account.recordTelemetryPreference(
+        installationId(),
+        effective.controlPlane.telemetryOptIn,
+        TELEMETRY_NOTICE_VERSION,
+      )
+    } catch {
+      // Preference audit is retried at the next startup/settings change.
+    }
   }
 
   function summaryTextOf(version: VersionRecord): string | null {
@@ -1110,6 +1124,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       // POST-04: if telemetry was just turned off, clear the queue + server inventory.
       const wasOn = current.controlPlane.telemetryOptIn
       const isOff = !next.controlPlane.telemetryOptIn
+      if (wasOn !== next.controlPlane.telemetryOptIn && deps.account) {
+        void deps.account.recordTelemetryPreference(
+          installationId(),
+          next.controlPlane.telemetryOptIn,
+          TELEMETRY_NOTICE_VERSION,
+        ).catch(() => {})
+      }
       if (wasOn && isOff) {
         await deps.onTelemetryDisabled?.()
       }
@@ -1246,6 +1267,41 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     async logout() {
       await deps.account?.logout()
     },
+    async exportAccountData() {
+      const account = requireAccount()
+      const accountState = await account.accountState()
+      const data = accountState.mode === 'signed-in'
+        ? await account.exportAccountData()
+        : await account.exportInstallationData(installationId())
+      const destination = await deps.pickVersionCopyPath(
+        `chronicle-account-data-${new Date().toISOString().slice(0, 10)}.json`,
+      )
+      if (!destination) return false
+      writeFileSync(destination, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+      return true
+    },
+    async deleteCloudUsageData() {
+      await requireAccount().deleteInstallationData(installationId())
+      const local = await api.getSettings()
+      if (local.controlPlane.telemetryOptIn) {
+        const disabled = mergeSettings(local, {
+          controlPlane: { ...local.controlPlane, telemetryOptIn: false },
+        })
+        setSetting(db, SETTINGS_KEY, disabled)
+        await deps.onTelemetryDisabled?.()
+      }
+    },
+    async deleteCloudAccount() {
+      await requireAccount().deleteAccount()
+      const local = await api.getSettings()
+      setSetting(db, SETTINGS_KEY, mergeSettings(local, {
+        controlPlane: {
+          ...local.controlPlane,
+          settingsSyncEnabled: false,
+          apiKeySyncEnabled: false,
+        },
+      }))
+    },
     async syncSettings() {
       const local = await api.getSettings()
       const enabled = mergeSettings(local, {
@@ -1367,6 +1423,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         void deps.account.registerInstallation({
           ...deps.installation,
           installationId: installationId(),
+        }).then(async () => {
+          const local = await api.getSettings()
+          await deps.account!.recordTelemetryPreference(
+            installationId(),
+            local.controlPlane.telemetryOptIn,
+            TELEMETRY_NOTICE_VERSION,
+          )
         }).catch(() => {})
       }
       deps.telemetry?.recordAppOpened()

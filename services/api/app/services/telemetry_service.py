@@ -1,10 +1,12 @@
-"""Normalized, retry-safe storage for v2 usage-statistics batches."""
+"""Normalized, retry-safe storage and configured retention for usage statistics."""
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.control_plane import (
+    Installation,
     InstallationTelemetry,
     ProjectTelemetry,
     TelemetryError,
@@ -12,7 +14,9 @@ from app.models.control_plane import (
     TelemetryHourlyUsage,
     TelemetryProjectRemoval,
     TelemetrySession,
+    TelemetryPreferenceAudit,
 )
+from app.core.config import settings
 from app.schemas.telemetry import TelemetryBatch
 
 
@@ -32,6 +36,7 @@ def _location(location: RequestLocation) -> dict:
 
 
 async def ingest_batch(batch: TelemetryBatch, location: RequestLocation, db: AsyncSession) -> None:
+    await apply_retention(db)
     installation_id = batch.installation_id
     loc = _location(location)
 
@@ -146,3 +151,41 @@ async def ingest_batch(batch: TelemetryBatch, location: RequestLocation, db: Asy
         ))
 
     await db.commit()
+
+
+async def apply_retention(db: AsyncSession) -> None:
+    """Apply storage-limitation windows opportunistically on normal API traffic."""
+    now = datetime.now(timezone.utc)
+    raw_before = now - timedelta(days=settings.telemetry_raw_retention_days)
+    hourly_before = now - timedelta(days=settings.telemetry_hourly_retention_days)
+    inventory_before = now - timedelta(days=settings.telemetry_inventory_retention_days)
+    preference_before = now - timedelta(days=settings.telemetry_preference_retention_days)
+    stale_installation_before = now - timedelta(days=settings.inactive_installation_retention_days)
+
+    await db.execute(delete(TelemetrySession).where(TelemetrySession.opened_at < raw_before))
+    await db.execute(delete(TelemetryProjectRemoval).where(
+        TelemetryProjectRemoval.occurred_at < raw_before
+    ))
+    await db.execute(delete(TelemetryError).where(TelemetryError.occurred_at < raw_before))
+    await db.execute(delete(TelemetryHourlyUsage).where(
+        TelemetryHourlyUsage.bucket_start < hourly_before
+    ))
+    await db.execute(delete(TelemetryHourlyAiUsage).where(
+        TelemetryHourlyAiUsage.bucket_start < hourly_before
+    ))
+    await db.execute(delete(InstallationTelemetry).where(
+        InstallationTelemetry.captured_at < inventory_before
+    ))
+    await db.execute(delete(ProjectTelemetry).where(
+        ProjectTelemetry.captured_at < inventory_before
+    ))
+    await db.execute(delete(TelemetryPreferenceAudit).where(
+        TelemetryPreferenceAudit.created_at < preference_before,
+        TelemetryPreferenceAudit.user_id.is_(None),
+    ))
+    # Account-linked installations are kept for the account lifetime and are
+    # erased self-service. Anonymous registrations expire after inactivity.
+    await db.execute(delete(Installation).where(
+        Installation.last_seen_at < stale_installation_before,
+        Installation.user_id.is_(None),
+    ))

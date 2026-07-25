@@ -50,9 +50,9 @@ import { landingContent } from "../content";
     </p>
     <p>
       The current release can register a random installation identifier when its configured service is
-      reachable, including in local mode. Its usage-reporting preference starts enabled, but transmission of
-      usage events and the related admin analytics view are not implemented in the current release. The
-      Privacy Policy explains these boundaries and will be updated before those capabilities materially change.
+      reachable, including in local mode. Its usage-reporting preference starts enabled and sends the
+      content-free operational counts described in the Privacy Policy. You can turn reporting off and export
+      or erase cloud data from Settings.
     </p>
     <p>
       Chronicle is under active development. Supported formats, compatibility, limits, and features may change.
@@ -176,9 +176,10 @@ import { landingContent } from "../content";
     <p>
       You may stop using Chronicle at any time. Uninstalling the app or signing out does not necessarily remove
       local app data, synced settings, or your Chronicle account. You can delete an encrypted key-sync copy from
-      Settings. A self-service account-deletion button is not implemented in the current release, so contact us
-      to request deletion of the account and its associated server-side data. Account deletion does not delete
-      local version history unless you separately remove it on your device. We may suspend or end online access
+      Settings. Signed-in users can permanently delete their account and associated server-side data there;
+      local-mode users can erase their installation registration and usage data. Cloud deletion does not delete
+      local version history, originals, or local provider keys; remove local project/history separately on the
+      device. We may suspend or end online access
       for a serious or repeated breach, security risk, legal requirement, or discontinuation of the Service.
       Provisions that by their nature should survive termination, including ownership, disclaimers, and liability
       limits, will survive.
@@ -205,7 +206,7 @@ import { landingContent } from "../content";
     <h2>Contact</h2>
     <p>
       Chronicle is maintained by the Chronicle project team. Questions about these Terms can be sent to{" "}
-      <a href="mailto:chronicle.support@gmial.com">chronicle.support@gmial.com</a>{" "}or submitted through the{" "}
+      <a href="mailto:chronicle.support@gmail.com">chronicle.support@gmail.com</a>{" "}or submitted through the{" "}
       <a href={`${landingContent.githubUrl}/issues`} target="_blank" rel="noopener noreferrer">Chronicle project issue tracker</a>.
       Do not publish passwords, provider keys, tokens, file contents, or other sensitive information in an issue.
     </p>

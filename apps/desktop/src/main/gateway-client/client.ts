@@ -15,6 +15,8 @@ type AccountSettingsRead = components['schemas']['AccountSettingsRead']
 // Pydantic component directly, so either valid OpenAPI representation works.
 type PortableSettings = components['schemas']['AccountSettingsUpdate']['settings']
 type EncryptedSecretRead = components['schemas']['EncryptedSecretRead']
+type AccountDataExport = components['schemas']['AccountDataExport']
+type InstallationDataExport = components['schemas']['InstallationDataExport']
 // C6 telemetry wire schemas — the request bodies are validated against the
 // generated contract so the emitter allowlist can never drift from it silently.
 type TelemetryBatch = components['schemas']['TelemetryBatch']
@@ -57,6 +59,15 @@ export interface ControlPlaneClient {
   getEncryptedSecret(): Promise<EncryptedSecretRead | null>
   putEncryptedSecret(envelope: string, expectedRevision: number): Promise<EncryptedSecretRead>
   deleteEncryptedSecret(): Promise<void>
+  exportAccountData(): Promise<AccountDataExport>
+  exportInstallationData(installationId: string): Promise<InstallationDataExport>
+  deleteInstallationData(installationId: string): Promise<void>
+  deleteAccount(): Promise<void>
+  recordTelemetryPreference(
+    installationId: string,
+    enabled: boolean,
+    noticeVersion: string,
+  ): Promise<void>
   /** POST /api/v1/telemetry/batches — best-effort, offline-tolerant. */
   sendTelemetryBatch(batch: TelemetryBatchPayload): Promise<void>
 }
@@ -166,7 +177,7 @@ export function portableSettings(local: AppSettings): PortableSettings {
     },
     telemetry: {
       enabled: local.controlPlane.telemetryOptIn,
-      notice_version: '2026-07-21',
+      notice_version: '2026-07-25',
       updated_at: new Date().toISOString(),
     },
   }
@@ -438,6 +449,31 @@ export function createControlPlaneClient(
       method: 'PUT', body: JSON.stringify({ envelope, expected_revision: expectedRevision }),
     }, true),
     deleteEncryptedSecret: () => raw<void>('/api/v1/account/secrets', { method: 'DELETE' }, true),
+    exportAccountData: () => raw<AccountDataExport>('/api/v1/account/export', {}, true),
+    exportInstallationData: (installationId) => raw<InstallationDataExport>(
+      `/api/v1/installations/${encodeURIComponent(installationId)}/export`,
+      {},
+      tokens.read() !== null,
+    ),
+    deleteInstallationData: (installationId) => raw<void>(
+      `/api/v1/installations/${encodeURIComponent(installationId)}/data`,
+      { method: 'DELETE' },
+      tokens.read() !== null,
+    ),
+    async deleteAccount() {
+      await raw<void>('/api/v1/account', { method: 'DELETE' }, true)
+      tokens.clear()
+    },
+    recordTelemetryPreference: (installationId, enabled, noticeVersion) =>
+      raw<void>('/api/v1/telemetry/preference', {
+        method: 'POST',
+        body: JSON.stringify({
+          installation_id: installationId,
+          enabled,
+          notice_version: noticeVersion,
+          updated_at: new Date().toISOString(),
+        }),
+      }),
     async sendTelemetryBatch(payload) {
       // Typed against the generated C6 contract, not a hand-shaped object.
       const batch: TelemetryBatch = {

@@ -7,7 +7,7 @@ import { landingContent } from "../content";
   title="Privacy Policy"
   description="How Chronicle handles your account information, creative files, AI requests, and product usage data."
   eyebrow="Your work stays yours"
-  effectiveDate="July 22, 2026"
+  effectiveDate="July 25, 2026"
   currentPath="/privacy/"
 >
   <Fragment slot="navigation">
@@ -69,18 +69,17 @@ import { landingContent } from "../content";
     </p>
     <h3>Optional usage reporting</h3>
     <p>
-      The current build includes a usage-reporting preference that starts enabled and can be switched off,
-      but usage-event delivery is not implemented in the current release. Chronicle therefore does not
-      currently send the planned usage events or provide the planned analytics dashboard. Before such
-      reporting is released, this policy and the in-product notice will be updated to match the final data,
-      retention period, and user choice.
+      Usage reporting starts enabled and can be switched off at any time. While enabled, Chronicle sends
+      app opens, project-removal records, hourly search and provider/model AI totals, current
+      project/asset/version count snapshots, and sanitized unexpected application failures. Chronicle records
+      the preference, this notice version, its timestamp, the random installation, and the linked account when present.
     </p>
     <p>
-      The planned reporting contract is restricted to operational information such as random telemetry IDs,
+      The reporting contract is restricted to operational information such as random telemetry IDs,
       app version, operating-system family, coarse counts and size ranges, supported file types, timings,
       provider and model identifiers, outcomes, and whether a search occurred. It excludes file contents,
       file names, paths, project names, previews, version identifiers, hashes, AI summaries, tags, embeddings,
-      and search queries. Planned events may queue locally while offline only when reporting is active.
+      and search queries. Events may queue locally while offline only when reporting is active.
     </p>
   </section>
 
@@ -132,6 +131,13 @@ import { landingContent } from "../content";
       <li>comply with law and protect users, the service, and others.</li>
     </ul>
     <p>
+      We rely on performance of the requested service for optional accounts, authentication, portable-settings
+      sync, encrypted-key sync, and user-directed AI operations. We rely on legitimate interests to operate and
+      secure the service, minimally register installations, diagnose reliability, and understand content-free
+      product usage. Usage reporting is default-enabled reporting, not consent; you can object by turning it
+      off and can erase the installation data from Settings.
+    </p>
+    <p>
       We do not sell personal information or Google user data, and we do not share it for personalized
       advertising. We may disclose information to infrastructure providers acting on our behalf, when required
       by law, to protect rights or safety, or as part of a project transfer subject to this policy. Separately,
@@ -139,8 +145,7 @@ import { landingContent } from "../content";
     </p>
     <p>
       Authorized service administrators may access account and installation records when needed to operate,
-      secure, or support the service. The planned admin analytics view is not implemented in the current
-      release. If released, it is designed to show aggregate usage statistics and not creative files, file or
+      secure, or support the service. The admin analytics view shows aggregate usage statistics and not creative files, file or
       project names, paths, previews, summaries, tags, embeddings, or search text.
     </p>
   </section>
@@ -165,19 +170,21 @@ import { landingContent } from "../content";
     <h2>Retention and your controls</h2>
     <p>
       Local creative history remains on your device until you remove it using Chronicle or delete the app's
-      local data. Cloud account records and synced settings are kept while your account is active and as needed
-      to operate, secure, and comply with legal obligations. Short-lived session records expire or are revoked.
-      Disabling encrypted-key sync removes the server copy of the encrypted envelope while keeping your local
-      keys. The current release does not send usage events. If reporting is released, turning it off will stop
-      new events, clear its local upload queue, and request deletion of covered raw installation and project
-      telemetry. Minimal installation registration is a separate operation.
+      local data. Raw session, project-removal, and sanitized-error records are kept for up to 90 days; hourly
+      usage rollups for up to 400 days; and current inventory snapshots for up to 30 days. Anonymous installation
+      registrations and preference records expire after 400 inactive days. Cloud account records, identities,
+      linked installations, and synced settings are kept while your account is active. Chronicle access and
+      refresh sessions expire after 30 minutes and 7 days respectively, or are revoked earlier. Disabling
+      encrypted-key sync removes the server envelope while keeping local keys. Turning reporting off stops new
+      events and clears the local upload queue. Minimal installation registration is separate and can be erased
+      from Settings.
     </p>
     <p>
       You may stop using Google Sign-In by signing out and revoking Chronicle's access from your Google Account.
-      A self-service account-deletion control is not implemented in the current release. To request account
-      deactivation, deletion, access, export, or correction, contact us using the channel below. Deleting a
-      Chronicle account is separate from deleting local version history on your device. Some limited records
-      may be retained when required for security, fraud prevention, or legal compliance.
+      Settings can export machine-readable account or anonymous-installation cloud data. A signed-in user can
+      permanently delete the account, Google identity link, settings, encrypted envelope, linked installations,
+      usage statistics, and Chronicle sessions. A local-mode user can erase the random installation and its
+      usage data. These actions do not delete local version history, originals, or local provider keys.
     </p>
   </section>
 
@@ -208,7 +215,7 @@ import { landingContent } from "../content";
     <h2>Contact</h2>
     <p>
       Chronicle is maintained by the Chronicle project team. For privacy questions or requests, contact us at{" "}
-      <a href="mailto:chronicle.support@gmial.com">chronicle.support@gmial.com</a>{" "}or through the{" "}
+      <a href="mailto:chronicle.support@gmail.com">chronicle.support@gmail.com</a>{" "}or through the{" "}
       <a href={`${landingContent.githubUrl}/issues`} target="_blank" rel="noopener noreferrer">Chronicle project issue tracker</a>.
       Do not include passwords, provider keys, ID tokens, file contents, or other sensitive information in a
       public issue.

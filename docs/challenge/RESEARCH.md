@@ -673,6 +673,17 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-25 — GDPR LAWFUL-BASIS/RIGHTS REVIEW (POST-06): EDPB guidance confirms that valid
+  consent requires a clear affirmative action and no pre-ticked boxes, so Chronicle's
+  default-enabled reporting cannot be described as consent. The implementation records a
+  documented, production-review-gated legitimate-interests assessment for minimal installation
+  registration and content-free reporting, uses contract for requested account/sync/AI operations,
+  and adds versioned preference audit, configured storage limitation, JSON access/export,
+  objection/withdrawal, installation erasure, and transactional account erasure. Production
+  remains gated on controller/contact/processor/transfer and LIA approval —
+  [EDPB lawful processing](https://www.edpb.europa.eu/sme/be-compliant/process-personal-data-lawfully_en),
+  [GDPR Articles 5, 6, 15, 17, 20 and 21](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng),
+  [ICO legitimate-interests assessment](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/legitimate-interests/how-do-we-apply-legitimate-interests-in-practice/)
 - 2026-07-23 — **PSD LIVE ACCEPTANCE BLOCKED (POST-02):** the controlled PSD
   first-version/diff run reached the packaged Google integration, but the locally configured
   credential was rejected with HTTP 401 before inference. No provider result or billable
