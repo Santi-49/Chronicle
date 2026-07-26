@@ -3,6 +3,8 @@ import type { AppRoute, PrimaryRouteName } from '../types/navigation'
 import { getPrimaryRoute } from '../types/navigation'
 import { Icon, type IconName } from './Icon'
 import { StatusBar } from './StatusBar'
+import { UpdateBanner } from './UpdateBanner'
+import { HELP_CENTER_URL } from '../lib/helpLinks'
 
 interface AppShellProps {
   route: AppRoute
@@ -17,7 +19,8 @@ const primaryNavigation: { name: PrimaryRouteName; label: string; icon: IconName
   { name: 'home', label: 'Home', icon: 'home' },
   { name: 'projects', label: 'Projects', icon: 'folder' },
   { name: 'search', label: 'Search', icon: 'search' },
-  { name: 'admin', label: 'Admin', icon: 'monitoring', adminOnly: true },
+  { name: 'activity', label: 'Activity & Cost', icon: 'monitoring' },
+  { name: 'admin', label: 'Admin', icon: 'admin', adminOnly: true },
   { name: 'diagnostics', label: 'Diagnostics', icon: 'terminal', developerOnly: true },
 ]
 
@@ -37,6 +40,7 @@ export function AppShell({ route, children, developerMode, isAdmin, onNavigate, 
                 <button
                   aria-current={activeRoute === item.name ? 'page' : undefined}
                   className={activeRoute === item.name ? 'sidebar-link sidebar-link-active' : 'sidebar-link'}
+                  data-tour={item.name === 'projects' ? 'nav-projects' : undefined}
                   onClick={() => onNavigate({ name: item.name })}
                   type="button"
                 >
@@ -47,18 +51,31 @@ export function AppShell({ route, children, developerMode, isAdmin, onNavigate, 
             ))}
           </ul>
         </nav>
-        <nav className="sidebar-footer" aria-label="Application settings">
-          <button
-            aria-current={activeRoute === 'settings' ? 'page' : undefined}
-            className={activeRoute === 'settings' ? 'sidebar-link sidebar-link-active' : 'sidebar-link'}
-            onClick={() => onNavigate({ name: 'settings' })}
-            type="button"
-          >
-            <Icon name="settings" />
-            <span>Settings</span>
-          </button>
+        <div className="sidebar-footer">
+          <UpdateBanner />
+          <nav aria-label="Help and application settings">
+            <a
+              className="sidebar-link"
+              href={HELP_CENTER_URL}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Icon name="help" />
+              <span>Help</span>
+            </a>
+            <button
+              aria-current={activeRoute === 'settings' ? 'page' : undefined}
+              className={activeRoute === 'settings' ? 'sidebar-link sidebar-link-active' : 'sidebar-link'}
+              data-tour="nav-settings"
+              onClick={() => onNavigate({ name: 'settings' })}
+              type="button"
+            >
+              <Icon name="settings" />
+              <span>Settings</span>
+            </button>
+          </nav>
           <p className="sidebar-version">Chronicle {__APP_VERSION__}</p>
-        </nav>
+        </div>
       </aside>
 
       <div className="workspace-main">

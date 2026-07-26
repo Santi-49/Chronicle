@@ -88,7 +88,36 @@ export function openChronicleDb(filePath: string): ChronicleDb {
     // telemetry jobs. Old telemetry payloads do not match the new API contract.
     db.exec("DELETE FROM queue_items WHERE job_type = 'telemetry'")
   }
-  db.pragma('user_version = 7')
+  if (previousVersion < 8) {
+    db.transaction(() => {
+      const trackingSince = new Date().toISOString()
+      db.prepare(`
+        INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('personal-analytics-tracking-since', json(?))
+      `).run(JSON.stringify(trackingSince))
+      // Backfill the durable activity Chronicle already knows. Search history
+      // and per-call usage did not exist before v8 and therefore remain
+      // explicitly partial rather than being guessed.
+      db.exec(`
+        INSERT INTO personal_activity (occurred_at, kind, asset_id)
+        SELECT captured_at,
+               CASE WHEN restored_from_version IS NULL THEN 'version-capture' ELSE 'restore' END,
+               asset_id
+        FROM versions;
+        INSERT INTO personal_activity (occurred_at, kind, project_id)
+        SELECT added_at, 'project-create', id FROM tracked_folders;
+        INSERT INTO personal_activity (occurred_at, kind, asset_id)
+        SELECT a.created_at, 'ai-summary', v.asset_id
+        FROM ai_annotations a JOIN versions v ON v.id = a.version_id;
+      `)
+    })()
+  }
+  ensureColumns(db, 'ai_usage_calls', {
+    pricing_source_url: 'TEXT',
+    input_usd_per_million: 'REAL',
+    output_usd_per_million: 'REAL',
+  })
+  db.pragma('user_version = 8')
   return db
 }
 

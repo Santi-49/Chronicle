@@ -447,12 +447,32 @@
 .key-sync-passphrase input:focus { border-color: var(--focus); }
 .key-sync-passphrase small { color: var(--text-muted); font-size: 10px; font-weight: 400; line-height: 1.45; }
 .key-sync-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.account-resource-list { max-width: 720px; margin: 28px 0 0 44px; border-top: 1px solid var(--border); }
+.account-resource-row { display: flex; min-height: 72px; padding: 12px 0; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--border); }
+.account-resource-row:last-child { border-bottom: 0; }
+.account-resource-copy { display: grid; gap: 5px; }
+.account-resource-copy strong { color: var(--text-primary); font-size: 12px; }
+.account-resource-copy p { margin: 0; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
+.account-legal-links { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; }
+.account-legal-links a { color: var(--accent); font-size: 12px; white-space: nowrap; }
+.account-danger-zone { display: grid; max-width: 720px; margin: 28px 0 0 44px; padding-top: 22px; gap: 16px; border-top: 1px solid var(--border); }
+.account-danger-zone > div:first-child strong { color: var(--danger); font-size: 13px; }
+.account-danger-zone > div:first-child p { margin: 6px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.danger-button { width: fit-content; min-height: 40px; padding: 8px 14px; color: var(--danger); background: transparent; border: 1px solid var(--danger); border-radius: 5px; cursor: pointer; }
+.danger-button:hover { color: white; background: var(--danger); }
+.danger-button:disabled { cursor: wait; opacity: .55; }
+.account-delete-confirmation { display: grid; padding: 18px; gap: 10px; background: color-mix(in srgb, var(--danger) 7%, var(--surface)); border: 1px solid var(--danger); border-radius: 8px; }
+.account-delete-confirmation > strong { color: var(--danger); font-size: 13px; }
+.account-delete-confirmation p { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.55; }
+.account-delete-confirmation .text-button { width: fit-content; }
+.account-delete-actions { display: flex; margin-top: 6px; flex-wrap: wrap; gap: 8px; }
 .folder-row .project-folder { width: 28px; height: 28px; flex: none; }
 .dev-toggle { margin: 24px 0 4px 44px; }
 .ai-task { margin: 20px 0 0 44px; padding: 18px 20px 20px; border: 1px solid var(--border); border-radius: 10px; }
 .ai-task legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
 .ai-task .settings-form-grid { margin: 4px 0 0; }
 .ai-task-hint { margin: 12px 0 0; color: var(--warning); font-size: 11px; }
+.ai-model-price { display: block; margin-top: 10px; color: var(--text-muted); font-size: 11px; line-height: 1.45; font-variant-numeric: tabular-nums; }
 .ai-task-test-row { display: flex; margin-top: 12px; align-items: center; flex-wrap: wrap; gap: 10px; }
 .key-saved-badge { margin-left: 8px; padding: 1px 7px; color: var(--success); font-size: 10px; font-style: normal; border: 1px solid var(--success); border-radius: 999px; }
 .save-cluster { display: flex; align-items: center; gap: 12px; }
@@ -581,6 +601,14 @@
 .project-danger-zone > div > p:last-child { max-width: 390px; margin: 8px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
 .project-danger-zone > .project-removal-confirmation { width: 100%; max-width: none; }
 .settings-section > .secondary-button { margin-left: 44px; }
+.about-update-status { display: grid; margin: 22px 0 0 44px; gap: 14px; }
+.about-update-status > div:first-child { display: grid; gap: 6px; }
+.about-update-status strong { font-size: 13px; }
+.about-update-status span,
+.about-update-status small { color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.about-update-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.about-update-actions > * { min-height: 44px; }
+.about-update-status > .form-error { margin: 0; }
 .settings-form-grid { display: grid; margin: 24px 0 0 44px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .settings-form-grid label { display: grid; gap: 8px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
 .settings-form-grid input,
@@ -947,6 +975,8 @@
   .settings-google-button,
   .account-access,
   .account-preferences,
+  .account-resource-list,
+  .account-danger-zone,
   .appearance-options,
   .developer-tools-toggle,
   .dev-toggle,
@@ -954,6 +984,8 @@
   .save-cluster-end,
   .api-keys,
   .settings-section > .secondary-button { margin-left: 0; }
+  .about-update-status { margin-left: 0; }
+  .account-resource-row { align-items: flex-start; flex-direction: column; gap: 12px; }
   .ai-task .settings-form-grid { margin-left: 0; }
   .api-key-row { grid-template-columns: 1fr; gap: 8px; }
   .api-key-actions { justify-content: flex-start; }
@@ -1012,6 +1044,7 @@
 .admin-bars i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); border-radius: inherit; transform-origin: left; transition: filter 160ms ease, transform 160ms ease; }
 .admin-bars>div:hover i,.admin-bars>div:focus-visible i { filter: brightness(1.12); transform: scaleY(1.25); }
 .admin-bars strong { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-chart-summary { margin: 14px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
 .admin-trend { position: relative; margin-top: 14px; }.admin-trend svg { display: block; width: 100%; min-height: 150px; overflow: visible; }
 .admin-trend polyline { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .admin-trend-area { opacity: 1; }.admin-trend circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; cursor: crosshair; transition: r 140ms ease, stroke-width 140ms ease; }
@@ -1103,6 +1136,12 @@
 .toggle-field span { display: grid; gap: 4px; }
 .toggle-field strong { font-size: 12px; }
 .toggle-field small { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+/* Same offset the other post-heading blocks use: clear of the description and
+   aligned with the heading text rather than the section icon. */
+.startup-options { display: grid; margin: 22px 0 0 44px; gap: 16px; }
+/* The sign-in window choice is subordinate to the sign-in toggle above it, so
+   it is indented and rule-marked rather than reading as a fourth peer option. */
+.startup-nested { margin-left: 26px; padding-left: 12px; border-left: 1px solid var(--border-subtle); }
 .file-types-field { display: grid; gap: 10px; }
 .file-type-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .file-type-chip { display: inline-flex; padding: 7px 12px; align-items: center; gap: 8px; color: var(--text-muted); font-size: 11px; border: 1px solid var(--border); border-radius: 999px; }

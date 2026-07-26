@@ -4,6 +4,7 @@ Local-first Electron app: watches folders, auto-versions creative files on save,
 and explains what changed between versions with AI. See `docs/challenge/` for the
 full product definition.
 
+
 ## Structure
 
 ```
@@ -26,6 +27,7 @@ npm run dev        # start Electron with hot reload
 npm test           # Vitest, run under Electron's Node (same ABI as the app)
 npm run build      # production bundle to out/
 npm run package    # Windows installer to dist/
+npm run package:windows:publish # CI-only: package and publish updater assets
 npm run package:mac # native-architecture macOS DMG to dist/ (must run on macOS)
 npm run package:unpacked # faster runnable build without creating the NSIS installer
 npm run typecheck  # tsc over main+preload and renderer
@@ -41,10 +43,46 @@ actual installer. The installer build must restage Electron and create the NSIS 
 substantially slower even when the Python bundle cache is warm.
 
 The installers are unsigned: Windows SmartScreen may warn, while macOS Gatekeeper requires an
-explicit user override. Amazon Bedrock is not offered
+explicit user override. The installed Windows app checks the public stable GitHub Releases feed
+after startup and periodically while open. It downloads newer releases in the background, but
+never applies one on an ordinary quit. A compact pill above **Settings** reports
+**Downloading update…**; once ready, it becomes a single **Relaunch to update** card. Right-click
+opens **Restart**, **Later**, and per-release **Ignore**; normal click still relaunches. The same
+restart action remains available in
+**Settings → About & updates**. Automatic network failures stay silent; **Check now** shows
+recoverable status. Packaged macOS and Linux builds make no update request; development uses a
+temporary visual fixture only when explicitly retained for UI review.
+The first updater-capable version must still be installed manually; only a later release can prove
+the automatic upgrade path. Update requests contain no Chronicle content, paths, credentials, or
+account payload, although GitHub/CDN receives normal connection metadata.
+
+Amazon Bedrock is not offered
 because AWS requires multiple credential fields and a region rather than Chronicle's current
-single encrypted key per provider. Code signing, Apple notarization, and in-app auto-update remain
-future work.
+single encrypted key per provider. Windows code signing, Apple notarization, macOS auto-update,
+and remotely enforced mandatory security updates remain gated follow-up work. The unsigned feed
+supports optional/recommended updates only.
+
+The Windows `.exe` uses the native electron-builder assisted NSIS wizard—no custom HTML and no
+replacement installer script. Chronicle supplies a 150×57 header and 164×314 sidebar (24-bit BMP),
+short native Welcome/Finish copy, an editable destination, and a current-user install that avoids
+an unnecessary administrator prompt. `build/installer.nsh` also declares NSIS's required license
+checkbox mode, but no license page is configured. Chronicle instead presents links to the hosted
+Terms of Service and Privacy Policy beside the actions that enter the app. Continuing records the
+document versions, timestamp, and continuation method on that device; Settings keeps both links
+available. A human legal review may still require a separate installer license later.
+The link origin is compiled from `CHRONICLE_LANDING_URL` (defaulting to the current production
+site); release workflows read it from the same-named GitHub Actions repository variable.
+
+On a genuinely fresh profile, launching Chronicle and continuing locally (or signing in) opens a
+resumable three-step tutorial over the real workspace: create a project, open an asset Timeline,
+then configure/test an optional AI provider or defer it. The tutorial never blocks local capture,
+stores no paths or keys, uses coach-mark dialogs to point at the real controls, can be skipped,
+and can be replayed from
+**Settings → Getting started**.
+
+When the effective Terms or Privacy version constants change, an upgraded profile returns to a
+short review screen once. Accepting it preserves the existing tutorial state. This record is
+device-local; Chronicle does not currently claim server-side account acceptance evidence.
 
 ## CI, versions, and releases
 
@@ -53,7 +91,9 @@ registration, artifact names, and Git tags derive from it. CI is a required chec
 requests targeting `main`. Tagged releases build and attach versioned Windows x64 and macOS Apple
 Silicon artifacts. Release
 Please maintains a reviewed release PR; merging it creates `vX.Y.Z`, and the release workflow
-builds that exact tag and attaches both installers and their SHA-256 checksums.
+builds that exact tag. The Windows job publishes the NSIS installer, `latest.yml`, and blockmap
+together, validates the manifest version and SHA-512 against local and published assets, and then
+attaches the human-readable SHA-256 checksum. macOS continues to attach its DMG and checksum.
 
 Configure a fine-grained `RELEASE_PLEASE_TOKEN` repository secret with Contents and Pull requests
 write access so Release Please PRs trigger the required `main` PR CI. See
@@ -118,6 +158,40 @@ Setup for a fresh BYOK user:
    real task call before it persists — a rejected or unreachable pair rolls back.
 3. Keys are stored per provider in Electron `safeStorage`, never readable back
    over IPC and never sent to Chronicle's backend by default.
+
+### Developer provider/model probe
+
+The headless probe uses the API keys already saved by the developer workspace
+and makes the same minimal live calls as **Settings → AI → Save**. It never
+prints plaintext keys:
+
+```bash
+cd apps/desktop
+npm run probe:ai
+npm run probe:ai -- -- --provider openai --model gpt-5.6-terra --task chat
+npm run probe:ai -- -- --provider google_genai
+npm run probe:ai -- -- --all
+```
+
+The same probes are available from the repository root:
+
+```bash
+make probe-ai
+make probe-ai-model PROVIDER=openai MODEL=gpt-5.6-luna TASK=chat
+make probe-ai-provider PROVIDER=google_genai
+make probe-ai-all
+```
+
+With no filters it checks the saved chat and embeddings selections. `--all`
+checks every model in Chronicle's curated catalog for providers that have a
+locally saved key; missing keys are reported as `SKIP`. These are real provider
+calls and may incur a small charge.
+
+Each workspace run owns a PID-derived loopback port; installed Chronicle owns
+`8765`. This prevents both a running installed sidecar and an orphaned earlier
+development sidecar from serving stale code to the current UI. Development
+prefers `services/ai/.venv`, then the prepared `build/sidecar-venv`, before
+falling back to system Python. The probe remains isolated on `8877`.
 
 Caveats worth stating in the demo (do not overclaim): the live probe and every
 summary/embedding are **real provider calls** that leave the device and may incur

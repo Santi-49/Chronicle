@@ -16,10 +16,12 @@
  */
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { TelemetryCollector } from '../telemetry/emitter'
 import type {
   AiStatus,
+  ActivityDashboardQuery,
   AppStatus,
   ApplicationDiagnostic,
   AssetSummary,
@@ -30,7 +32,9 @@ import type {
   ControlPlaneDiagnostic,
   PendingJob,
   RendererErrorReport,
+  SystemIntegrationState,
   TrackedFolder,
+  UpdateState,
   VersionDetails,
   VersionSummary,
 } from '../../shared/ipc'
@@ -86,17 +90,31 @@ import { embeddingModelIdentity, search } from '../search'
 import type { AiClient } from '../ai/client'
 import type { ApplicationDiagnosticSink } from '../diagnostics'
 import { diagnosticError } from '../diagnostics'
+import {
+  getActivityDashboard,
+  reconcileUnestimatedAiCalls,
+  recordAiCall,
+  recordPersonalActivity,
+} from '../analytics/repository'
+import { getModelPrice, refreshPricingCatalog } from '../analytics/pricing'
 
 // ── Settings defaults (implementation policy per C5, not contract) ──────
 
 const SETTINGS_KEY = 'app-settings'
 const INSTALLATION_ID_KEY = 'control-plane-installation-id'
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TELEMETRY_DEFAULT_MIGRATION_KEY = 'post03-telemetry-default-applied'
 const SETTINGS_SYNC_DEFAULT_MIGRATION_KEY = 'post03-settings-sync-default-applied'
-const TELEMETRY_NOTICE_SHOWN_KEY = 'post04-telemetry-notice-shown'
+const TELEMETRY_NOTICE_VERSION = '2026-07-25'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   appearance: { theme: 'system' },
+  // Background capture is on by default because a version history that only
+  // records saves made while a window happens to be open is the failure the
+  // product exists to prevent. Starting at login is deliberately NOT implied
+  // by it: adding a startup entry is the user's decision to make, and this
+  // build is unsigned (RESEARCH.md, 2026-07-26).
+  system: { runInBackground: true, openAtLoginOpensWindow: false },
   ai: {
     mode: 'local',
     // Default demo provider/model (Google Gemini) — validated in RESEARCH.md's
@@ -142,6 +160,11 @@ export interface ChronicleServicesDeps {
   rendererDiagnostic?: ApplicationDiagnosticSink
   preloadDiagnostic?: ApplicationDiagnosticSink
   installation?: Omit<InstallationDescriptor, 'installationId'>
+  /**
+   * File the installation ID is mirrored to, outside the database. Optional:
+   * without it the ID lives only in `settings` (the behavior tests rely on).
+   */
+  installationIdPath?: string
   /** Applies theme colors to native title-bar controls. */
   setWindowTheme: (theme: WindowTheme) => void
   /**
@@ -154,6 +177,31 @@ export interface ChronicleServicesDeps {
   /** Callback fired when the user turns telemetry off — worker clears queue + server inventory. */
   onTelemetryDisabled?: () => Promise<void>
   telemetry?: TelemetryCollector
+  /** Packaged Windows updater. Unsupported/dev builds use an inert fallback. */
+  updater?: {
+    getState: () => UpdateState
+    checkForUpdates: () => Promise<UpdateState>
+    restartToUpdate: () => Promise<void>
+  }
+  /**
+   * Desktop shell integration. The tray/login-item wiring lives in the Electron
+   * layer; this dep is what makes the C1 methods and the runInBackground side
+   * effect testable. Absent in tests → the feature reports itself unsupported.
+   */
+  systemIntegration?: {
+    /**
+     * Re-reads the operating system's login item; never a cached copy. The
+     * launch mode is not part of this — Windows cannot report it back — so
+     * this layer composes the OS answer with the remembered C5 preference.
+     */
+    getState: () => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
+    setOpenAtLogin: (
+      enabled: boolean,
+      opensWindow: boolean,
+    ) => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
+    /** Creates or removes the tray icon when the C5 preference changes. */
+    applyRunInBackground: (enabled: boolean) => void
+  }
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
   settleMs?: number
   emitInitial?: boolean
@@ -217,6 +265,28 @@ function expectString(value: unknown, name: string): string {
   return value
 }
 
+function expectActivityDashboardQuery(value: unknown): ActivityDashboardQuery {
+  if (!isPlainObject(value)) throw new TypeError('activity dashboard query must be an object')
+  if (value['rangeDays'] !== 30 && value['rangeDays'] !== 90 &&
+      value['rangeDays'] !== 365 && value['rangeDays'] !== 'all') {
+    throw new TypeError('activity dashboard rangeDays must be 30, 90, 365, or all')
+  }
+  const timeZone = expectString(value['timeZone'], 'activity dashboard timeZone')
+  if (value['refreshPricing'] !== undefined && typeof value['refreshPricing'] !== 'boolean') {
+    throw new TypeError('activity dashboard refreshPricing must be a boolean')
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone }).format()
+  } catch {
+    throw new TypeError('activity dashboard timeZone must be a valid IANA time zone')
+  }
+  return {
+    rangeDays: value['rangeDays'],
+    timeZone,
+    ...(value['refreshPricing'] === true ? { refreshPricing: true } : {}),
+  }
+}
+
 function expectProjectRemovalMode(value: unknown): 'keep-history' | 'delete-history' {
   if (value === undefined || value === 'keep-history') return 'keep-history'
   if (value === 'delete-history') return value
@@ -265,11 +335,30 @@ function expectFolderMeta(value: unknown, name: string): FolderMetaPatch {
 export function mergeSettings(current: AppSettings, patch: unknown): AppSettings {
   if (!isPlainObject(patch)) throw new TypeError('settings patch must be an object')
   for (const key of Object.keys(patch)) {
-    if (key !== 'appearance' && key !== 'ai' && key !== 'controlPlane') {
+    if (key !== 'appearance' && key !== 'ai' && key !== 'controlPlane' && key !== 'system') {
       throw new TypeError(`Unknown settings key: ${key}`)
     }
   }
   const next = structuredClone(current)
+
+  if (patch['system'] !== undefined) {
+    const system = patch['system']
+    if (!isPlainObject(system) || typeof system['runInBackground'] !== 'boolean') {
+      throw new TypeError('settings.system.runInBackground must be a boolean')
+    }
+    if (
+      system['openAtLoginOpensWindow'] !== undefined &&
+      typeof system['openAtLoginOpensWindow'] !== 'boolean'
+    ) {
+      throw new TypeError('settings.system.openAtLoginOpensWindow must be a boolean')
+    }
+    next.system = {
+      runInBackground: system['runInBackground'],
+      openAtLoginOpensWindow:
+        (system['openAtLoginOpensWindow'] as boolean | undefined) ??
+        current.system.openAtLoginOpensWindow,
+    }
+  }
 
   if (patch['appearance'] !== undefined) {
     const appearance = patch['appearance']
@@ -366,6 +455,52 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     return folder.allowedExtensions.includes(path.extname(abs).toLowerCase())
   }
 
+  /** Order-insensitive comparison of a folder's saved selection lists. */
+  function sameSelection(left: readonly string[], right: readonly string[]): boolean {
+    if (left.length !== right.length) return false
+    const a = [...left].sort()
+    const b = [...right].sort()
+    return a.every((value, index) => value === b[index])
+  }
+
+  /** Assets stored under a tracked folder's path. */
+  function assetsUnder(folderPath: string): ReturnType<typeof listAssets> {
+    const root = path.resolve(folderPath)
+    return listAssets(db).filter((asset) => {
+      const relative = path.relative(root, asset.path)
+      return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
+    })
+  }
+
+  /**
+   * After a folder's initial scan, mark assets whose files are gone.
+   *
+   * The watcher only reports deletions it witnesses, so a file removed while
+   * Chronicle was closed would otherwise still look present — its history stays
+   * (F3.7), but the UI must say the file is no longer on disk.
+   */
+  async function reconcileMissingFiles(folderPath: string): Promise<void> {
+    let marked = 0
+    for (const asset of assetsUnder(folderPath)) {
+      if (!asset.onDisk) continue
+      try {
+        await fs.access(asset.path)
+      } catch {
+        markFileMissing(db, asset.path)
+        marked += 1
+      }
+    }
+    if (marked === 0) return
+    diagnostic({
+      level: 'debug',
+      source: 'watcher',
+      event: 'missing_files_reconciled',
+      message: `Marked ${marked} asset(s) as no longer on disk after scanning a project.`,
+      context: { count: marked },
+    })
+    pushStatus()
+  }
+
   // Watcher → capture → events (the wiring MVP-03/04 left open). Capture
   // results are handled asynchronously; nothing here blocks an IPC reply.
   const watcher: FolderWatcher = createFolderWatcher(
@@ -378,6 +513,10 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           .then((result) => {
             if (result.outcome === 'captured') {
               deps.telemetry?.recordProductActivity('version-capture')
+              recordPersonalActivity(db, 'version-capture', {
+                assetId: result.version.assetId,
+                projectId: owningFolder(candidate.path)?.id,
+              })
               diagnostic({
                 level: 'debug',
                 source: 'capture',
@@ -442,6 +581,11 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           context: { fileName: path.basename(filePath) },
         })
       },
+      onReady: (folderPath) => {
+        void reconcileMissingFiles(folderPath).catch((error) => {
+          console.error('[chronicle] could not reconcile missing files:', folderPath, error)
+        })
+      },
       onError: (error) => {
         const code = (error as NodeJS.ErrnoException).code
         const lockedFile = code === 'EBUSY'
@@ -481,12 +625,32 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     }
   }
 
+  /**
+   * The installation's stable random ID (POST-03). It is mirrored to a small
+   * file beside the database so that resetting or deleting `chronicle.db` —
+   * routine during development — does not register a brand-new installation
+   * with the control plane. An app update touches neither copy, so updating
+   * keeps the existing installation record and only bumps its app version.
+   */
   function installationId(): string {
-    const existing = getSetting<string>(db, INSTALLATION_ID_KEY)
-    if (existing) return existing
-    const created = randomUUID()
-    setSetting(db, INSTALLATION_ID_KEY, created)
-    return created
+    const stored = getSetting<string>(db, INSTALLATION_ID_KEY)
+    const mirrored = readMirroredInstallationId()
+    const id = stored ?? mirrored ?? randomUUID()
+    if (stored !== id) setSetting(db, INSTALLATION_ID_KEY, id)
+    if (mirrored !== id && deps.installationIdPath) {
+      try { writeFileSync(deps.installationIdPath, id, 'utf8') } catch { /* best effort */ }
+    }
+    return id
+  }
+
+  function readMirroredInstallationId(): string | undefined {
+    if (!deps.installationIdPath) return undefined
+    try {
+      const contents = readFileSync(deps.installationIdPath, 'utf8').trim()
+      return UUID_PATTERN.test(contents) ? contents : undefined
+    } catch {
+      return undefined
+    }
   }
 
   function requireAccount(): ControlPlaneClient {
@@ -520,8 +684,22 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
 
   async function afterSignIn(): Promise<void> {
     if (!deps.account) return
-    void deps.account.linkInstallation(installationId()).catch(() => {})
+    try {
+      await deps.account.linkInstallation(installationId())
+    } catch {
+      // Account sign-in remains usable if installation linking is temporarily unavailable.
+    }
     await applyRemoteSettings()
+    try {
+      const effective = await api.getSettings()
+      await deps.account.recordTelemetryPreference(
+        installationId(),
+        effective.controlPlane.telemetryOptIn,
+        TELEMETRY_NOTICE_VERSION,
+      )
+    } catch {
+      // Preference audit is retried at the next startup/settings change.
+    }
   }
 
   function summaryTextOf(version: VersionRecord): string | null {
@@ -687,6 +865,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       // POST-04: only enqueue for genuinely new projects, not re-tracks.
       if (!existing) {
         deps.telemetry?.recordProductActivity('project-create')
+        recordPersonalActivity(db, 'project-create', { projectId: folder.id })
         diagnostic({
           level: 'debug',
           source: 'project',
@@ -706,14 +885,35 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     async updateFolder(folderId, patch) {
       const id = expectId(folderId, 'folderId')
       const validatedPatch = expectFolderMeta(patch, 'patch')
+      const before = listTrackedFolders(db).find((folder) => folder.id === id)
       const updated = updateTrackedFolder(db, id, validatedPatch)
       if (!updated) throw new Error(`Unknown folder: ${folderId}`)
+
+      // A changed file-type or exclusion selection changes which *existing*
+      // files are capturable. The watcher's initial scan already ran, so
+      // re-watch the folder to scan it again under the new rules — otherwise a
+      // newly enabled file type would only be captured at its next save.
+      // Capture dedupes by content hash, so re-scanning adds no versions for
+      // files Chronicle already stores.
+      const selectionChanged =
+        before !== undefined &&
+        (!sameSelection(before.allowedExtensions, updated.allowedExtensions) ||
+          !sameSelection(before.excludedPaths, updated.excludedPaths))
+      if (selectionChanged) {
+        await watcher.unwatch(updated.path)
+        watcher.watch(updated.path)
+      }
+
       diagnostic({
         level: 'debug',
         source: 'project',
         event: 'project_updated',
         message: `Updated project ${updated.displayName}.`,
-        context: { projectId: id, changedFields: Object.keys(validatedPatch) },
+        context: {
+          projectId: id,
+          changedFields: Object.keys(validatedPatch),
+          rescanned: selectionChanged,
+        },
       })
       return updated
     },
@@ -836,6 +1036,10 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       }
       emit('versionCaptured', { assetId: result.version.assetId, versionId: result.version.id })
       deps.telemetry?.recordProductActivity('restore')
+      recordPersonalActivity(db, 'restore', {
+        assetId: result.version.assetId,
+        projectId: version ? owningFolder(getAsset(db, version.assetId)?.path ?? '')?.id : null,
+      })
       pushStatus()
       diagnostic({
         level: 'debug',
@@ -876,8 +1080,31 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         if (apiKey !== null) {
           const client = deps.aiClient
           embedQuery = async (text: string) => {
-            const response = await client.embedText({ provider, model: embeddingsModel, apiKey, text })
-            return response.embedding
+            const startedAt = Date.now()
+            try {
+              const response = await client.embedText({ provider, model: embeddingsModel, apiKey, text })
+              recordAiCall(db, {
+                operation: 'embedding',
+                provider,
+                model: embeddingsModel,
+                success: true,
+                latencyMs: Date.now() - startedAt,
+                inputTokens: response.usage?.input_tokens,
+                outputTokens: response.usage?.output_tokens,
+                totalTokens: response.usage?.total_tokens,
+              })
+              return response.embedding
+            } catch (error) {
+              recordAiCall(db, {
+                operation: 'embedding',
+                provider,
+                model: embeddingsModel,
+                success: false,
+                latencyMs: Date.now() - startedAt,
+                errorCode: error instanceof Error ? error.name : null,
+              })
+              throw error
+            }
           }
         }
       }
@@ -889,7 +1116,22 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         embeddingsModel: embeddingModelIdentity(provider, embeddingsModel),
       })
       deps.telemetry?.recordSearch(embedQuery !== undefined)
+      recordPersonalActivity(db, 'search')
       return results
+    },
+
+    async getActivityDashboard(query) {
+      const validated = expectActivityDashboardQuery(query)
+      await refreshPricingCatalog(db, { force: validated.refreshPricing })
+      reconcileUnestimatedAiCalls(db)
+      return getActivityDashboard(db, validated)
+    },
+
+    async getAiModelPrice(provider, model) {
+      const validatedProvider = expectString(provider, 'provider')
+      const validatedModel = expectString(model, 'model')
+      await refreshPricingCatalog(db)
+      return getModelPrice(db, validatedProvider, validatedModel)
     },
 
     // F4 — AI retry: re-queue only; the result arrives as annotationUpdated
@@ -998,6 +1240,21 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         }),
       )
       setSetting(db, SETTINGS_KEY, next)
+      // Creating/removing the tray icon happens after the write so a failed
+      // validation above cannot leave the shell and the stored preference
+      // disagreeing. Capture itself is untouched either way.
+      if (current.system.runInBackground !== next.system.runInBackground) {
+        deps.systemIntegration?.applyRunInBackground(next.system.runInBackground)
+        diagnostic({
+          level: 'info',
+          source: 'application',
+          event: 'run_in_background_changed',
+          message: next.system.runInBackground
+            ? 'Chronicle will keep capturing in the tray when its window is closed.'
+            : 'Chronicle will quit when its window is closed.',
+          context: { runInBackground: next.system.runInBackground },
+        })
+      }
       const embeddingsChanged =
         current.ai.embeddings.provider !== next.ai.embeddings.provider ||
         current.ai.embeddings.model !== next.ai.embeddings.model
@@ -1011,6 +1268,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       // POST-04: if telemetry was just turned off, clear the queue + server inventory.
       const wasOn = current.controlPlane.telemetryOptIn
       const isOff = !next.controlPlane.telemetryOptIn
+      if (wasOn !== next.controlPlane.telemetryOptIn && deps.account) {
+        void deps.account.recordTelemetryPreference(
+          installationId(),
+          next.controlPlane.telemetryOptIn,
+          TELEMETRY_NOTICE_VERSION,
+        ).catch(() => {})
+      }
       if (wasOn && isOff) {
         await deps.onTelemetryDisabled?.()
       }
@@ -1089,6 +1353,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           (!Number.isInteger(filters.periodDays) || filters.periodDays < 1 || filters.periodDays > 366)) {
         throw new TypeError('periodDays must be 1 to 366')
       }
+      if (filters.allTime !== undefined && typeof filters.allTime !== 'boolean') {
+        throw new TypeError('allTime must be a boolean')
+      }
+      if (filters.allTime && (filters.periodDays !== undefined ||
+          filters.startDate !== undefined || filters.endDate !== undefined)) {
+        throw new TypeError('allTime cannot be combined with another date range')
+      }
       const datePattern = /^\d{4}-\d{2}-\d{2}$/
       if ((filters.startDate === undefined) !== (filters.endDate === undefined)) {
         throw new TypeError('startDate and endDate must be provided together')
@@ -1132,20 +1403,56 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
     async loginWithGoogle() {
       if (!deps.googleCredential) throw new Error('Google sign-in is not configured')
+      const account = requireAccount()
+      const current = await account.accountState()
+      if (current.mode === 'signed-in') {
+        throw new Error('Sign out before continuing with another Google account')
+      }
       if (!(await api.checkControlPlaneHealth())) {
         throw new Error('Google sign-in is temporarily unavailable')
       }
-      const account = requireAccount()
       const credential = await deps.googleCredential()
-      const current = await account.accountState()
-      const state = current.mode === 'signed-in'
-        ? await account.linkGoogleCredential(credential)
-        : await account.loginWithGoogleCredential(credential)
+      const state = await account.loginWithGoogleCredential(credential)
       await afterSignIn()
       return state
     },
     async logout() {
       await deps.account?.logout()
+    },
+    async exportAccountData() {
+      const account = requireAccount()
+      const accountState = await account.accountState()
+      const data = accountState.mode === 'signed-in'
+        ? await account.exportAccountData()
+        : await account.exportInstallationData(installationId())
+      const destination = await deps.pickVersionCopyPath(
+        `chronicle-account-data-${new Date().toISOString().slice(0, 10)}.json`,
+      )
+      if (!destination) return false
+      writeFileSync(destination, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+      return true
+    },
+    async deleteCloudUsageData() {
+      await requireAccount().deleteInstallationData(installationId())
+      const local = await api.getSettings()
+      if (local.controlPlane.telemetryOptIn) {
+        const disabled = mergeSettings(local, {
+          controlPlane: { ...local.controlPlane, telemetryOptIn: false },
+        })
+        setSetting(db, SETTINGS_KEY, disabled)
+        await deps.onTelemetryDisabled?.()
+      }
+    },
+    async deleteCloudAccount() {
+      await requireAccount().deleteAccount()
+      const local = await api.getSettings()
+      setSetting(db, SETTINGS_KEY, mergeSettings(local, {
+        controlPlane: {
+          ...local.controlPlane,
+          settingsSyncEnabled: false,
+          apiKeySyncEnabled: false,
+        },
+      }))
     },
     async syncSettings() {
       const local = await api.getSettings()
@@ -1258,16 +1565,103 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       }
       return pending
     },
+
+    async getSystemIntegration() {
+      const remembered = (await api.getSettings()).system.openAtLoginOpensWindow
+      const shell = deps.systemIntegration?.getState()
+      if (!shell) {
+        return {
+          openAtLoginSupported: false,
+          openAtLogin: false,
+          openAtLoginOpensWindow: remembered,
+          trayActive: false,
+          unsupportedReason: 'Starting at login is available in the installed app.',
+        }
+      }
+      return { ...shell, openAtLoginOpensWindow: remembered }
+    },
+
+    async setOpenAtLogin(enabled, opensWindow) {
+      if (typeof enabled !== 'boolean') throw new TypeError('enabled must be a boolean')
+      if (typeof opensWindow !== 'boolean') throw new TypeError('opensWindow must be a boolean')
+      if (!deps.systemIntegration) {
+        throw new Error('Starting at login is not available in this build')
+      }
+      const shell = deps.systemIntegration.setOpenAtLogin(enabled, opensWindow)
+      // Remember the mode only when the entry exists; a refused or removed
+      // login item leaves the previous preference untouched.
+      const current = await api.getSettings()
+      if (shell.openAtLogin && current.system.openAtLoginOpensWindow !== opensWindow) {
+        setSetting(db, SETTINGS_KEY, {
+          ...current,
+          system: { ...current.system, openAtLoginOpensWindow: opensWindow },
+        })
+      }
+      const state: SystemIntegrationState = {
+        ...shell,
+        openAtLoginOpensWindow: shell.openAtLogin
+          ? opensWindow
+          : current.system.openAtLoginOpensWindow,
+      }
+      // A managed device can refuse the write, so report the OS's answer.
+      if (state.openAtLogin !== enabled || (enabled && state.openAtLoginOpensWindow !== opensWindow)) {
+        diagnostic({
+          level: 'warn',
+          source: 'application',
+          event: 'open_at_login_rejected',
+          message: 'The operating system did not apply the start-at-login preference.',
+          context: {
+            requested: enabled,
+            requestedOpensWindow: opensWindow,
+            actual: state.openAtLogin,
+            actualOpensWindow: state.openAtLoginOpensWindow,
+          },
+        })
+      }
+      return state
+    },
+
+    async getUpdateState() {
+      return deps.updater?.getState() ?? {
+        phase: 'unsupported',
+        currentVersion: deps.installation?.appVersion ?? '0.0.0',
+        availableVersion: null,
+        percent: null,
+        checkedAt: null,
+        error: null,
+      }
+    },
+
+    async checkForUpdates() {
+      return deps.updater?.checkForUpdates() ?? api.getUpdateState()
+    },
+
+    async restartToUpdate() {
+      if (!deps.updater) throw new Error('Application updates are unavailable in this build')
+      await deps.updater.restartToUpdate()
+    },
   }
 
   return {
     api,
     start(): void {
       for (const folder of listTrackedFolders(db)) watcher.watch(folder.path)
+      // Warm the pricing cache independently of AI work. A network failure is
+      // non-fatal and leaves the last valid cache in place.
+      void refreshPricingCatalog(db).then(() => {
+        reconcileUnestimatedAiCalls(db)
+      })
       if (deps.account && deps.installation) {
         void deps.account.registerInstallation({
           ...deps.installation,
           installationId: installationId(),
+        }).then(async () => {
+          const local = await api.getSettings()
+          await deps.account!.recordTelemetryPreference(
+            installationId(),
+            local.controlPlane.telemetryOptIn,
+            TELEMETRY_NOTICE_VERSION,
+          )
         }).catch(() => {})
       }
       deps.telemetry?.recordAppOpened()

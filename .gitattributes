@@ -1,0 +1,5 @@
+# The demo asset pack is byte-exact test data, not source. Checking it out
+# unmodified matters: `make demo-assets` regenerates it deterministically, so
+# any line-ending rewrite would make a fresh regeneration look like a diff, and
+# the committed content hashes are what Chronicle stores when it captures them.
+demo-assets/sources/** -text

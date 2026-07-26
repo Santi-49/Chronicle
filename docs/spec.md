@@ -131,6 +131,10 @@ matter and are loaded from there rather than embedded in code.
 - An optional encrypted-secret envelope. API-key sync is independently enabled, uses a user passphrase plus authenticated encryption on-device, and gives the backend neither plaintext keys nor the decryption key.
 - A random installation record for every reachable first-run profile, including local mode. It contains app/OS and first/last-seen metadata and measures installations—not unique people.
 - Normalized usage statistics and aggregated admin views (see F8 for the exact privacy rule).
+- Auditable telemetry-preference records containing the installed notice version, timestamp,
+  random installation, and server-derived account link when present.
+- JSON access/export plus transactional account and installation erasure. Account deletion
+  revokes every Chronicle session but never deletes the device's creative library or provider keys.
 - *(Stretch)* the AI-inference gateway.
 
 **Admin stats surface (decision):** admins consume stats through the API's built-in **Swagger UI** (`/docs`) — zero UI to build for the MVP. If time remains, an **Admin tab inside the desktop app** (visible only to the `admin` role, which RBAC already supports). We deliberately do **not** build a separate web app — we deleted it to avoid distraction.
@@ -177,7 +181,15 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
   such on the toggle, because capture, versioning, preview, restore, and keyword
   search work for them while their summaries stay queued.
 - Hidden files/folders and temp files (e.g. `~$…`, `.tmp`, editor autosave/swap files) are ignored.
-- **Done when:** add a folder, save a PNG in a subfolder → version appears; save a `.txt` → nothing happens.
+- **Startup & background** settings decide when watching happens: keep capturing after the window
+  closes (default on, tray-resident), start Chronicle at sign-in, and whether that sign-in launch
+  opens the window or stays in the tray. Whether a login item exists is the operating system's
+  record, not a synced preference, and is unavailable in development builds; only the launch mode
+  is remembered locally. Because a hidden launch with no tray icon would be unreachable, switching
+  background capture off collapses the two startup options into one that always opens the window.
+- **Done when:** add a folder, save a PNG in a subfolder → version appears; save a `.txt` → nothing
+  happens; close the window and save again → a version still appears, and the tray icon restores
+  the window; disable background capture → closing the window quits.
 
 ### F3 — Version capture `MVP`
 
@@ -191,6 +203,14 @@ The heart of the product. Exact rules:
 6. Files over **50 MB** are skipped with a visible notice.
 7. **Identity = file path** (MVP): renaming or moving a file starts a new asset. Deleting a file keeps its history visible, marked "file no longer on disk". *(Known limitation — say it in the README; content-hash identity across renames is future work.)*
 8. Hashing and copying never block the UI.
+9. Capture requires Chronicle to be **running**, not **open**. By default, closing the window
+   leaves it resident in the notification area still watching, hashing, annotating, and indexing;
+   only **Quit** stops capture. Users may switch closing back to quitting, and may separately have
+   Chronicle start at sign-in either with its window or silently in the tray (F2 settings). Exactly
+   one instance runs per profile — a second launch reveals the running one — so two watchers can
+   never contend over one library. Saves made while Chronicle is not running are still reconciled
+   to their **final** state by the next launch's initial scan, but intermediate saves in that
+   window are not recorded individually.
 - Normal capture and restore remain append-only. The Timeline also provides an explicit,
   destructive **Reset history to v1** maintenance action behind a typed `RESET` safeguard:
   it keeps the latest stored snapshot as a fresh v1, removes that asset's prior timeline and
@@ -255,6 +275,14 @@ The heart of the product. Exact rules:
 - The API derives coarse country/region/city from Cloudflare visitor-location headers. It never stores the raw IP. Because location plus an installation UUID remains pseudonymous personal data, the disclosure, lawful basis, retention, export, and erasure policy must cover it explicitly.
 - **Privacy rule (hard):** telemetry contains **no file contents, file/project names, paths, summaries, tags, embeddings, search queries, exact sizes, credentials, or raw IP addresses.** Error messages/stacks are path-, identity-, URL-query-, and secret-sanitized before upload.
 - Records persist locally while offline. The app sends at startup and at most hourly when data changed. Turning reporting off attempts one final batch, clears local telemetry regardless of network outcome, and never retries after opt-out.
+- The implemented lawful-basis record selects legitimate interests for minimal registration and
+  content-free reporting; account/sync and user-directed AI operations use contract. The
+  legitimate-interests assessment, production legal-review gate, retention windows, and rights
+  implementation are maintained in `docs/privacy-policy.md`.
+- Raw session/removal/error rows retain for 90 days, hourly rollups for 400 days, current inventory
+  for 30 days, and anonymous installations/preferences for 400 inactive days by default. Signed-in
+  users can export or transactionally erase all linked cloud data; local profiles can export or
+  erase data for their random installation ID.
 - Admins read aggregates via Swagger (`/docs`). *(Stretch: admin tab in the desktop app.)*
 - **Done when:** after a demo run, an admin can answer "how many versions were captured today and how many AI calls did we make?"
 

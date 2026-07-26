@@ -664,7 +664,7 @@ and build); one line in `docs/bob-log.md`.
 correctly in light and dark; CTA buttons are clearly mock; animations degrade gracefully with
 reduced motion; and the team agrees it looks like a deliberate product page, not AI slop.
 
-### [ ] LAND-02 — Publish user help, setup guides, and FAQ on the landing site `Stretch`
+### [X] LAND-02 — Publish user help, setup guides, and FAQ on the landing site `Stretch`
 
 **Owner:** Unassigned
 **Depends on:** LAND-01, MVP-12 (document the verified packaged-app behavior, not planned behavior)
@@ -1061,7 +1061,7 @@ line in `docs/bob-log.md`.
 **Done when:** An `admin` user reads live aggregates through the admin UI; a non-admin cannot
 reach it; no file-level data is ever exposed.
 
-### [ ] POST-06 — Make Chronicle GDPR-compliant `Post-MVP`
+### [x] POST-06 — Make Chronicle GDPR-compliant `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-03, POST-04 (data handling, consent, and account data must exist first)
@@ -1106,7 +1106,7 @@ and read an accurate privacy policy; the team has recorded a defensible lawful b
 collection purpose; disclosures and retention match what the app/API/logging infrastructure
 actually send/store; and the local creative library is never uploaded.
 
-### [ ] POST-06A — Add self-service account and cloud-data deletion `Post-MVP`
+### [x] POST-06A — Add self-service account and cloud-data deletion `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-03; coordinate with POST-04 before telemetry tables ship
@@ -1147,37 +1147,68 @@ removes all account-linked server data and invalidates sessions; the user return
 local mode; local creative history and local provider keys remain untouched; and tests prove that
 no linked installation, identity, settings, encrypted secret, or telemetry record remains.
 
-### [ ] POST-07 — Research and improve the install / onboarding experience `Post-MVP`
+### [X] POST-07 — Research and improve the install / onboarding experience `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** MVP-12 (a working, packaged app to install)
-**Goal:** Research and improve the first-run install/onboarding screen so a new user gets
-from "just installed" to "folder tracked, first version captured" with minimal friction,
-including clear AI-sidecar health and provider-availability guidance.
+**Goal:** Brand the literal Windows `.exe` installation wizard, add an approved license/terms
+acceptance page if legally required, and guide a first-time user through a real project, Timeline,
+and optional AI-provider setup with minimal friction.
 
-**Required reading first:** the startup-flow section of `docs/desktop/overview.md` (Continue
-local vs. Log in / Register), and Risk #8 in `docs/spec.md` §8 (the installed Windows build
-bundles the Gemini/OpenAI/Anthropic sidecar; the app degrades gracefully and shows a health check).
-**Then research references** with the user before designing (as LAND-01 requires for the
-landing page): strong desktop-app onboarding patterns; agree direction before visual work.
+**Research/design source:** [`docs/post-07-install-onboarding-plan.md`](docs/post-07-install-onboarding-plan.md).
+It records the current installer/UI baseline, electron-builder/NSIS capabilities and limits,
+legal-content gate, recommended native-installer flow, contextual tutorial, file boundaries,
+tests, and decisions that must be approved before implementation.
 
-**May edit:** Renderer onboarding/first-run screens and the status-bar AI-service health
-affordance (`apps/desktop/**`), electron-builder installer config if packaging is in scope.
+**May edit:** electron-builder NSIS configuration and build resources; renderer first-run,
+Home/New Project/Project/Timeline/Settings onboarding integration and focused tests; related docs.
 **Must not edit:** C1/C3/C5 contracts; local capture behavior.
 
-**Required functionality:** A clear first-run flow (pick a folder, understand Continue local
-vs. account, understand and check AI readiness) that never blocks core capture
-when AI is unavailable; graceful empty/error/"AI pending" states; the "No AI-slop bar" quality
-standard from LAND-01 applies to the visuals.
+**Required functionality:**
+
+1. Retain electron-builder's maintained assisted NSIS flow. Add Chronicle header/sidebar artwork
+   and short welcome/finish copy through supported config/include hooks; do not replace the full
+   installer script.
+2. Add an EULA/terms page only after a human owner approves its entity, scope, text, version,
+   languages, and public URLs. If clickwrap is required, use NSIS's required license checkbox.
+   Keep telemetry/key-sync choices purpose-specific inside the app.
+3. After Continue local or sign-in, show a dismissible/resumable Getting started guided tour:
+   coach-mark dialogs point to the real controls for creating a project, opening an asset Timeline,
+   and optionally configuring/testing an AI provider. Drive completion from real app state rather
+   than tutorial-button clicks.
+4. Make Back, Skip, close, keyboard focus, Escape, replay, restart/resume, reduced motion, and
+   AI-unavailable states explicit. AI setup never blocks capture or tutorial completion.
+5. Keep tutorial state versioned and separate from the existing welcome-entry flag; store no path,
+   credential, or creative metadata in renderer local storage.
 
 **Docs to update:** `docs/desktop/overview.md` (onboarding flow), `apps/desktop/README.md`
 (install/run + AI-service prerequisite); one line in `docs/bob-log.md`.
 
-**Done when:** A teammate who has never seen the app can install it, understand the AI
-readiness state, track a folder, and capture a first version without help; capture still works
-when the AI service is down (versions show "pending").
+**Done when:** Clean-machine evidence proves the branded installer, approved acceptance gate,
+current-user/UAC behavior, custom path, shortcuts, upgrade, and uninstall; and a teammate who has
+never seen Chronicle can create a project, reach a real Timeline, and either configure AI or defer
+it without help. Capture still works when the AI service is down (versions show queued/pending),
+and the tutorial resumes, dismisses, and replays accessibly.
 
-### [ ] POST-08 — Publish the app and wire Windows auto-update `Post-MVP`
+> Implemented 2026-07-25/26 (manual acceptance still open): native assisted-NSIS
+> welcome/finish branding, exact-size 24-bit header/sidebar art, forced current-user install, and
+> the dormant native required-license-checkbox hook are built without custom HTML or a replacement NSIS
+> script. The app now has a resumable three-step tutorial driven by real project, Timeline, and
+> validated AI state; anchored coach marks spotlight the real buttons and relocate as the user
+> moves through the screens, with Back, persistent Skip/close, optional AI deferral, reduced
+> motion, and replay from Settings. The live Terms (2026-07-22) and Privacy Policy (2026-07-25)
+> are now linked beside the first-run actions and permanently from Settings. Continuing records
+> the accepted versions, time, and local/Google method on the device; a policy-version change asks
+> upgraded users to review again without restarting their tutorial. A real 0.9.0 x64
+> NSIS package compiled successfully, and the current full desktop suite passed (231 passed,
+> 1 skipped).
+> The installer intentionally has no EULA page: Chronicle uses the in-app agreement for both
+> local and online-service entry, while telemetry remains a separate preference. The task remains
+> unchecked until a human approves the legal entity/controller, current Terms/Privacy text and
+> acceptance-evidence policy, explicitly confirms no installer EULA is required, chooses a public
+> repository license, and the clean-machine teammate/install/upgrade/uninstall matrix passes.
+
+### [X] POST-08 — Publish the app and wire Windows auto-update `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** MVP-12 (a working, buildable app to package)
@@ -1189,45 +1220,98 @@ identity decision the team must own.
 
 > MVP-12 now supplies the build/version baseline: `main` artifacts, Release Please version PRs,
 > tagged GitHub Releases, and attached unsigned installers/checksums. POST-08 still owns
-> `electron-updater`, update metadata/UX, restart-to-apply acceptance, signing/notarization, and
-> macOS auto-update. An unsigned macOS DMG build now exists independently of this task.
+> `electron-updater`, Windows update metadata/UX, and restart-to-apply acceptance. Signing,
+> notarization, and macOS auto-update remain separate follow-up work. An unsigned macOS DMG build
+> now exists independently of this task.
 
 > How it works (for reviewers): electron-builder produces `Chronicle-x.y.z.exe` (NSIS) plus a
 > `latest.yml` metadata file; both are published to a GitHub Release. The installed app calls
 > `autoUpdater.checkForUpdates()`, which reads `latest.yml` from the release, compares versions,
-> downloads a newer installer in the background, and applies it on quit/relaunch. The "update
-> server" is just static release assets — no backend to build.
+> downloads a newer installer in the background, and applies it when the user chooses **Restart
+> to update**. The "update server" is just static release assets — no backend to build.
 >
-> Explicit non-goals for this task: no Windows code-signing certificate (SmartScreen warnings
-> are accepted for now), no Apple Developer ID / notarization, and **no macOS auto-update**
-> (macOS requires a matching signature, so it cannot work unsigned — track it in the follow-up).
+> Explicit non-goals for the unsigned bootstrap: no Windows code-signing certificate (SmartScreen
+> warnings are accepted for now), no Apple Developer ID / notarization, and **no macOS
+> auto-update** (macOS requires a matching signature, so it cannot work unsigned — track it in the
+> follow-up). This also means the unsigned bootstrap must not remotely activate a mandatory or
+> revoked-version lock. Hard security enforcement is gated on signed installers and independently
+> verifiable, versioned, expiring policy metadata.
 
-**May edit:** `apps/desktop/` electron-builder config (`electron-builder.yml`/`package.json`
-build block, NSIS target, `provider: github`), a publish script/CI workflow that runs
-`electron-builder --publish`, the main-process auto-update wiring, `apps/desktop/README.md`.
-**Must not edit:** C1/C3/C5 contracts; local capture/version/search behavior; the local-first
-guarantee.
+**Plan:** [`docs/post-08-windows-auto-update-plan.md`](docs/post-08-windows-auto-update-plan.md).
+It records the current release audit, narrow typed IPC contract gate, exact files/phases, release
+asset assertions, unsigned trust boundary, bootstrap release, rollback rule, and two-release
+Windows acceptance matrix. It also defines the POST-08A/B/C path for optional updating, signing
+and policy trust, then capability-scoped mandatory enforcement without locking users out of local
+read/export/restore.
 
-**Required functionality:** A reproducible `npm run build` → published GitHub Release
-(installer + `latest.yml`) via a `GH_TOKEN`; main-process update check that runs on launch and
-degrades silently offline (never blocks capture/timeline/restore — same discipline as the AI
-queue); an in-app "update available / downloading / restart to update" affordance; semantic
-version bumped from `package.json`. The update check is a network call only for the app binary —
-**no user data or file content is ever sent**.
+**May edit:** `apps/desktop/` electron-builder config (`package.json` build block, NSIS target,
+`provider: github`), dependency lock, main-process updater, a narrowly approved typed update IPC
+surface, global renderer update affordance and Settings/About status, focused tests, release
+workflow/assertion script, and release/desktop documentation.
+**Must not edit:** C3/C5 contracts; local capture/version/search behavior; the local-first
+guarantee. C1 may change only by the small contract-first update-state/check/restart/event addition
+approved before implementation; never expose arbitrary `ipcRenderer`, feed credentials, or paths.
 
-**Contracts upheld:** none changed. Local-first and offline-tolerant behavior preserved.
+**Required functionality:** A reproducible tagged build → published GitHub Release (installer +
+`latest.yml` + every referenced updater artifact from one build) via a CI-only `GH_TOKEN`;
+main-process check only in packaged Windows builds that runs asynchronously after launch, is
+single-flight, and degrades silently offline; automatic background download but an explicit,
+accessible **Restart to update** action; Settings/About **Check now**; and semantic version derived
+from `package.json`. Set `autoInstallOnAppQuit = false`, disallow downgrade/prerelease updates, and
+never block capture/timeline/restore. No project, path, file, credential, or account data is sent;
+document that GitHub/CDN still receives ordinary connection metadata.
 
-**Docs to update:** `apps/desktop/README.md` (release + auto-update steps, `GH_TOKEN`, the
-unsigned/SmartScreen and unsigned/unnotarized macOS caveats); one line in `docs/bob-log.md`.
+**Contracts touched:** narrow C1 update-state/check/restart/event addition, approved before code.
+C3/C5 and all content behavior remain unchanged. Local-first and offline tolerance are preserved.
 
-**Done when:** Publishing a release makes an older installed Windows build detect, download,
-and apply the update on relaunch; the app launches and captures normally with no network; the
-SmartScreen/unsigned limitation and the deferred signing, notarization, and macOS auto-update work
-are written down as a follow-up task.
+**Docs to update:** `apps/desktop/README.md`, `docs/releasing.md`, `docs/desktop/overview.md`,
+implementation findings in `docs/challenge/RESEARCH.md`, status/task evidence, and one line in
+`docs/bob-log.md`.
 
-### [ ] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
+**Done when:** Release assets and hashes validate; manually installed updater-capable baseline
+`vA` detects, downloads, and explicitly restarts into higher `vB`; install location, shortcuts,
+local library/database/settings and capture survive; blocked-network launch remains fully usable
+and later recovers; and the v0.9.0-and-earlier manual bootstrap, higher-version hotfix rollback,
+SmartScreen/unsigned trust limitation, signing migration, and disabled macOS auto-update are
+documented. Merely generating `latest.yml` is not acceptance.
 
-**Owner:** Unassigned
+**Security-update follow-up gate:** POST-08A may ship optional/recommended update UX. POST-08B must
+add Authenticode signing, publisher verification, independently signed/versioned/expiring policy
+metadata, key rotation, and an emergency release runbook. POST-08C may then activate
+`required`/`revoked` version-range enforcement with deadlines, cached/offline evaluation,
+capability-scoped restrictions, typed control-plane minimum-version rejection, and compromise
+drills. Use the existing app-version distribution/adoption chart to assess migration; add no new
+update telemetry.
+
+> **Implementation progress (2026-07-26, uncommitted):** POST-08A is implemented on
+> `feat/post-08-windows-auto-update`. It adds exact `electron-updater` dependency/configuration,
+> CI-only GitHub publishing, local/published `latest.yml` and blockmap validation, a
+> packaged-Windows-only main-process controller, the narrow typed C1 state/check/restart/event
+> surface, delayed and four-hour single-flight checks, background download, explicit restart,
+> a compact Claude-style download pill and relaunch card above Settings, with a right-click
+> Restart/Later/per-version Ignore menu,
+> Settings/About status and retry, and an admin update-adoption
+> comparison derived from the existing `app_version_distribution` telemetry. No update telemetry
+> was added. The controller preserves active download/ready state against later checks.
+> Verification: 244 desktop tests passed (1 skipped), typecheck and production build passed, a
+> 155,168,746-byte unsigned `Chronicle-Setup-0.10.0.exe` plus blockmap/`latest.yml` packaged
+> successfully, local metadata/SHA-512 validation passed, and the bundled sidecar/provider/PSD
+> smoke passed. The task remains open until a real installed vA → published vB clean-profile
+> upgrade is evidenced.
+
+> Release handoff automation added 2026-07-26: `auto-merge-main.yml` derives a Release Please
+> `BEGIN_COMMIT_OVERRIDE` block from the commits after the latest release back-sync before squash
+> merge. It retains unique non-merge `feat`, `fix`, `deps`, and breaking Conventional Commit
+> messages, so updater and related fixes remain separate changelog entries without replaying
+> already released history retained by persistent `dev`. The collector now checks each candidate
+> commit's changed files and retains it only when it affects the shipped desktop app, bundled AI
+> sidecar, consumed contracts/assets, or installer build/publish path. Control-plane-only,
+> landing-only, infrastructure-only, and documentation-only commits no longer enter the desktop
+> changelog.
+
+### [X] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
+
+**Owner:** Team
 **Depends on:** MVP-09; POST-04 only for optional cross-device/server-backed history
 **Goal:** Give each user a GitHub-style view of their own Chronicle activity and, most
 importantly, a trustworthy view of AI usage and estimated spend. The local dashboard must work

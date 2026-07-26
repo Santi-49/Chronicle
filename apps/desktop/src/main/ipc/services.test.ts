@@ -40,6 +40,7 @@ import {
   createChronicleServices,
   DEFAULT_SETTINGS,
   type ChronicleServices,
+  type ChronicleServicesDeps,
 } from './services'
 
 interface RecordedEvent {
@@ -61,21 +62,21 @@ let secretKeys: Map<string, string>
 let validationCalls: Array<{ task: 'chat' | 'embeddings'; provider: string; model: string }>
 let validationValid: boolean
 
-beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ipc-'))
-  libraryRoot = path.join(dir, 'library')
-  workDir = path.join(dir, 'designs')
-  fs.mkdirSync(workDir, { recursive: true })
-  db = openChronicleDb(path.join(dir, DATABASE_FILE_NAME))
-  events = []
-  nextPick = null
-  nextSavePath = null
-  online = true
-  windowTheme = null
-  secretKeys = new Map()
-  validationCalls = []
-  validationValid = true
-  services = createChronicleServices({
+/** Extra service instances a test built itself; disposed with the default one. */
+let extraServices: ChronicleServices[]
+
+/**
+ * Builds a services instance over the current temp database. `overrides` exists
+ * so a test can supply an optional dependency (e.g. the desktop shell
+ * integration) without every other test losing the absent-dependency defaults.
+ */
+function buildServices(overrides: Partial<ChronicleServicesDeps> = {}): ChronicleServices {
+  const instance = createChronicleServices({ ...baseDeps(), ...overrides })
+  return instance
+}
+
+function baseDeps(): ChronicleServicesDeps {
+  return {
     db,
     libraryRoot,
     emit: (event, payload) => events.push({ event, payload }),
@@ -106,6 +107,7 @@ beforeEach(() => {
       }),
       annotate: async () => { throw new Error('not used in IPC tests') },
       embedText: async () => { throw new Error('not used in IPC tests') },
+      embedTexts: async () => { throw new Error('not used in IPC tests') },
       validateProviderModel: async ({ task, provider, model }) => {
         validationCalls.push({ task, provider, model })
         return {
@@ -121,18 +123,41 @@ beforeEach(() => {
       },
     },
     settleMs: 120, // production keeps the C4 2 s default
-  })
+  }
+}
+
+beforeEach(() => {
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ipc-'))
+  libraryRoot = path.join(dir, 'library')
+  workDir = path.join(dir, 'designs')
+  fs.mkdirSync(workDir, { recursive: true })
+  db = openChronicleDb(path.join(dir, DATABASE_FILE_NAME))
+  events = []
+  nextPick = null
+  nextSavePath = null
+  online = true
+  windowTheme = null
+  secretKeys = new Map()
+  validationCalls = []
+  validationValid = true
+  extraServices = []
+  services = buildServices()
 })
 
 afterEach(async () => {
   await services.dispose()
+  for (const extra of extraServices) await extra.dispose()
   db.close()
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-async function waitFor(predicate: () => boolean, what: string, timeoutMs = 8_000): Promise<void> {
+async function waitFor(
+  predicate: () => boolean | Promise<boolean>,
+  what: string,
+  timeoutMs = 8_000,
+): Promise<void> {
   const start = Date.now()
-  while (!predicate()) {
+  while (!(await predicate())) {
     if (Date.now() - start > timeoutMs) throw new Error(`timed out waiting for ${what}`)
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
@@ -183,6 +208,43 @@ describe('C1 contract surface', () => {
       isAdmin: false,
     })
     await expect(services.api.logout()).resolves.toBeUndefined()
+  })
+
+  it('requires sign-out before starting another Google sign-in', async () => {
+    await services.dispose()
+    let googleCredentialRequested = false
+    services = createChronicleServices({
+      db,
+      libraryRoot,
+      emit: () => {},
+      pickFolder: async () => null,
+      pickVersionCopyPath: async () => null,
+      secrets: {
+        set: () => {},
+        has: () => false,
+        clear: () => {},
+        providers: () => [],
+        entries: () => ({}),
+      },
+      isOnline: () => true,
+      setWindowTheme: () => {},
+      googleCredential: async () => {
+        googleCredentialRequested = true
+        return 'unused-google-credential'
+      },
+      account: {
+        accountState: async () => ({
+          mode: 'signed-in',
+          email: 'signed-in@example.com',
+          isAdmin: false,
+        }),
+      } as ChronicleServicesDeps['account'],
+    })
+
+    await expect(services.api.loginWithGoogle()).rejects.toThrow(
+      /Sign out before continuing with another Google account/,
+    )
+    expect(googleCredentialRequested).toBe(false)
   })
 
   it('validates and applies the native window theme', async () => {
@@ -269,6 +331,54 @@ describe('tracked folders and capture events', () => {
     await expect(services.api.updateFolder(999, { displayName: 'x' })).rejects.toThrow(/Unknown folder/)
     await expect(services.api.updateFolder(1.5, {})).rejects.toThrow(TypeError)
   })
+
+  it(
+    'enabling a file type captures the files already in the folder',
+    async () => {
+      // A project created before a format shipped stores the old selection, so
+      // its existing files of that type must be captured when it is enabled —
+      // not left waiting for someone to re-save them.
+      const folder = await services.api.addFolder(workDir, { allowedExtensions: ['.png'] })
+      writeFile('mark.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"></svg>')
+      writeFile('logo.png', pngBytes(12, 12))
+      await waitFor(() => eventsOf('versionCaptured').length === 1, 'the PNG capture')
+      expect((await services.api.listAssets()).map((asset) => asset.format)).toEqual(['png'])
+
+      await services.api.updateFolder(folder.id, {
+        allowedExtensions: [...SUPPORTED_EXTENSIONS],
+      })
+
+      await waitFor(() => eventsOf('versionCaptured').length === 2, 'the SVG capture')
+      const assets = await services.api.listAssets()
+      expect(assets.map((asset) => asset.format).sort()).toEqual(['png', 'svg'])
+      // Re-scanning must not add a second version of the unchanged PNG.
+      expect(assets.every((asset) => asset.versionCount === 1)).toBe(true)
+    },
+    20_000,
+  )
+
+  it(
+    'marks assets missing whose files disappeared while Chronicle was closed',
+    async () => {
+      const capture = await seedCapture('gone.png', pngBytes(14, 14))
+      const asset = getVersion(db, capture.versionId)!.assetId
+      // Delete before the folder is watched: no unlink event ever reaches the
+      // watcher, so only the post-scan reconciliation can notice.
+      fs.rmSync(path.join(workDir, 'gone.png'))
+
+      await services.api.addFolder(workDir)
+
+      await waitFor(
+        async () => (await services.api.listAssets()).some((item) => !item.onDisk),
+        'the missing-file reconciliation',
+      )
+      const listed = (await services.api.listAssets()).find((item) => item.id === asset)
+      expect(listed?.onDisk).toBe(false)
+      // History is kept (F3.7) — only the on-disk flag changes.
+      expect(listed?.versionCount).toBe(1)
+    },
+    20_000,
+  )
 
   it('removeFolder stops watching and keeps history by default', async () => {
     const capture = await seedCapture('kept.png', pngBytes(20, 20))
@@ -719,6 +829,154 @@ describe('settings and the secret boundary', () => {
     expect((await services.api.getSettings()).ai.chat.model).toBe('gpt-4o-mini')
   })
 
+  it('captures in the background by default and rejects a non-boolean patch', async () => {
+    expect((await services.api.getSettings()).system.runInBackground).toBe(true)
+    await expect(
+      services.api.updateSettings({ system: { runInBackground: 'yes' } as never }),
+    ).rejects.toThrow(/runInBackground must be a boolean/)
+  })
+
+  it('applies a changed background preference to the shell exactly once', async () => {
+    const applied: boolean[] = []
+    const wired = buildServices({
+      systemIntegration: {
+        getState: () => ({
+          openAtLoginSupported: true,
+          openAtLogin: false,
+          openAtLoginOpensWindow: false,
+          trayActive: true,
+          unsupportedReason: null,
+        }),
+        setOpenAtLogin: () => {
+          throw new Error('not used here')
+        },
+        applyRunInBackground: (enabled) => applied.push(enabled),
+      },
+    })
+    extraServices.push(wired)
+
+    await wired.api.updateSettings({ system: { runInBackground: false, openAtLoginOpensWindow: false } })
+    expect(applied).toEqual([false])
+    // Re-saving the same value must not churn the tray icon.
+    await wired.api.updateSettings({ system: { runInBackground: false, openAtLoginOpensWindow: false } })
+    expect(applied).toEqual([false])
+    await wired.api.updateSettings({ system: { runInBackground: true, openAtLoginOpensWindow: false } })
+    expect(applied).toEqual([false, true])
+  })
+
+  it('reports start-at-login unsupported when the shell integration is absent', async () => {
+    // The path a headless/test build and any future platform without a login
+    // item takes: the UI must show it as unavailable, never as "off".
+    expect(await services.api.getSystemIntegration()).toEqual({
+      openAtLoginSupported: false,
+      openAtLogin: false,
+      openAtLoginOpensWindow: false,
+      trayActive: false,
+      unsupportedReason: expect.stringContaining('installed app'),
+    })
+    await expect(services.api.setOpenAtLogin(true, true)).rejects.toThrow(/not available/)
+  })
+
+  it('passes both startup choices through and returns the operating system state', async () => {
+    const calls: Array<{ enabled: boolean; opensWindow: boolean }> = []
+    let state = {
+      openAtLoginSupported: true,
+      openAtLogin: false,
+      openAtLoginOpensWindow: false,
+      trayActive: true,
+      unsupportedReason: null,
+    }
+    const wired = buildServices({
+      systemIntegration: {
+        getState: () => state,
+        setOpenAtLogin: (enabled, opensWindow) => {
+          calls.push({ enabled, opensWindow })
+          state = { ...state, openAtLogin: enabled, openAtLoginOpensWindow: opensWindow }
+          return state
+        },
+        applyRunInBackground: () => {},
+      },
+    })
+    extraServices.push(wired)
+
+    expect(await wired.api.setOpenAtLogin(true, false)).toMatchObject({
+      openAtLogin: true,
+      openAtLoginOpensWindow: false,
+    })
+    expect(await wired.api.setOpenAtLogin(true, true)).toMatchObject({
+      openAtLogin: true,
+      openAtLoginOpensWindow: true,
+    })
+    expect(calls).toEqual([
+      { enabled: true, opensWindow: false },
+      { enabled: true, opensWindow: true },
+    ])
+    await expect(wired.api.setOpenAtLogin(true, 'yes' as never)).rejects.toThrow(
+      /opensWindow must be a boolean/,
+    )
+  })
+
+  it('remembers the launch mode across restarts and forgets nothing on refusal', async () => {
+    // Windows does not return a login item's registered arguments, so the mode
+    // lives in C5. A fresh services instance must still show the same choice.
+    let present = false
+    const shell = {
+      getState: () => ({
+        openAtLoginSupported: true,
+        openAtLogin: present,
+        trayActive: true,
+        unsupportedReason: null,
+      }),
+      setOpenAtLogin: (enabled: boolean) => {
+        present = enabled
+        return shell.getState()
+      },
+      applyRunInBackground: () => {},
+    }
+    const first = buildServices({ systemIntegration: shell })
+    extraServices.push(first)
+    await first.api.setOpenAtLogin(true, true)
+
+    const second = buildServices({ systemIntegration: shell })
+    extraServices.push(second)
+    expect(await second.api.getSystemIntegration()).toMatchObject({
+      openAtLogin: true,
+      openAtLoginOpensWindow: true,
+    })
+
+    // Removing the login item keeps the remembered mode for the next time.
+    await second.api.setOpenAtLogin(false, true)
+    expect(await second.api.getSystemIntegration()).toMatchObject({
+      openAtLogin: false,
+      openAtLoginOpensWindow: true,
+    })
+  })
+
+  it('reports the shell\'s refusal instead of the requested value', async () => {
+    // A managed device can accept setLoginItemSettings and ignore it.
+    const wired = buildServices({
+      systemIntegration: {
+        getState: () => ({
+          openAtLoginSupported: true,
+          openAtLogin: false,
+          openAtLoginOpensWindow: false,
+          trayActive: true,
+          unsupportedReason: null,
+        }),
+        setOpenAtLogin: () => ({
+          openAtLoginSupported: true,
+          openAtLogin: false,
+          openAtLoginOpensWindow: false,
+          trayActive: true,
+          unsupportedReason: null,
+        }),
+        applyRunInBackground: () => {},
+      },
+    })
+    extraServices.push(wired)
+    expect(await wired.api.setOpenAtLogin(true, true)).toMatchObject({ openAtLogin: false })
+  })
+
   it('tests the selected provider task without changing saved settings', async () => {
     await services.api.setApiKey('google_genai', 'google-test-key')
     const before = await services.api.getSettings()
@@ -910,6 +1168,50 @@ describe('settings and the secret boundary', () => {
     await services.api.clearApiKey('google')
     expect(await services.api.configuredProviders()).toEqual(['openai'])
   })
+
+  it('deletes only cloud account state and preserves local history and provider keys', async () => {
+    const capture = await seedCapture('local-history.png', pngBytes(4, 4))
+    await services.api.setApiKey('google_genai', 'local-provider-key')
+    setSetting(db, 'app-settings', {
+      ...DEFAULT_SETTINGS,
+      controlPlane: {
+        ...DEFAULT_SETTINGS.controlPlane,
+        settingsSyncEnabled: true,
+        apiKeySyncEnabled: true,
+      },
+    })
+    await services.dispose()
+    let cloudDeleted = false
+    services = createChronicleServices({
+      db,
+      libraryRoot,
+      emit: () => {},
+      pickFolder: async () => null,
+      pickVersionCopyPath: async () => null,
+      secrets: {
+        set: (provider, plaintext) => { secretKeys.set(provider, plaintext) },
+        has: (provider) => secretKeys.has(provider),
+        clear: (provider) => { secretKeys.delete(provider) },
+        providers: () => [...secretKeys.keys()],
+        entries: () => Object.fromEntries(secretKeys),
+      },
+      isOnline: () => true,
+      setWindowTheme: () => {},
+      account: {
+        deleteAccount: async () => { cloudDeleted = true },
+      } as ChronicleServicesDeps['account'],
+    })
+
+    await services.api.deleteCloudAccount()
+
+    expect(cloudDeleted).toBe(true)
+    expect(getVersion(db, capture.versionId)).not.toBeNull()
+    expect(await services.api.configuredProviders()).toContain('google_genai')
+    expect((await services.api.getSettings()).controlPlane).toMatchObject({
+      settingsSyncEnabled: false,
+      apiKeySyncEnabled: false,
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1031,5 +1333,65 @@ describe('media helpers', () => {
     ]) {
       expect(parseChronicleUrl(url), url).toBeNull()
     }
+  })
+})
+
+/**
+ * POST-03 — the installation ID identifies one installation over its lifetime.
+ * Deleting the local database (routine in development) or updating the app must
+ * not make the control plane see a brand-new installation.
+ */
+describe('installation identity', () => {
+  let root: string
+  let registered: string[]
+
+  function startOnce(): void {
+    const database = openChronicleDb(path.join(root, DATABASE_FILE_NAME))
+    const instance = createChronicleServices({
+      db: database,
+      libraryRoot: path.join(root, 'library'),
+      emit: () => {},
+      pickFolder: async () => null,
+      pickVersionCopyPath: async () => null,
+      secrets: {
+        set: () => {},
+        has: () => false,
+        clear: () => {},
+        providers: () => [],
+        entries: () => ({}),
+      },
+      isOnline: () => true,
+      setWindowTheme: () => {},
+      installation: { appVersion: '0.8.0', osFamily: 'windows' },
+      installationIdPath: path.join(root, 'installation-id'),
+      // Only registerInstallation is exercised; start() calls nothing else.
+      account: {
+        registerInstallation: async (descriptor) => {
+          registered.push(descriptor.installationId)
+        },
+      } as ChronicleServicesDeps['account'],
+    })
+    instance.start()
+    database.close()
+  }
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-install-'))
+    registered = []
+  })
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true })
+  })
+
+  it('reuses the same ID across restarts and after the database is deleted', async () => {
+    startOnce()
+    fs.rmSync(path.join(root, DATABASE_FILE_NAME))
+    startOnce()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(registered).toHaveLength(2)
+    expect(registered[0]).toBe(registered[1])
+    expect(fs.readFileSync(path.join(root, 'installation-id'), 'utf8')).toBe(registered[0])
   })
 })

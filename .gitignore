@@ -13,6 +13,13 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+!apps/desktop/build/
+apps/desktop/build/*
+!apps/desktop/build/installer.nsh
+!apps/desktop/build/installerHeader.svg
+!apps/desktop/build/installerHeader.bmp
+!apps/desktop/build/installerSidebar.svg
+!apps/desktop/build/installerSidebar.bmp
 .eggs/
 .venv/
 venv/
@@ -48,7 +55,8 @@ dist/
 .claude/
 .codex/
 .cursor/
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo

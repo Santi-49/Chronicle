@@ -85,12 +85,14 @@ describe('startup', () => {
       'search_index',
       'queue_items',
       'settings',
+      'personal_activity',
+      'ai_usage_calls',
     ]) {
       expect(tables).toContain(table)
     }
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
-    expect(db.pragma('user_version', { simple: true })).toBe(7)
+    expect(db.pragma('user_version', { simple: true })).toBe(8)
   })
 
   it('repeat startup is idempotent and keeps existing data', () => {

@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     # Accepted for deployment compatibility only. Desktop PKCE never uses it.
     google_oauth_client_secret: str = ""
 
+    # GDPR storage-limitation controls. Cleanup runs during telemetry ingestion
+    # and installation registration; account erasure always deletes immediately.
+    telemetry_raw_retention_days: int = 90
+    telemetry_hourly_retention_days: int = 400
+    telemetry_inventory_retention_days: int = 30
+    inactive_installation_retention_days: int = 400
+    telemetry_preference_retention_days: int = 400
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",")]

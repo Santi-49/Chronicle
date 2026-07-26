@@ -165,3 +165,11 @@ Adds count-only hourly project creation, version capture, restore, keyword-searc
 semantic-search counters plus first-project/first-version activation milestones. These fields
 support aggregate activation, retention, and creative-activity reporting without collecting
 creative metadata or search text.
+
+### Migration 006 — GDPR controls
+
+Adds `telemetry_preference_audit` with the random installation, server-derived optional user,
+enabled state, notice version, and preference timestamp. It also grants `account:delete` to normal
+users and admins for self-service erasure. Runtime retention cleanup uses the configured 90-day
+raw, 400-day hourly, 30-day inventory, and 400-day inactive anonymous-installation windows.
+The upgrade and resulting PostgreSQL 16 table/constraints were verified on 2026-07-25.

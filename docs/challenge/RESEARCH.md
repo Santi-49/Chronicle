@@ -49,6 +49,38 @@ Framing is education + portfolio: "build real-world AI solutions, develop in-dem
 - Real-world impact and feasibility over pure novelty (2 of 4 judging criteria).
 - Enterprise sensibility: well-structured, documented, maintainable solutions ("functional and well-structured solution" is quoted in the Technical Execution criterion).
 
+### How IBM SkillsBuild Teaches Bob (2026-07-25)
+
+An IBM SkillsBuild course extract supplied by the team gives us IBM's clearest preferred
+narrative for Bob. The course presents Bob as a **collaborative partner**, not a replacement
+for the developer, an autonomous one-shot builder, or merely a code generator. Its recurring
+workflow follows the whole software-development lifecycle:
+
+1. **Understand the problem** — ask questions, explore the idea, and clarify requirements.
+2. **Plan the solution** — break large work into smaller tasks and turn ideas into a clear plan.
+3. **Build the solution** — create and update working output through natural-language
+   instructions.
+4. **Improve and refine** — explain errors, identify problems, review the result, and iterate.
+5. **Document and share** — explain how the solution works and make it easier to maintain or
+   extend.
+
+The course also stresses that Bob serves experienced developers, new developers, and
+non-technical users. Examples extend beyond generating starter code to requirements
+clarification, task decomposition, plain-language error explanations, content creation,
+checklists, repeatable workflows, reporting, and other structured work. The human remains
+responsible for decisions, review, and refinement.
+
+**Narrative implications for Chronicle:** organize our Bob explanation around those five
+stages and attach one or two concrete, verifiable examples from `docs/bob-log.md` to each.
+Describe the team as directing, reviewing, testing, and refining Bob's contributions. This
+matches IBM's own teaching better than saying “Bob built Chronicle for us” or focusing only
+on the amount of generated code. It also lets us show breadth across architecture research,
+contract-first planning, implementation, diagnosis/testing, documentation, and release work.
+
+**Source note:** summarized from the Spanish-localized IBM SkillsBuild course *Cómo IBM Bob
+y las herramientas de IA están cambiando la forma en que se crean las soluciones*, supplied
+by the team on 2026-07-25. The original course text is not reproduced in this repository.
+
 ---
 
 ## The Problem Space
@@ -192,6 +224,53 @@ search. Then build a 5–10 file-pair corpus for SVG, BLEND, OBJ, STEP/STP, PSD,
 commit messages for factuality, usefulness, extraction coverage, latency, and cost. Official
 documentation proves the workflows exist; only user evidence can establish frequency and
 willingness to adopt.
+
+### Live AI Pricing and Usage Metadata (2026-07-26)
+
+Chronicle needs one current price source for three direct BYOK providers, but provider request
+responses do not expose a common authoritative cost field. Google Gemini returns token counts in
+`usageMetadata`; OpenAI responses expose input/output usage and separately offers organization
+Usage and Costs APIs; Anthropic message responses return input/output usage. OpenAI explicitly
+states that its Costs endpoint or billing dashboard—not the usage response—is the financial
+authority. Chronicle therefore records provider usage metadata exactly and labels locally
+calculated amounts **estimated**; provider invoices remain authoritative.
+
+| Unified source evaluated | Result |
+|---|---|
+| Provider pricing pages | Authoritative, but three unrelated HTML pages with no common pricing API; desktop scraping would be brittle. |
+| OpenRouter `/api/v1/models` | Live structured prices, but for inference routed and billed by OpenRouter rather than direct provider BYOK calls. |
+| LiteLLM `model_prices_and_context_window.json` | Broad and machine-readable, but its live moving Gemini alias entries were already stale during this review. |
+| **Models.dev `api.json`** | One public JSON schema keyed by provider and exact model ID, with USD-per-million input/output costs for Chronicle's Google, OpenAI, and Anthropic catalogs. Open source, but community-maintained rather than a billing authority. |
+
+**Decision:** fetch `https://models.dev/api.json` in the Electron main process, extract only the
+direct `google`, `openai`, and `anthropic` entries, and cache the last valid catalog for offline
+use. A user refresh bypasses the six-hour cache. Every estimate stores the catalog SHA-256, fetch
+time, source URL, and exact input/output rates used, so later refreshes never reprice completed
+calls. Unknown models or absent token counts remain unavailable. No creative content, query text,
+keys, or account identity is sent to the catalog endpoint.
+
+LangChain's standard embeddings interface returns vectors without response usage. For embedding
+costs, Chronicle therefore uses LangChain's public `get_num_tokens` model method: OpenAI resolves
+the embedding model's local tiktoken encoding, while Google invokes its documented `countTokens`
+endpoint. Counting happens transiently beside the embedding request; Chronicle stores only the
+integer count and never the embedded text. A counter failure leaves usage unavailable without
+failing semantic search, and historical calls cannot be reconstructed because their input was
+intentionally not retained.
+
+**Recommendations:** present costs as a transparency aid rather than accounting; show the source
+and refresh time beside the table; distinguish provider-reported, estimated, and unavailable
+amounts in text; keep activity local and independent of telemetry consent; and never delay capture
+or an AI job on price refresh. Before the demo, compare the cached entries for the selected models
+against each provider's official pricing page.
+
+Sources: [Models.dev repository and API](https://github.com/anomalyco/models.dev),
+[OpenAI Usage and Costs guidance](https://platform.openai.com/docs/api-reference/usage),
+[OpenAI tiktoken](https://github.com/openai/tiktoken),
+[Google countTokens API](https://ai.google.dev/api/tokens),
+[Gemini token metadata](https://ai.google.dev/gemini-api/docs/generate-content/tokens),
+[Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing),
+[OpenRouter models API](https://openrouter.ai/docs/api/api-reference/models/get-models),
+[LiteLLM price map](https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json).
 
 ### Control-Plane Identity, Sync, and Telemetry (2026-07-21)
 
@@ -352,12 +431,190 @@ Sources:
   `GITHUB_TOKEN` do not recursively trigger Actions. Chronicle therefore requires a fine-grained
   `RELEASE_PLEASE_TOKEN` rather than silently bypassing protected-branch CI.
   ([Release Please Action](https://github.com/googleapis/release-please-action))
+- Release Please recommends squash merges for linear history and supports multiple meaningful
+  changes in one squash through a `BEGIN_COMMIT_OVERRIDE` block in the merged PR body. A persistent
+  `dev` branch needs an explicit boundary: squashed commits acquire new identities on `main`, so
+  the original `dev` commits remain outside `main` ancestry even after back-sync and an unbounded
+  comparison replays old releases. Chronicle finds the latest release back-sync SHA and generates
+  the override only from its graph descendants. Unique non-merge `feat`, `fix`, `deps`, and
+  breaking commits are retained only when their changed paths affect the shipped desktop app,
+  bundled AI sidecar, consumed contracts/assets, or installer delivery. Merge commits, ordinary
+  chores, exact duplicates, and changes limited to other monorepo products are omitted. Renames
+  test both the previous and current path so moving a desktop file cannot silently disappear.
+  The built-in `GITHUB_TOKEN` performs the idempotent body edit so it cannot recursively trigger
+  the privileged merge workflow; the release PAT remains limited to guarded merge actions.
+  ([Release Please](https://github.com/googleapis/release-please))
 - Local packaging evidence: a clean Python 3.12 environment built the PyInstaller Gemini sidecar
   in about 70 seconds (25.2 MB); both the raw executable and the copy inside Electron resources
   returned `/health` with `chronicle-ai` version `0.1.0`. electron-builder then produced a 135 MB
   unsigned NSIS installer. Building against a polluted global Python environment spent more than
   ten minutes inspecting unrelated installed packages, so clean, declared build environments are
   a reproducibility requirement, not merely a CI speed optimization.
+
+### Windows Auto-Update Delivery (POST-08, 2026-07-26)
+
+- Chronicle's public GitHub Releases are already a viable static update host: the inspected latest
+  release (`v0.9.0`) is public, non-prerelease, and contains its Windows installer and checksum.
+  It does not contain `latest.yml`, so no installed client can use it as an update feed yet.
+- electron-builder's supported Windows auto-update target is NSIS, which Chronicle already uses.
+  `electron-updater` expects builder-generated `app-update.yml` inside installed resources and a
+  release `latest.yml`; it advises against manually calling `setFeedURL`. Chronicle should publish
+  the installer and metadata together from the tagged Windows build and verify every
+  metadata-referenced asset and hash before calling the release healthy.
+- Update capability cannot be added retroactively. Builds through `v0.9.0` contain no updater, so
+  the first updater-capable release requires one manual install. Only a following higher release
+  can demonstrate the genuine installed vA → vB path.
+- Automatic checks must run only in packaged Windows builds and remain independent of capture and
+  local history. The safe UX is a compact download-status pill above Settings that becomes one
+  explicit **Relaunch to update** card when ready. Normal click restarts; a right-click or keyboard
+  context menu exposes Restart, session-only Later, and per-release Ignore without adding permanent
+  secondary controls. `autoInstallOnAppQuit` remains disabled. Ordinary offline/network errors
+  stay out of the global UI; a user-initiated **Check now** may return sanitized retry feedback.
+- An unsigned installer can be transported over GitHub HTTPS and checked against the SHA-512 in
+  `latest.yml`, but this does not establish an independent publisher identity. Chronicle must not
+  describe that as equivalent to Authenticode signing. SmartScreen friction and compromise of the
+  repository/release credential remain risks until a team-owned Windows certificate migration.
+- GitHub update traffic sends no Chronicle project content, paths, credentials, or account payload,
+  but GitHub/CDN still sees ordinary network metadata such as IP address and user agent. Privacy
+  wording should make that distinction rather than claiming “nothing is sent.”
+- Updaters are forward-moving: pulling a broken release is not a reliable downgrade for clients
+  that already installed it. Recovery requires a higher patch release. Staged rollout metadata is
+  available later, but it should not substitute for clean-machine two-release acceptance.
+- The implementation-ready file boundaries, typed IPC gate, workflow assertions, UI states, and
+  acceptance matrix are recorded in `docs/post-08-windows-auto-update-plan.md`.
+
+Sources:
+[electron-builder auto update](https://www.electron.build/docs/features/auto-update/) ·
+[electron-builder publishing](https://www.electron.build/docs/publish/) ·
+[electron-builder updater API](https://www.electron.build/docs/api/electron-updater/) ·
+[GitHub release management](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
+
+### Mandatory Security Updates (POST-08 revision, 2026-07-26)
+
+- Mandatory updating is normally policy interpreted by the application, not a guarantee supplied
+  by the distribution service. Microsoft Store submissions can carry a mandatory date, but
+  Microsoft explicitly leaves enforcement and graceful feature degradation to app code. MSIX App
+  Installer can block activation, showing that full launch blocking is available on Windows, but
+  it is a packaging-level choice rather than the right default for a local-first creative archive.
+- `electron-updater` supplies release discovery, download, SHA-512 checking, Windows signature
+  validation, progress, and staged rollout. Its `minimumSystemVersion` refers to the OS kernel; it
+  has no minimum-Chronicle-version or mandatory-update field. Chronicle needs a separate policy
+  containing vulnerable ranges, minimum safe version, severity, deadline, affected capabilities,
+  version/expiry, and a verifiable signature.
+- A policy hosted and authenticated only by the same GitHub release credential is insufficient for
+  compromise recovery: stealing that credential could otherwise let an attacker replace both the
+  offered program and the instruction that tells clients to trust it. Windows installers need a
+  stable Authenticode publisher signature, and enforcement policy needs an independently protected
+  signing key or a mature signed-metadata framework.
+- TUF's established defenses use signed metadata, hashes, monotonically versioned state,
+  expiration, threshold/delegated keys, and persistent trusted metadata to resist arbitrary
+  software, rollback, mix-and-match, and freeze attacks. Chronicle should evaluate a maintained
+  TUF-compatible client before designing a smaller signed policy format.
+- Chronicle should use four levels: optional, recommended, required-by-deadline, and immediately
+  revoked. Required/revoked versions enter capability-scoped restricted mode after verified policy;
+  they do not lose access to local read/export/restore. A proven storage-integrity vulnerability
+  may make the library read-only, while a gateway/parser issue disables only that surface.
+- Offline enforcement has an unavoidable boundary. A previously cached, fresh verified policy can
+  be enforced offline; a device that never received it cannot know a version was revoked. An
+  unavailable or expired policy must not create an invented launch lock. Chronicle-operated
+  endpoints should independently reject vulnerable client versions for affected online actions.
+- Windows code signing proves publisher identity and detects post-signing modification; it also
+  allows publisher reputation to carry between releases. SHA-512 metadata on the same unsigned
+  release channel is valuable corruption detection but is not an equivalent trust boundary.
+- Version adoption remains observable from the existing content-free app-version distribution.
+  No new “update seen/downloaded/installed/blocked” telemetry is necessary for this plan.
+
+Sources:
+[Microsoft Store mandatory updates](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/package-updates-from-store) ·
+[Microsoft MSIX auto-update and activation blocking](https://learn.microsoft.com/en-us/windows/msix/app-installer/auto-update-and-repair--overview) ·
+[electron-builder auto update](https://www.electron.build/docs/features/auto-update/) ·
+[electron-builder Windows signature verification](https://www.electron.build/docs/win/) ·
+[TUF overview](https://theupdateframework.io/docs/overview/) ·
+[TUF security model](https://theupdateframework.io/docs/security/) ·
+[Microsoft Windows code signing](https://learn.microsoft.com/en-us/windows/msix/package/sign-app-package-using-signtool) ·
+[Microsoft SmartScreen publisher reputation](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)
+
+### POST-08A Implementation Findings (2026-07-26)
+
+- `electron-builder --publish never` still produces local `latest.yml` and an NSIS blockmap when
+  the GitHub publisher is configured, so snapshot CI can validate/archive update metadata without
+  moving the public stable feed. Tagged CI alone uses `--publish always` with the job-scoped
+  `GITHUB_TOKEN`; installed clients receive no token.
+- The packaged controller must guard more than concurrent promises. A periodic or manual check
+  attempted while an update is available, downloading, or ready can otherwise replace the
+  actionable renderer state with `checking`. Chronicle now preserves those phases until download
+  failure or explicit restart.
+- A clean local Windows x64 package produced `Chronicle-Setup-0.10.0.exe` (155,168,746 bytes), its
+  blockmap, `latest.yml`, and installed `resources/app-update.yml`. The manifest version matched
+  `package.json`, its referenced installer existed, and its SHA-512 matched. PowerShell confirmed
+  the installer remains `NotSigned`, consistent with the documented POST-08A trust boundary.
+- The packaged multi-provider sidecar health/import/PSD smoke passed. The complete desktop suite
+  passed 244 tests with one skipped, followed by TypeScript checks and the production renderer/main
+  build.
+- Release adoption needs no new event stream. Comparing the shipped desktop version with the
+  existing app-version distribution yields current-or-newer count/rate and older count, while the
+  exact version chart remains available for diagnosis. This reports installations that already
+  send existing telemetry; it is not a count of every download or every user.
+
+### Windows Installer and First-Run Onboarding (POST-07, 2026-07-25)
+
+- Chronicle already uses electron-builder's assisted NSIS mode (`oneClick: false`), so the literal
+  `.exe` wizard can be branded without replacing the packaging stack. Supported surfaces include a
+  150×57 header BMP, 164×314 installer/uninstaller sidebar BMPs, installer icons, custom welcome
+  copy, and a TXT/RTF/HTML license page. The BMP assets must be 24-bit RGB without alpha.
+- electron-builder recommends a small `build/installer.nsh` include over replacing its complete
+  NSIS script. The include can add a welcome page and supported macros while preserving maintained
+  install/upgrade/uninstall behavior. A fully bespoke HTML-like wizard would require owning a
+  custom NSIS script/UI and is not justified for Chronicle.
+- electron-builder's `license` option inserts the NSIS Modern UI license page. Modern UI supports
+  the standard **I Agree** action, a required checkbox (`MUI_LICENSEPAGE_CHECKBOX`), or accept/
+  decline radio buttons. The requested “terms checkbox” is therefore technically possible.
+- Technical support does not answer the legal-product question. Chronicle has no EULA/terms file
+  in the repository today. A human must approve the licensor/entity, permitted-use and liability
+  terms, scope, effective version, URLs, and translations before implementation. The privacy
+  policy is not a substitute for a software license, and accepting a broad installer agreement
+  must not silently enable telemetry or encrypted-key sync.
+- Product education should remain in React rather than NSIS: a resumable Getting started tour
+  with anchored coach marks can act on the real New Project, Project/Timeline, and AI Settings
+  screens. Research guidance favors progressive disclosure, real completion state, visible Back/
+  Skip controls, keyboard focus management, and reduced-motion support. AI setup stays optional so
+  the first local capture is never gated by provider or sidecar availability.
+- Follow the native desktop **teaching tip** model rather than a modal product-tour overlay.
+  Microsoft describes teaching tips as semi-persistent contextual flyouts and recommends concise,
+  infrequent tips; Apple recommends one small popover at a time, with its arrow pointing directly
+  at the target without covering the target or essential content. Chronicle therefore leaves the
+  workspace fully visible and interactive, uses only a gentle target ring, removes the scrim and
+  entrance motion, and aims a compact tip directly at the current control.
+  ([Microsoft TeachingTip](https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/teaching-tip),
+  [Apple popovers](https://developer.apple.com/design/human-interface-guidelines/popovers/))
+- The full implementation-ready direction, file boundaries, legal gate, and acceptance matrix are
+  recorded in `docs/post-07-install-onboarding-plan.md`.
+- Implemented 2026-07-25: the maintained native NSIS path now has Welcome/Finish copy, exact-size
+  branded 24-bit assets, forced current-user scope, and the dormant required-license-checkbox
+  define; the renderer has the real-state three-step anchored coach-mark tour with Settings replay. No EULA is
+  wired because the required human-approved legal text/entity/version is still absent, and the
+  task remains open for clean-machine teammate acceptance.
+- Follow-up 2026-07-26: Chronicle's public distribution and live control plane make clear hosted
+  service terms important, but neither Windows nor electron-builder creates a product-specific
+  requirement to duplicate them as an installer EULA. Chronicle already publishes Terms effective
+  2026-07-22 and a Privacy Policy effective 2026-07-25, both scoped to the desktop and online
+  services. The UI now places agreement directly beside Continue local/Google, records versions,
+  time, and method locally, re-prompts on version changes, and keeps both links in Settings.
+  This is deliberately separate from telemetry preference auditing. Human review remains required
+  for the controller/entity, substantive terms, jurisdiction, and whether server-side acceptance
+  evidence is necessary.
+- A public GitHub repository is not automatically open-source licensed. GitHub documents that,
+  without a license, default copyright law applies even when source is publicly visible. Chronicle
+  therefore needs an explicit root license choice and third-party notice review before public
+  reuse permissions can match the Terms' reference to repository license files.
+  ([GitHub licensing a repository](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/adding-a-license-to-a-repository))
+
+Sources:
+[electron-builder NSIS](https://www.electron.build/docs/nsis/) ·
+[electron-builder installer images](https://www.electron.build/docs/features/icons-and-images/#windows-nsis-installer-images) ·
+[NSIS Modern UI license-page settings](https://nsis.sourceforge.io/Docs/Modern%20UI/Readme.html) ·
+[Microsoft TeachingTip](https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/teaching-tip) ·
+[Apple popovers](https://developer.apple.com/design/human-interface-guidelines/popovers/)
 
 ### Desktop Format Architecture and Per-Format Support (POST-01/POST-02, 2026-07-25)
 
@@ -434,6 +691,164 @@ the main process and a second extraction implementation per format:
 Rendering a `.blend` scene (needs Blender), faithful PSD layer compositing (the embedded preview is
 used instead), image embeddings for visual similarity, and any execution of macros, expressions, or
 plug-in code carried inside a file.
+
+### Background Capture, Tray Residency, and Start-at-Login (POST-10, 2026-07-26)
+
+Chronicle's watcher, capture pipeline, AI queue, and telemetry already ran in the main process
+independently of any window, so "capture only while the window is open" was never a capture
+limitation — it was one line of lifecycle policy (`window-all-closed → app.quit()`). Making capture
+survive a closed window is therefore a lifecycle change, not a re-architecture. Three findings
+shaped the implementation:
+
+- **A tray-resident app needs a single-instance lock, and Chronicle had none.** While the app quit
+  on close, a second launch was harmless. Once it can sit hidden, the desktop and Start-menu
+  shortcuts remain clickable, and a second process would open the same `better-sqlite3` file and
+  start a second chokidar watcher over the same folders — duplicate captures and lock contention.
+  `requestSingleInstanceLock()` plus a `second-instance` handler that reveals the running window is
+  the prerequisite, and the probe CLI (`--probe-ai-models`) is deliberately exempt so a diagnostic
+  run neither contends for the lock nor gets redirected into a window.
+- **Quit must outrank hide, or the app becomes unquittable and the updater silently breaks.**
+  Anything that turns a `close` into a `hide` must first ask whether a quit is already in progress:
+  the tray's Quit item, `Cmd+Q`, OS logout, and — least obvious — `electron-updater`'s
+  `quitAndInstall`, which closes windows to restart. Without a latched quitting flag, POST-08A's
+  "Restart to update" degrades into "the window disappears". A missing tray icon needs the same
+  treatment in reverse: if `new Tray()` fails there is no way back to the window and no visible way
+  out, so closing must quit exactly as before. Both rules live in one small pure module with tests,
+  because both fail silently rather than loudly.
+- **The login item belongs to the operating system, not to C5 — but Windows only half-answers.**
+  A user can revoke a startup entry from Task Manager or macOS System Settings while Chronicle is
+  not running, so a mirrored boolean in settings would drift and display a preference the shell had
+  already discarded. Chronicle re-reads `app.getLoginItemSettings()` on every visit and reports what
+  the OS says after a write, because a managed device can accept the call and ignore it. Measuring
+  that read against a real registered entry (Electron 43, Windows 11) corrected two assumptions the
+  documentation invites: the documented `openAtLogin` field stays **false** for a live entry —
+  `executableWillLaunchAtLogin` is the field that answers — and a login item's **registered
+  arguments are not returned** (`launchItems[0].args` is `[]` for a value registered with
+  `--hidden`). Passing those arguments to the query therefore *narrows* the match and reads a
+  correctly registered hidden launch back as absent. The first build shipped both mistakes: the
+  checkbox could never appear ticked even with `HKCU\…\Run\Chronicle` present. The fix reads with
+  defaults, ORs both fields, and keeps only the launch *mode* in C5 — the registered command line
+  still decides the real launch, so a stale mode costs at most a wrong checkbox. Development builds are excluded on the
+  same `app.isPackaged` grounds the updater uses: `process.execPath` is Electron's own binary under
+  `npm run dev`, so registering it would add a startup entry that launches a bare Electron and
+  outlives the checkout. Electron's Windows implementation writes an `HKCU\…\CurrentVersion\Run`
+  value, so an explicit login-item name lets the NSIS uninstaller delete a known value instead of
+  leaving Windows launching a deleted executable at every sign-in.
+  ([Electron app API](https://www.electronjs.org/docs/latest/api/app),
+  [Electron Tray](https://www.electronjs.org/docs/latest/api/tray))
+
+Two product decisions worth recording. **Start at login and open the window at sign-in are separate
+choices**, encoded as the registered launch arguments. But they are only separate *while there is a
+tray*: with background capture off, a hidden launch would leave a process with neither window nor
+tray icon, so the two controls collapse into one — "Start Chronicle and open its window when I sign
+in". An earlier revision instead force-ticked and disabled the nested option, which read as the
+interface fighting the user; presenting one control for one real choice is both simpler and more
+honest than presenting a distinction that cannot exist. And **background capture defaults on while
+start-at-login defaults off**: a history that only records saves made while a window happened to be
+open is the failure the product exists to prevent, but adding a startup entry is the user's
+decision, especially for an unsigned build (see the POST-08 trust-boundary note above).
+
+A third finding came from the same session: **the AI sidecar has to be reaped before the process
+exits.** `will-quit` fired disposal without awaiting it, so Electron could exit first and leave a
+live `chronicle-ai-sidecar.exe` behind — Windows does not reap a spawned child with its parent. Each
+orphan holds port 8765 and a lock on its own executable, which is precisely what makes a later
+`make package` fail with `PermissionError`/`EBUSY`, and would block an installer from replacing the
+binary during an update. Shutdown now awaits disposal under a bounded race, because an unquittable
+app is worse than a leaked child.
+
+The tray icon reuses Chronicle's existing app-icon artwork in colour rather than a new monochrome
+glyph. A monochrome tray glyph is the stricter Windows 11 convention, but the tray is where users
+look for a *running application*, and recognising it as the same mark the taskbar shows matters more
+than shell uniformity; the brand set already ships light- and dark-surface variants (the light one
+carrying the darker `#0043ce` blues), so the shell's current tone selects one with adequate
+contrast and the icon is re-set when that tone changes.
+
+**Live verification (2026-07-26):** the built app was driven directly, because this is exactly the
+class of behavior unit tests cannot reach. Closing the window left the process alive with no window
+handle; a second launch exited immediately while the original restored and focused its window, with
+one app instance remaining. The hide itself is evidence the tray was created, since the lifecycle
+rule refuses to hide without an active tray. Login-item registration is packaged-only by design and
+therefore remains unverified until an installed build; the NSIS `Run`-value cleanup likewise needs
+an install/uninstall cycle.
+
+### Public Help Site for Non-Technical Creatives (LAND-02, 2026-07-26)
+
+Chronicle's help site should be a calm recovery tool, not a developer reference. The strongest
+pattern is a static, task-based help center with a prominent search field, a short first-run path,
+topic cards, popular fixes, and a separate Common Questions page. Nielsen Norman Group recommends
+ordering answers by what people need most, grouping them by topic, using the user's vocabulary
+(including literal error text), keeping site navigation visible, providing jump links and further
+help, and ensuring the content still works without JavaScript. Its FAQ guidance also recommends
+friendly plain language, semantic headings, descriptive links, and fully clickable, user-controlled
+accordions rather than hiding navigation behind custom interactions.
+
+**Recommended information architecture:**
+
+- `/help/` — “How can we help?” search, Start here, Fix a problem, AI and costs, Privacy and data,
+  and Common Questions.
+- `/help/getting-started/` — one illustrated path from download to first captured version, with
+  optional AI setup clearly separated from the local-only path.
+- `/help/install/windows/` and `/help/install/mac/` — platform-specific install and trust-warning
+  instructions using the exact current operating-system labels.
+- `/help/ai/{google,anthropic,openai}/`, `/help/ai/costs/`, and `/help/privacy/` — dated,
+  authoritative provider and data-flow guidance.
+- `/help/troubleshooting/` plus focused articles for search, capture, restore, folders, files, local
+  AI health, provider credentials, connectivity, billing, quota, and rate limits.
+- `/help/faq/` — short answers with stable anchor links and related-article links; use “Common
+  questions” visibly while retaining “FAQ” in metadata and search synonyms.
+
+Astro content collections or Markdown pages should be the single source of help content. Pagefind
+is a good fit for LAND-02 because it indexes the generated static HTML after the Astro build,
+produces a static client-side search bundle, and has no server component. Search should match
+titles, summaries, headings, literal warning/error text, and non-technical synonyms. It should
+suggest useful starting points before typing, show compact title + excerpt + category results as
+the user types, and turn no-results into recovery links rather than a dead end. All articles,
+navigation, anchors, and FAQ answers must remain readable and reachable when JavaScript is absent;
+search itself may be the enhancement.
+
+**Windows trust-warning finding:** the current Chronicle `.exe` is unsigned. Microsoft says
+SmartScreen evaluates publisher reputation and file-hash reputation; an unsigned build starts with
+no transferable publisher reputation and can show the red/blue “Windows protected your PC”
+warning. For the ordinary warning, the help article may tell a user who intentionally downloaded
+Chronicle from the official release link to select **More info**, check that the app name is the
+expected Chronicle installer, and select **Run anyway**. This is not the same as Chronicle
+crashing, but it is also not proof that the file is safe. The article must say to stop if the
+download came from another source, the filename/version is unexpected, or Windows reports malware
+instead of an unrecognized app. If **Run anyway** is absent, a managed-device policy or Windows 11
+Smart App Control may be enforcing the block. Microsoft says Smart App Control has no per-app
+exception; the user should not be coached to disable system-wide protection for Chronicle. Use a
+personal/unmanaged device, ask the device administrator, or wait for a signed build. The product
+fix remains signing every Windows release with a stable identity (or Store distribution), not
+normalizing the bypass.
+
+**macOS trust-warning finding:** the current Chronicle DMG is unsigned and unnotarized, so
+Gatekeeper may say the developer cannot be verified or Apple cannot check the app for malicious
+software. Apple warns that overriding this protection can expose the Mac to malware. For a user
+who intentionally downloaded Chronicle from the official release link, the guide may explain:
+attempt to open Chronicle once; open **System Settings → Privacy & Security**; scroll to Security;
+select **Open Anyway** (available for about an hour); authenticate; then select **Open** on the
+repeated prompt. This adds a per-app exception. Do not recommend disabling Gatekeeper globally.
+If macOS says the app **will damage your computer**, has moved it to the Bin, or says it is damaged,
+the user should stop and obtain support/a fresh verified download; those are different conditions.
+Managed Macs may not expose the override. The product fix remains Developer ID signing and Apple
+notarization.
+
+**Content and visual direction:** preserve Chronicle's existing IBM-blue identity, but make help
+lighter, quieter, and more content-first than the marketing home. Use 16 px minimum body text,
+60–75-character reading width, obvious link styling, semantic color tokens, 4.5:1 text contrast,
+visible focus rings, 44 px minimum targets, a sticky desktop article table of contents that becomes
+an inline mobile contents block, native `<details>` for optional explanations, print CSS, restrained
+or no motion, and original Chronicle screenshots annotated with numbered callouts. Never use the
+security-warning red as decoration. The warning guides should start with “You may see this because
+this release is not yet signed,” then present the safe decision check before any override steps.
+
+**Sources:**
+
+- [Microsoft SmartScreen reputation for Windows app developers](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)
+- [Microsoft Smart App Control FAQ](https://support.microsoft.com/en-US/Windows/Security/Threat-Malware-Protection/smart-app-control-frequently-asked-questions)
+- [Apple: Open apps safely on your Mac](https://support.apple.com/en-ie/102445)
+- [Pagefind getting started](https://pagefind.app/docs/)
+- [Nielsen Norman Group: Strategic Design for FAQs](https://media.nngroup.com/media/reports/free/Strategic_Design_for_Frequently_Asked_Questions.pdf)
 
 ### Past Hackathon Winners (if available)
 
@@ -597,7 +1012,11 @@ table because area and color are poor tools for precise comparison.
 ### Framing That Resonates With This Company
 
 - Pitch Chronicle as **"version control for the creative industry"** — squarely inside the July theme ("creative tools"). Say "Challenge Fit" out loud in the video: designers/marketers are creative-industry workers with a universal, demonstrable pain.
-- Frame IBM Bob as a co-builder: "planned, scaffolded, and tested with IBM Bob" — the Technical Execution criterion literally scores *effective use of IBM Bob*.
+- Frame IBM Bob as a collaborative partner across the full lifecycle: **understood, planned,
+  built, refined, and documented with IBM Bob**. Pair every stage with concrete evidence from
+  `docs/bob-log.md`, while making the team's decisions, review, and testing visible. This mirrors
+  IBM SkillsBuild's own language and the Technical Execution criterion's focus on *effective use*,
+  rather than presenting Bob as a replacement developer or a one-shot generator.
 - Use the roadmap line **“from `final-v8.png` to `scene_v042.blend`”**. Numbered versions are
   not merely a joke: Blender explicitly supports incremental numeric saves. Chronicle supplies
   the explanation those filenames lack.
@@ -615,6 +1034,22 @@ table because area and color are poor tools for precise comparison.
 - Minimal, clear, documented code — judges are told to reward "well-structured"; the README is a judged artifact, treat it as a feature.
 - For the desktop UI, use a neutral-gray, dark-first palette with IBM blue reserved for primary actions and focus. IBM's public design language recommends gray-dominant product interfaces, blue as the primary action color, paired dark/light themes, and WCAG contrast checks.
 - Keep product navigation in one persistent left shell and use short “productive” motion only to clarify page changes. Carbon presents the UI shell as the stable orientation layer and describes efficient motion as a way to move users forward, not decoration.
+- Replace the landing page's red/green **Without Chronicle / With Chronicle** comparison with one
+  short pinned transformation: a staggered stack of ambiguously named creative files converges
+  into one `campaign.png` asset, then settles into Chronicle's real vertical version timeline.
+  Scroll should advance a small number of legible states—**scattered files → ordered versions →
+  selected version with explanation**—rather than trigger unrelated flourishes. This applies the
+  strongest current scrollytelling pattern (a fixed stage whose scroll position maps to a
+  structured timeline) directly to Chronicle's product metaphor. Use a single GSAP timeline with
+  ScrollTrigger `pin` and numeric `scrub`, animate children rather than the pinned container, and
+  restrict movement to transforms and opacity. Do not add a smooth-scroll dependency or 3D
+  rotation: Chronicle already ships GSAP, and the transformation should feel precise rather than
+  cinematic. On narrow screens, use tap-selectable steps without pinning; under
+  `prefers-reduced-motion`, show the same three states as an immediate crossfade/static sequence.
+  Sources: [GSAP ScrollTrigger](https://gsap.com/docs/v3/Plugins/ScrollTrigger/),
+  [Codrops sticky grid scroll](https://tympanus.net/codrops/2026/03/02/sticky-grid-scroll-building-a-scroll-driven-animated-grid/),
+  [Webflow scroll-animation guidance](https://webflow.com/blog/scroll-animation),
+  [MDN reduced motion](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/%40media/prefers-reduced-motion).
 - Auto-enable the Diagnostics tab in development builds, and provide a separate local Developer
   mode checkbox for packaged support cases. Keep it below Search as secondary, developer-only
   navigation. Do not infer mode from the literal `npm run dev` command, and do not expose privileged
@@ -648,6 +1083,21 @@ table because area and color are poor tools for precise comparison.
   validated Gemini provider plus the UI-promised OpenAI and Anthropic integrations in the MVP
   installer. Keep using an isolated build environment and frozen-import smoke because the measured
   provider breadth increases sidecar size and clean analysis time.
+- Treat Windows auto-update as a two-release delivery feature, not a packaging checkbox: explicitly
+  configure the public GitHub feed, publish and verify metadata with the installer from one tag,
+  keep checks asynchronous/offline-safe, require a user-visible restart, and preserve a
+  higher-version hotfix path. Say plainly that the first updater-capable build needs one manual
+  install and that unsigned hash verification is not publisher identity.
+- Separate update convenience from security enforcement: ship the unsigned optional updater as
+  POST-08A, establish signed installers and independently authenticated policy as POST-08B, and
+  only then activate version-range deadlines/revocation as POST-08C. Restrict affected
+  capabilities rather than blanket-locking a local-first archive; always preserve local
+  read/export/restore and use the existing app-version adoption chart instead of new telemetry.
+- Split installation from education: use a lightly branded, native assisted NSIS wizard for trust,
+  install choices, and any human-approved clickwrap license; use a dismissible/resumable in-app
+  coach-mark tour on the real project, Timeline, and AI Settings screens for learning. Do not own a full
+  custom NSIS script merely to imitate a web onboarding UI, and never gate local capture on AI
+  setup.
 
 ### What to Emphasize in the Demo
 
@@ -673,6 +1123,144 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-26 — POST-10 BACKGROUND CAPTURE AND START-AT-LOGIN: capture already ran window-independently
+  in the main process, so tray residency was a lifecycle change rather than a capture change. Added a
+  single-instance lock (previously absent and previously harmless), a latched quitting flag so the
+  tray's Quit, `Cmd+Q`, and `electron-updater`'s `quitAndInstall` are never swallowed by close-to-hide,
+  and a refusal to hide when no tray icon exists. Start-at-login is read back from the OS on every
+  visit instead of mirrored into C5 because it can be revoked externally; it is packaged-only for the
+  same reason the updater is, and the NSIS uninstaller now deletes the named `HKCU` Run value.
+  Starting at login and opening the window at login are separate options carried in the registered
+  launch arguments. Background capture defaults on, start-at-login defaults off. Verified by driving
+  the built app: close hid the window with the process alive, and a second launch handed over to the
+  running instance. Follow-up: measured Electron's Windows login-item read against a real
+  registered entry and found `openAtLogin` false for a live entry (`executableWillLaunchAtLogin`
+  is the working field) and registered arguments absent from the result, so the launch mode is
+  remembered in C5 while the OS stays authoritative for existence; also made shutdown await AI
+  sidecar disposal so orphaned sidecars stop accumulating and stop locking the packaging output
+  — official Electron app/Tray documentation plus live measurement and verification
+- 2026-07-26 - LANDING PROBLEM SECTION REFINEMENT: team review found that introducing Chronicle's
+  version timeline inside Why Chronicle duplicated the later How it works demonstration. The
+  problem section is now deliberately static and literal: five conflicting campaign filenames
+  sit beside one clean `campaign.png`. It contains no version counts, summaries, timeline rows,
+  pinning, or reveal animation. This reserves the complete versioning explanation for How it works
+  and gives the two sections distinct narrative roles - team visual review plus UI hierarchy and
+  purposeful-motion guidance
+- 2026-07-26 - LANDING NARRATIVE REVISION: team review found that a second gallery would repeat
+  the adjacent creative-format carousel and that separate How it works and feature sections
+  repeated the same workflow. The final direction fuses them into one pinned, scroll-only product
+  story built around a single persistent artwork. Scroll advances save, local capture, explanation
+  and remembered-detail search, then append-only restore. The first comparison now pins earlier at
+  laptop widths, mixes distinct PNG and JPG asset families, and uses a fixed timeline grid for
+  aligned dots, text, and timestamps. Mobile and reduced-motion layouts remain ordinary vertical
+  sequences without pinning - team visual review plus the GSAP and accessibility guidance above
+- 2026-07-26 — LANDING TRANSITION RESEARCH: reviewed current scrollytelling, sticky-grid,
+  draggable-timeline, ScrollTrigger, and reduced-motion guidance before replacing the landing
+  comparison. Selected a pinned stack-to-timeline transformation because it turns Chronicle's
+  actual value proposition into the motion itself: duplicate filenames consolidate into one
+  asset, versions align chronologically, and one row reveals its plain-English change. Rejected
+  generic parallax, 3D card rotation, horizontal scroll, and multiple independent reveals because
+  they add spectacle without improving the explanation and would compete with the existing hero
+  video. Implementation should use one scrubbed GSAP timeline, no scroll-jacking, discrete
+  keyboard/touch controls, a non-pinned mobile layout, and a reduced-motion static/crossfade
+  alternative — [GSAP ScrollTrigger](https://gsap.com/docs/v3/Plugins/ScrollTrigger/),
+  [Codrops sticky grid scroll](https://tympanus.net/codrops/2026/03/02/sticky-grid-scroll-building-a-scroll-driven-animated-grid/),
+  [Codrops draggable timeline](https://tympanus.net/codrops/2022/01/03/building-a-scrollable-and-draggable-timeline-with-gsap/),
+  [Webflow scroll-animation guidance](https://webflow.com/blog/scroll-animation),
+  [MDN reduced motion](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/%40media/prefers-reduced-motion)
+- 2026-07-26 — LAND-02 HELP-SITE RESEARCH: selected a static Astro content collection plus
+  build-time Pagefind index, task-based help home, separate first-run/platform/provider/privacy/
+  troubleshooting guides, and a deep-linkable Common Questions page for non-technical creatives.
+  Windows SmartScreen appears because the current `.exe` is unsigned and has no trusted publisher
+  reputation; the ordinary warning can expose More info → Run anyway, while Smart App Control or
+  managed policy may prevent any per-app bypass. macOS Gatekeeper may block the unsigned,
+  unnotarized DMG; after one launch attempt, Privacy & Security → Open Anyway creates a per-app
+  exception. Guidance must distinguish these expected trust warnings from malware/damaged-app
+  alerts, never recommend disabling security globally, and retain signing/notarization as the real
+  fix — official Microsoft, Apple, Pagefind, and Nielsen Norman Group guidance linked above.
+- 2026-07-26 — RELEASE PLEASE COMMIT COLLECTION: the first implementation used `main...dev`, which
+  exposed 57 historical commits because persistent `dev` retains the original identities replaced
+  by each squash on `main`. The workflow now discovers the latest
+  `chore: sync released main back into dev` SHA and performs a second graph comparison from that
+  boundary to the PR head. It then de-duplicates releasable non-merge Conventional Commits and
+  maintains Release Please's supported commit-override block. The PR base is the first-promotion
+  fallback. YAML parsing, diff checks, and representative boundary/filter fixtures verified
+  historical exclusion, breaking-commit retention, merge/chore exclusion, and duplicate removal
+  — repository graph audit + official Release Please override guidance.
+- 2026-07-26 — POST-08A IMPLEMENTATION: added packaged-Windows GitHub auto-update plumbing,
+  same-build manifest/blockmap/hash assertions, typed main-to-renderer state, accessible
+  download/restart and Settings/About UI, and current-versus-older release adoption from existing
+  app-version telemetry. Verification passed 244 desktop tests (1 skipped), typecheck, production
+  build, 155 MB unsigned NSIS packaging, local updater metadata/SHA-512 validation, and bundled
+  sidecar/provider/PSD smoke. A lifecycle check now prevents periodic/manual checks from
+  overwriting available/downloading/ready state. No update telemetry or mandatory enforcement was
+  added; real installed vA → published vB acceptance remains open — team implementation plus
+  official electron-builder behavior documented above.
+- 2026-07-26 — POST-08 MANDATORY SECURITY-UPDATE REVISION: Microsoft leaves mandatory Store
+  package enforcement to the app and recommends graceful degradation; electron-updater has no
+  minimum-app-version policy; and TUF demonstrates why signed, versioned, expiring metadata and
+  compromise recovery matter beyond transport hashes. Revised POST-08 into an unsigned
+  optional-updater baseline, a Windows/policy signing foundation, and only then
+  required/revoked-range enforcement. Chronicle will restrict affected capabilities while
+  preserving local read/export/restore, enforce only cached fresh verified policy offline, protect
+  online endpoints independently, and use existing version-adoption telemetry — official
+  Microsoft, electron-builder, and TUF documentation.
+- 2026-07-26 — POST-08 WINDOWS AUTO-UPDATE PLAN: the public `v0.9.0` release has a working NSIS
+  installer but no `latest.yml`, and old clients cannot gain updater code retroactively. Planned an
+  explicit `Santi-49/Chronicle` GitHub publisher, CI-only token, same-build asset/hash assertions,
+  packaged-Windows-only single-flight checks, background download plus explicit restart,
+  offline-silent automatic failures, a narrow typed IPC addition, and genuine two-release
+  acceptance. Unsigned SHA-512/TLS integrity is documented as weaker than publisher signing, and
+  rollback means a higher patch release — public release audit + official electron-builder/GitHub
+  documentation.
+- 2026-07-25 — IBM SKILLSBUILD BOB COURSE: IBM teaches Bob as a collaborative partner for
+  technical and non-technical users across five stages: understand the problem, plan, build,
+  improve/refine, and document/share. It explicitly rejects replacement/autonomous framing and
+  retains human decision-making, review, and iteration. Chronicle's README and demo should mirror
+  this lifecycle and substantiate each stage with `docs/bob-log.md` evidence — team-supplied
+  Spanish-localized SkillsBuild course extract, summarized rather than reproduced
+- 2026-07-25 — POST-07 INSTALL/ONBOARDING: Chronicle's existing assisted electron-builder/NSIS
+  installer already supports a branded 150×57 header, 164×314 sidebar, custom welcome copy, and a
+  TXT/RTF/HTML license page; NSIS Modern UI can require the specifically requested acceptance
+  checkbox. Use electron-builder's small include hook, not a replacement installer script. Legal
+  text needs human approval and cannot double as telemetry consent. Keep product education in a
+  resumable, accessible in-app coach-mark tour that completes against real project/Timeline/provider
+  state and never blocks local capture — [electron-builder NSIS](https://www.electron.build/docs/nsis/),
+  [installer images](https://www.electron.build/docs/features/icons-and-images/#windows-nsis-installer-images),
+  [NSIS Modern UI](https://nsis.sourceforge.io/Docs/Modern%20UI/Readme.html)
+- 2026-07-25 — POST-07 TEACHING-TIP REFINEMENT: Microsoft and Apple guidance favors one concise,
+  targeted, dismissible teaching tip/popover whose tail points directly at the related control and
+  does not obscure its target or essential UI. Chronicle removed the modal-style dark scrim and
+  entrance motion in favor of a small static tip, gentle target ring, and direct pointer while the
+  workspace remains usable — [Microsoft TeachingTip](https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/teaching-tip),
+  [Apple popovers](https://developer.apple.com/design/human-interface-guidelines/popovers/)
+- 2026-07-25 — POST-07 IMPLEMENTATION: retained electron-builder's complete native NSIS script and
+  used only its supported include/image options; added 24-bit Chronicle header/sidebar assets,
+  native Welcome/Finish copy, current-user installation, and the future license-checkbox define
+  without fabricating an EULA. Added a renderer-local, versioned three-step coach-mark tour that stores no
+  paths/keys and advances only after a real project, real Timeline entry, and a valid AI save/test
+  (or explicit deferral); existing upgraded profiles are left undisturbed and can replay from
+  Settings — repository implementation and focused tests
+- 2026-07-26 — POST-07 LIVE-DISTRIBUTION LEGAL FOLLOW-UP: verified that Chronicle already has
+  hosted Terms (2026-07-22) and Privacy Policy (2026-07-25) covering the desktop and optional
+  services. Added versioned first-entry agreement, policy-change re-prompting, and permanent
+  Settings links without duplicating the Terms in NSIS or conflating agreement with telemetry.
+  Acceptance evidence is explicitly device-local pending a human decision on server/account audit.
+  The public repository has no root license, so default copyright remains and a license/notice
+  decision is required — live Chronicle pages, repository inspection, and
+  [GitHub license guidance](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/adding-a-license-to-a-repository)
+
+- 2026-07-25 — GDPR LAWFUL-BASIS/RIGHTS REVIEW (POST-06): EDPB guidance confirms that valid
+  consent requires a clear affirmative action and no pre-ticked boxes, so Chronicle's
+  default-enabled reporting cannot be described as consent. The implementation records a
+  documented, production-review-gated legitimate-interests assessment for minimal installation
+  registration and content-free reporting, uses contract for requested account/sync/AI operations,
+  and adds versioned preference audit, configured storage limitation, JSON access/export,
+  objection/withdrawal, installation erasure, and transactional account erasure. Production
+  remains gated on controller/contact/processor/transfer and LIA approval —
+  [EDPB lawful processing](https://www.edpb.europa.eu/sme/be-compliant/process-personal-data-lawfully_en),
+  [GDPR Articles 5, 6, 15, 17, 20 and 21](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng),
+  [ICO legitimate-interests assessment](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/legitimate-interests/how-do-we-apply-legitimate-interests-in-practice/)
 - 2026-07-23 — **PSD LIVE ACCEPTANCE BLOCKED (POST-02):** the controlled PSD
   first-version/diff run reached the packaged Google integration, but the locally configured
   credential was rejected with HTTP 401 before inference. No provider result or billable
@@ -762,6 +1350,53 @@ table because area and color are poor tools for precise comparison.
 - 2026-07-22 — MACOS PACKAGING FOLLOW-UP: tagged releases now build native PyInstaller sidecars and electron-builder installers in parallel on Windows x64 and a pinned macOS 15 Apple Silicon runner; manual snapshot dispatch does the same. The DMG is deliberately unsigned and unnotarized, so it is a test/distribution artifact rather than a frictionless public Mac release; Intel packaging, Apple signing/notarization, and auto-update remain separate work.
 - 2026-07-21 — MULTI-PROVIDER PACKAGING/PERFORMANCE: the frozen Windows sidecar now imports Gemini, OpenAI, and Anthropic successfully and passes `/health`; it grew from 25.2 MB to 30.0 MB, while the unsigned installer grew from about 135 MB to 139.7 MB. A clean warm build measured 6.5 seconds for PyInstaller and about 7 seconds for Vite inside a 255.7-second `make package`, showing Electron staging/NSIS creation—not bundling every globally installed Python module—is the dominant repeat cost; `make package-unpacked` measured 177.7 seconds. Packaging now uses a cached isolated provider-only environment and avoids duplicate native rebuilding. Bedrock was removed because its AWS credential set/region does not fit Chronicle's single-key BYOK contract — team local measurement + official LangChain provider and electron-builder lifecycle guidance
 - 2026-07-21 — ZERO-TOUCH RELEASE PROMOTION: GitHub auto-merge waits for required checks/reviews, while PR authors cannot satisfy their own required approval. Chronicle therefore preserves all three protected-main checks but uses zero required approvals for the solo workflow; a no-checkout `pull_request_target` coordinator enables auto-merge only for the same-repository `dev` head or a correctly labeled Release Please branch. It uses the release PAT so follow-on push workflows run, validates a releasing `feat:`/`fix:` squash title, and deletes only the merged temporary release branch. Teams can restore required approvals, which intentionally reintroduces a manual gate — [GitHub auto-merge](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/automatically-merging-a-pull-request), [required reviews](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews), [GitHub CLI merge](https://cli.github.com/manual/gh_pr_merge)
+- 2026-07-25 — SESSION AND INSTALLATION IDENTITY FINDING: the control plane rotates refresh
+  tokens and revokes the presented one on use, so a refresh token is single-use. Two authenticated
+  requests that hit 401 together each posted the *same* token; the loser was told the token was
+  revoked and cleared the session. React StrictMode double-invokes the effect that reads the
+  account state, and the 30-minute access token has always expired between development runs, so
+  this signed the user out on essentially every `make run`. The desktop client now single-flights
+  the refresh. Two consequences were also fixed: the admin role was read once at mount, so the
+  Admin tab could outlive the session that granted it (now re-checked on window focus), and the
+  installation ID lived only in `chronicle.db`, so deleting the local database minted a new
+  control-plane installation — it is now mirrored to a file in the Electron user-data directory.
+  An in-place app update never created a new installation; the API upserts by installation ID and
+  only bumps the app version. Development and packaged builds legitimately differ because Electron
+  names the user-data directory after the app (`chronicle-desktop` vs `Chronicle`) — local session
+  trace + code review
+- 2026-07-26 — DESKTOP CHANGELOG SCOPE DECISION: Release Please commit overrides now inspect each
+  eligible commit's changed files and include it only when it affects the Electron app, bundled AI
+  sidecar, consumed contracts/brand/prompts, or installer build and publication. Pure control-plane,
+  landing, infrastructure, and documentation changes are excluded from desktop release notes;
+  renamed files are matched using both their old and new paths — team direction + workflow review
+- 2026-07-26 — UPDATE NOTICE UX REVISION (supersedes the ready-only variant): update status no
+  longer consumes a full-width shell banner. Chronicle follows Claude Desktop's compact pattern
+  above Settings: a rounded downloading pill becomes one rounded relaunch card with icon, title,
+  version, and chevron, recolored through Chronicle's light/dark tokens. Normal click relaunches;
+  right-click or the keyboard context-menu gesture opens Restart, session-only Later, and
+  per-release Ignore — team direction + reference-image review + UI accessibility review
+
+- 2026-07-26 — POST-09 LIVE PRICING: request metadata across the three BYOK providers supplies
+  usage, not a common authoritative per-call invoice amount. Compared official pages,
+  OpenRouter, LiteLLM, and Models.dev; rejected routed prices and a demonstrably stale moving-alias
+  map; selected the single Models.dev JSON API with conditional refresh, offline cache, immutable
+  per-call catalog hashes/rates, and explicit estimate/unavailable labels — team research +
+  primary provider docs and live catalog inspection
+
+- 2026-07-26 — POST-09 EMBEDDING USAGE: LangChain's standard embedding result omits provider
+  usage, so Chronicle now counts with the providers' exact tokenizer through LangChain's public
+  model method (local tiktoken for OpenAI, Google `countTokens` for Gemini), stores only the
+  integer count, and leaves historical/private inputs unreconstructed. Live probes returned
+  4 OpenAI and 3 Google input tokens for the same configuration-check text — official tokenizer
+  docs + live saved-key verification
+
+- 2026-07-26 — EMBEDDING BATCHING: both shipped embedding integrations implement LangChain's
+  ordered `aembed_documents` batch method. Chronicle now batches up to 16 queued version-index
+  texts per provider call, validates one returned vector per input, and records aggregate exact
+  token usage once per real batch. Interactive search remains on `aembed_query` so throughput
+  work does not add query latency. Two-text live probes passed for OpenAI and Google — installed
+  LangChain provider interfaces + live saved-key verification
+
 - 2026-07-25 — DESKTOP FORMAT ARCHITECTURE (POST-01 closure + POST-02 desktop half): replaced
   fourteen hardcoded extension checks with one shared format registry, and split "captured and
   displayed" from "annotated by AI" into independent capabilities negotiated through a new

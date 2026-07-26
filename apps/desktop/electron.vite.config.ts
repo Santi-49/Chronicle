@@ -10,15 +10,21 @@ import packageJson from './package.json'
 // environment variable or a bundled .env file.
 loadEnv({ path: path.resolve(__dirname, '..', '..', '.env'), quiet: true })
 
+const landingUrl =
+  process.env['CHRONICLE_LANDING_URL']?.trim() ||
+  'https://chronicle.quick2query.com'
+
 export default defineConfig({
   // Runtime dependencies (better-sqlite3, chokidar) must stay external in the
   // main/preload bundles — native modules cannot be inlined by the bundler.
   main: {
     plugins: [externalizeDepsPlugin()],
     define: {
+      __APP_VERSION__: JSON.stringify(packageJson.version),
       __CHRONICLE_CONTROL_PLANE_URL__: JSON.stringify(
         process.env['CHRONICLE_CONTROL_PLANE_URL']?.trim() ?? '',
       ),
+      __CHRONICLE_LANDING_URL__: JSON.stringify(landingUrl),
       __GOOGLE_OAUTH_CLIENT_ID__: JSON.stringify(
         process.env['GOOGLE_OAUTH_CLIENT_ID']?.trim() ?? '',
       ),
@@ -35,7 +41,8 @@ export default defineConfig({
     // until then the plugin is inert and the hand-written CSS stands alone.
     plugins: [react(), tailwindcss()],
     define: {
-      __APP_VERSION__: JSON.stringify(packageJson.version)
+      __APP_VERSION__: JSON.stringify(packageJson.version),
+      __CHRONICLE_LANDING_URL__: JSON.stringify(landingUrl),
     }
   }
 })

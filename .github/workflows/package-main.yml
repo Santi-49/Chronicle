@@ -16,6 +16,7 @@ jobs:
     runs-on: windows-latest
     env:
       CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
+      CHRONICLE_LANDING_URL: ${{ vars.CHRONICLE_LANDING_URL }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:
@@ -35,6 +36,7 @@ jobs:
       - run: python scripts/check_versions.py
       - run: npm run package
         working-directory: apps/desktop
+      - run: python scripts/check_windows_update_assets.py
       - run: python scripts/smoke_ai_sidecar.py
       - name: Write installer checksum
         shell: pwsh
@@ -54,6 +56,8 @@ jobs:
           name: Chronicle-${{ steps.version.outputs.app_version }}-windows-${{ github.sha }}
           path: |
             apps/desktop/dist/Chronicle-Setup-*.exe
+            apps/desktop/dist/Chronicle-Setup-*.exe.blockmap
+            apps/desktop/dist/latest.yml
             apps/desktop/dist/SHA256SUMS-windows.txt
           if-no-files-found: error
           retention-days: 30
@@ -64,6 +68,7 @@ jobs:
     runs-on: macos-15
     env:
       CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
+      CHRONICLE_LANDING_URL: ${{ vars.CHRONICLE_LANDING_URL }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:

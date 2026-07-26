@@ -61,6 +61,7 @@ live('MVP-09 live provider acceptance', () => {
 
       const settings: AppSettings = {
         appearance: { theme: 'system' },
+        system: { runInBackground: true, openAtLoginOpensWindow: false },
         ai: {
           mode: 'local',
           chat: { provider, model: annotateModel },

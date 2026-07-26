@@ -1,0 +1,174 @@
+---
+import HelpShell from "../../components/HelpShell.astro";
+import { articlePath, articleSearchText, helpArticles, helpCategories } from "../../helpContent";
+
+const popularSlugs = ["getting-started", "install/windows", "install/mac", "troubleshooting/updates", "ai/costs", "privacy-data"];
+const popular = popularSlugs.map((slug) => helpArticles.find((article) => article.slug === slug)).filter(Boolean);
+const searchIndex = helpArticles.map((article) => ({
+  title: article.title,
+  description: article.description,
+  category: article.category,
+  url: articlePath(article.slug),
+  text: articleSearchText(article).toLocaleLowerCase(),
+}));
+const categoryAnchor = (category: string) => `${category.toLocaleLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-guides`;
+const guideCategoryOrder = ["Start here", "Install", "AI & costs", "Troubleshooting", "Privacy", "FAQ"];
+const orderedHelpCategories = guideCategoryOrder.map((title) => helpCategories.find((category) => category.title === title)).filter(Boolean);
+---
+
+<HelpShell
+  title="How can we help?"
+  description="Plain-language setup, installation, AI, privacy, update, and troubleshooting help for Chronicle."
+  pathname="/help/"
+>
+  <section class="help-hero">
+    <div class="help-hero__inner">
+      <p class="help-eyebrow">Help for creative work, without the technical fog</p>
+      <h1>How can we help?</h1>
+      <p>Search by what you want to do, or paste the words you see in an error.</p>
+      <div class="help-search" data-help-search>
+        <label for="help-search-input">Search Chronicle help</label>
+        <div class="help-search__field">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+          <input id="help-search-input" type="search" placeholder="Try “red screen”, “Mac won’t open”, or “update failed”" autocomplete="off" />
+          <kbd>Ctrl K</kbd>
+        </div>
+        <div class="help-search__results" hidden aria-live="polite"></div>
+      </div>
+      <div class="help-suggestions" aria-label="Suggested searches">
+        <span>Popular:</span>
+        <button type="button" data-search-suggestion="Windows protected your PC">Windows warning</button>
+        <button type="button" data-search-suggestion="Mac cannot verify developer">Mac won’t open</button>
+        <button type="button" data-search-suggestion="update failed reinstall">Update failed</button>
+        <button type="button" data-search-suggestion="AI costs billing">AI costs</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="help-home">
+    <section class="help-faq-preview" aria-labelledby="faq-preview-title">
+      <header class="help-section-heading">
+        <div><p class="help-kicker">Quick answers</p><h2 id="faq-preview-title">Frequently asked questions</h2></div>
+        <a href="/help/faq/">View all FAQ</a>
+      </header>
+      <div class="help-faq-preview__grid">
+        <details>
+          <summary>How do I bypass the Windows or Mac trust warning?</summary>
+          <p>First, download only from the <a href="https://github.com/Santi-49/Chronicle/releases/latest">official Chronicle GitHub Releases page</a>. If the source and version match, use <strong>More info → Run anyway</strong> on Windows, or <strong>System Settings → Privacy &amp; Security → Open Anyway</strong> on macOS. See the <a href="/help/install/windows/">Windows guide</a> or <a href="/help/install/mac/">Mac guide</a>.</p>
+        </details>
+        <details>
+          <summary>Do I need an account?</summary>
+          <p>No. Choose Continue local to capture, browse, search, and restore versions on your device.</p>
+        </details>
+        <details>
+          <summary>Is AI required?</summary>
+          <p>No. AI adds change summaries and meaning-based search. Local version history works without it.</p>
+        </details>
+        <details>
+          <summary>What works offline?</summary>
+          <p>Capture, cached history, keyword search, and restore. AI and account features wait for connectivity.</p>
+        </details>
+        <details>
+          <summary>Where are my files stored?</summary>
+          <p>Your creative version library stays on your device. Enabled AI sends only task-required inputs to your selected provider.</p>
+        </details>
+        <details>
+          <summary>How much does AI cost?</summary>
+          <p>There is no fixed Chronicle price. Your selected provider charges your API account according to its current pricing.</p>
+        </details>
+        <details>
+          <summary>Can I restore without losing the current version?</summary>
+          <p>Yes. Chronicle preserves timeline history. Use Save a copy when you only want the older file beside your current work.</p>
+        </details>
+      </div>
+    </section>
+
+    <section aria-labelledby="popular-title">
+      <header class="help-section-heading">
+        <div><p class="help-kicker">Most useful right now</p><h2 id="popular-title">Popular guides and fixes</h2></div>
+        <a href="/help/faq/">See FAQ</a>
+      </header>
+      <div class="help-popular-list">
+        {popular.map((article) => article && (
+          <a href={articlePath(article.slug)}>
+            <span>{article.category}</span>
+            <strong>{article.title}</strong>
+            <p>{article.description}</p>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section aria-labelledby="all-guides-title">
+      <header class="help-section-heading">
+        <div><p class="help-kicker">Every topic</p><h2 id="all-guides-title">All help guides</h2></div>
+      </header>
+      <div class="help-guide-groups">
+        {orderedHelpCategories.map((category) => category && (
+          <section id={categoryAnchor(category.title)} class="help-guide-group" aria-labelledby={`${categoryAnchor(category.title)}-title`}>
+            <h3 id={`${categoryAnchor(category.title)}-title`}>{category.title}</h3>
+            <div>
+              {helpArticles.filter((article) => article.category === category.title).map((article) => (
+                <a href={articlePath(article.slug)}>
+                  <strong>{article.title}</strong>
+                  <span>{article.description}</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </section>
+
+    <aside class="help-support-card">
+      <div>
+        <p class="help-kicker">Still stuck?</p>
+        <h2>Tell us what happened without sharing your work.</h2>
+        <p>Include your operating system, Chronicle version, the exact message, and what you tried. Leave out keys, tokens, file contents, and private paths.</p>
+      </div>
+      <a href="https://github.com/Santi-49/Chronicle/issues">Ask on GitHub</a>
+    </aside>
+  </div>
+
+  <script is:inline define:vars={{ searchIndex }}>
+    const searchRoot = document.querySelector("[data-help-search]");
+    const searchInput = document.querySelector("#help-search-input");
+    const searchResults = searchRoot?.querySelector(".help-search__results");
+    const renderResults = (rawQuery) => {
+      if (!searchResults) return;
+      const query = rawQuery.trim().toLocaleLowerCase();
+      if (!query) {
+        searchResults.hidden = true;
+        searchResults.innerHTML = "";
+        return;
+      }
+      const terms = query.split(/\s+/).filter(Boolean);
+      const matches = searchIndex
+        .map((item) => ({ item, score: terms.reduce((score, term) => score + (item.title.toLocaleLowerCase().includes(term) ? 5 : item.text.includes(term) ? 1 : 0), 0) }))
+        .filter(({ score }) => score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 6);
+      searchResults.hidden = false;
+      searchResults.innerHTML = matches.length
+        ? `<p class="help-search__count">${matches.length} helpful ${matches.length === 1 ? "result" : "results"}</p>${matches.map(({ item }) => `<a href="${item.url}"><span>${item.category}</span><strong>${item.title}</strong><small>${item.description}</small></a>`).join("")}`
+        : `<div class="help-search__empty"><strong>We couldn’t find that yet.</strong><p>Try fewer words, browse the guides below, or <a href="https://github.com/Santi-49/Chronicle/issues">ask the Chronicle team</a>.</p></div>`;
+    };
+    searchInput?.addEventListener("input", (event) => renderResults(event.target.value));
+    document.querySelectorAll("[data-search-suggestion]").forEach((button) => button.addEventListener("click", () => {
+      searchInput.value = button.dataset.searchSuggestion || "";
+      renderResults(searchInput.value);
+      searchInput.focus();
+    }));
+    document.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "k") {
+        event.preventDefault();
+        searchInput?.focus();
+      }
+      if (event.key === "Escape" && document.activeElement === searchInput) {
+        searchInput.value = "";
+        renderResults("");
+      }
+    });
+  </script>
+</HelpShell>

@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import adminIcon from '@material-symbols/svg-400/outlined/admin_panel_settings.svg'
 import archiveIcon from '@material-symbols/svg-400/outlined/inventory_2.svg'
 import arrowLeftIcon from '@material-symbols/svg-400/outlined/arrow_back.svg'
 import arrowDownIcon from '@material-symbols/svg-400/outlined/arrow_downward.svg'
@@ -15,11 +16,13 @@ import editIcon from '@material-symbols/svg-400/outlined/edit.svg'
 import deleteIcon from '@material-symbols/svg-400/outlined/delete.svg'
 import folderPlusIcon from '@material-symbols/svg-400/outlined/create_new_folder.svg'
 import folderIcon from '@material-symbols/svg-400/outlined/folder.svg'
+import helpIcon from '@material-symbols/svg-400/outlined/help.svg'
 import homeIcon from '@material-symbols/svg-400/outlined/home.svg'
 import imageIcon from '@material-symbols/svg-400/outlined/image.svg'
 import infoIcon from '@material-symbols/svg-400/outlined/info.svg'
 import keyIcon from '@material-symbols/svg-400/outlined/key.svg'
 import monitoringIcon from '@material-symbols/svg-400/outlined/monitoring.svg'
+import powerIcon from '@material-symbols/svg-400/outlined/power_settings_new.svg'
 import refreshIcon from '@material-symbols/svg-400/outlined/refresh.svg'
 import restoreIcon from '@material-symbols/svg-400/outlined/settings_backup_restore.svg'
 import searchIcon from '@material-symbols/svg-400/outlined/search.svg'
@@ -36,6 +39,7 @@ import architectureIcon from '@material-symbols/svg-400/outlined/architecture.sv
 import hourglassIcon from '@material-symbols/svg-400/outlined/hourglass_top.svg'
 
 export type IconName =
+  | 'admin'
   | 'archive'
   | 'architecture'
   | 'arrow-left'
@@ -54,6 +58,7 @@ export type IconName =
   | 'delete'
   | 'folder-plus'
   | 'folder'
+  | 'help'
   | 'home'
   | 'hourglass'
   | 'image'
@@ -61,6 +66,7 @@ export type IconName =
   | 'key'
   | 'layers'
   | 'monitoring'
+  | 'power'
   | 'shapes'
   | 'refresh'
   | 'restore'
@@ -73,6 +79,7 @@ export type IconName =
   | 'terminal'
 
 const icons: Record<IconName, string> = {
+  admin: adminIcon,
   archive: archiveIcon,
   architecture: architectureIcon,
   'arrow-left': arrowLeftIcon,
@@ -91,6 +98,7 @@ const icons: Record<IconName, string> = {
   delete: deleteIcon,
   'folder-plus': folderPlusIcon,
   folder: folderIcon,
+  help: helpIcon,
   home: homeIcon,
   hourglass: hourglassIcon,
   image: imageIcon,
@@ -98,6 +106,7 @@ const icons: Record<IconName, string> = {
   key: keyIcon,
   layers: layersIcon,
   monitoring: monitoringIcon,
+  power: powerIcon,
   shapes: shapesIcon,
   refresh: refreshIcon,
   restore: restoreIcon,

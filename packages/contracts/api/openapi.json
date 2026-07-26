@@ -1064,6 +1064,51 @@
         ]
       }
     },
+    "/api/v1/account/export": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Export Account Data",
+        "operationId": "export_account_data_api_v1_account_export_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDataExport"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/account": {
+      "delete": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Erase Current Account",
+        "operationId": "erase_current_account_api_v1_account_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/installations/register": {
       "post": {
         "tags": [
@@ -1153,6 +1198,95 @@
         }
       }
     },
+    "/api/v1/installations/{installation_id}/export": {
+      "get": {
+        "tags": [
+          "installations"
+        ],
+        "summary": "Export Installation",
+        "operationId": "export_installation_api_v1_installations__installation_id__export_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "installation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Installation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallationDataExport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/installations/{installation_id}/data": {
+      "delete": {
+        "tags": [
+          "installations"
+        ],
+        "summary": "Erase Installation",
+        "operationId": "erase_installation_api_v1_installations__installation_id__data_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "installation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Installation Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/telemetry/batches": {
       "post": {
         "tags": [
@@ -1173,6 +1307,47 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/telemetry/preference": {
+      "post": {
+        "tags": [
+          "telemetry"
+        ],
+        "summary": "Record Preference",
+        "operationId": "record_preference_api_v1_telemetry_preference_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryPreferenceWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryPreferenceRead"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -1210,6 +1385,16 @@
               "minimum": 1,
               "default": 30,
               "title": "Period Days"
+            }
+          },
+          {
+            "name": "all_time",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "All Time"
             }
           },
           {
@@ -1576,6 +1761,99 @@
   },
   "components": {
     "schemas": {
+      "AccountDataExport": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schema Version",
+            "default": 1
+          },
+          "exported_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Exported At"
+          },
+          "account": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Account"
+          },
+          "external_identities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "External Identities"
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings"
+          },
+          "encrypted_secret": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encrypted Secret"
+          },
+          "installations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Installations"
+          },
+          "telemetry_preferences": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Telemetry Preferences"
+          },
+          "usage_statistics": {
+            "additionalProperties": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Usage Statistics"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "exported_at",
+          "account",
+          "external_identities",
+          "settings",
+          "encrypted_secret",
+          "installations",
+          "telemetry_preferences",
+          "usage_statistics"
+        ],
+        "title": "AccountDataExport",
+        "description": "Portable, machine-readable copy of all account-linked control-plane data."
+      },
       "AccountSettingsRead": {
         "properties": {
           "settings": {
@@ -2246,7 +2524,6 @@
           },
           "period_days": {
             "type": "integer",
-            "maximum": 366.0,
             "minimum": 1.0,
             "title": "Period Days"
           },
@@ -2850,6 +3127,54 @@
           "search_count"
         ],
         "title": "HourlyUsage"
+      },
+      "InstallationDataExport": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schema Version",
+            "default": 1
+          },
+          "exported_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Exported At"
+          },
+          "installation": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Installation"
+          },
+          "telemetry_preferences": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Telemetry Preferences"
+          },
+          "usage_statistics": {
+            "additionalProperties": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Usage Statistics"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "exported_at",
+          "installation",
+          "telemetry_preferences",
+          "usage_statistics"
+        ],
+        "title": "InstallationDataExport"
       },
       "InstallationRead": {
         "properties": {
@@ -3549,6 +3874,89 @@
           "updated_at"
         ],
         "title": "TelemetryPreference"
+      },
+      "TelemetryPreferenceRead": {
+        "properties": {
+          "installation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Installation Id"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "notice_version": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Notice Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "account_linked": {
+            "type": "boolean",
+            "title": "Account Linked"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "installation_id",
+          "enabled",
+          "notice_version",
+          "updated_at",
+          "id",
+          "account_linked",
+          "recorded_at"
+        ],
+        "title": "TelemetryPreferenceRead"
+      },
+      "TelemetryPreferenceWrite": {
+        "properties": {
+          "installation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Installation Id"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "notice_version": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Notice Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "installation_id",
+          "enabled",
+          "notice_version",
+          "updated_at"
+        ],
+        "title": "TelemetryPreferenceWrite"
       },
       "TokenPair": {
         "properties": {

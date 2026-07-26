@@ -5,7 +5,7 @@
 > update this file in the same PR. Feature IDs (F1–F10) refer to [spec.md §4](../spec.md).
 > Parent: [System Overview](../architecture/overview.md) · Code: `apps/desktop/src/renderer/`
 >
-> **Last synced with the implemented UI: 2026-07-21.** On the MVP-12 branch, the
+> **Last synced with the implemented UI: 2026-07-25.** On the MVP-12 branch, the
 > renderer is wired to live C1 IPC queries/events and SQLite-backed data. Restore and the
 > hybrid-search engine are built; Windows packaging is self-contained and the remaining work is
 > the three-pass clean-machine/manual acceptance record.
@@ -42,10 +42,16 @@ is still the tracked folder; there is no extra grouping layer between folders an
 ```
 Launch
   │
+  ├─ Already running? ─→ hand over to it (single-instance lock): the resident
+  │                       instance shows/focuses its window and this one exits
+  │
+  ├─ Login launch, tray mode ─→ no window; capture resumes in the notification area
+  │
   ├─ First entry ─→ Welcome screen:  [ Continue local ]          ← primary, no account/backend
   │                                  [ Continue with Google ]    ← API health → system-browser PKCE (F1)
   │
   └─ After continuing ─→ workspace shell, landing on Home
+                          + resumable Getting started tutorial
                           (never blocks on the network)
 ```
 
@@ -58,9 +64,75 @@ Launch
   Google; timeout/cancellation errors are concise inline copy rather than raw IPC exceptions.
 - If AI isn't configured yet (no key), the app still captures versions; summaries show as
   pending instead of failing.
+- Only one Chronicle may run per profile. A second launch — a shortcut clicked while the app sits
+  hidden in the tray, for instance — reveals the running window and exits, so two watchers can
+  never contend over the same library.
+- Closing the window keeps capture running by default; the notification-area icon (Chronicle's own
+  app-icon artwork, in the variant matching the shell's light/dark tone) restores the window on
+  click and offers **Quit Chronicle (stops capturing)**. The first close explains this once through
+  a system notification, because a close normally means quitting. If the tray icon cannot be
+  created, closing quits exactly as before — Chronicle never becomes an unreachable process.
+- Capture still requires Chronicle to be running. Saves made while it is closed are reconciled to
+  their *final* state on next launch, so intermediate saves in that window are not recorded
+  individually; **Settings → Startup & background** is where that gap is closed.
 - In development, Electron starts the Python 3.12 service from `services/ai`. In an installed
   Windows build it starts the bundled Gemini-capable sidecar from app resources; no system Python
   is required. Either path is loopback-only, health-checked, and never gates local capture.
+
+### First-run tutorial — POST-07
+
+The Welcome actions state that continuing agrees to the hosted Terms of Service and acknowledges
+the Privacy Policy. Chronicle records the current document versions, timestamp, and local/Google
+method on that device. If either version changes, returning users see a one-time legal review
+without restarting their completed or in-progress tutorial. Both documents remain available from
+Settings.
+
+Fresh installations then open a compact, non-modal **Getting started** guided tour. Coach-mark
+dialogs spotlight and point to the real control to click while leaving the
+workspace fully visible and interactive. They follow the desktop teaching-tip pattern: one compact
+static tip, a direct target pointer, a gentle ring without a dark scrim, and no screenshots or
+forced slideshow:
+
+1. **Create a project** — completion comes from a real tracked folder.
+2. **See your versions** — the Timeline tip lets the user explore at their own pace. Version
+   Details replaces it with a small side-mounted **Continue tour →** card, so advancing does not
+   require navigating back. An empty project instead explains that saving a supported file will
+   create the first version.
+3. **Set up AI summaries** — explicitly optional. Completion comes from a successfully saved
+   validated configuration or successful summary-provider test; **Maybe later** completes the
+   tutorial without enabling AI.
+
+The tour supports Back, persistent Skip/close controls, Escape-to-skip, restart/resume, automatic
+target scrolling, responsive fallback placement, and reduced motion. It persists only versioned
+step flags and an optional numeric project ID—never paths, creative metadata, or keys. Users who
+had already entered the workspace before POST-07 are not placed into the tutorial; they only see
+the one-time legal review and can use **Settings → Getting started → Replay tutorial** if wanted.
+Capture remains usable throughout every tutorial and AI state.
+
+### Installed Windows wizard — POST-07
+
+The `.exe` uses electron-builder's maintained assisted NSIS wizard with a native Welcome page,
+Chronicle header/sidebar artwork, current-user installation, editable destination, standard
+progress, and **Run Chronicle** on Finish. Customization is a small `installer.nsh` include; there
+is no HTML or replacement installer script. No EULA page ships: agreement happens immediately
+before the user enters the application, and the optional online services use the same hosted
+Terms. The native required-license-checkbox define remains dormant in case legal review later
+requires a separate installer license.
+
+### Installed Windows updates — POST-08
+
+Packaged Windows builds check Chronicle's public stable GitHub Releases feed asynchronously after
+the workspace opens and periodically while the app remains running. A newer release downloads in
+the background. One global accessible banner shows download progress and offers **Restart to
+update** only after the installer is ready; **Later** dismisses it for the session and an ordinary
+quit never installs it. **Settings → About & updates** shows the current version, last check,
+status, retry, and the same restart action. Automatic offline errors do not interrupt capture,
+timeline, restore, search, AI jobs, onboarding, or account state.
+
+Development, unpacked, macOS, and Linux builds report updates as unsupported and make no feed
+request. The unsigned bootstrap supports optional/recommended updates only. Mandatory security
+enforcement remains disabled until signed installers and independently authenticated policy pass
+the POST-08B/C gates; local read/export/restore may never be held hostage.
 
 ---
 
@@ -75,6 +147,7 @@ One window; regions as implemented:
 │  Home    │                                             │
 │  Projects│              Content area                   │
 │  Search  │      (one page at a time, see below)        │
+│  Activity│                                             │
 │          │                                             │
 │  ────────│                                             │
 │  Settings│                                             │
@@ -87,7 +160,7 @@ One window; regions as implemented:
 - **Title bar** — 48 px draggable region with the Chronicle mark; hidden default title bar
   with native Window Controls Overlay on Windows/Linux and traffic lights on macOS. The
   center intentionally stays empty until a real global search/command field earns it.
-- **Sidebar** — primary navigation **Home · Projects · Search**, with **Settings** pinned
+- **Sidebar** — primary navigation **Home · Projects · Search · Activity & Cost**, with **Settings** pinned
   in the footer next to the exact `package.json` app version. Includes a skip-to-content link; the active item
   is marked with `aria-current="page"`.
 - **Content area** — exactly one page at a time; a short reduced-motion-aware transition
@@ -214,6 +287,36 @@ box — the user never chooses a "mode". Click a result → Version details.
   active indexing, work paused offline, and missing AI setup; in every state it confirms that
   keyword search remains available while meaning-based matches catch up.
 
+### Activity & Cost — POST-09
+
+The local Activity & Cost screen works without an account or control plane. It shows a
+timezone-labelled 30/90/365-day or all-time contribution calendar for captures, AI summaries, searches, and
+restores; current active project/asset totals; and a provider/model/operation cost table. It does
+not invent a productivity score.
+
+Every AI attempt stores provider, model, operation, time, success, latency, and nullable token
+usage. Chat calls use provider response metadata; OpenAI and Google embedding calls use the
+providers' exact tokenizer through LangChain because its standard embedding response omits usage.
+Unsupported or failed counters remain unavailable. The Electron main process refreshes one live
+Models.dev price catalog, caches it for offline use, and stamps estimates with the fetched catalog
+hash and exact rates. Existing estimates are immutable; explicit refreshes affect future or still
+unpriced calls only. UI copy distinguishes provider-reported, estimated, and unavailable amounts,
+states USD and the price refresh time, and points users to their provider invoice as authority.
+These private analytics tables are separate from opt-in telemetry and contain no creative content,
+paths, names, summaries, tags, search text, or credentials.
+
+Queued version-index embeddings are drained in ordered batches of up to 16 texts through C3,
+reducing provider round trips while keeping interactive search-query embeddings single-item and
+latency-oriented. Each real batch produces one usage/cost call record with aggregate exact input
+tokens; vector order is checked before results are attached to versions.
+
+Settings shows the small live per-million-token list price for the current provider/model fields
+and refreshes it after every selection change (debounced for custom typing). Activity & Cost shows
+the persisted selections even before either model has recorded a call. An unlisted model remains
+visible with an unavailable-price state rather than receiving a guessed rate. Both surfaces use
+the same cached Models.dev catalog. The Admin control center offers an all-time range that begins
+automatically at the first control-plane installation log and ends at request time.
+
 ### 8.1 Diagnostics — developer-only
 
 A **Diagnostics** tab appears directly below Search while running `npm run dev`. Packaged builds
@@ -266,14 +369,17 @@ and raw IP addresses never enter the renderer contract.
 
 ### 9. Settings — F1, F2, F4/F9 config
 
-Five sections, in current order:
+Seven sections, in current order:
 
 | Section | Contents |
 |---|---|
+| **Getting started** | Tutorial state plus Restart, Resume, or Replay action. |
 | **Appearance** | Theme: System (default) · Dark · Light |
+| **Startup & background** | **Keep capturing after I close the window** (default on) turns a window close into a hide, leaving Chronicle resident in the notification area with capture, the AI queue, and search intact; turning it off restores quit-on-close. Below it, **Start Chronicle when I sign in** registers a login item, with a nested **Open the Chronicle window at sign-in** choosing between restoring the UI and resuming silently in the tray. With background capture off there is no tray to reach, so those two collapse into one control — **Start Chronicle and open its window when I sign in** — rather than showing a distinction that cannot exist. Whether a login item exists is read back from the operating system on every visit, never stored, because it can be revoked from Task Manager or System Settings; it is disabled with an explanation in development builds and on platforms without a login-item API. The *launch mode* is the one part kept in C5, because Windows does not return a login item's registered arguments. |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
 | **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker and an explicit task-specific **Test connection** action that uses the saved key without mutating settings. Packaged providers: **Google Gemini · Anthropic Claude · OpenAI**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Custom AI configuration** toggle permits free-text LangChain provider/model pairs for development environments that install them separately. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save/Test until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
-| **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved. Usage reporting sends app opens, project removals, hourly search and provider/model usage, current count snapshots, sanitized application failures, and Cloudflare-derived coarse location—never creative content, names, paths, summaries/tags, search text, credentials, or raw IP. It sends on startup and hourly only after changes; turning it off attempts one final request, clears local state, and never retries. Portable preferences sync automatically after each saved change. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. |
+| **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved and audited with notice version/time/installation/account linkage. Usage reporting sends app opens, project removals, hourly search and provider/model usage, current count snapshots, sanitized application failures, and Cloudflare-derived coarse location—never creative content, names, paths, summaries/tags, search text, credentials, or raw IP. It sends on startup and hourly only after changes; turning it off attempts one final request, clears local state, and never retries. Portable preferences sync automatically after each saved change. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. Settings links the privacy policy, exports account or anonymous-installation cloud data as JSON, lets local profiles erase installation usage data, and lets signed-in users permanently delete their account and all linked cloud data. Both erasure flows explicitly preserve local history, originals, and provider keys. |
+| **About & updates** | Current desktop version, last update check, packaged-Windows updater state, explicit **Check now**, and **Restart to update** once a release is downloaded. Unsupported builds do not contact the feed. |
 | **Developer tools** | Final section. Developer mode is forced on in development builds and is an explicit device-local checkbox in packaged builds. It controls the developer-only Diagnostics navigation tab. |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,
@@ -298,7 +404,8 @@ Details, Pending jobs, and the always-visible status-bar failure count.
 | F5 Timeline & details | Home / Project → Timeline → Version details |
 | F6 Restore | Version details (append-only restore + native save-copy fallback) |
 | F7 Hybrid search | Search (`Ctrl/Cmd+K`) |
-| F8 Telemetry (low) | Settings preference and disclosure implemented; event delivery planned in POST-04 |
+| POST-09 Personal analytics | Activity & Cost (local calendar + AI usage and estimates) |
+| F8 Telemetry/privacy (low) | Settings disclosure, auditable preference, normalized delivery, export, retention, installation erasure, and account/cloud deletion |
 | F9 Gateway (stretch) | Settings → AI ("Use Chronicle service") |
 | F10 Admin (stretch) | Admin page (role-gated) |
 

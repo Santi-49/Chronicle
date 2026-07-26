@@ -29,6 +29,8 @@ const API_METHODS = {
   restoreVersion: true,
   saveVersionCopy: true,
   search: true,
+  getActivityDashboard: true,
+  getAiModelPrice: true,
   retryAnnotation: true,
   retryAllFailedJobs: true,
   getSettings: true,
@@ -53,12 +55,20 @@ const API_METHODS = {
   login: true,
   loginWithGoogle: true,
   logout: true,
+  exportAccountData: true,
+  deleteCloudUsageData: true,
+  deleteCloudAccount: true,
   syncSettings: true,
   syncApiKeys: true,
   restoreApiKeys: true,
   disableApiKeySync: true,
   getAppStatus: true,
   listPendingJobs: true,
+  getSystemIntegration: true,
+  setOpenAtLogin: true,
+  getUpdateState: true,
+  checkForUpdates: true,
+  restartToUpdate: true,
 } as const satisfies Record<keyof ChronicleApi, true>
 
 const EVENTS = {
@@ -69,6 +79,7 @@ const EVENTS = {
   fileSkipped: true,
   controlPlaneDiagnostic: true,
   applicationDiagnostic: true,
+  updateStateChanged: true,
 } as const satisfies Record<ChronicleEventName, true>
 
 export const API_METHOD_NAMES = Object.keys(API_METHODS) as ReadonlyArray<keyof ChronicleApi>

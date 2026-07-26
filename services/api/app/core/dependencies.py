@@ -19,8 +19,25 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    if credentials is None:
+    user = await _resolve_user(credentials, db)
+    if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return user
+
+
+async def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    return await _resolve_user(credentials, db)
+
+
+async def _resolve_user(
+    credentials: HTTPAuthorizationCredentials | None,
+    db: AsyncSession,
+) -> User | None:
+    if credentials is None:
+        return None
     token = credentials.credentials
     try:
         payload = decode_token(token)

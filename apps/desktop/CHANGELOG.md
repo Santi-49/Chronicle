@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.13.0](https://github.com/Santi-49/Chronicle/compare/v0.12.0...v0.13.0) (2026-07-26)
+
+
+### Features
+
+* **help:** implement static searchable Help center for non-technical users ([642eb13](https://github.com/Santi-49/Chronicle/commit/642eb138662fd42c6fc13276f531ad0d5eb6540f))
+* **landing:** implement static searchable help center with task-based setup ([642eb13](https://github.com/Santi-49/Chronicle/commit/642eb138662fd42c6fc13276f531ad0d5eb6540f))
+
+## [0.12.0](https://github.com/Santi-49/Chronicle/compare/v0.11.1...v0.12.0) (2026-07-26)
+
+
+### Features
+
+* enhance update experience with compact notifications and ignore option ([35100b9](https://github.com/Santi-49/Chronicle/commit/35100b9d0b1e60ec0eebf1b30b83768ea5efc425))
+* implement compact update notifications with context menu options for relaunch and ignore ([35100b9](https://github.com/Santi-49/Chronicle/commit/35100b9d0b1e60ec0eebf1b30b83768ea5efc425))
+
+
+### Bug Fixes
+
+* **changelog:** refine desktop release commit filtering and update documentation ([35100b9](https://github.com/Santi-49/Chronicle/commit/35100b9d0b1e60ec0eebf1b30b83768ea5efc425))
+
+## [0.11.1](https://github.com/Santi-49/Chronicle/compare/v0.11.0...v0.11.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* Test auto update ([0839c29](https://github.com/Santi-49/Chronicle/commit/0839c2999f784ae4b1b8af2537e8fb5213a31a9c))
+
+## [0.11.0](https://github.com/Santi-49/Chronicle/compare/v0.10.0...v0.11.0) (2026-07-26)
+
+
+### Features
+
+* **desktop:** add Windows auto-update ([0897b3a](https://github.com/Santi-49/Chronicle/commit/0897b3adb19c81907a943edc48708eb8adae8357))
+
+## [0.10.0](https://github.com/Santi-49/Chronicle/compare/v0.9.0...v0.10.0) (2026-07-26)
+
+
+### Features
+
+* post-07-instalation ([fcbe9c7](https://github.com/Santi-49/Chronicle/commit/fcbe9c79f21a825eccb2caca1e8513d43616b282))
+
+## [0.9.0](https://github.com/Santi-49/Chronicle/compare/v0.8.0...v0.9.0) (2026-07-25)
+
+
+### Features
+
+* post-01  ([735d0c8](https://github.com/Santi-49/Chronicle/commit/735d0c8368ae5fb7b282f9c2267cfbff547035a5))
+
 ## [0.8.0](https://github.com/Santi-49/Chronicle/compare/v0.7.0...v0.8.0) (2026-07-24)
 
 

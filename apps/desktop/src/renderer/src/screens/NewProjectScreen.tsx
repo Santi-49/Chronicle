@@ -370,7 +370,7 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
               {editing ? (
                 <button className="secondary-button" disabled type="button">Locked</button>
               ) : (
-                <button className="secondary-button" onClick={handleBrowse} type="button">Browse…</button>
+                <button className="secondary-button" data-tour="choose-folder" onClick={handleBrowse} type="button">Browse…</button>
               )}
             </div>
           </label>
@@ -511,7 +511,7 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
               </div>
 
               {scan && !scanning && scan.length === 0 && (
-                <p className="scan-empty">No PNG or JPG files here yet — versions will appear as you save them.</p>
+                <p className="scan-empty">No supported creative files here yet — versions will appear as you save them.</p>
               )}
 
               {tree && scan && scan.length > 0 && (
@@ -525,7 +525,7 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
 
         <div className="form-actions">
           <button className="text-button" onClick={onCancel} type="button">Cancel</button>
-          <button className="primary-button" disabled={busy || !folderPath} type="submit">
+          <button className="primary-button" data-tour="create-project-submit" disabled={busy || !folderPath} type="submit">
             <Icon name={editing ? 'check' : 'folder-plus'} />
             {busy ? (editing ? 'Saving…' : 'Creating…') : (editing ? 'Save changes' : 'Create project')}
           </button>

@@ -336,6 +336,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/account/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Account Data */
+        get: operations["export_account_data_api_v1_account_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Erase Current Account */
+        delete: operations["erase_current_account_api_v1_account_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/installations/register": {
         parameters: {
             query?: never;
@@ -370,6 +404,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/installations/{installation_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Installation */
+        get: operations["export_installation_api_v1_installations__installation_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/installations/{installation_id}/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Erase Installation */
+        delete: operations["erase_installation_api_v1_installations__installation_id__data_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/telemetry/batches": {
         parameters: {
             query?: never;
@@ -381,6 +449,23 @@ export interface paths {
         put?: never;
         /** Ingest Batch */
         post: operations["ingest_batch_api_v1_telemetry_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/telemetry/preference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Preference */
+        post: operations["record_preference_api_v1_telemetry_preference_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -503,6 +588,53 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AccountDataExport
+         * @description Portable, machine-readable copy of all account-linked control-plane data.
+         */
+        AccountDataExport: {
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /**
+             * Exported At
+             * Format: date-time
+             */
+            exported_at: string;
+            /** Account */
+            account: {
+                [key: string]: unknown;
+            };
+            /** External Identities */
+            external_identities: {
+                [key: string]: unknown;
+            }[];
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            } | null;
+            /** Encrypted Secret */
+            encrypted_secret: {
+                [key: string]: unknown;
+            } | null;
+            /** Installations */
+            installations: {
+                [key: string]: unknown;
+            }[];
+            /** Telemetry Preferences */
+            telemetry_preferences: {
+                [key: string]: unknown;
+            }[];
+            /** Usage Statistics */
+            usage_statistics: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[];
+            };
+        };
         /** AccountSettingsRead */
         AccountSettingsRead: {
             settings: components["schemas"]["PortableSettings-Output"];
@@ -982,6 +1114,34 @@ export interface components {
              */
             project_create_count: number;
         };
+        /** InstallationDataExport */
+        InstallationDataExport: {
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /**
+             * Exported At
+             * Format: date-time
+             */
+            exported_at: string;
+            /** Installation */
+            installation: {
+                [key: string]: unknown;
+            };
+            /** Telemetry Preferences */
+            telemetry_preferences: {
+                [key: string]: unknown;
+            }[];
+            /** Usage Statistics */
+            usage_statistics: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[];
+            };
+        };
         /** InstallationRead */
         InstallationRead: {
             /**
@@ -1279,6 +1439,52 @@ export interface components {
              * Notice Version
              * @default 2026-07-21
              */
+            notice_version: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TelemetryPreferenceRead */
+        TelemetryPreferenceRead: {
+            /**
+             * Installation Id
+             * Format: uuid
+             */
+            installation_id: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Notice Version */
+            notice_version: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Account Linked */
+            account_linked: boolean;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+        };
+        /** TelemetryPreferenceWrite */
+        TelemetryPreferenceWrite: {
+            /**
+             * Installation Id
+             * Format: uuid
+             */
+            installation_id: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Notice Version */
             notice_version: string;
             /**
              * Updated At
@@ -2128,6 +2334,44 @@ export interface operations {
             };
         };
     };
+    export_account_data_api_v1_account_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDataExport"];
+                };
+            };
+        };
+    };
+    erase_current_account_api_v1_account_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     register_installation_api_v1_installations_register_post: {
         parameters: {
             query?: never;
@@ -2192,6 +2436,66 @@ export interface operations {
             };
         };
     };
+    export_installation_api_v1_installations__installation_id__export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallationDataExport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    erase_installation_api_v1_installations__installation_id__data_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ingest_batch_api_v1_telemetry_batches_post: {
         parameters: {
             query?: never;
@@ -2223,10 +2527,44 @@ export interface operations {
             };
         };
     };
+    record_preference_api_v1_telemetry_preference_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetryPreferenceWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelemetryPreferenceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_admin_statistics_api_v1_admin_statistics_get: {
         parameters: {
             query?: {
                 period_days?: number;
+                all_time?: boolean;
                 start_date?: string | null;
                 end_date?: string | null;
                 account_id?: string | null;

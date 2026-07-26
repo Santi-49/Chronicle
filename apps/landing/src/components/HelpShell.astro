@@ -1,0 +1,60 @@
+---
+import { landingContent } from "../content";
+import SeoHead from "./SeoHead.astro";
+import "../styles/help.css";
+
+interface Props {
+  title: string;
+  description: string;
+  pathname: string;
+}
+
+const { title, description, pathname } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <SeoHead title={`${title} | Chronicle Help`} description={description} pathname={pathname} pageType="help" />
+    <title>{title} | Chronicle Help</title>
+  </head>
+  <body>
+    <a class="help-skip" href="#help-content">Skip to content</a>
+    <header class="help-header">
+      <div class="help-header__inner">
+        <a class="help-brand" href="/" aria-label="Chronicle home">
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" />
+            <circle cx="38" cy="12" r="5" />
+            <circle cx="39" cy="39" r="4" />
+          </svg>
+          <span>Chronicle</span>
+        </a>
+        <span class="help-brand__divider" aria-hidden="true"></span>
+        <a class="help-brand__help" href="/help/" aria-current="page">Help center</a>
+        <nav class="help-header__nav" aria-label="Help navigation">
+          <a href="/help/getting-started/">Start here</a>
+          <a href="/help/troubleshooting/updates/">Updates</a>
+          <a href="/help/faq/">FAQ</a>
+        </nav>
+        <a class="help-download" href={landingContent.appUrl}>Download</a>
+      </div>
+    </header>
+    <main id="help-content"><slot /></main>
+    <footer class="help-footer">
+      <div>
+        <span>Chronicle Help</span>
+        <nav aria-label="Footer navigation">
+          <a href="/">Product</a>
+          <a href="/about/">About</a>
+          <a href="/privacy/">Privacy</a>
+          <a href="/terms-and-services/">Terms</a>
+          <a href={`${landingContent.githubUrl}/issues`}>Support on GitHub</a>
+        </nav>
+      </div>
+      <p>Never share API keys, tokens, private paths, or creative files in a public support request.</p>
+    </footer>
+  </body>
+</html>

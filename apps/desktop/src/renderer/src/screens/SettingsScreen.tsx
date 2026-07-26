@@ -14,18 +14,29 @@ import {
   type AiTask,
 } from '../lib/aiCatalog'
 import { useFolders, useSettings } from '../lib/useChronicle'
+import { useUpdates } from '../lib/useUpdates'
 import { chronicle } from '../lib/bridge'
 import { friendlyError } from '../lib/friendlyError'
 import { friendlyIpcError } from '../lib/errors'
+import { HELP_CENTER_URL, UPDATE_HELP_URL } from '../lib/helpLinks'
+import { PRIVACY_URL, TERMS_URL } from '../lib/legalAcceptance'
+import type { OnboardingStatus } from '../lib/onboarding'
+import type { AiModelPrice, SystemIntegrationState } from '../../../shared/ipc'
 
 interface SettingsScreenProps {
   developerBuild: boolean
   developerMode: boolean
   themePreference: ThemePreference
   onAddProject: () => void
+  onOpenProjects: () => void
   onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
   onAdminStateChange: (isAdmin: boolean) => void
+  onboardingStatus: OnboardingStatus
+  onAiReady: () => void
+  onReplayTutorial: () => void
+  onResumeTutorial: () => void
+  focusSection?: 'ai'
 }
 
 const appearanceOptions: { value: ThemePreference; label: string; description: string }[] = [
@@ -39,10 +50,27 @@ export function SettingsScreen({
   developerMode,
   themePreference,
   onAddProject,
+  onOpenProjects,
   onDeveloperModeChange,
   onThemePreferenceChange,
   onAdminStateChange,
+  onboardingStatus,
+  onAiReady,
+  onReplayTutorial,
+  onResumeTutorial,
+  focusSection,
 }: SettingsScreenProps) {
+  useEffect(() => {
+    if (focusSection !== 'ai') return
+    const frame = window.requestAnimationFrame(() => {
+      const section = document.getElementById('ai-settings')
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      section?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' })
+      section?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [focusSection])
+
   return (
     <section className="page settings-page" aria-labelledby="settings-title">
       <PageHeader
@@ -52,15 +80,142 @@ export function SettingsScreen({
       />
 
       <div className="settings-sections">
+        <GettingStartedSection
+          status={onboardingStatus}
+          onReplay={onReplayTutorial}
+          onResume={onResumeTutorial}
+        />
         <AppearanceSection themePreference={themePreference} onThemePreferenceChange={onThemePreferenceChange} />
+        <StartupSection />
         <TrackedFoldersSection onAddProject={onAddProject} />
-        <AiSection />
-        <AccountSection onAdminStateChange={onAdminStateChange} />
+        <AiSection onAiReady={onAiReady} />
+        <AccountSection
+          onAdminStateChange={onAdminStateChange}
+          onOpenProjects={onOpenProjects}
+        />
+        <AboutSection />
         <DeveloperToolsSection
           developerBuild={developerBuild}
           developerMode={developerMode}
           onDeveloperModeChange={onDeveloperModeChange}
         />
+      </div>
+    </section>
+  )
+}
+
+function AboutSection() {
+  const { state, check, restart } = useUpdates()
+  const [checking, setChecking] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const checkedLabel = state?.checkedAt
+    ? new Date(state.checkedAt).toLocaleString()
+    : 'Not checked yet'
+  const statusLabel =
+    state?.phase === 'unsupported'
+      ? 'Automatic updates are available in the installed Windows app.'
+      : state?.phase === 'checking'
+        ? 'Checking for updates…'
+        : state?.phase === 'available' || state?.phase === 'downloading'
+          ? `Chronicle ${state.availableVersion} is downloading.`
+          : state?.phase === 'ready'
+            ? `Chronicle ${state.availableVersion} is ready to install.`
+            : state?.error ?? 'Chronicle is up to date.'
+
+  const runCheck = async () => {
+    setChecking(true)
+    setActionError('')
+    try {
+      await check()
+    } catch {
+      setActionError('Chronicle could not check for updates. Check your connection and retry.')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <section className="settings-section" id="about-settings">
+      <div className="settings-section-heading">
+        <Icon name="info" />
+        <div>
+          <h2>About & updates</h2>
+          <p>Chronicle {state?.currentVersion ?? __APP_VERSION__} · Windows updates use public GitHub Releases.</p>
+        </div>
+      </div>
+      <div className="about-update-status" aria-live="polite">
+        <div>
+          <strong>{statusLabel}</strong>
+          <span>Last checked: {checkedLabel}</span>
+          <small>Update checks never include project files, paths, credentials, or account data.</small>
+        </div>
+        <div className="about-update-actions">
+          {state?.phase === 'ready' && (
+            <button className="primary-button" onClick={() => void restart()} type="button">
+              Restart to update
+            </button>
+          )}
+          <button
+            className="secondary-button"
+            disabled={checking || state?.phase === 'checking' || state?.phase === 'unsupported'}
+            onClick={() => void runCheck()}
+            type="button"
+          >
+            <Icon name="refresh" />
+            {checking || state?.phase === 'checking' ? 'Checking…' : 'Check now'}
+          </button>
+          <a className="secondary-button" href={HELP_CENTER_URL} rel="noreferrer" target="_blank">
+            <Icon name="help" />
+            Help center
+          </a>
+          <a className="secondary-button" href={UPDATE_HELP_URL} rel="noreferrer" target="_blank">
+            Update help
+          </a>
+        </div>
+        {(actionError || state?.error) && state?.phase !== 'unsupported' && (
+          <p className="form-error" role="alert">{actionError || state?.error}</p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function GettingStartedSection({
+  status,
+  onReplay,
+  onResume,
+}: {
+  status: OnboardingStatus
+  onReplay: () => void
+  onResume: () => void
+}) {
+  const active = status === 'active'
+  const complete = status === 'complete'
+  return (
+    <section className="settings-section">
+      <div className="settings-section-heading">
+        <Icon name="spark" />
+        <div>
+          <h2>Getting started</h2>
+          <p>Create a project, learn the Timeline, and configure optional AI at your own pace.</p>
+        </div>
+      </div>
+      <div className="getting-started-settings-copy">
+        <p>
+          {active
+            ? 'The guided tour is active. Follow the highlighted controls or skip it at any time.'
+            : complete
+              ? 'Tutorial completed. Replay it whenever you want a quick refresher.'
+              : 'The guided tour is hidden. Resume it without losing completed steps.'}
+        </p>
+        <button
+          className="secondary-button"
+          onClick={active || complete ? onReplay : onResume}
+          type="button"
+        >
+          <Icon name={active || complete ? 'refresh' : 'spark'} />
+          {active ? 'Restart tutorial' : complete ? 'Replay tutorial' : 'Resume tutorial'}
+        </button>
       </div>
     </section>
   )
@@ -128,6 +283,151 @@ function AppearanceSection({
   )
 }
 
+// ── Startup & background ────────────────────────────────────────────────
+
+/**
+ * Three related but separate choices, in the order they take effect:
+ * whether closing the window keeps capturing, whether Chronicle starts with
+ * Windows/macOS, and whether that start shows the window.
+ *
+ * The startup preference is read back from the operating system on every load
+ * rather than from settings, because it can be revoked in Task Manager or
+ * System Settings while Chronicle is not running.
+ */
+function StartupSection() {
+  const { settings, save } = useSettings()
+  const [system, setSystem] = useState<SystemIntegrationState>()
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void chronicle.getSystemIntegration().then((state) => {
+      if (!cancelled) setSystem(state)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const runInBackground = settings?.system.runInBackground ?? false
+  // With background capture off there is no tray to reach, so a login launch
+  // must show its window; the main process enforces the same rule. Rather than
+  // showing a checkbox that ticks itself and then refuses to be changed, the
+  // choice disappears and the single remaining behavior is stated in words.
+  const windowForced = !runInBackground
+  const opensWindow = windowForced || (system?.openAtLoginOpensWindow ?? false)
+
+  const applyLogin = async (enabled: boolean, showWindow: boolean) => {
+    setBusy(true)
+    setError('')
+    try {
+      setSystem(await chronicle.setOpenAtLogin(enabled, showWindow))
+    } catch (cause) {
+      setError(friendlyIpcError(cause, 'Chronicle could not change the startup setting.'))
+      // Re-read so the checkboxes show what the operating system actually has.
+      setSystem(await chronicle.getSystemIntegration())
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const changeBackground = async (enabled: boolean) => {
+    setError('')
+    await save({
+      system: {
+        runInBackground: enabled,
+        openAtLoginOpensWindow: settings?.system.openAtLoginOpensWindow ?? false,
+      },
+    })
+    // Turning background capture off strands a tray-only login launch, so
+    // promote it to a window launch in the same action.
+    if (!enabled && system?.openAtLogin && !system.openAtLoginOpensWindow) {
+      await applyLogin(true, true)
+    }
+  }
+
+  return (
+    <section className="settings-section" id="startup-settings">
+      <div className="settings-section-heading">
+        <Icon name="power" />
+        <div>
+          <h2>Startup &amp; background</h2>
+          <p>Chronicle only captures saves while it is running.</p>
+        </div>
+      </div>
+
+      <div className="startup-options">
+        <label className="toggle-field">
+          <input
+            checked={runInBackground}
+            disabled={!settings}
+            onChange={(event) => void changeBackground(event.target.checked)}
+            type="checkbox"
+          />
+          <span>
+            <strong>Keep capturing after I close the window</strong>
+            <small>
+              Chronicle stays in the notification area and keeps versioning your folders. Open or
+              quit it from the tray icon. Turn this off to make closing the window quit Chronicle.
+            </small>
+          </span>
+        </label>
+
+        {/*
+          With background capture off there is no tray icon, so the only
+          reachable login launch is one that opens the window — a single choice,
+          shown as a single control. Offering "start at login" and "open the
+          window" separately there would present a distinction that does not
+          exist, with one of them permanently forced.
+        */}
+        <label className="toggle-field">
+          <input
+            checked={system?.openAtLogin ?? false}
+            disabled={busy || !system?.openAtLoginSupported}
+            onChange={(event) => void applyLogin(event.target.checked, opensWindow)}
+            type="checkbox"
+          />
+          <span>
+            <strong>
+              {windowForced
+                ? 'Start Chronicle and open its window when I sign in'
+                : 'Start Chronicle when I sign in'}
+            </strong>
+            <small>
+              {!system?.openAtLoginSupported
+                ? (system?.unsupportedReason ?? 'Starting at login is available in the installed app.')
+                : windowForced
+                  ? 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete. The window opens because background capture is off — without a tray icon there would be no way to reach Chronicle.'
+                  : 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete.'}
+            </small>
+          </span>
+        </label>
+
+        {!windowForced && (
+          <label className="toggle-field startup-nested">
+            <input
+              checked={opensWindow}
+              disabled={busy || !system?.openAtLoginSupported || !system?.openAtLogin}
+              onChange={(event) => void applyLogin(true, event.target.checked)}
+              type="checkbox"
+            />
+            <span>
+              <strong>Open the Chronicle window at sign-in</strong>
+              <small>
+                Leave this off to start quietly in the notification area and keep capturing without
+                a window.
+              </small>
+            </span>
+          </label>
+        )}
+      </div>
+
+      {error && <p className="form-error" role="alert">{error}</p>}
+    </section>
+  )
+}
+
 // ── Tracked folders ─────────────────────────────────────────────────────
 
 function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
@@ -164,7 +464,21 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
 
 // ── AI summaries ──────────────────────────────────────────────────────────
 
-function AiSection() {
+const modelRate = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 6,
+})
+
+function formatModelPrice(price: AiModelPrice | null, inputOnly: boolean): string {
+  if (!price) return 'Live list price unavailable for this model.'
+  const input = `${modelRate.format(price.inputUsdPerMillion)} input`
+  const output = inputOnly ? '' : ` · ${modelRate.format(price.outputUsdPerMillion)} output`
+  return `Estimated list price · ${input}${output} per 1M tokens · Models.dev`
+}
+
+function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const { settings, configuredProviders, loading, save, setApiKey, clearApiKey } = useSettings()
 
   const [devMode, setDevMode] = useState(false)
@@ -173,6 +487,12 @@ function AiSection() {
   const [embedProvider, setEmbedProvider] = useState('google_genai')
   const [embedModel, setEmbedModel] = useState('gemini-embedding-001')
   const [saveState, setSaveState] = useState<{ message: string; error: boolean } | null>(null)
+  const [priceState, setPriceState] = useState<{
+    key: string
+    chat: AiModelPrice | null
+    embeddings: AiModelPrice | null
+    loading: boolean
+  } | null>(null)
   const [testingTask, setTestingTask] = useState<AiTask | null>(null)
   const [testStates, setTestStates] = useState<
     Partial<Record<AiTask, { message: string; error: boolean }>>
@@ -191,6 +511,55 @@ function AiSection() {
       isPresetModel('embeddings', settings.ai.embeddings.provider, settings.ai.embeddings.model)
     setDevMode(!preset && settings.ai.chat.provider !== '')
   }, [settings])
+
+  useEffect(() => {
+    const chatProviderId = chatProvider.trim()
+    const chatModelId = chatModel.trim()
+    const embeddingProviderId = embedProvider.trim()
+    const embeddingModelId = embedModel.trim()
+    const key = [
+      chatProviderId,
+      chatModelId,
+      embeddingProviderId,
+      embeddingModelId,
+    ].join('\u001f')
+    let cancelled = false
+    setPriceState({ key, chat: null, embeddings: null, loading: true })
+    const timer = setTimeout(async () => {
+      let chat: AiModelPrice | null = null
+      let embeddings: AiModelPrice | null = null
+      if (chatProviderId && chatModelId) {
+        try {
+          chat = await chronicle.getAiModelPrice(chatProviderId, chatModelId)
+        } catch {
+          // One unavailable model must not hide the other task's price.
+        }
+      }
+      if (embeddingProviderId && embeddingModelId) {
+        try {
+          embeddings = await chronicle.getAiModelPrice(
+            embeddingProviderId,
+            embeddingModelId,
+          )
+        } catch {
+          // Pricing is informational; editing and saving remain available.
+        }
+      }
+      if (!cancelled) setPriceState({ key, chat, embeddings, loading: false })
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [chatProvider, chatModel, embedProvider, embedModel])
+
+  const priceKey = [
+    chatProvider.trim(),
+    chatModel.trim(),
+    embedProvider.trim(),
+    embedModel.trim(),
+  ].join('\u001f')
+  const currentPrices = priceState?.key === priceKey ? priceState : null
 
   // When switching provider in preset mode, snap the model to that provider's first option.
   const changeProvider = (task: AiTask, providerId: string) => {
@@ -231,6 +600,7 @@ function AiSection() {
         },
       })
       setSaveState({ message: 'Saved.', error: false })
+      onAiReady()
     } catch (err) {
       const reason = friendlyIpcError(err, 'The AI configuration could not be validated.')
       setSaveState({
@@ -276,6 +646,7 @@ function AiSection() {
           error: !result.valid,
         },
       }))
+      if (result.valid && task === 'chat') onAiReady()
     } catch (error) {
       setTestStates((current) => ({
         ...current,
@@ -305,7 +676,7 @@ function AiSection() {
   }, [chatProvider, embedProvider])
 
   return (
-    <section className="settings-section">
+    <section className="settings-section" data-tour="ai-settings" id="ai-settings" tabIndex={-1}>
       <div className="settings-section-heading">
         <Icon name="spark" />
         <div><h2>AI summaries</h2><p>Optional. Versions are always captured, even when AI is unavailable.</p></div>
@@ -330,6 +701,13 @@ function AiSection() {
           <ProviderModelPicker task="chat" provider={chatProvider} model={chatModel} onProvider={(p) => changeProvider('chat', p)} onModel={setChatModel} />
         )}
         {chatError && <p className="ai-task-error" role="alert">{chatError}</p>}
+        {chatProvider.trim() && chatModel.trim() && (
+          <small aria-live="polite" className="ai-model-price">
+            {!currentPrices || currentPrices.loading
+              ? 'Checking live list price…'
+              : formatModelPrice(currentPrices?.chat ?? null, false)}
+          </small>
+        )}
         <div className="ai-task-test-row">
           <button
             className="secondary-button compact-button"
@@ -361,6 +739,13 @@ function AiSection() {
           <ProviderModelPicker task="embeddings" provider={embedProvider} model={embedModel} onProvider={(p) => changeProvider('embeddings', p)} onModel={setEmbedModel} />
         )}
         {embedError && <p className="ai-task-error" role="alert">{embedError}</p>}
+        {embedProvider.trim() && embedModel.trim() && (
+          <small aria-live="polite" className="ai-model-price">
+            {!currentPrices || currentPrices.loading
+              ? 'Checking live list price…'
+              : formatModelPrice(currentPrices?.embeddings ?? null, true)}
+          </small>
+        )}
         <div className="ai-task-test-row">
           <button
             className="secondary-button compact-button"
@@ -397,6 +782,8 @@ function AiSection() {
             provider={provider.id}
             label={provider.label}
             saved={configuredProviders.includes(provider.id)}
+            tourTarget={provider.id === chatProvider}
+            onReady={onAiReady}
             onSave={setApiKey}
             onClear={clearApiKey}
           />
@@ -410,12 +797,16 @@ function ApiKeyRow({
   provider,
   label,
   saved,
+  tourTarget,
+  onReady,
   onSave,
   onClear,
 }: {
   provider: string
   label: string
   saved: boolean
+  tourTarget: boolean
+  onReady: () => void
   onSave: (provider: string, key: string) => Promise<void>
   onClear: (provider: string) => Promise<void>
 }) {
@@ -429,6 +820,7 @@ function ApiKeyRow({
       await onSave(provider, draft.trim())
       setDraft('')
       setStatus('Saved.')
+      onReady()
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err))
     }
@@ -449,6 +841,7 @@ function ApiKeyRow({
         <Icon name="key" />
         <input
           aria-label={`${label} API key`}
+          data-tour={tourTarget ? 'ai-provider-key' : undefined}
           onChange={(event) => setDraft(event.target.value)}
           placeholder={saved ? 'Saved - type to replace it' : 'Paste API key'}
           type="password"
@@ -456,7 +849,15 @@ function ApiKeyRow({
         />
       </div>
       <div className="api-key-actions">
-        <button className="secondary-button compact-button" disabled={!draft.trim()} onClick={() => void save()} type="button">Save</button>
+        <button
+          className="secondary-button compact-button"
+          data-tour={tourTarget ? 'ai-provider-key-save' : undefined}
+          disabled={!draft.trim()}
+          onClick={() => void save()}
+          type="button"
+        >
+          Save
+        </button>
         {saved && <button className="text-button" onClick={() => void clear()} type="button">Remove</button>}
       </div>
       {status && <span className="api-key-status inline-status" role="status">{status}</span>}
@@ -508,7 +909,10 @@ function ProviderModelPicker({
 
 // ── Account ────────────────────────────────────────────────────────────────
 
-function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdminStateChange'>) {
+function AccountSection({
+  onAdminStateChange,
+  onOpenProjects,
+}: Pick<SettingsScreenProps, 'onAdminStateChange' | 'onOpenProjects'>) {
   const { settings, save } = useSettings()
   const [email, setEmail] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -517,12 +921,15 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
   const [authBusy, setAuthBusy] = useState(false)
   const [authStatus, setAuthStatus] = useState<string | null>(null)
   const [keyStatus, setKeyStatus] = useState<string | null>(null)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showUsageDeleteConfirmation, setShowUsageDeleteConfirmation] = useState(false)
 
   const refreshAccount = async () => {
     const state = await chronicle.getAccountState()
     setEmail(state.email)
-    setIsAdmin(state.isAdmin)
-    onAdminStateChange(state.isAdmin)
+    const admin = state.mode === 'signed-in' && state.isAdmin
+    setIsAdmin(admin)
+    onAdminStateChange(admin)
   }
 
   const checkControlPlane = async () => {
@@ -585,6 +992,32 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
     }
   }
 
+  const exportAccount = async () => {
+    await runAuth(async () => {
+      const saved = await chronicle.exportAccountData()
+      if (!saved) throw new Error('Export cancelled.')
+    }, 'Account data exported.')
+  }
+
+  const deleteAccount = async () => {
+    await runAuth(async () => {
+      await chronicle.deleteCloudAccount()
+      setShowDeleteConfirmation(false)
+    }, 'Account and linked cloud data permanently deleted. Chronicle is now in local mode; local history and provider keys were kept.')
+  }
+
+  const deleteUsageData = async () => {
+    await runAuth(async () => {
+      await chronicle.deleteCloudUsageData()
+      if (settings) {
+        await save({
+          controlPlane: { ...settings.controlPlane, telemetryOptIn: false },
+        })
+      }
+      setShowUsageDeleteConfirmation(false)
+    }, 'This installation’s registered and usage data was deleted, and usage reporting was turned off.')
+  }
+
   return (
     <section className="settings-section">
       <div className="settings-section-heading">
@@ -596,14 +1029,14 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
           {email ? `Signed in as ${email}${isAdmin ? ' (admin)' : ''}.` : 'Running in local mode. Local features remain available offline.'}
         </p>
         <div className="account-access-actions">
-          {controlPlaneAvailable && (
+          {controlPlaneAvailable && !email && (
             <button
               className="google-button settings-google-button"
               disabled={authBusy}
-              onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, email ? 'Google account linked.' : 'Signed in with Google.')}
+              onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, 'Signed in with Google.')}
               type="button"
             >
-              <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : email ? 'Link Google account' : 'Continue with Google'}</span>
+              <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : 'Continue with Google'}</span>
             </button>
           )}
           {email && <button className="secondary-button" disabled={authBusy} onClick={() => void runAuth(() => chronicle.logout(), 'Signed out.')} type="button">Sign out</button>}
@@ -653,6 +1086,114 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
                 <button className="text-button" onClick={() => void toggleKeySync(false)} type="button">Disable and delete cloud copy</button>
               </div>
               {keyStatus && <span className="inline-status" role="status">{keyStatus}</span>}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="account-resource-list">
+        <div className="account-resource-row">
+          <div className="account-resource-copy">
+            <strong>Legal and privacy</strong>
+            <p>Review the policies that apply when you use Chronicle.</p>
+          </div>
+          <div className="account-legal-links">
+            <a href={TERMS_URL} rel="noreferrer" target="_blank">
+              Terms
+            </a>
+            <a href={PRIVACY_URL} rel="noreferrer" target="_blank">
+              Privacy
+            </a>
+          </div>
+        </div>
+        <div className="account-resource-row">
+          <div className="account-resource-copy">
+            <strong>Your cloud data</strong>
+            <p>Download a copy of the information Chronicle stores online.</p>
+          </div>
+          <button
+            className="secondary-button compact-button"
+            disabled={authBusy || !controlPlaneAvailable}
+            onClick={() => void exportAccount()}
+            type="button"
+          >
+            Export data
+          </button>
+        </div>
+      </div>
+
+      {!email && controlPlaneAvailable && (
+        <div className="account-danger-zone">
+          <div>
+            <strong>Delete this installation’s cloud data</strong>
+            <p>Erase its random registration, preference record, and uploaded usage statistics. Local creative data is not affected.</p>
+          </div>
+          {!showUsageDeleteConfirmation ? (
+            <button className="danger-button" onClick={() => setShowUsageDeleteConfirmation(true)} type="button">
+              Delete cloud usage data
+            </button>
+          ) : (
+            <div className="account-delete-confirmation" role="alert">
+              <strong>Delete cloud usage data?</strong>
+              <p>This turns usage reporting off and permanently deletes server data for this random installation ID. Watched folders, original files, the version library, and provider keys stay on this device.</p>
+              <div className="account-delete-actions">
+                <button className="secondary-button compact-button" onClick={() => setShowUsageDeleteConfirmation(false)} type="button">Cancel</button>
+                <button className="danger-button" disabled={authBusy} onClick={() => void deleteUsageData()} type="button">Delete cloud usage data</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {email && (
+        <div className="account-danger-zone">
+          <div>
+            <strong>Delete account and cloud data</strong>
+            <p>Permanently erase the Chronicle account and all data linked to it on Chronicle's control plane.</p>
+          </div>
+          {!showDeleteConfirmation ? (
+            <button
+              className="danger-button"
+              disabled={authBusy}
+              onClick={() => setShowDeleteConfirmation(true)}
+              type="button"
+            >
+              Delete account and cloud data
+            </button>
+          ) : (
+            <div className="account-delete-confirmation" role="alert">
+              <strong>This cannot be undone.</strong>
+              <p>
+                Chronicle will permanently delete your account, Google identity link, synced
+                preferences, encrypted key envelope, linked installations, and account-linked
+                usage statistics.
+              </p>
+              <p>
+                Watched folders, original files, the local version library, and provider keys
+                saved on this device will not be deleted. Usage reporting is an independent
+                control above.
+              </p>
+              <button className="text-button" onClick={onOpenProjects} type="button">
+                Open Projects to manage local project/history deletion
+              </button>
+              <div className="account-delete-actions">
+                <button
+                  className="secondary-button compact-button"
+                  disabled={authBusy}
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="danger-button"
+                  disabled={authBusy}
+                  onClick={() => void deleteAccount()}
+                  type="button"
+                >
+                  {authBusy ? 'Deleting…' : 'Permanently delete account'}
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -1,8 +1,12 @@
 {
   "name": "chronicle-desktop",
-  "version": "0.8.0",
+  "version": "0.13.0",
   "description": "Chronicle — local-first version history for creative files, explained by AI",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Santi-49/Chronicle.git"
+  },
   "main": "out/main/index.js",
   "scripts": {
     "postinstall": "install-electron && electron-rebuild -f",
@@ -13,9 +17,11 @@
     "build:sidecar": "python ../../scripts/build_ai_sidecar.py",
     "package": "npm run package:windows",
     "package:windows": "npm run build:sidecar && npm run build && electron-builder --win nsis --x64 --publish never",
+    "package:windows:publish": "npm run build:sidecar && npm run build && electron-builder --win nsis --x64 --publish always",
     "package:mac": "npm run build:sidecar && npm run build && electron-builder --mac dmg --publish never",
     "package:unpacked": "npm run build:sidecar && npm run build && electron-builder --win --x64 --dir --publish never",
     "preview": "electron-vite preview",
+    "probe:ai": "electron-vite build && node scripts/run-ai-probe.cjs",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
     "test:mvp12": "python ../../scripts/mvp12_acceptance.py",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
@@ -41,9 +47,21 @@
       {
         "from": "../../packages/prompts/version-annotation.md",
         "to": "ai/prompts/version-annotation.md"
+      },
+      {
+        "from": "../../packages/brand/assets/png/tray",
+        "to": "tray"
       }
     ],
     "asar": true,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Santi-49",
+        "repo": "Chronicle",
+        "releaseType": "release"
+      }
+    ],
     "win": {
       "icon": "../../packages/brand/assets/chronicle-app-icon.ico",
       "extraResources": [
@@ -77,6 +95,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "include": "build/installer.nsh",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
       "installerIcon": "../../packages/brand/assets/chronicle-app-icon.ico",
       "uninstallerIcon": "../../packages/brand/assets/chronicle-app-icon.ico"
     }
@@ -109,6 +131,7 @@
     "@svg-maps/world": "^1.0.1",
     "better-sqlite3": "12.11.1",
     "chokidar": "5.0.0",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "electron-updater": "6.8.9"
   }
 }

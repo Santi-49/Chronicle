@@ -17,6 +17,7 @@ import type {
 } from '../../../shared/ipc'
 import { PageHeader } from '../components/PageHeader'
 import { chronicle } from '../lib/bridge'
+import { releaseAdoption } from './releaseAdoption'
 
 const nf = new Intl.NumberFormat()
 const pf = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 })
@@ -199,7 +200,8 @@ function Filters({
   return <div className="admin-filters" aria-label="Analytics filters">
     <label><span>Period</span><select value={range} onChange={(event) => setRange(event.target.value)}>
       <option value="7">Last 7 days</option><option value="30">Last 30 days</option>
-      <option value="90">Last 90 days</option><option value="custom">Custom range</option>
+      <option value="90">Last 90 days</option><option value="all">All time</option>
+      <option value="custom">Custom range</option>
     </select></label>
     {range === 'custom' && <>
       <label><span>Start date</span><input type="date" value={startDate}
@@ -304,20 +306,43 @@ function Product({ data }: { data: AdminStatistics }) {
 }
 
 function Audience({ data }: { data: AdminStatistics }) {
+  const adoption = releaseAdoption(data.app_version_distribution, __APP_VERSION__)
+  const latestRate = adoption.total ? adoption.latestCount / adoption.total : 0
   return <>
     <MetricCards metrics={[
       ['Registered accounts', data.overview.registered_accounts, 'Signed-in people'],
       ['Registered installations', data.overview.registered_installations, 'Includes local profiles'],
       ['Reporting installations', data.overview.reporting_installations],
       ['New installations', data.overview.new_installations],
+      ['On current release', pf.format(latestRate), adoption.latestVersion
+        ? `${nf.format(adoption.latestCount)} on ${adoption.latestVersion} or newer` : 'No version data'],
+      ['Need an update', adoption.outdatedCount, 'Active on an older app version'],
     ]} />
     <div className="admin-grid">
       <article className="admin-panel"><h2>Installation growth</h2><p>First-seen installations per day.</p>
         <TrendPlot values={data.growth.new_installations} label="New installations" /></article>
       <article className="admin-panel"><h2>Weekly active installations</h2><p>Rolling seven-day active profiles.</p>
         <TrendPlot values={data.growth.weekly_active_installations} label="Weekly active installations" /></article>
-      <article className="admin-panel"><h2>App-version adoption</h2>
-        <p>Active installations by Chronicle release.</p><Bars values={data.app_version_distribution} /></article>
+      <article className="admin-panel"><h2>Update adoption</h2>
+        <p>
+          {adoption.latestVersion
+            ? `Active installations on ${adoption.latestVersion} or newer compared with older releases.`
+            : 'No valid Chronicle release versions were reported in this period.'}
+        </p>
+        <Bars values={adoption.latestVersion ? [
+          { label: `Current · ${adoption.latestVersion}+`, count: adoption.latestCount },
+          { label: 'Older versions', count: adoption.outdatedCount },
+        ] : []} />
+        <p className="admin-chart-summary">
+          {adoption.total
+            ? `${pf.format(latestRate)} are on the current release or newer; ${nf.format(adoption.outdatedCount)} may need an update.`
+            : 'No active installations are available for this comparison.'}
+        </p>
+      </article>
+      <article className="admin-panel"><h2>Release detail</h2>
+        <p>Active installations by exact Chronicle version.</p>
+        <Bars values={data.app_version_distribution} />
+      </article>
       <article className="admin-panel"><h2>Operating systems</h2>
         <p>Active installations by OS family.</p><Bars values={data.os_distribution} /></article>
       <article className="admin-panel admin-panel-wide"><h2>Geographic reach</h2>
@@ -517,7 +542,7 @@ export function AdminScreen() {
     ...(
       range === 'custom'
         ? startDate && endDate ? { startDate, endDate } : {}
-        : { periodDays: Number(range) }
+        : range === 'all' ? { allTime: true } : { periodDays: Number(range) }
     ),
     ...(account ? { accountId: account.id } : {}),
     ...(country ? { country } : {}),
