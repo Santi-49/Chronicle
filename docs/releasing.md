@@ -60,8 +60,10 @@ like any other `main` PR; no workflow writes a version directly onto `main`.
    maintenance push from recursively starting another workflow.
 6. Parallel Windows x64 and macOS Apple Silicon jobs
    check that the tag equals the desktop `package.json` version, rebuild that exact tagged commit,
-   health-check each native sidecar, and attach the NSIS/DMG installers plus checksums to the
-   GitHub Release.
+   health-check each native sidecar, and attach the installers plus checksums to the GitHub
+   Release. The Windows job uses electron-builder publishing so the NSIS installer,
+   `latest.yml`, and blockmap come from one build; it then verifies the manifest version,
+   referenced files, SHA-512, public/non-prerelease status, and latest-release status.
 
 Repository setup:
 
@@ -86,8 +88,9 @@ Repository setup:
 Every ordinary `main` PR proves that the application builds, but the expensive native installers
 are built only once for a durable version tag. `package-main.yml` remains available through
 **Actions → Package desktop snapshot → Run workflow** when intermediate Windows x64 and macOS
-Apple Silicon installers are genuinely needed. POST-08 still owns `electron-updater`, update
-metadata/UI, code signing, Apple notarization, and macOS auto-update.
+Apple Silicon installers are genuinely needed. Snapshot packaging never publishes the stable
+feed, but archives its Windows `latest.yml` and blockmap for inspection. Windows code signing,
+Apple notarization, macOS auto-update, and mandatory security enforcement remain separate gates.
 
 ## One-time GitHub setup (repository administrator)
 
@@ -127,14 +130,25 @@ The normal promotion flow is:
 2. Open one PR with base `main` and compare `dev`. Its title must start with `feat:` or `fix:`
    (optionally scoped or breaking), because the workflow squash-merges that title and Release Please
    uses it to determine the next version.
-3. `Auto-merge main promotion` enables auto-merge. All three **Main PR CI** jobs must pass; a
-   failure leaves the PR open. Fix failures on `dev`, never directly on `main`.
-4. After the checks pass, GitHub merges the promotion, Release Please opens its metadata PR, the
+3. `Auto-merge main promotion` compares the PR's exact `main...dev` SHAs and collects unique,
+   non-merge Conventional Commit messages for `feat`, `fix`, `deps`, and any `!` breaking change.
+   It maintains Release Please's supported `BEGIN_COMMIT_OVERRIDE` block at the end of the PR
+   description, preserving the human-authored description above it. Merge commits, ordinary
+   chores, and duplicate messages are omitted. This retains meaningful feature commits even
+   though the promotion itself is squash-merged.
+4. The workflow enables auto-merge. All three **Main PR CI** jobs must pass; a failure leaves the
+   PR open. Fix failures on `dev`, never directly on `main`.
+5. After the checks pass, GitHub merges the promotion, Release Please opens its metadata PR, the
    lightweight guard passes, and GitHub merges that PR automatically.
-5. `Release desktop` creates the version/tag/release, syncs released `main` back into the latest
+6. `Release desktop` creates the version/tag/release, syncs released `main` back into the latest
    `dev`, attaches both installers/checksums, and the cleanup job removes the temporary release
    branch. No second PR action is required. A genuine back-sync conflict fails visibly and requires
    a manual merge; automation never overwrites `dev`.
+
+Feature commits should still use Conventional Commit messages. The generated override comes from
+commit messages, not changed-file text, and refreshes whenever the promotion head SHA changes. If
+the comparison contains no releasable commit, promotion fails instead of publishing a misleading
+changelog.
 
 ## Creating a new public version
 
@@ -146,8 +160,8 @@ the normal flow.
    successful skips. Auto-merge waits if any protected requirement is not satisfied.
 3. After automatic merge, Release Please creates `vX.Y.Z` and the GitHub Release. `Release desktop`
    syncs that released commit back to `dev`, then rebuilds the exact tag, verifies it matches
-   `package.json`, and attaches the Windows x64 NSIS and macOS Apple Silicon DMG with
-   platform-specific checksum files.
+   `package.json`, publishes the Windows x64 NSIS updater assets, validates the published update
+   metadata/hashes, and attaches the macOS Apple Silicon DMG plus platform-specific checksum files.
 4. Download the installer for each supported platform, verify its checksum, and complete the
    release smoke test before sharing the URL.
 
@@ -170,6 +184,7 @@ python -m pip install -e "services/ai[dev,providers,bundle]"
 npm ci --prefix apps/desktop
 python scripts/check_versions.py
 python scripts/mvp12_acceptance.py --package
+python scripts/check_windows_update_assets.py
 ```
 
 The build script creates and reuses an isolated environment under
@@ -185,4 +200,20 @@ disabled because `npm ci` already runs the pinned Electron rebuild in `postinsta
 
 Both installers are currently unsigned. Windows may trigger SmartScreen; macOS Gatekeeper may
 block normal launch until the user explicitly overrides it. Do not describe a workflow artifact
-as signed, notarized, or auto-updating.
+as signed or notarized. Windows updater metadata provides transport/hash integrity, not independent
+publisher identity, so only optional/recommended updates are enabled. The first updater-capable
+release is a manual bootstrap.
+
+## Windows auto-update acceptance
+
+1. Install updater-capable `vA` manually on a clean Windows profile.
+2. Publish a higher stable `vB` through the normal Release Please workflow.
+3. Confirm `vA` detects and downloads `vB` while capture remains usable.
+4. Choose **Later**, quit normally, and confirm the update is not installed.
+5. Relaunch and choose **Restart to update**; confirm version, install location, shortcuts,
+   projects, database, library, settings, encrypted provider configuration, and legal/tutorial
+   state survive.
+6. Repeat launch/check/download with the network blocked and restored.
+
+A bad release is recovered with a higher patch version, never by replacing assets or forcing a
+downgrade. Record both release URLs and the clean-profile evidence before closing POST-08.

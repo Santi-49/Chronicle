@@ -87,8 +87,11 @@ jobs:
           if (-not $env:CHRONICLE_LANDING_URL) { throw "Missing repository variable CHRONICLE_LANDING_URL" }
           if (-not $env:GOOGLE_OAUTH_CLIENT_ID) { throw "Missing repository variable GOOGLE_OAUTH_CLIENT_ID" }
           if (-not $env:GOOGLE_OAUTH_CLIENT_SECRET) { throw "Missing repository secret GOOGLE_OAUTH_CLIENT_SECRET" }
-      - run: npm run package
+      - name: Package and publish Windows updater assets
+        run: npm run package:windows:publish
         working-directory: apps/desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: python scripts/smoke_ai_sidecar.py
       - name: Write installer checksum
         shell: pwsh
@@ -97,11 +100,16 @@ jobs:
           if ($installer.Count -ne 1) { throw "Expected exactly one installer" }
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash.ToLowerInvariant()
           "$hash  $($installer.Name)" | Set-Content apps/desktop/dist/SHA256SUMS-windows.txt
-      - name: Attach installer to GitHub Release
+      - name: Attach checksum to GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ needs.release-please.outputs.tag }}" apps/desktop/dist/Chronicle-Setup-*.exe apps/desktop/dist/SHA256SUMS-windows.txt --clobber
+        run: gh release upload "${{ needs.release-please.outputs.tag }}" apps/desktop/dist/SHA256SUMS-windows.txt --clobber
+      - name: Verify published Windows updater assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/check_windows_update_assets.py --release-tag "${{ needs.release-please.outputs.tag }}"
 
   attach-macos-installer:
     needs: release-please

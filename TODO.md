@@ -1220,41 +1220,88 @@ identity decision the team must own.
 
 > MVP-12 now supplies the build/version baseline: `main` artifacts, Release Please version PRs,
 > tagged GitHub Releases, and attached unsigned installers/checksums. POST-08 still owns
-> `electron-updater`, update metadata/UX, restart-to-apply acceptance, signing/notarization, and
-> macOS auto-update. An unsigned macOS DMG build now exists independently of this task.
+> `electron-updater`, Windows update metadata/UX, and restart-to-apply acceptance. Signing,
+> notarization, and macOS auto-update remain separate follow-up work. An unsigned macOS DMG build
+> now exists independently of this task.
 
 > How it works (for reviewers): electron-builder produces `Chronicle-x.y.z.exe` (NSIS) plus a
 > `latest.yml` metadata file; both are published to a GitHub Release. The installed app calls
 > `autoUpdater.checkForUpdates()`, which reads `latest.yml` from the release, compares versions,
-> downloads a newer installer in the background, and applies it on quit/relaunch. The "update
-> server" is just static release assets — no backend to build.
+> downloads a newer installer in the background, and applies it when the user chooses **Restart
+> to update**. The "update server" is just static release assets — no backend to build.
 >
-> Explicit non-goals for this task: no Windows code-signing certificate (SmartScreen warnings
-> are accepted for now), no Apple Developer ID / notarization, and **no macOS auto-update**
-> (macOS requires a matching signature, so it cannot work unsigned — track it in the follow-up).
+> Explicit non-goals for the unsigned bootstrap: no Windows code-signing certificate (SmartScreen
+> warnings are accepted for now), no Apple Developer ID / notarization, and **no macOS
+> auto-update** (macOS requires a matching signature, so it cannot work unsigned — track it in the
+> follow-up). This also means the unsigned bootstrap must not remotely activate a mandatory or
+> revoked-version lock. Hard security enforcement is gated on signed installers and independently
+> verifiable, versioned, expiring policy metadata.
 
-**May edit:** `apps/desktop/` electron-builder config (`electron-builder.yml`/`package.json`
-build block, NSIS target, `provider: github`), a publish script/CI workflow that runs
-`electron-builder --publish`, the main-process auto-update wiring, `apps/desktop/README.md`.
-**Must not edit:** C1/C3/C5 contracts; local capture/version/search behavior; the local-first
-guarantee.
+**Plan:** [`docs/post-08-windows-auto-update-plan.md`](docs/post-08-windows-auto-update-plan.md).
+It records the current release audit, narrow typed IPC contract gate, exact files/phases, release
+asset assertions, unsigned trust boundary, bootstrap release, rollback rule, and two-release
+Windows acceptance matrix. It also defines the POST-08A/B/C path for optional updating, signing
+and policy trust, then capability-scoped mandatory enforcement without locking users out of local
+read/export/restore.
 
-**Required functionality:** A reproducible `npm run build` → published GitHub Release
-(installer + `latest.yml`) via a `GH_TOKEN`; main-process update check that runs on launch and
-degrades silently offline (never blocks capture/timeline/restore — same discipline as the AI
-queue); an in-app "update available / downloading / restart to update" affordance; semantic
-version bumped from `package.json`. The update check is a network call only for the app binary —
-**no user data or file content is ever sent**.
+**May edit:** `apps/desktop/` electron-builder config (`package.json` build block, NSIS target,
+`provider: github`), dependency lock, main-process updater, a narrowly approved typed update IPC
+surface, global renderer update affordance and Settings/About status, focused tests, release
+workflow/assertion script, and release/desktop documentation.
+**Must not edit:** C3/C5 contracts; local capture/version/search behavior; the local-first
+guarantee. C1 may change only by the small contract-first update-state/check/restart/event addition
+approved before implementation; never expose arbitrary `ipcRenderer`, feed credentials, or paths.
 
-**Contracts upheld:** none changed. Local-first and offline-tolerant behavior preserved.
+**Required functionality:** A reproducible tagged build → published GitHub Release (installer +
+`latest.yml` + every referenced updater artifact from one build) via a CI-only `GH_TOKEN`;
+main-process check only in packaged Windows builds that runs asynchronously after launch, is
+single-flight, and degrades silently offline; automatic background download but an explicit,
+accessible **Restart to update** action; Settings/About **Check now**; and semantic version derived
+from `package.json`. Set `autoInstallOnAppQuit = false`, disallow downgrade/prerelease updates, and
+never block capture/timeline/restore. No project, path, file, credential, or account data is sent;
+document that GitHub/CDN still receives ordinary connection metadata.
 
-**Docs to update:** `apps/desktop/README.md` (release + auto-update steps, `GH_TOKEN`, the
-unsigned/SmartScreen and unsigned/unnotarized macOS caveats); one line in `docs/bob-log.md`.
+**Contracts touched:** narrow C1 update-state/check/restart/event addition, approved before code.
+C3/C5 and all content behavior remain unchanged. Local-first and offline tolerance are preserved.
 
-**Done when:** Publishing a release makes an older installed Windows build detect, download,
-and apply the update on relaunch; the app launches and captures normally with no network; the
-SmartScreen/unsigned limitation and the deferred signing, notarization, and macOS auto-update work
-are written down as a follow-up task.
+**Docs to update:** `apps/desktop/README.md`, `docs/releasing.md`, `docs/desktop/overview.md`,
+implementation findings in `docs/challenge/RESEARCH.md`, status/task evidence, and one line in
+`docs/bob-log.md`.
+
+**Done when:** Release assets and hashes validate; manually installed updater-capable baseline
+`vA` detects, downloads, and explicitly restarts into higher `vB`; install location, shortcuts,
+local library/database/settings and capture survive; blocked-network launch remains fully usable
+and later recovers; and the v0.9.0-and-earlier manual bootstrap, higher-version hotfix rollback,
+SmartScreen/unsigned trust limitation, signing migration, and disabled macOS auto-update are
+documented. Merely generating `latest.yml` is not acceptance.
+
+**Security-update follow-up gate:** POST-08A may ship optional/recommended update UX. POST-08B must
+add Authenticode signing, publisher verification, independently signed/versioned/expiring policy
+metadata, key rotation, and an emergency release runbook. POST-08C may then activate
+`required`/`revoked` version-range enforcement with deadlines, cached/offline evaluation,
+capability-scoped restrictions, typed control-plane minimum-version rejection, and compromise
+drills. Use the existing app-version distribution/adoption chart to assess migration; add no new
+update telemetry.
+
+> **Implementation progress (2026-07-26, uncommitted):** POST-08A is implemented on
+> `feat/post-08-windows-auto-update`. It adds exact `electron-updater` dependency/configuration,
+> CI-only GitHub publishing, local/published `latest.yml` and blockmap validation, a
+> packaged-Windows-only main-process controller, the narrow typed C1 state/check/restart/event
+> surface, delayed and four-hour single-flight checks, background download, explicit restart,
+> global accessible progress UI, Settings/About status and retry, and an admin update-adoption
+> comparison derived from the existing `app_version_distribution` telemetry. No update telemetry
+> was added. The controller preserves active download/ready state against later checks.
+> Verification: 244 desktop tests passed (1 skipped), typecheck and production build passed, a
+> 155,168,746-byte unsigned `Chronicle-Setup-0.10.0.exe` plus blockmap/`latest.yml` packaged
+> successfully, local metadata/SHA-512 validation passed, and the bundled sidecar/provider/PSD
+> smoke passed. The task remains open until a real installed vA → published vB clean-profile
+> upgrade is evidenced.
+
+> Release handoff automation added 2026-07-26: `auto-merge-main.yml` derives a Release Please
+> `BEGIN_COMMIT_OVERRIDE` block from the exact `main...dev` comparison before squash merge. It
+> retains unique non-merge `feat`, `fix`, `deps`, and breaking Conventional Commit messages, so
+> updater and related fixes remain separate changelog entries without preserving noisy branch
+> merge history.
 
 ### [ ] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
 

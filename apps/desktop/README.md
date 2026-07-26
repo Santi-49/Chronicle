@@ -26,6 +26,7 @@ npm run dev        # start Electron with hot reload
 npm test           # Vitest, run under Electron's Node (same ABI as the app)
 npm run build      # production bundle to out/
 npm run package    # Windows installer to dist/
+npm run package:windows:publish # CI-only: package and publish updater assets
 npm run package:mac # native-architecture macOS DMG to dist/ (must run on macOS)
 npm run package:unpacked # faster runnable build without creating the NSIS installer
 npm run typecheck  # tsc over main+preload and renderer
@@ -41,10 +42,20 @@ actual installer. The installer build must restage Electron and create the NSIS 
 substantially slower even when the Python bundle cache is warm.
 
 The installers are unsigned: Windows SmartScreen may warn, while macOS Gatekeeper requires an
-explicit user override. Amazon Bedrock is not offered
+explicit user override. The installed Windows app checks the public stable GitHub Releases feed
+after startup and periodically while open. It downloads newer releases in the background, but
+never applies one on an ordinary quit: the user chooses **Restart to update** from the global
+banner or **Settings → About & updates**. Automatic network failures stay silent; **Check now**
+shows recoverable status. Development, unpacked, macOS, and Linux builds make no update request.
+The first updater-capable version must still be installed manually; only a later release can prove
+the automatic upgrade path. Update requests contain no Chronicle content, paths, credentials, or
+account payload, although GitHub/CDN receives normal connection metadata.
+
+Amazon Bedrock is not offered
 because AWS requires multiple credential fields and a region rather than Chronicle's current
-single encrypted key per provider. Code signing, Apple notarization, and in-app auto-update remain
-future work.
+single encrypted key per provider. Windows code signing, Apple notarization, macOS auto-update,
+and remotely enforced mandatory security updates remain gated follow-up work. The unsigned feed
+supports optional/recommended updates only.
 
 The Windows `.exe` uses the native electron-builder assisted NSIS wizard—no custom HTML and no
 replacement installer script. Chronicle supplies a 150×57 header and 164×314 sidebar (24-bit BMP),
@@ -75,7 +86,9 @@ registration, artifact names, and Git tags derive from it. CI is a required chec
 requests targeting `main`. Tagged releases build and attach versioned Windows x64 and macOS Apple
 Silicon artifacts. Release
 Please maintains a reviewed release PR; merging it creates `vX.Y.Z`, and the release workflow
-builds that exact tag and attaches both installers and their SHA-256 checksums.
+builds that exact tag. The Windows job publishes the NSIS installer, `latest.yml`, and blockmap
+together, validates the manifest version and SHA-512 against local and published assets, and then
+attaches the human-readable SHA-256 checksum. macOS continues to attach its DMG and checksum.
 
 Configure a fine-grained `RELEASE_PLEASE_TOKEN` repository secret with Contents and Pull requests
 write access so Release Please PRs trigger the required `main` PR CI. See

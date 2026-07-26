@@ -8,6 +8,7 @@
  * tested directly.
  */
 import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron'
+import electronUpdater from 'electron-updater'
 import fs from 'node:fs'
 import path from 'node:path'
 import { Readable } from 'node:stream'
@@ -39,9 +40,12 @@ import { API_METHOD_NAMES, apiChannel, eventChannel, type EmitEvent } from './ch
 import { CHRONICLE_SCHEME, parseChronicleUrl } from './media'
 import { createSafeStorageSecretStore, readApiKey } from './secrets'
 import { createChronicleServices } from './services'
+import { createUpdateController, type UpdaterAdapter } from '../updater/controller'
 
 export interface ChronicleIpc {
   api: ChronicleApi
+  /** Starts the delayed packaged-Windows check after the main window exists. */
+  startUpdater(): void
   /** Removes every handler and stops the watchers (app shutdown). */
   dispose(): Promise<void>
 }
@@ -166,6 +170,17 @@ export function startChronicleIpc(
   }
   const recordApplicationDiagnostic: ApplicationDiagnosticSink = (draft): void =>
     recordDiagnosticWithProcess(draft, 'main')
+
+  // electron-updater is CommonJS. Destructuring the default import avoids the
+  // ESM interop problem documented by electron-builder.
+  const { autoUpdater } = electronUpdater
+  const updateController = createUpdateController({
+    supported: app.isPackaged && process.platform === 'win32',
+    currentVersion: app.getVersion(),
+    updater: autoUpdater as unknown as UpdaterAdapter,
+    emit: (state) => emit('updateStateChanged', state),
+    diagnostic: recordApplicationDiagnostic,
+  })
 
   const controlPlaneDiagnostics: ControlPlaneDiagnostic[] = []
   let nextControlPlaneDiagnosticId = 1
@@ -297,6 +312,7 @@ export function startChronicleIpc(
     readApiKey: (provider) => readApiKey(db, provider),
     onTelemetryDisabled: () => telemetryWorker?.disableTelemetry() ?? Promise.resolve(),
     telemetry: telemetryCollector,
+    updater: updateController,
   })
 
   // POST-04: telemetry worker — only active when the control-plane client is configured.
@@ -433,8 +449,12 @@ export function startChronicleIpc(
 
   return {
     api: services.api,
+    startUpdater() {
+      updateController.start()
+    },
     async dispose() {
       for (const method of API_METHOD_NAMES) ipcMain.removeHandler(apiChannel(method))
+      updateController.dispose()
       telemetryWorker?.stop()
       aiWorker.stop()
       process.off('uncaughtExceptionMonitor', onUncaughtException)
