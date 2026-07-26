@@ -91,15 +91,6 @@ async def read_admin_statistics(
     registered_installations = int(
         await db.scalar(select(func.count()).select_from(Installation)) or 0
     )
-    estimated_active_installations = int(
-        await db.scalar(
-            select(func.count(func.distinct(TelemetrySession.installation_id))).where(
-                TelemetrySession.opened_at >= window_start,
-                TelemetrySession.opened_at < window_end,
-            )
-        )
-        or 0
-    )
     reporting_installations = int(
         await db.scalar(select(func.count()).select_from(InstallationTelemetry)) or 0
     )
@@ -118,16 +109,6 @@ async def read_admin_statistics(
             )
         )).all())
         allowed_installations &= country_installations
-    estimated_active_installations = int(
-        await db.scalar(
-            select(func.count(func.distinct(TelemetrySession.installation_id))).where(
-                TelemetrySession.opened_at >= window_start,
-                TelemetrySession.opened_at < window_end,
-                TelemetrySession.installation_id.in_(allowed_installations),
-                *([TelemetrySession.country_code == country] if country else []),
-            )
-        ) or 0
-    )
     reporting_installations = int(
         await db.scalar(
             select(func.count()).select_from(InstallationTelemetry).where(
@@ -243,7 +224,10 @@ async def read_admin_statistics(
     ]
     eligible_d7 = [row for row in activated if _utc(row.first_version_at) <= window_end - timedelta(days=7)]
     session_rows = list((await db.scalars(
-        select(TelemetrySession).where(TelemetrySession.installation_id.in_(allowed_installations))
+        select(TelemetrySession).where(
+            TelemetrySession.installation_id.in_(allowed_installations),
+            *([TelemetrySession.country_code == country] if country else []),
+        )
     )).all())
     retained_d7 = sum(any(
         _utc(state.first_version_at) + timedelta(days=7) <= _utc(session.opened_at)
@@ -343,21 +327,35 @@ async def read_admin_statistics(
         row for row in session_rows
         if window_start <= _utc(row.opened_at) < window_end
     ]
-    os_installations: dict[str, set[uuid.UUID]] = defaultdict(set)
-    version_installations: dict[str, set[uuid.UUID]] = defaultdict(set)
+    # Release and OS distributions are snapshots, not a count of every value an
+    # installation reported during the window. Otherwise an installation that
+    # upgrades appears in several release buckets and adoption can exceed the
+    # number of active installations.
+    latest_period_session: dict[uuid.UUID, TelemetrySession] = {}
     for row in period_sessions:
-        os_installations[row.os_family].add(row.installation_id)
-        version_installations[row.app_version].add(row.installation_id)
+        current = latest_period_session.get(row.installation_id)
+        if current is None or (
+            _utc(row.opened_at), str(row.id)
+        ) > (
+            _utc(current.opened_at), str(current.id)
+        ):
+            latest_period_session[row.installation_id] = row
+    estimated_active_installations = len(latest_period_session)
+    os_installations: dict[str, int] = defaultdict(int)
+    version_installations: dict[str, int] = defaultdict(int)
+    for row in latest_period_session.values():
+        os_installations[row.os_family] += 1
+        version_installations[row.app_version] += 1
     os_distribution = [
-        AdminCategoryCount(label=label, count=len(installation_ids))
-        for label, installation_ids in sorted(
-            os_installations.items(), key=lambda item: (-len(item[1]), item[0])
+        AdminCategoryCount(label=label, count=count)
+        for label, count in sorted(
+            os_installations.items(), key=lambda item: (-item[1], item[0])
         )
     ]
     app_version_distribution = [
-        AdminCategoryCount(label=label, count=len(installation_ids))
-        for label, installation_ids in sorted(
-            version_installations.items(), key=lambda item: (-len(item[1]), item[0])
+        AdminCategoryCount(label=label, count=count)
+        for label, count in sorted(
+            version_installations.items(), key=lambda item: (-item[1], item[0])
         )
     ]
     new_installations_by_day: dict[datetime, int] = defaultdict(int)

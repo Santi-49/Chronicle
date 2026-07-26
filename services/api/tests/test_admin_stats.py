@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy import select
 
-from app.models.control_plane import Installation, TelemetryError
+from app.models.control_plane import Installation, TelemetryError, TelemetrySession
 from app.models.role import Role
 from app.models.user import User
 
@@ -157,6 +157,84 @@ async def test_admin_reads_live_aggregate_statistics(
         "file contents",
     ):
         assert forbidden not in serialized
+
+
+async def test_release_and_os_distributions_use_each_installations_latest_session(
+    client, db, admin_token
+):
+    installation_ids = [uuid.uuid4() for _ in range(3)]
+    db.add_all([
+        Installation(
+            id=installation_ids[0],
+            app_version="0.13.0",
+            os_family="windows",
+        ),
+        Installation(
+            id=installation_ids[1],
+            app_version="0.12.0",
+            os_family="windows",
+        ),
+        Installation(
+            id=installation_ids[2],
+            app_version="0.13.0",
+            os_family="macos",
+        ),
+        # The first installation upgraded twice during the reporting window.
+        TelemetrySession(
+            id=uuid.uuid4(),
+            installation_id=installation_ids[0],
+            opened_at=NOW - timedelta(days=3),
+            app_version="0.10.0",
+            os_family="windows",
+        ),
+        TelemetrySession(
+            id=uuid.uuid4(),
+            installation_id=installation_ids[0],
+            opened_at=NOW - timedelta(days=2),
+            app_version="0.11.0",
+            os_family="windows",
+        ),
+        TelemetrySession(
+            id=uuid.uuid4(),
+            installation_id=installation_ids[0],
+            opened_at=NOW - timedelta(days=1),
+            app_version="0.13.0",
+            os_family="windows",
+        ),
+        TelemetrySession(
+            id=uuid.uuid4(),
+            installation_id=installation_ids[1],
+            opened_at=NOW - timedelta(days=1),
+            app_version="0.12.0",
+            os_family="windows",
+        ),
+        TelemetrySession(
+            id=uuid.uuid4(),
+            installation_id=installation_ids[2],
+            opened_at=NOW - timedelta(days=1),
+            app_version="0.13.0",
+            os_family="macos",
+        ),
+    ])
+    await db.commit()
+
+    response = await client.get(
+        "/api/v1/admin/statistics?period_days=30",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["overview"]["estimated_active_installations"] == 3
+    assert body["app_version_distribution"] == [
+        {"label": "0.13.0", "count": 2},
+        {"label": "0.12.0", "count": 1},
+    ]
+    assert body["os_distribution"] == [
+        {"label": "windows", "count": 2},
+        {"label": "macos", "count": 1},
+    ]
+    assert sum(item["count"] for item in body["app_version_distribution"]) == 3
 
 
 async def test_non_admin_is_forbidden(client, user_token):

@@ -316,7 +316,7 @@ function Audience({ data }: { data: AdminStatistics }) {
       ['New installations', data.overview.new_installations],
       ['On current release', pf.format(latestRate), adoption.latestVersion
         ? `${nf.format(adoption.latestCount)} on ${adoption.latestVersion} or newer` : 'No version data'],
-      ['Need an update', adoption.outdatedCount, 'Reporting an older app version'],
+      ['Need an update', adoption.outdatedCount, 'Active on an older app version'],
     ]} />
     <div className="admin-grid">
       <article className="admin-panel"><h2>Installation growth</h2><p>First-seen installations per day.</p>
@@ -326,7 +326,7 @@ function Audience({ data }: { data: AdminStatistics }) {
       <article className="admin-panel"><h2>Update adoption</h2>
         <p>
           {adoption.latestVersion
-            ? `Reporting installations on ${adoption.latestVersion} or newer compared with older releases.`
+            ? `Active installations on ${adoption.latestVersion} or newer compared with older releases.`
             : 'No valid Chronicle release versions were reported in this period.'}
         </p>
         <Bars values={adoption.latestVersion ? [
@@ -336,7 +336,7 @@ function Audience({ data }: { data: AdminStatistics }) {
         <p className="admin-chart-summary">
           {adoption.total
             ? `${pf.format(latestRate)} are on the current release or newer; ${nf.format(adoption.outdatedCount)} may need an update.`
-            : 'No reporting installations are available for this comparison.'}
+            : 'No active installations are available for this comparison.'}
         </p>
       </article>
       <article className="admin-panel"><h2>Release detail</h2>

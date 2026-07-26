@@ -145,6 +145,9 @@ export function startChronicleIpc(
   libraryRoot: string,
   previewRoot: string,
 ): ChronicleIpc {
+  // app.getVersion() falls back to Electron's version when development package
+  // metadata is unavailable. The build-time package value is always Chronicle's.
+  const appVersion = __APP_VERSION__
   const osFamily =
     process.platform === 'win32' ? 'windows'
       : process.platform === 'darwin' ? 'macos'
@@ -152,7 +155,7 @@ export function startChronicleIpc(
   const telemetryCollector = createTelemetryCollector(
     db,
     () => getSetting<string>(db, 'control-plane-installation-id') ?? 'unknown',
-    app.getVersion(),
+    appVersion,
     osFamily,
   )
   const applicationDiagnostics: ApplicationDiagnostic[] = []
@@ -177,7 +180,7 @@ export function startChronicleIpc(
   const { autoUpdater } = electronUpdater
   const updateController = createUpdateController({
     supported: app.isPackaged && process.platform === 'win32',
-    currentVersion: app.getVersion(),
+    currentVersion: appVersion,
     updater: autoUpdater as unknown as UpdaterAdapter,
     emit: (state) => emit('updateStateChanged', state),
     diagnostic: recordApplicationDiagnostic,
@@ -295,7 +298,7 @@ export function startChronicleIpc(
     rendererDiagnostic: (draft) => recordDiagnosticWithProcess(draft, 'renderer'),
     preloadDiagnostic: (draft) => recordDiagnosticWithProcess(draft, 'preload'),
     installation: {
-      appVersion: app.getVersion(),
+      appVersion,
       osFamily,
     },
     installationIdPath: path.join(app.getPath('userData'), 'installation-id'),
@@ -445,7 +448,7 @@ export function startChronicleIpc(
     event: 'application_started',
     message: 'Chronicle main-process diagnostics started.',
     context: {
-      appVersion: app.getVersion(),
+      appVersion,
       packaged: app.isPackaged,
       controlPlaneBaseUrl: developmentControlPlaneUrl ?? controlPlaneBaseUrl,
     },
