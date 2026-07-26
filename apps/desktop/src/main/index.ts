@@ -1,8 +1,16 @@
 import { config as loadEnv } from 'dotenv'
 import { app, BrowserWindow, Menu, nativeTheme, shell } from 'electron'
 import path from 'node:path'
+import { createAiClient } from './ai/client'
+import {
+  parseProbeArguments,
+  PROVIDER_PROBE_HELP,
+  runProviderProbe,
+} from './ai/probe-cli'
+import { createAiServiceProcess } from './ai/service-process'
 import { openAppDatabase, type ChronicleDb } from './db'
 import { registerChronicleScheme, startChronicleIpc, type ChronicleIpc } from './ipc/register'
+import { readApiKey } from './ipc/secrets'
 import { ensureAppDirs, libraryDir, previewDir } from './paths'
 
 /** Single app-lifetime database handle; the IPC services receive this. */
@@ -84,10 +92,47 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (process.platform === 'win32') app.setAppUserModelId('app.chronicle.desktop')
-  ensureAppDirs()
   db = openAppDatabase()
+
+  if (process.argv.includes('--probe-ai-models')) {
+    try {
+      const probeMarker = process.argv.indexOf('--probe-ai-models')
+      const args = parseProbeArguments(process.argv.slice(probeMarker + 1))
+      if (args.help) {
+        console.log(PROVIDER_PROBE_HELP)
+        db.close()
+        app.exit(0)
+        return
+      }
+      const repositoryRoot = path.resolve(app.getAppPath(), '..', '..')
+      // Use an isolated port so the probe always runs the current workspace
+      // code, even while a desktop dev session has an older sidecar on 8765.
+      const probePort = 8877
+      const aiProcess = createAiServiceProcess(
+        repositoryRoot,
+        app.isPackaged ? process.resourcesPath : undefined,
+        probePort,
+      )
+      const exitCode = await runProviderProbe(args, {
+        db,
+        client: createAiClient(`http://127.0.0.1:${probePort}`),
+        readApiKey: (provider) => readApiKey(db, provider),
+        ensureService: () => aiProcess.start(),
+      })
+      await aiProcess.stop()
+      db.close()
+      app.exit(exitCode)
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error))
+      db.close()
+      app.exit(2)
+    }
+    return
+  }
+
+  ensureAppDirs()
 
   // C1 bridge: chronicle:// protocol, ipcMain handlers, and the watcher →
   // capture pipeline for every tracked folder.

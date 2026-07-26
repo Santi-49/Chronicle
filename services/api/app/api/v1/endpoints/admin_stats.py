@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -26,6 +26,7 @@ router = APIRouter(prefix="/admin/statistics", tags=["admin"])
 @router.get("", response_model=AdminStatistics)
 async def get_admin_statistics(
     period_days: int = Query(default=30, ge=1, le=366),
+    all_time: bool = False,
     start_date: date | None = None,
     end_date: date | None = None,
     account_id: uuid.UUID | None = None,
@@ -35,10 +36,26 @@ async def get_admin_statistics(
     _: User = require_permission("admin_statistics", "read"),
     db: AsyncSession = Depends(get_db),
 ) -> AdminStatistics:
+    if all_time and (start_date is not None or end_date is not None):
+        raise HTTPException(status_code=422, detail="all_time cannot be combined with custom dates")
     if (start_date is None) != (end_date is None):
         raise HTTPException(status_code=422, detail="start_date and end_date must be provided together")
     start_at = end_at = None
-    if start_date is not None and end_date is not None:
+    if all_time:
+        end_at = datetime.now(timezone.utc)
+        first_seen = await db.scalar(select(func.min(Installation.first_seen_at)))
+        first_seen_utc = (
+            first_seen.replace(tzinfo=timezone.utc)
+            if first_seen is not None and first_seen.tzinfo is None
+            else (first_seen or end_at).astimezone(timezone.utc)
+        )
+        start_at = datetime.combine(
+            first_seen_utc.date(),
+            time.min,
+            tzinfo=timezone.utc,
+        )
+        period_days = max(1, (end_at.date() - start_at.date()).days + 1)
+    elif start_date is not None and end_date is not None:
         if end_date < start_date:
             raise HTTPException(status_code=422, detail="end_date must not precede start_date")
         custom_days = (end_date - start_date).days + 1

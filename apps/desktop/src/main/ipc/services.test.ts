@@ -107,6 +107,7 @@ beforeEach(() => {
       }),
       annotate: async () => { throw new Error('not used in IPC tests') },
       embedText: async () => { throw new Error('not used in IPC tests') },
+      embedTexts: async () => { throw new Error('not used in IPC tests') },
       validateProviderModel: async ({ task, provider, model }) => {
         validationCalls.push({ task, provider, model })
         return {

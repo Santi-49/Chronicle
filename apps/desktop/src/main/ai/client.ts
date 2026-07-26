@@ -15,6 +15,7 @@ export type AnnotateRequest = components['schemas']['AnnotateRequest']
 /** Annotation plus token usage and estimated cost (C3). */
 export type AnnotateResponse = components['schemas']['AnnotateResponse']
 export type EmbedTextResponse = components['schemas']['EmbedTextResponse']
+export type EmbedTextsResponse = components['schemas']['EmbedTextsResponse']
 export type ValidateProviderModelRequest = components['schemas']['ValidateProviderModelRequest']
 export type ValidateProviderModelResponse = components['schemas']['ValidateProviderModelResponse']
 export type TokenUsage = components['schemas']['TokenUsage']
@@ -45,6 +46,7 @@ export interface AiClient {
   capabilities(): Promise<CapabilitiesResponse | null>
   annotate(request: AnnotateRequest): Promise<AnnotateResponse>
   embedText(request: ProviderRequest & { text: string }): Promise<EmbedTextResponse>
+  embedTexts(request: ProviderRequest & { texts: string[] }): Promise<EmbedTextsResponse>
   validateProviderModel(request: ValidateProviderModelRequest): Promise<ValidateProviderModelResponse>
 }
 
@@ -118,6 +120,7 @@ export function createAiClient(baseUrl = 'http://127.0.0.1:8765'): AiClient {
     },
     annotate: (request) => post<AnnotateResponse>(baseUrl, '/annotate', request),
     embedText: (request) => post<EmbedTextResponse>(baseUrl, '/embed-text', request),
+    embedTexts: (request) => post<EmbedTextsResponse>(baseUrl, '/embed-texts', request),
     validateProviderModel: (request) =>
       post<ValidateProviderModelResponse>(baseUrl, '/validate-provider-model', request),
   }

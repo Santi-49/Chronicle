@@ -12,6 +12,7 @@ import { ProjectsScreen } from './screens/ProjectsScreen'
 import { SearchScreen } from './screens/SearchScreen'
 import { DiagnosticsScreen } from './screens/DiagnosticsScreen'
 import { AdminScreen } from './screens/AdminScreen'
+import { ActivityScreen } from './screens/ActivityScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { TimelineScreen } from './screens/TimelineScreen'
 import { VersionDetailsScreen } from './screens/VersionDetailsScreen'
@@ -157,6 +158,8 @@ function WorkspaceScreen({
           onOpenVersion={(assetId, versionId) => navigate({ name: 'version', versionId, assetId })}
         />
       )
+    case 'activity':
+      return <ActivityScreen />
     case 'diagnostics':
       return <DiagnosticsScreen developmentBuild={developmentBuild} />
     case 'admin':

@@ -21,6 +21,7 @@
     "package:mac": "npm run build:sidecar && npm run build && electron-builder --mac dmg --publish never",
     "package:unpacked": "npm run build:sidecar && npm run build && electron-builder --win --x64 --dir --publish never",
     "preview": "electron-vite preview",
+    "probe:ai": "electron-vite build && node scripts/run-ai-probe.cjs",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
     "test:mvp12": "python ../../scripts/mvp12_acceptance.py",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",

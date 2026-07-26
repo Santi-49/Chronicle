@@ -4,14 +4,15 @@ This module is the only place that touches LangChain. Everything else in the
 package works with plain Python objects so that tests can inject fakes without
 patching import machinery.
 
-Two public coroutines:
+Three public coroutines:
   annotate_version  — first-version description or diff between two images.
   embed_text        — semantic-search vector for a text snippet.
+  embed_texts       — ordered document vectors from one bounded provider batch.
 
 Both resolve provider/model/key from the request, falling back to the
-environment defaults (chronicle_ai.config), attach the provider-reported token
-usage, and estimate the call's cost from the per-task prices. Both accept an
-optional factory argument so unit tests can inject a fake model.
+environment defaults (chronicle_ai.config), attach provider usage or an exact
+provider-tokenizer count, and estimate the call's cost from the per-task
+prices. Each accepts optional factory arguments so unit tests can inject fakes.
 """
 
 import asyncio
@@ -29,6 +30,8 @@ from .schemas import (
     CostEstimate,
     EmbedTextRequest,
     EmbedTextResponse,
+    EmbedTextsRequest,
+    EmbedTextsResponse,
     ImageInput,
     TokenUsage,
     ValidateProviderModelRequest,
@@ -59,6 +62,23 @@ def _resolve(request_value: str | None, default: str | None, what: str) -> str:
     return value
 
 
+def _provider_transport_options(provider: str) -> dict[str, Any]:
+    """Avoid malformed compressed responses observed across provider routes.
+
+    HTTPX automatically decompresses responses based on ``Content-Encoding``.
+    A provider edge or local proxy can occasionally label an uncompressed body
+    as gzip/deflate, which fails before LangChain can read the response. Each
+    integration exposes the same header through a differently named standard
+    option, so keep that provider-specific spelling here.
+    """
+    headers = {"Accept-Encoding": "identity"}
+    if provider == "google_genai":
+        return {"additional_headers": headers}
+    if provider in {"openai", "anthropic"}:
+        return {"default_headers": headers}
+    return {}
+
+
 def _data_url(image: ImageInput) -> str:
     """Build a data-URL that every LangChain provider understands.
 
@@ -86,9 +106,82 @@ def _usage_from_message(message: Any) -> TokenUsage | None:
     )
 
 
+async def _embedding_token_usage(
+    provider: str,
+    model: str,
+    api_key: str,
+    text: str,
+    counter_factory: Callable[..., Any],
+) -> TokenUsage | None:
+    """Count embedding input with the provider tokenizer exposed by LangChain.
+
+    The standard Embeddings interface discards response usage metadata.
+    OpenAI's LangChain chat class counts locally with the model's tiktoken
+    encoding; Google's class implements the same public method through its
+    countTokens endpoint. A counter failure never fails the embedding itself.
+    """
+    if provider not in {"openai", "google_genai"}:
+        return None
+    try:
+        counter = counter_factory(
+            model=model,
+            model_provider=provider,
+            api_key=api_key,
+            **_provider_transport_options(provider),
+        )
+        input_tokens = await asyncio.to_thread(counter.get_num_tokens, text)
+        if not isinstance(input_tokens, int) or input_tokens < 0:
+            return None
+        return TokenUsage(
+            input_tokens=input_tokens,
+            output_tokens=0,
+            total_tokens=input_tokens,
+        )
+    except Exception:
+        return None
+
+
+async def _embedding_batch_usage(
+    provider: str,
+    model: str,
+    api_key: str,
+    texts: list[str],
+    counter_factory: Callable[..., Any],
+) -> TokenUsage | None:
+    """Return the exact aggregate input count, or null if any item cannot count."""
+
+    usages = await asyncio.gather(
+        *(
+            _embedding_token_usage(
+                provider,
+                model,
+                api_key,
+                text,
+                counter_factory,
+            )
+            for text in texts
+        )
+    )
+    if any(usage is None or usage.input_tokens is None for usage in usages):
+        return None
+    input_tokens = sum(usage.input_tokens for usage in usages if usage is not None)
+    return TokenUsage(
+        input_tokens=input_tokens,
+        output_tokens=0,
+        total_tokens=input_tokens,
+    )
+
+
 def _estimate_cost(usage: TokenUsage | None, pricing: TaskConfig) -> CostEstimate | None:
     """Estimate USD cost from token usage and the per-million-token prices."""
     if usage is None:
+        return None
+    # A missing configured rate is unknown, not free. The desktop dashboard
+    # uses its separately refreshed live price catalog; this optional C3
+    # estimate exists only for standalone callers that configured both rates.
+    if usage.input_tokens is not None and pricing.input_price_per_m <= 0:
+        return None
+    if usage.output_tokens is not None and usage.output_tokens > 0 and pricing.output_price_per_m <= 0:
         return None
     input_usd = (usage.input_tokens or 0) / 1_000_000 * pricing.input_price_per_m
     output_usd = (usage.output_tokens or 0) / 1_000_000 * pricing.output_price_per_m
@@ -156,11 +249,18 @@ async def annotate_version(
         "API key",
     )
 
+    model_options: dict[str, Any] = _provider_transport_options(provider)
+    # Anthropic deprecated `temperature` for newer Claude models. Omitting the
+    # optional field keeps those models usable while retaining deterministic
+    # behavior on providers that still support it.
+    if provider != "anthropic":
+        model_options["temperature"] = 0
+
     model = model_factory(
         model=model_name,
         model_provider=provider,
         api_key=api_key,
-        temperature=0,
+        **model_options,
     )
     # include_raw keeps the underlying AIMessage so we can read usage_metadata;
     # with_structured_output otherwise returns only the parsed object.
@@ -211,12 +311,13 @@ async def annotate_version(
 async def embed_text(
     request: EmbedTextRequest,
     embeddings_factory: Callable[..., Any] = init_embeddings,
+    token_counter_factory: Callable[..., Any] = init_chat_model,
 ) -> EmbedTextResponse:
     """Create one semantic-search vector using LangChain's standard interface.
 
-    Provider/model/key resolve the same way as annotation. Token usage is
-    attached only when the provider exposes it (the standard embedding
-    interface usually does not, so ``usage``/``cost`` are typically null).
+    Uses the provider's query embedding mode. LangChain returns only the vector,
+    so supported providers use its public tokenizer method to recover the exact
+    billable input count without storing the text.
     """
     config = load_config()
     provider = _resolve(request.provider, config.provider, "provider")
@@ -231,14 +332,86 @@ async def embed_text(
         model=model_name,
         provider=provider,
         api_key=api_key,
+        **_provider_transport_options(provider),
     )
-    vector: list[float] = await embeddings.aembed_query(request.text)
-    usage = _usage_from_message(embeddings)  # None unless the object reports it
+    usage_task = asyncio.create_task(
+        _embedding_token_usage(
+            provider,
+            model_name,
+            api_key,
+            request.text,
+            token_counter_factory,
+        )
+    )
+    try:
+        vector: list[float] = await embeddings.aembed_query(request.text)
+    except Exception:
+        usage_task.cancel()
+        await asyncio.gather(usage_task, return_exceptions=True)
+        raise
+    counted_usage = await usage_task
+    usage = _usage_from_message(embeddings) or counted_usage
     return EmbedTextResponse(
         embedding=vector,
         provider=provider,
         model=model_name,
         dimensions=len(vector),
+        usage=usage,
+        cost=_estimate_cost(usage, config.embed),
+    )
+
+
+async def embed_texts(
+    request: EmbedTextsRequest,
+    embeddings_factory: Callable[..., Any] = init_embeddings,
+    token_counter_factory: Callable[..., Any] = init_chat_model,
+) -> EmbedTextsResponse:
+    """Embed up to 32 texts in one LangChain provider batch request."""
+
+    config = load_config()
+    provider = _resolve(request.provider, config.provider, "provider")
+    model_name = _resolve(request.model, config.embed.model, "model")
+    api_key = _resolve(
+        request.api_key.get_secret_value() if request.api_key else None,
+        config.api_key,
+        "API key",
+    )
+
+    embeddings = embeddings_factory(
+        model=model_name,
+        provider=provider,
+        api_key=api_key,
+        **_provider_transport_options(provider),
+    )
+    usage_task = asyncio.create_task(
+        _embedding_batch_usage(
+            provider,
+            model_name,
+            api_key,
+            request.texts,
+            token_counter_factory,
+        )
+    )
+    try:
+        vectors: list[list[float]] = await embeddings.aembed_documents(request.texts)
+    except Exception:
+        usage_task.cancel()
+        await asyncio.gather(usage_task, return_exceptions=True)
+        raise
+    if len(vectors) != len(request.texts):
+        raise ValueError(
+            f"Embedding provider returned {len(vectors)} vectors for {len(request.texts)} texts"
+        )
+    dimensions = len(vectors[0])
+    if dimensions == 0 or any(len(vector) != dimensions for vector in vectors):
+        raise ValueError("Embedding provider returned inconsistent vector dimensions")
+    counted_usage = await usage_task
+    usage = _usage_from_message(embeddings) or counted_usage
+    return EmbedTextsResponse(
+        embeddings=vectors,
+        provider=provider,
+        model=model_name,
+        dimensions=dimensions,
         usage=usage,
         cost=_estimate_cost(usage, config.embed),
     )
@@ -255,7 +428,7 @@ async def validate_provider_model(
     request: ValidateProviderModelRequest,
     model_factory: Callable[..., Any] = init_chat_model,
     embeddings_factory: Callable[..., Any] = init_embeddings,
-) -> None:
+) -> TokenUsage | None:
     """Make a minimal real provider call for the selected Chronicle task."""
 
     common = {
@@ -264,13 +437,21 @@ async def validate_provider_model(
         "apiKey": request.api_key.get_secret_value(),
     }
     if request.task == "embeddings":
-        await embed_text(
-            EmbedTextRequest.model_validate({**common, "text": "Chronicle configuration check"}),
+        result = await embed_texts(
+            EmbedTextsRequest.model_validate(
+                {
+                    **common,
+                    "texts": [
+                        "Chronicle configuration check",
+                        "Chronicle batch configuration check",
+                    ],
+                }
+            ),
             embeddings_factory=embeddings_factory,
         )
-        return
+        return result.usage
 
-    await annotate_version(
+    result = await annotate_version(
         AnnotateRequest.model_validate(
             {
                 **common,
@@ -282,3 +463,4 @@ async def validate_provider_model(
         ),
         model_factory=model_factory,
     )
+    return result.usage

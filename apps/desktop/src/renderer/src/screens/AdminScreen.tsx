@@ -200,7 +200,8 @@ function Filters({
   return <div className="admin-filters" aria-label="Analytics filters">
     <label><span>Period</span><select value={range} onChange={(event) => setRange(event.target.value)}>
       <option value="7">Last 7 days</option><option value="30">Last 30 days</option>
-      <option value="90">Last 90 days</option><option value="custom">Custom range</option>
+      <option value="90">Last 90 days</option><option value="all">All time</option>
+      <option value="custom">Custom range</option>
     </select></label>
     {range === 'custom' && <>
       <label><span>Start date</span><input type="date" value={startDate}
@@ -541,7 +542,7 @@ export function AdminScreen() {
     ...(
       range === 'custom'
         ? startDate && endDate ? { startDate, endDate } : {}
-        : { periodDays: Number(range) }
+        : range === 'all' ? { allTime: true } : { periodDays: Number(range) }
     ),
     ...(account ? { accountId: account.id } : {}),
     ...(country ? { country } : {}),

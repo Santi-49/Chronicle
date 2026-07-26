@@ -366,7 +366,8 @@ export function createControlPlaneClient(
     },
     getAdminStatistics: (filters) => raw<AdminStatistics>(
       `/api/v1/admin/statistics?${new URLSearchParams({
-        period_days: String(filters.periodDays ?? 30),
+        ...(!filters.allTime ? { period_days: String(filters.periodDays ?? 30) } : {}),
+        ...(filters.allTime ? { all_time: 'true' } : {}),
         ...(filters.startDate ? { start_date: filters.startDate } : {}),
         ...(filters.endDate ? { end_date: filters.endDate } : {}),
         ...(filters.accountId ? { account_id: filters.accountId } : {}),

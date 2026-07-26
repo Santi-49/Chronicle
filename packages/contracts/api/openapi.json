@@ -1388,6 +1388,16 @@
             }
           },
           {
+            "name": "all_time",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "All Time"
+            }
+          },
+          {
             "name": "start_date",
             "in": "query",
             "required": false,
@@ -2514,7 +2524,6 @@
           },
           "period_days": {
             "type": "integer",
-            "maximum": 366.0,
             "minimum": 1.0,
             "title": "Period Days"
           },

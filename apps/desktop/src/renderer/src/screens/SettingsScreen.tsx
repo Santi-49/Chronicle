@@ -21,6 +21,7 @@ import { friendlyIpcError } from '../lib/errors'
 import { HELP_CENTER_URL, UPDATE_HELP_URL } from '../lib/helpLinks'
 import { PRIVACY_URL, TERMS_URL } from '../lib/legalAcceptance'
 import type { OnboardingStatus } from '../lib/onboarding'
+import type { AiModelPrice } from '../../../shared/ipc'
 
 interface SettingsScreenProps {
   developerBuild: boolean
@@ -317,6 +318,20 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
 
 // ── AI summaries ──────────────────────────────────────────────────────────
 
+const modelRate = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 6,
+})
+
+function formatModelPrice(price: AiModelPrice | null, inputOnly: boolean): string {
+  if (!price) return 'Live list price unavailable for this model.'
+  const input = `${modelRate.format(price.inputUsdPerMillion)} input`
+  const output = inputOnly ? '' : ` · ${modelRate.format(price.outputUsdPerMillion)} output`
+  return `Estimated list price · ${input}${output} per 1M tokens · Models.dev`
+}
+
 function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const { settings, configuredProviders, loading, save, setApiKey, clearApiKey } = useSettings()
 
@@ -326,6 +341,12 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const [embedProvider, setEmbedProvider] = useState('google_genai')
   const [embedModel, setEmbedModel] = useState('gemini-embedding-001')
   const [saveState, setSaveState] = useState<{ message: string; error: boolean } | null>(null)
+  const [priceState, setPriceState] = useState<{
+    key: string
+    chat: AiModelPrice | null
+    embeddings: AiModelPrice | null
+    loading: boolean
+  } | null>(null)
   const [testingTask, setTestingTask] = useState<AiTask | null>(null)
   const [testStates, setTestStates] = useState<
     Partial<Record<AiTask, { message: string; error: boolean }>>
@@ -344,6 +365,55 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
       isPresetModel('embeddings', settings.ai.embeddings.provider, settings.ai.embeddings.model)
     setDevMode(!preset && settings.ai.chat.provider !== '')
   }, [settings])
+
+  useEffect(() => {
+    const chatProviderId = chatProvider.trim()
+    const chatModelId = chatModel.trim()
+    const embeddingProviderId = embedProvider.trim()
+    const embeddingModelId = embedModel.trim()
+    const key = [
+      chatProviderId,
+      chatModelId,
+      embeddingProviderId,
+      embeddingModelId,
+    ].join('\u001f')
+    let cancelled = false
+    setPriceState({ key, chat: null, embeddings: null, loading: true })
+    const timer = setTimeout(async () => {
+      let chat: AiModelPrice | null = null
+      let embeddings: AiModelPrice | null = null
+      if (chatProviderId && chatModelId) {
+        try {
+          chat = await chronicle.getAiModelPrice(chatProviderId, chatModelId)
+        } catch {
+          // One unavailable model must not hide the other task's price.
+        }
+      }
+      if (embeddingProviderId && embeddingModelId) {
+        try {
+          embeddings = await chronicle.getAiModelPrice(
+            embeddingProviderId,
+            embeddingModelId,
+          )
+        } catch {
+          // Pricing is informational; editing and saving remain available.
+        }
+      }
+      if (!cancelled) setPriceState({ key, chat, embeddings, loading: false })
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [chatProvider, chatModel, embedProvider, embedModel])
+
+  const priceKey = [
+    chatProvider.trim(),
+    chatModel.trim(),
+    embedProvider.trim(),
+    embedModel.trim(),
+  ].join('\u001f')
+  const currentPrices = priceState?.key === priceKey ? priceState : null
 
   // When switching provider in preset mode, snap the model to that provider's first option.
   const changeProvider = (task: AiTask, providerId: string) => {
@@ -485,6 +555,13 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="chat" provider={chatProvider} model={chatModel} onProvider={(p) => changeProvider('chat', p)} onModel={setChatModel} />
         )}
         {chatError && <p className="ai-task-error" role="alert">{chatError}</p>}
+        {chatProvider.trim() && chatModel.trim() && (
+          <small aria-live="polite" className="ai-model-price">
+            {!currentPrices || currentPrices.loading
+              ? 'Checking live list price…'
+              : formatModelPrice(currentPrices?.chat ?? null, false)}
+          </small>
+        )}
         <div className="ai-task-test-row">
           <button
             className="secondary-button compact-button"
@@ -516,6 +593,13 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="embeddings" provider={embedProvider} model={embedModel} onProvider={(p) => changeProvider('embeddings', p)} onModel={setEmbedModel} />
         )}
         {embedError && <p className="ai-task-error" role="alert">{embedError}</p>}
+        {embedProvider.trim() && embedModel.trim() && (
+          <small aria-live="polite" className="ai-model-price">
+            {!currentPrices || currentPrices.loading
+              ? 'Checking live list price…'
+              : formatModelPrice(currentPrices?.embeddings ?? null, true)}
+          </small>
+        )}
         <div className="ai-task-test-row">
           <button
             className="secondary-button compact-button"

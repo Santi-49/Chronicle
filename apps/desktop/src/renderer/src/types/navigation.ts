@@ -1,4 +1,4 @@
-export type PrimaryRouteName = 'home' | 'projects' | 'search' | 'admin' | 'diagnostics' | 'settings'
+export type PrimaryRouteName = 'home' | 'projects' | 'search' | 'activity' | 'admin' | 'diagnostics' | 'settings'
 
 /**
  * IDs are the C1 numeric identifiers (folder id, asset id, version id).
@@ -15,6 +15,7 @@ export type AppRoute =
   | { name: 'timeline'; assetId: number; projectId?: number }
   | { name: 'version'; versionId: number; assetId: number; projectId?: number }
   | { name: 'search' }
+  | { name: 'activity' }
   | { name: 'admin' }
   | { name: 'diagnostics' }
   | { name: 'settings'; section?: 'ai' }

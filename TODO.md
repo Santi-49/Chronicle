@@ -664,7 +664,7 @@ and build); one line in `docs/bob-log.md`.
 correctly in light and dark; CTA buttons are clearly mock; animations degrade gracefully with
 reduced motion; and the team agrees it looks like a deliberate product page, not AI slop.
 
-### [ ] LAND-02 — Publish user help, setup guides, and FAQ on the landing site `Stretch`
+### [X] LAND-02 — Publish user help, setup guides, and FAQ on the landing site `Stretch`
 
 **Owner:** Unassigned
 **Depends on:** LAND-01, MVP-12 (document the verified packaged-app behavior, not planned behavior)
@@ -1208,7 +1208,7 @@ and the tutorial resumes, dismisses, and replays accessibly.
 > acceptance-evidence policy, explicitly confirms no installer EULA is required, chooses a public
 > repository license, and the clean-machine teammate/install/upgrade/uninstall matrix passes.
 
-### [ ] POST-08 — Publish the app and wire Windows auto-update `Post-MVP`
+### [X] POST-08 — Publish the app and wire Windows auto-update `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** MVP-12 (a working, buildable app to package)
@@ -1309,9 +1309,9 @@ update telemetry.
 > landing-only, infrastructure-only, and documentation-only commits no longer enter the desktop
 > changelog.
 
-### [ ] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
+### [X] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
 
-**Owner:** Unassigned
+**Owner:** Team
 **Depends on:** MVP-09; POST-04 only for optional cross-device/server-backed history
 **Goal:** Give each user a GitHub-style view of their own Chronicle activity and, most
 importantly, a trustworthy view of AI usage and estimated spend. The local dashboard must work
