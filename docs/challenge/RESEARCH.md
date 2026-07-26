@@ -384,6 +384,14 @@ Sources:
   `GITHUB_TOKEN` do not recursively trigger Actions. Chronicle therefore requires a fine-grained
   `RELEASE_PLEASE_TOKEN` rather than silently bypassing protected-branch CI.
   ([Release Please Action](https://github.com/googleapis/release-please-action))
+- Release Please recommends squash merges for linear history and supports multiple meaningful
+  changes in one squash through a `BEGIN_COMMIT_OVERRIDE` block in the merged PR body. Chronicle's
+  persistent `dev → main` promotion now generates that block from the exact GitHub comparison:
+  unique non-merge `feat`, `fix`, `deps`, and breaking Conventional Commits are retained, while
+  merge commits and ordinary chores are omitted. The built-in `GITHUB_TOKEN` performs the
+  idempotent body edit so it cannot recursively trigger the privileged merge workflow; the release
+  PAT remains limited to guarded merge actions.
+  ([Release Please](https://github.com/googleapis/release-please))
 - Local packaging evidence: a clean Python 3.12 environment built the PyInstaller Gemini sidecar
   in about 70 seconds (25.2 MB); both the raw executable and the copy inside Electron resources
   returned `/health` with `chronicle-ai` version `0.1.0`. electron-builder then produced a 135 MB
@@ -887,6 +895,12 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-26 — RELEASE PLEASE COMMIT COLLECTION: the `dev → main` workflow now queries GitHub's
+  exact comparison, extracts and de-duplicates releasable non-merge Conventional Commits, and
+  maintains Release Please's supported commit-override block before the existing squash merge.
+  YAML parsing, diff checks, and representative compare-response filtering verified breaking-
+  commit retention, merge/chore exclusion, and duplicate removal — official Release Please
+  multiple-change and commit-override guidance.
 - 2026-07-26 — POST-08A IMPLEMENTATION: added packaged-Windows GitHub auto-update plumbing,
   same-build manifest/blockmap/hash assertions, typed main-to-renderer state, accessible
   download/restart and Settings/About UI, and current-versus-older release adoption from existing

@@ -55,6 +55,95 @@ jobs:
             exit 1
           fi
 
+      - name: Add feature commits to the Release Please changelog
+        if: ${{ github.event.pull_request.head.ref == 'dev' }}
+        shell: bash
+        env:
+          # Use GITHUB_TOKEN for this edit so the resulting `edited` event does
+          # not recursively start another workflow run.
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # Release Please sees the dev → main squash commit, not the feature
+          # commits behind it. Build its supported override block from the
+          # non-merge Conventional Commits in this exact promotion range.
+          override=$(
+            gh api \
+              --paginate \
+              --slurp \
+              "repos/$GITHUB_REPOSITORY/compare/$BASE_SHA...$HEAD_SHA?per_page=100" |
+              jq -r '
+                [
+                  .[].commits[]
+                  | select((.parents | length) == 1)
+                  | .commit.message
+                  | select(
+                      test("^(feat|fix|deps)(\\([^)]+\\))?!?:[ ]+")
+                      or test("^[a-z][a-z0-9-]*(\\([^)]+\\))?!:[ ]+")
+                    )
+                  | gsub("BEGIN_COMMIT_OVERRIDE|END_COMMIT_OVERRIDE"; "")
+                ]
+                | reduce .[] as $message (
+                    [];
+                    if index($message) then . else . + [$message] end
+                  )
+                | if length == 0 then
+                    ""
+                  else
+                    "BEGIN_COMMIT_OVERRIDE\n"
+                    + join("\n\n")
+                    + "\nEND_COMMIT_OVERRIDE"
+                  end
+              '
+          )
+
+          if [[ -z "$override" ]]; then
+            echo "::error::No releasable Conventional Commits were found between main and dev."
+            exit 1
+          fi
+
+          current_body=$(
+            gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""'
+          )
+          updated_body=$(
+            jq -nr \
+              --arg body "$current_body" \
+              --arg override "$override" '
+                (
+                  $body
+                  | gsub(
+                      "(?s)\\n*BEGIN_COMMIT_OVERRIDE\\n.*?\\nEND_COMMIT_OVERRIDE\\n*";
+                      "\n\n"
+                    )
+                  | sub("[[:space:]]+$"; "")
+                ) as $clean
+                | if $clean == "" then
+                    $override
+                  else
+                    $clean + "\n\n" + $override
+                  end
+              '
+          )
+
+          if (( ${#updated_body} > 65000 )); then
+            echo "::error::Generated promotion PR body is too large for GitHub."
+            exit 1
+          fi
+
+          if [[ "$updated_body" != "$current_body" ]]; then
+            gh api \
+              --method PATCH \
+              "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
+              -f body="$updated_body" >/dev/null
+            echo "Updated the Release Please commit override from main...dev."
+          else
+            echo "Release Please commit override is already current."
+          fi
+
       - name: Verify Release Please metadata scope
         if: ${{ startsWith(github.event.pull_request.head.ref, 'release-please--') }}
         shell: bash

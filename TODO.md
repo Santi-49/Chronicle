@@ -1297,6 +1297,12 @@ update telemetry.
 > smoke passed. The task remains open until a real installed vA → published vB clean-profile
 > upgrade is evidenced.
 
+> Release handoff automation added 2026-07-26: `auto-merge-main.yml` derives a Release Please
+> `BEGIN_COMMIT_OVERRIDE` block from the exact `main...dev` comparison before squash merge. It
+> retains unique non-merge `feat`, `fix`, `deps`, and breaking Conventional Commit messages, so
+> updater and related fixes remain separate changelog entries without preserving noisy branch
+> merge history.
+
 ### [ ] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
 
 **Owner:** Unassigned

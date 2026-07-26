@@ -130,14 +130,25 @@ The normal promotion flow is:
 2. Open one PR with base `main` and compare `dev`. Its title must start with `feat:` or `fix:`
    (optionally scoped or breaking), because the workflow squash-merges that title and Release Please
    uses it to determine the next version.
-3. `Auto-merge main promotion` enables auto-merge. All three **Main PR CI** jobs must pass; a
-   failure leaves the PR open. Fix failures on `dev`, never directly on `main`.
-4. After the checks pass, GitHub merges the promotion, Release Please opens its metadata PR, the
+3. `Auto-merge main promotion` compares the PR's exact `main...dev` SHAs and collects unique,
+   non-merge Conventional Commit messages for `feat`, `fix`, `deps`, and any `!` breaking change.
+   It maintains Release Please's supported `BEGIN_COMMIT_OVERRIDE` block at the end of the PR
+   description, preserving the human-authored description above it. Merge commits, ordinary
+   chores, and duplicate messages are omitted. This retains meaningful feature commits even
+   though the promotion itself is squash-merged.
+4. The workflow enables auto-merge. All three **Main PR CI** jobs must pass; a failure leaves the
+   PR open. Fix failures on `dev`, never directly on `main`.
+5. After the checks pass, GitHub merges the promotion, Release Please opens its metadata PR, the
    lightweight guard passes, and GitHub merges that PR automatically.
-5. `Release desktop` creates the version/tag/release, syncs released `main` back into the latest
+6. `Release desktop` creates the version/tag/release, syncs released `main` back into the latest
    `dev`, attaches both installers/checksums, and the cleanup job removes the temporary release
    branch. No second PR action is required. A genuine back-sync conflict fails visibly and requires
    a manual merge; automation never overwrites `dev`.
+
+Feature commits should still use Conventional Commit messages. The generated override comes from
+commit messages, not changed-file text, and refreshes whenever the promotion head SHA changes. If
+the comparison contains no releasable commit, promotion fails instead of publishing a misleading
+changelog.
 
 ## Creating a new public version
 
