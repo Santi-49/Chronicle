@@ -17,7 +17,7 @@ export type AppRoute =
   | { name: 'search' }
   | { name: 'admin' }
   | { name: 'diagnostics' }
-  | { name: 'settings' }
+  | { name: 'settings'; section?: 'ai' }
   | { name: 'jobs'; from: PrimaryRouteName }
 
 export function getPrimaryRoute(route: AppRoute): PrimaryRouteName {

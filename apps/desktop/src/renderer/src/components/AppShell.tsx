@@ -37,6 +37,7 @@ export function AppShell({ route, children, developerMode, isAdmin, onNavigate, 
                 <button
                   aria-current={activeRoute === item.name ? 'page' : undefined}
                   className={activeRoute === item.name ? 'sidebar-link sidebar-link-active' : 'sidebar-link'}
+                  data-tour={item.name === 'projects' ? 'nav-projects' : undefined}
                   onClick={() => onNavigate({ name: item.name })}
                   type="button"
                 >
@@ -51,6 +52,7 @@ export function AppShell({ route, children, developerMode, isAdmin, onNavigate, 
           <button
             aria-current={activeRoute === 'settings' ? 'page' : undefined}
             className={activeRoute === 'settings' ? 'sidebar-link sidebar-link-active' : 'sidebar-link'}
+            data-tour="nav-settings"
             onClick={() => onNavigate({ name: 'settings' })}
             type="button"
           >

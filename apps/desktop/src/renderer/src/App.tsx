@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { AppShell } from './components/AppShell'
+import { GettingStartedPanel } from './components/GettingStartedPanel'
 import { ThemeToggle } from './components/ThemeToggle'
 import { WindowTitleBar } from './components/WindowTitleBar'
 import { HomeScreen } from './screens/HomeScreen'
@@ -19,6 +20,23 @@ import type { AppRoute } from './types/navigation'
 import { getPrimaryRoute } from './types/navigation'
 import { chronicle } from './lib/bridge'
 import { readDeveloperMode, writeDeveloperMode } from './lib/developerMode'
+import {
+  hasCurrentLegalAcceptance,
+  recordLegalAcceptance,
+} from './lib/legalAcceptance'
+import {
+  completeOnboarding,
+  deferAiSetup,
+  dismissOnboarding,
+  freshOnboardingState,
+  markAiReady,
+  markProjectReady,
+  markTimelineSeen,
+  readOnboardingState,
+  resumeOnboarding,
+  writeOnboardingState,
+  type OnboardingState,
+} from './lib/onboarding'
 import type { AppearanceTheme } from '../../shared/settings'
 
 export type Theme = 'dark' | 'light'
@@ -33,6 +51,11 @@ interface WorkspaceScreenProps {
   onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
   onAdminStateChange: (isAdmin: boolean) => void
+  onboarding: OnboardingState
+  onAiReady: () => void
+  onProjectCreated: (projectId: number) => void
+  onReplayTutorial: () => void
+  onResumeTutorial: () => void
   onCloseJobs: () => void
 }
 
@@ -45,6 +68,11 @@ function WorkspaceScreen({
   onDeveloperModeChange,
   onThemePreferenceChange,
   onAdminStateChange,
+  onboarding,
+  onAiReady,
+  onProjectCreated,
+  onReplayTutorial,
+  onResumeTutorial,
   onCloseJobs,
 }: WorkspaceScreenProps) {
   switch (route.name) {
@@ -68,7 +96,10 @@ function WorkspaceScreen({
       return (
         <NewProjectScreen
           onCancel={() => navigate({ name: 'projects' })}
-          onCreated={(projectId) => navigate({ name: 'project', projectId })}
+          onCreated={(projectId) => {
+            onProjectCreated(projectId)
+            navigate({ name: 'project', projectId })
+          }}
         />
       )
     case 'edit-project':
@@ -141,6 +172,11 @@ function WorkspaceScreen({
           onDeveloperModeChange={onDeveloperModeChange}
           onThemePreferenceChange={onThemePreferenceChange}
           onAdminStateChange={onAdminStateChange}
+          onboardingStatus={onboarding.status}
+          onAiReady={onAiReady}
+          onReplayTutorial={onReplayTutorial}
+          onResumeTutorial={onResumeTutorial}
+          focusSection={route.section}
         />
       )
     case 'jobs':
@@ -152,12 +188,25 @@ const HAS_ONBOARDED_KEY = 'chronicle-has-onboarded'
 const DEVELOPMENT_BUILD = import.meta.env.DEV
 
 export default function App() {
-  // After the first "Continue local" the welcome screen is skipped and returning
-  // users land straight on Home.
+  // A policy-version change reopens the welcome screen once. The separate
+  // returning flag prevents that legal review from restarting the product tour.
+  const [returningForLegalAcceptance] = useState(
+    () =>
+      localStorage.getItem(HAS_ONBOARDED_KEY) === 'true' &&
+      !hasCurrentLegalAcceptance(localStorage),
+  )
   const [hasEnteredWorkspace, setHasEnteredWorkspace] = useState(
-    () => localStorage.getItem(HAS_ONBOARDED_KEY) === 'true'
+    () =>
+      localStorage.getItem(HAS_ONBOARDED_KEY) === 'true' &&
+      hasCurrentLegalAcceptance(localStorage),
   )
   const [route, setRoute] = useState<AppRoute>({ name: 'home' })
+  const [onboarding, setOnboarding] = useState<OnboardingState>(() =>
+    readOnboardingState(
+      localStorage,
+      localStorage.getItem(HAS_ONBOARDED_KEY) === 'true',
+    ),
+  )
   const [isAdmin, setIsAdmin] = useState(false)
   const [developerMode, setDeveloperMode] = useState(
     () => DEVELOPMENT_BUILD || readDeveloperMode(),
@@ -172,6 +221,17 @@ export default function App() {
     window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
   )
   const theme = themePreference === 'system' ? systemTheme : themePreference
+
+  const updateOnboarding = useCallback(
+    (update: (current: OnboardingState) => OnboardingState) => {
+      setOnboarding((current) => {
+        const next = update(current)
+        writeOnboardingState(next, localStorage)
+        return next
+      })
+    },
+    [],
+  )
 
   useEffect(() => {
     void chronicle.getSettings().then((settings) => setThemePreference(settings.appearance.theme))
@@ -230,6 +290,24 @@ export default function App() {
     return () => window.cancelAnimationFrame(frame)
   }, [hasEnteredWorkspace, route])
 
+  // Reaching a real Project screen is also proof that step one succeeded.
+  // This guards the tour against navigation/state timing and lets a user
+  // continue with an existing project without silently skipping from Home.
+  useEffect(() => {
+    if (
+      onboarding.status === 'active' &&
+      !onboarding.completed.project &&
+      route.name === 'project'
+    ) {
+      updateOnboarding((current) => markProjectReady(current, route.projectId))
+    }
+  }, [
+    onboarding.completed.project,
+    onboarding.status,
+    route,
+    updateOnboarding,
+  ])
+
   useEffect(() => {
     if (!isAdmin && route.name === 'admin') setRoute({ name: 'home' })
   }, [isAdmin, route.name])
@@ -267,7 +345,11 @@ export default function App() {
             </div>
             <WelcomeScreen
               onContinue={() => {
+                recordLegalAcceptance(localStorage, 'local')
                 localStorage.setItem(HAS_ONBOARDED_KEY, 'true')
+                if (!returningForLegalAcceptance) {
+                  updateOnboarding(() => freshOnboardingState())
+                }
                 setHasEnteredWorkspace(true)
               }}
               onContinueGoogle={async () => {
@@ -275,9 +357,14 @@ export default function App() {
                 setIsAdmin(state.mode === 'signed-in' && state.isAdmin)
                 const synced = await chronicle.getSettings()
                 setThemePreference(synced.appearance.theme)
+                recordLegalAcceptance(localStorage, 'google')
                 localStorage.setItem(HAS_ONBOARDED_KEY, 'true')
+                if (!returningForLegalAcceptance) {
+                  updateOnboarding(() => freshOnboardingState())
+                }
                 setHasEnteredWorkspace(true)
               }}
+              returningForLegalAcceptance={returningForLegalAcceptance}
             />
           </div>
         ) : (
@@ -298,9 +385,25 @@ export default function App() {
                 onDeveloperModeChange={changeDeveloperMode}
                 onThemePreferenceChange={changeThemePreference}
                 onAdminStateChange={setIsAdmin}
+                onboarding={onboarding}
+                onAiReady={() => updateOnboarding(markAiReady)}
+                onProjectCreated={(projectId) =>
+                  updateOnboarding((current) => markProjectReady(current, projectId))
+                }
+                onReplayTutorial={() => updateOnboarding(() => freshOnboardingState())}
+                onResumeTutorial={() => updateOnboarding(resumeOnboarding)}
                 onCloseJobs={() => setRoute(jobsReturnRoute)}
               />
             </div>
+            <GettingStartedPanel
+              state={onboarding}
+              route={route}
+              onNavigate={setRoute}
+              onDeferAi={() => updateOnboarding(deferAiSetup)}
+              onDismiss={() => updateOnboarding(dismissOnboarding)}
+              onFinish={() => updateOnboarding(completeOnboarding)}
+              onTimelineExplored={() => updateOnboarding(markTimelineSeen)}
+            />
           </AppShell>
         )}
       </div>

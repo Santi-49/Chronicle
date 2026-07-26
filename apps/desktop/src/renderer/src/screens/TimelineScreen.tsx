@@ -154,7 +154,7 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
   }
 
   return (
-    <section className="page timeline-page" aria-labelledby="timeline-title">
+    <section className="page timeline-page" aria-labelledby="timeline-title" data-tour="timeline">
       <nav className="breadcrumbs" aria-label="Breadcrumb">
         <button onClick={onOpenProjects} type="button">Projects</button><Icon name="chevron-right" />
         {folder && (<><button onClick={() => onBack(folderId)} type="button">{folder.displayName}</button><Icon name="chevron-right" /></>)}
@@ -195,6 +195,7 @@ export function TimelineScreen({ assetId, projectId, onBack, onOpenProjects, onO
               return (
                 <button
                   className="timeline-row"
+                  data-tour={index === 0 ? 'timeline-version' : undefined}
                   key={version.id}
                   onClick={() => onOpenVersion(version.id)}
                   onKeyDown={(event) => moveFocus(event, index)}

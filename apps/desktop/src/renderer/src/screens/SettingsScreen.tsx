@@ -17,6 +17,8 @@ import { useFolders, useSettings } from '../lib/useChronicle'
 import { chronicle } from '../lib/bridge'
 import { friendlyError } from '../lib/friendlyError'
 import { friendlyIpcError } from '../lib/errors'
+import { PRIVACY_URL, TERMS_URL } from '../lib/legalAcceptance'
+import type { OnboardingStatus } from '../lib/onboarding'
 
 interface SettingsScreenProps {
   developerBuild: boolean
@@ -27,6 +29,11 @@ interface SettingsScreenProps {
   onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
   onAdminStateChange: (isAdmin: boolean) => void
+  onboardingStatus: OnboardingStatus
+  onAiReady: () => void
+  onReplayTutorial: () => void
+  onResumeTutorial: () => void
+  focusSection?: 'ai'
 }
 
 const appearanceOptions: { value: ThemePreference; label: string; description: string }[] = [
@@ -44,7 +51,23 @@ export function SettingsScreen({
   onDeveloperModeChange,
   onThemePreferenceChange,
   onAdminStateChange,
+  onboardingStatus,
+  onAiReady,
+  onReplayTutorial,
+  onResumeTutorial,
+  focusSection,
 }: SettingsScreenProps) {
+  useEffect(() => {
+    if (focusSection !== 'ai') return
+    const frame = window.requestAnimationFrame(() => {
+      const section = document.getElementById('ai-settings')
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      section?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' })
+      section?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [focusSection])
+
   return (
     <section className="page settings-page" aria-labelledby="settings-title">
       <PageHeader
@@ -54,9 +77,14 @@ export function SettingsScreen({
       />
 
       <div className="settings-sections">
+        <GettingStartedSection
+          status={onboardingStatus}
+          onReplay={onReplayTutorial}
+          onResume={onResumeTutorial}
+        />
         <AppearanceSection themePreference={themePreference} onThemePreferenceChange={onThemePreferenceChange} />
         <TrackedFoldersSection onAddProject={onAddProject} />
-        <AiSection />
+        <AiSection onAiReady={onAiReady} />
         <AccountSection
           onAdminStateChange={onAdminStateChange}
           onOpenProjects={onOpenProjects}
@@ -66,6 +94,47 @@ export function SettingsScreen({
           developerMode={developerMode}
           onDeveloperModeChange={onDeveloperModeChange}
         />
+      </div>
+    </section>
+  )
+}
+
+function GettingStartedSection({
+  status,
+  onReplay,
+  onResume,
+}: {
+  status: OnboardingStatus
+  onReplay: () => void
+  onResume: () => void
+}) {
+  const active = status === 'active'
+  const complete = status === 'complete'
+  return (
+    <section className="settings-section">
+      <div className="settings-section-heading">
+        <Icon name="spark" />
+        <div>
+          <h2>Getting started</h2>
+          <p>Create a project, learn the Timeline, and configure optional AI at your own pace.</p>
+        </div>
+      </div>
+      <div className="getting-started-settings-copy">
+        <p>
+          {active
+            ? 'The guided tour is active. Follow the highlighted controls or skip it at any time.'
+            : complete
+              ? 'Tutorial completed. Replay it whenever you want a quick refresher.'
+              : 'The guided tour is hidden. Resume it without losing completed steps.'}
+        </p>
+        <button
+          className="secondary-button"
+          onClick={active || complete ? onReplay : onResume}
+          type="button"
+        >
+          <Icon name={active || complete ? 'refresh' : 'spark'} />
+          {active ? 'Restart tutorial' : complete ? 'Replay tutorial' : 'Resume tutorial'}
+        </button>
       </div>
     </section>
   )
@@ -169,7 +238,7 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
 
 // ── AI summaries ──────────────────────────────────────────────────────────
 
-function AiSection() {
+function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const { settings, configuredProviders, loading, save, setApiKey, clearApiKey } = useSettings()
 
   const [devMode, setDevMode] = useState(false)
@@ -236,6 +305,7 @@ function AiSection() {
         },
       })
       setSaveState({ message: 'Saved.', error: false })
+      onAiReady()
     } catch (err) {
       const reason = friendlyIpcError(err, 'The AI configuration could not be validated.')
       setSaveState({
@@ -281,6 +351,7 @@ function AiSection() {
           error: !result.valid,
         },
       }))
+      if (result.valid && task === 'chat') onAiReady()
     } catch (error) {
       setTestStates((current) => ({
         ...current,
@@ -310,7 +381,7 @@ function AiSection() {
   }, [chatProvider, embedProvider])
 
   return (
-    <section className="settings-section">
+    <section className="settings-section" data-tour="ai-settings" id="ai-settings" tabIndex={-1}>
       <div className="settings-section-heading">
         <Icon name="spark" />
         <div><h2>AI summaries</h2><p>Optional. Versions are always captured, even when AI is unavailable.</p></div>
@@ -402,6 +473,8 @@ function AiSection() {
             provider={provider.id}
             label={provider.label}
             saved={configuredProviders.includes(provider.id)}
+            tourTarget={provider.id === chatProvider}
+            onReady={onAiReady}
             onSave={setApiKey}
             onClear={clearApiKey}
           />
@@ -415,12 +488,16 @@ function ApiKeyRow({
   provider,
   label,
   saved,
+  tourTarget,
+  onReady,
   onSave,
   onClear,
 }: {
   provider: string
   label: string
   saved: boolean
+  tourTarget: boolean
+  onReady: () => void
   onSave: (provider: string, key: string) => Promise<void>
   onClear: (provider: string) => Promise<void>
 }) {
@@ -434,6 +511,7 @@ function ApiKeyRow({
       await onSave(provider, draft.trim())
       setDraft('')
       setStatus('Saved.')
+      onReady()
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err))
     }
@@ -454,6 +532,7 @@ function ApiKeyRow({
         <Icon name="key" />
         <input
           aria-label={`${label} API key`}
+          data-tour={tourTarget ? 'ai-provider-key' : undefined}
           onChange={(event) => setDraft(event.target.value)}
           placeholder={saved ? 'Saved - type to replace it' : 'Paste API key'}
           type="password"
@@ -461,7 +540,15 @@ function ApiKeyRow({
         />
       </div>
       <div className="api-key-actions">
-        <button className="secondary-button compact-button" disabled={!draft.trim()} onClick={() => void save()} type="button">Save</button>
+        <button
+          className="secondary-button compact-button"
+          data-tour={tourTarget ? 'ai-provider-key-save' : undefined}
+          disabled={!draft.trim()}
+          onClick={() => void save()}
+          type="button"
+        >
+          Save
+        </button>
         {saved && <button className="text-button" onClick={() => void clear()} type="button">Remove</button>}
       </div>
       {status && <span className="api-key-status inline-status" role="status">{status}</span>}
@@ -633,14 +720,14 @@ function AccountSection({
           {email ? `Signed in as ${email}${isAdmin ? ' (admin)' : ''}.` : 'Running in local mode. Local features remain available offline.'}
         </p>
         <div className="account-access-actions">
-          {controlPlaneAvailable && (
+          {controlPlaneAvailable && !email && (
             <button
               className="google-button settings-google-button"
               disabled={authBusy}
-              onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, email ? 'Google account linked.' : 'Signed in with Google.')}
+              onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, 'Signed in with Google.')}
               type="button"
             >
-              <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : email ? 'Link Google account' : 'Continue with Google'}</span>
+              <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : 'Continue with Google'}</span>
             </button>
           )}
           {email && <button className="secondary-button" disabled={authBusy} onClick={() => void runAuth(() => chronicle.logout(), 'Signed out.')} type="button">Sign out</button>}
@@ -695,18 +782,35 @@ function AccountSection({
         </div>
       )}
 
-      <div className="privacy-links">
-        <a href="https://chronicle.quick2query.com/privacy/" rel="noreferrer" target="_blank">
-          Read the Chronicle Privacy Policy
-        </a>
-        <button
-          className="secondary-button compact-button"
-          disabled={authBusy || !controlPlaneAvailable}
-          onClick={() => void exportAccount()}
-          type="button"
-        >
-          Export my cloud data
-        </button>
+      <div className="account-resource-list">
+        <div className="account-resource-row">
+          <div className="account-resource-copy">
+            <strong>Legal and privacy</strong>
+            <p>Review the policies that apply when you use Chronicle.</p>
+          </div>
+          <div className="account-legal-links">
+            <a href={TERMS_URL} rel="noreferrer" target="_blank">
+              Terms
+            </a>
+            <a href={PRIVACY_URL} rel="noreferrer" target="_blank">
+              Privacy
+            </a>
+          </div>
+        </div>
+        <div className="account-resource-row">
+          <div className="account-resource-copy">
+            <strong>Your cloud data</strong>
+            <p>Download a copy of the information Chronicle stores online.</p>
+          </div>
+          <button
+            className="secondary-button compact-button"
+            disabled={authBusy || !controlPlaneAvailable}
+            onClick={() => void exportAccount()}
+            type="button"
+          >
+            Export data
+          </button>
+        </div>
       </div>
 
       {!email && controlPlaneAvailable && (

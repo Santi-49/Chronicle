@@ -76,7 +76,7 @@ export function ProjectScreen({ projectId, onBack, onEdit, onOpenAsset }: Projec
       </div>
 
       {projectAssets.length === 0 ? (
-        <div className="empty-state">
+        <div className="empty-state" data-tour="project-empty">
           <Icon name="image" />
           <h3>No versions captured yet</h3>
           <p>Save a supported creative file inside this folder and it will appear here within seconds.</p>
@@ -121,7 +121,7 @@ export function ProjectScreen({ projectId, onBack, onEdit, onOpenAsset }: Projec
             </div>
             <div className="asset-grid">
               {visibleAssets.map((asset) => (
-                <button className="asset-card" key={asset.id} onClick={() => onOpenAsset(asset.id)} type="button">
+                <button className="asset-card" data-tour="open-asset" key={asset.id} onClick={() => onOpenAsset(asset.id)} type="button">
                   <AssetPreview src={asset.thumbnailUrl} alt={asset.displayName} format={asset.format} />
                   <span className="asset-card-body">
                     <span className="asset-card-heading">

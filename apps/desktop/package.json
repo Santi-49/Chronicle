@@ -77,6 +77,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "include": "build/installer.nsh",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
       "installerIcon": "../../packages/brand/assets/chronicle-app-icon.ico",
       "uninstallerIcon": "../../packages/brand/assets/chronicle-app-icon.ico"
     }

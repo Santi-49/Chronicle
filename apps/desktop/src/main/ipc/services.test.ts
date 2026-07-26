@@ -190,6 +190,43 @@ describe('C1 contract surface', () => {
     await expect(services.api.logout()).resolves.toBeUndefined()
   })
 
+  it('requires sign-out before starting another Google sign-in', async () => {
+    await services.dispose()
+    let googleCredentialRequested = false
+    services = createChronicleServices({
+      db,
+      libraryRoot,
+      emit: () => {},
+      pickFolder: async () => null,
+      pickVersionCopyPath: async () => null,
+      secrets: {
+        set: () => {},
+        has: () => false,
+        clear: () => {},
+        providers: () => [],
+        entries: () => ({}),
+      },
+      isOnline: () => true,
+      setWindowTheme: () => {},
+      googleCredential: async () => {
+        googleCredentialRequested = true
+        return 'unused-google-credential'
+      },
+      account: {
+        accountState: async () => ({
+          mode: 'signed-in',
+          email: 'signed-in@example.com',
+          isAdmin: false,
+        }),
+      } as ChronicleServicesDeps['account'],
+    })
+
+    await expect(services.api.loginWithGoogle()).rejects.toThrow(
+      /Sign out before continuing with another Google account/,
+    )
+    expect(googleCredentialRequested).toBe(false)
+  })
+
   it('validates and applies the native window theme', async () => {
     await services.api.setWindowTheme('light')
     expect(windowTheme).toBe('light')
