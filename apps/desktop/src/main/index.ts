@@ -1,5 +1,5 @@
 import { config as loadEnv } from 'dotenv'
-import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
+import { app, BrowserWindow, Menu, nativeTheme, shell } from 'electron'
 import path from 'node:path'
 import { openAppDatabase, type ChronicleDb } from './db'
 import { registerChronicleScheme, startChronicleIpc, type ChronicleIpc } from './ipc/register'
@@ -46,6 +46,34 @@ function createWindow(): void {
       nodeIntegration: false,
       sandbox: true
     }
+  })
+
+  // Legal links must open in the user's browser, never in an Electron window
+  // with application privileges. The build-time landing origin is the only
+  // renderer-created window destination allowed through to the system browser.
+  let landingOrigin: string | null = null
+  try {
+    const landingUrl = new URL(__CHRONICLE_LANDING_URL__)
+    if (landingUrl.protocol === 'https:' || landingUrl.protocol === 'http:') {
+      landingOrigin = landingUrl.origin
+    }
+  } catch {
+    // An invalid build-time URL leaves external navigation safely disabled.
+  }
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const destination = new URL(url)
+      if (
+        landingOrigin &&
+        destination.origin === landingOrigin &&
+        (destination.protocol === 'https:' || destination.protocol === 'http:')
+      ) {
+        void shell.openExternal(destination.toString())
+      }
+    } catch {
+      // Deny malformed URLs.
+    }
+    return { action: 'deny' }
   })
 
   // electron-vite dev server URL in dev, bundled file in production

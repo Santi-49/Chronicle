@@ -447,8 +447,14 @@
 .key-sync-passphrase input:focus { border-color: var(--focus); }
 .key-sync-passphrase small { color: var(--text-muted); font-size: 10px; font-weight: 400; line-height: 1.45; }
 .key-sync-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.privacy-links { display: flex; margin: 24px 0 0 44px; align-items: center; flex-wrap: wrap; gap: 12px; }
-.privacy-links a { color: var(--accent); font-size: 12px; }
+.account-resource-list { max-width: 720px; margin: 28px 0 0 44px; border-top: 1px solid var(--border); }
+.account-resource-row { display: flex; min-height: 72px; padding: 12px 0; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--border); }
+.account-resource-row:last-child { border-bottom: 0; }
+.account-resource-copy { display: grid; gap: 5px; }
+.account-resource-copy strong { color: var(--text-primary); font-size: 12px; }
+.account-resource-copy p { margin: 0; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
+.account-legal-links { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; }
+.account-legal-links a { color: var(--accent); font-size: 12px; white-space: nowrap; }
 .account-danger-zone { display: grid; max-width: 720px; margin: 28px 0 0 44px; padding-top: 22px; gap: 16px; border-top: 1px solid var(--border); }
 .account-danger-zone > div:first-child strong { color: var(--danger); font-size: 13px; }
 .account-danger-zone > div:first-child p { margin: 6px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
@@ -960,7 +966,7 @@
   .settings-google-button,
   .account-access,
   .account-preferences,
-  .privacy-links,
+  .account-resource-list,
   .account-danger-zone,
   .appearance-options,
   .developer-tools-toggle,
@@ -969,6 +975,7 @@
   .save-cluster-end,
   .api-keys,
   .settings-section > .secondary-button { margin-left: 0; }
+  .account-resource-row { align-items: flex-start; flex-direction: column; gap: 12px; }
   .ai-task .settings-form-grid { margin-left: 0; }
   .api-key-row { grid-template-columns: 1fr; gap: 8px; }
   .api-key-actions { justify-content: flex-start; }

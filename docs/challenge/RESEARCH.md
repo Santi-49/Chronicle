@@ -49,6 +49,38 @@ Framing is education + portfolio: "build real-world AI solutions, develop in-dem
 - Real-world impact and feasibility over pure novelty (2 of 4 judging criteria).
 - Enterprise sensibility: well-structured, documented, maintainable solutions ("functional and well-structured solution" is quoted in the Technical Execution criterion).
 
+### How IBM SkillsBuild Teaches Bob (2026-07-25)
+
+An IBM SkillsBuild course extract supplied by the team gives us IBM's clearest preferred
+narrative for Bob. The course presents Bob as a **collaborative partner**, not a replacement
+for the developer, an autonomous one-shot builder, or merely a code generator. Its recurring
+workflow follows the whole software-development lifecycle:
+
+1. **Understand the problem** — ask questions, explore the idea, and clarify requirements.
+2. **Plan the solution** — break large work into smaller tasks and turn ideas into a clear plan.
+3. **Build the solution** — create and update working output through natural-language
+   instructions.
+4. **Improve and refine** — explain errors, identify problems, review the result, and iterate.
+5. **Document and share** — explain how the solution works and make it easier to maintain or
+   extend.
+
+The course also stresses that Bob serves experienced developers, new developers, and
+non-technical users. Examples extend beyond generating starter code to requirements
+clarification, task decomposition, plain-language error explanations, content creation,
+checklists, repeatable workflows, reporting, and other structured work. The human remains
+responsible for decisions, review, and refinement.
+
+**Narrative implications for Chronicle:** organize our Bob explanation around those five
+stages and attach one or two concrete, verifiable examples from `docs/bob-log.md` to each.
+Describe the team as directing, reviewing, testing, and refining Bob's contributions. This
+matches IBM's own teaching better than saying “Bob built Chronicle for us” or focusing only
+on the amount of generated code. It also lets us show breadth across architecture research,
+contract-first planning, implementation, diagnosis/testing, documentation, and release work.
+
+**Source note:** summarized from the Spanish-localized IBM SkillsBuild course *Cómo IBM Bob
+y las herramientas de IA están cambiando la forma en que se crean las soluciones*, supplied
+by the team on 2026-07-25. The original course text is not reproduced in this repository.
+
 ---
 
 ## The Problem Space
@@ -359,6 +391,66 @@ Sources:
   ten minutes inspecting unrelated installed packages, so clean, declared build environments are
   a reproducibility requirement, not merely a CI speed optimization.
 
+### Windows Installer and First-Run Onboarding (POST-07, 2026-07-25)
+
+- Chronicle already uses electron-builder's assisted NSIS mode (`oneClick: false`), so the literal
+  `.exe` wizard can be branded without replacing the packaging stack. Supported surfaces include a
+  150×57 header BMP, 164×314 installer/uninstaller sidebar BMPs, installer icons, custom welcome
+  copy, and a TXT/RTF/HTML license page. The BMP assets must be 24-bit RGB without alpha.
+- electron-builder recommends a small `build/installer.nsh` include over replacing its complete
+  NSIS script. The include can add a welcome page and supported macros while preserving maintained
+  install/upgrade/uninstall behavior. A fully bespoke HTML-like wizard would require owning a
+  custom NSIS script/UI and is not justified for Chronicle.
+- electron-builder's `license` option inserts the NSIS Modern UI license page. Modern UI supports
+  the standard **I Agree** action, a required checkbox (`MUI_LICENSEPAGE_CHECKBOX`), or accept/
+  decline radio buttons. The requested “terms checkbox” is therefore technically possible.
+- Technical support does not answer the legal-product question. Chronicle has no EULA/terms file
+  in the repository today. A human must approve the licensor/entity, permitted-use and liability
+  terms, scope, effective version, URLs, and translations before implementation. The privacy
+  policy is not a substitute for a software license, and accepting a broad installer agreement
+  must not silently enable telemetry or encrypted-key sync.
+- Product education should remain in React rather than NSIS: a resumable Getting started tour
+  with anchored coach marks can act on the real New Project, Project/Timeline, and AI Settings
+  screens. Research guidance favors progressive disclosure, real completion state, visible Back/
+  Skip controls, keyboard focus management, and reduced-motion support. AI setup stays optional so
+  the first local capture is never gated by provider or sidecar availability.
+- Follow the native desktop **teaching tip** model rather than a modal product-tour overlay.
+  Microsoft describes teaching tips as semi-persistent contextual flyouts and recommends concise,
+  infrequent tips; Apple recommends one small popover at a time, with its arrow pointing directly
+  at the target without covering the target or essential content. Chronicle therefore leaves the
+  workspace fully visible and interactive, uses only a gentle target ring, removes the scrim and
+  entrance motion, and aims a compact tip directly at the current control.
+  ([Microsoft TeachingTip](https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/teaching-tip),
+  [Apple popovers](https://developer.apple.com/design/human-interface-guidelines/popovers/))
+- The full implementation-ready direction, file boundaries, legal gate, and acceptance matrix are
+  recorded in `docs/post-07-install-onboarding-plan.md`.
+- Implemented 2026-07-25: the maintained native NSIS path now has Welcome/Finish copy, exact-size
+  branded 24-bit assets, forced current-user scope, and the dormant required-license-checkbox
+  define; the renderer has the real-state three-step anchored coach-mark tour with Settings replay. No EULA is
+  wired because the required human-approved legal text/entity/version is still absent, and the
+  task remains open for clean-machine teammate acceptance.
+- Follow-up 2026-07-26: Chronicle's public distribution and live control plane make clear hosted
+  service terms important, but neither Windows nor electron-builder creates a product-specific
+  requirement to duplicate them as an installer EULA. Chronicle already publishes Terms effective
+  2026-07-22 and a Privacy Policy effective 2026-07-25, both scoped to the desktop and online
+  services. The UI now places agreement directly beside Continue local/Google, records versions,
+  time, and method locally, re-prompts on version changes, and keeps both links in Settings.
+  This is deliberately separate from telemetry preference auditing. Human review remains required
+  for the controller/entity, substantive terms, jurisdiction, and whether server-side acceptance
+  evidence is necessary.
+- A public GitHub repository is not automatically open-source licensed. GitHub documents that,
+  without a license, default copyright law applies even when source is publicly visible. Chronicle
+  therefore needs an explicit root license choice and third-party notice review before public
+  reuse permissions can match the Terms' reference to repository license files.
+  ([GitHub licensing a repository](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/adding-a-license-to-a-repository))
+
+Sources:
+[electron-builder NSIS](https://www.electron.build/docs/nsis/) ·
+[electron-builder installer images](https://www.electron.build/docs/features/icons-and-images/#windows-nsis-installer-images) ·
+[NSIS Modern UI license-page settings](https://nsis.sourceforge.io/Docs/Modern%20UI/Readme.html) ·
+[Microsoft TeachingTip](https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/teaching-tip) ·
+[Apple popovers](https://developer.apple.com/design/human-interface-guidelines/popovers/)
+
 ### Desktop Format Architecture and Per-Format Support (POST-01/POST-02, 2026-07-25)
 
 #### Why the previous shape did not scale
@@ -597,7 +689,11 @@ table because area and color are poor tools for precise comparison.
 ### Framing That Resonates With This Company
 
 - Pitch Chronicle as **"version control for the creative industry"** — squarely inside the July theme ("creative tools"). Say "Challenge Fit" out loud in the video: designers/marketers are creative-industry workers with a universal, demonstrable pain.
-- Frame IBM Bob as a co-builder: "planned, scaffolded, and tested with IBM Bob" — the Technical Execution criterion literally scores *effective use of IBM Bob*.
+- Frame IBM Bob as a collaborative partner across the full lifecycle: **understood, planned,
+  built, refined, and documented with IBM Bob**. Pair every stage with concrete evidence from
+  `docs/bob-log.md`, while making the team's decisions, review, and testing visible. This mirrors
+  IBM SkillsBuild's own language and the Technical Execution criterion's focus on *effective use*,
+  rather than presenting Bob as a replacement developer or a one-shot generator.
 - Use the roadmap line **“from `final-v8.png` to `scene_v042.blend`”**. Numbered versions are
   not merely a joke: Blender explicitly supports incremental numeric saves. Chronicle supplies
   the explanation those filenames lack.
@@ -648,6 +744,11 @@ table because area and color are poor tools for precise comparison.
   validated Gemini provider plus the UI-promised OpenAI and Anthropic integrations in the MVP
   installer. Keep using an isolated build environment and frozen-import smoke because the measured
   provider breadth increases sidecar size and clean analysis time.
+- Split installation from education: use a lightly branded, native assisted NSIS wizard for trust,
+  install choices, and any human-approved clickwrap license; use a dismissible/resumable in-app
+  coach-mark tour on the real project, Timeline, and AI Settings screens for learning. Do not own a full
+  custom NSIS script merely to imitate a web onboarding UI, and never gate local capture on AI
+  setup.
 
 ### What to Emphasize in the Demo
 
@@ -672,6 +773,43 @@ table because area and color are poor tools for precise comparison.
 ---
 
 ## Research Log
+
+- 2026-07-25 — IBM SKILLSBUILD BOB COURSE: IBM teaches Bob as a collaborative partner for
+  technical and non-technical users across five stages: understand the problem, plan, build,
+  improve/refine, and document/share. It explicitly rejects replacement/autonomous framing and
+  retains human decision-making, review, and iteration. Chronicle's README and demo should mirror
+  this lifecycle and substantiate each stage with `docs/bob-log.md` evidence — team-supplied
+  Spanish-localized SkillsBuild course extract, summarized rather than reproduced
+- 2026-07-25 — POST-07 INSTALL/ONBOARDING: Chronicle's existing assisted electron-builder/NSIS
+  installer already supports a branded 150×57 header, 164×314 sidebar, custom welcome copy, and a
+  TXT/RTF/HTML license page; NSIS Modern UI can require the specifically requested acceptance
+  checkbox. Use electron-builder's small include hook, not a replacement installer script. Legal
+  text needs human approval and cannot double as telemetry consent. Keep product education in a
+  resumable, accessible in-app coach-mark tour that completes against real project/Timeline/provider
+  state and never blocks local capture — [electron-builder NSIS](https://www.electron.build/docs/nsis/),
+  [installer images](https://www.electron.build/docs/features/icons-and-images/#windows-nsis-installer-images),
+  [NSIS Modern UI](https://nsis.sourceforge.io/Docs/Modern%20UI/Readme.html)
+- 2026-07-25 — POST-07 TEACHING-TIP REFINEMENT: Microsoft and Apple guidance favors one concise,
+  targeted, dismissible teaching tip/popover whose tail points directly at the related control and
+  does not obscure its target or essential UI. Chronicle removed the modal-style dark scrim and
+  entrance motion in favor of a small static tip, gentle target ring, and direct pointer while the
+  workspace remains usable — [Microsoft TeachingTip](https://learn.microsoft.com/en-us/windows/apps/design/controls/dialogs-and-flyouts/teaching-tip),
+  [Apple popovers](https://developer.apple.com/design/human-interface-guidelines/popovers/)
+- 2026-07-25 — POST-07 IMPLEMENTATION: retained electron-builder's complete native NSIS script and
+  used only its supported include/image options; added 24-bit Chronicle header/sidebar assets,
+  native Welcome/Finish copy, current-user installation, and the future license-checkbox define
+  without fabricating an EULA. Added a renderer-local, versioned three-step coach-mark tour that stores no
+  paths/keys and advances only after a real project, real Timeline entry, and a valid AI save/test
+  (or explicit deferral); existing upgraded profiles are left undisturbed and can replay from
+  Settings — repository implementation and focused tests
+- 2026-07-26 — POST-07 LIVE-DISTRIBUTION LEGAL FOLLOW-UP: verified that Chronicle already has
+  hosted Terms (2026-07-22) and Privacy Policy (2026-07-25) covering the desktop and optional
+  services. Added versioned first-entry agreement, policy-change re-prompting, and permanent
+  Settings links without duplicating the Terms in NSIS or conflating agreement with telemetry.
+  Acceptance evidence is explicitly device-local pending a human decision on server/account audit.
+  The public repository has no root license, so default copyright remains and a license/notice
+  decision is required — live Chronicle pages, repository inspection, and
+  [GitHub license guidance](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/adding-a-license-to-a-repository)
 
 - 2026-07-25 — GDPR LAWFUL-BASIS/RIGHTS REVIEW (POST-06): EDPB guidance confirms that valid
   consent requires a clear affirmative action and no pre-ticked boxes, so Chronicle's

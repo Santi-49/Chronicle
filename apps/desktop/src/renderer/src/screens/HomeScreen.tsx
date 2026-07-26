@@ -37,7 +37,7 @@ export function HomeScreen({ onAddProject, onOpenProject, onOpenAsset, onViewPro
         title="Home"
         description="Pick up where you left off or review the latest changes Chronicle captured."
         actions={
-          <button className="primary-button compact-button" onClick={onAddProject} type="button">
+          <button className="primary-button compact-button" data-tour="create-project" onClick={onAddProject} type="button">
             <Icon name="folder-plus" />
             Add project
           </button>
@@ -57,7 +57,7 @@ export function HomeScreen({ onAddProject, onOpenProject, onOpenAsset, onViewPro
             <Icon name="folder-plus" />
             <h3>No folders tracked yet</h3>
             <p>Point Chronicle at a folder you work in. Every supported creative file you save there becomes a version automatically.</p>
-            <button className="primary-button compact-button" onClick={onAddProject} type="button">
+            <button className="primary-button compact-button" data-tour="create-project" onClick={onAddProject} type="button">
               <Icon name="folder-plus" /> Add your first project
             </button>
           </div>

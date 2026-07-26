@@ -1252,15 +1252,16 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
     async loginWithGoogle() {
       if (!deps.googleCredential) throw new Error('Google sign-in is not configured')
+      const account = requireAccount()
+      const current = await account.accountState()
+      if (current.mode === 'signed-in') {
+        throw new Error('Sign out before continuing with another Google account')
+      }
       if (!(await api.checkControlPlaneHealth())) {
         throw new Error('Google sign-in is temporarily unavailable')
       }
-      const account = requireAccount()
       const credential = await deps.googleCredential()
-      const current = await account.accountState()
-      const state = current.mode === 'signed-in'
-        ? await account.linkGoogleCredential(credential)
-        : await account.loginWithGoogleCredential(credential)
+      const state = await account.loginWithGoogleCredential(credential)
       await afterSignIn()
       return state
     },
