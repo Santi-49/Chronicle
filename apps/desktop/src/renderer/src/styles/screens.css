@@ -606,7 +606,7 @@
 .about-update-status span,
 .about-update-status small { color: var(--text-muted); font-size: 11px; line-height: 1.5; }
 .about-update-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.about-update-actions button { min-height: 44px; }
+.about-update-actions > * { min-height: 44px; }
 .about-update-status > .form-error { margin: 0; }
 .settings-form-grid { display: grid; margin: 24px 0 0 44px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .settings-form-grid label { display: grid; gap: 8px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }

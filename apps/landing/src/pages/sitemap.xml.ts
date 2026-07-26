@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
+import { articlePath, helpArticles } from "../helpContent";
 
 export const prerender = true;
 
-const paths = ["/", "/about/", "/privacy/", "/terms-and-services/"];
+const paths = ["/", "/about/", "/privacy/", "/terms-and-services/", "/help/", ...helpArticles.map((article) => articlePath(article.slug))];
 
 export const GET: APIRoute = ({ site, url }) => {
   const baseUrl = site ?? new URL(url.origin);

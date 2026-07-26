@@ -48,7 +48,7 @@ function createWindow(): void {
     }
   })
 
-  // Legal links must open in the user's browser, never in an Electron window
+  // Landing-site links must open in the user's browser, never in an Electron window
   // with application privileges. The build-time landing origin is the only
   // renderer-created window destination allowed through to the system browser.
   let landingOrigin: string | null = null

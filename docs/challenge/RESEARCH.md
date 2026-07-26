@@ -645,6 +645,85 @@ Rendering a `.blend` scene (needs Blender), faithful PSD layer compositing (the 
 used instead), image embeddings for visual similarity, and any execution of macros, expressions, or
 plug-in code carried inside a file.
 
+### Public Help Site for Non-Technical Creatives (LAND-02, 2026-07-26)
+
+Chronicle's help site should be a calm recovery tool, not a developer reference. The strongest
+pattern is a static, task-based help center with a prominent search field, a short first-run path,
+topic cards, popular fixes, and a separate Common Questions page. Nielsen Norman Group recommends
+ordering answers by what people need most, grouping them by topic, using the user's vocabulary
+(including literal error text), keeping site navigation visible, providing jump links and further
+help, and ensuring the content still works without JavaScript. Its FAQ guidance also recommends
+friendly plain language, semantic headings, descriptive links, and fully clickable, user-controlled
+accordions rather than hiding navigation behind custom interactions.
+
+**Recommended information architecture:**
+
+- `/help/` — “How can we help?” search, Start here, Fix a problem, AI and costs, Privacy and data,
+  and Common Questions.
+- `/help/getting-started/` — one illustrated path from download to first captured version, with
+  optional AI setup clearly separated from the local-only path.
+- `/help/install/windows/` and `/help/install/mac/` — platform-specific install and trust-warning
+  instructions using the exact current operating-system labels.
+- `/help/ai/{google,anthropic,openai}/`, `/help/ai/costs/`, and `/help/privacy/` — dated,
+  authoritative provider and data-flow guidance.
+- `/help/troubleshooting/` plus focused articles for search, capture, restore, folders, files, local
+  AI health, provider credentials, connectivity, billing, quota, and rate limits.
+- `/help/faq/` — short answers with stable anchor links and related-article links; use “Common
+  questions” visibly while retaining “FAQ” in metadata and search synonyms.
+
+Astro content collections or Markdown pages should be the single source of help content. Pagefind
+is a good fit for LAND-02 because it indexes the generated static HTML after the Astro build,
+produces a static client-side search bundle, and has no server component. Search should match
+titles, summaries, headings, literal warning/error text, and non-technical synonyms. It should
+suggest useful starting points before typing, show compact title + excerpt + category results as
+the user types, and turn no-results into recovery links rather than a dead end. All articles,
+navigation, anchors, and FAQ answers must remain readable and reachable when JavaScript is absent;
+search itself may be the enhancement.
+
+**Windows trust-warning finding:** the current Chronicle `.exe` is unsigned. Microsoft says
+SmartScreen evaluates publisher reputation and file-hash reputation; an unsigned build starts with
+no transferable publisher reputation and can show the red/blue “Windows protected your PC”
+warning. For the ordinary warning, the help article may tell a user who intentionally downloaded
+Chronicle from the official release link to select **More info**, check that the app name is the
+expected Chronicle installer, and select **Run anyway**. This is not the same as Chronicle
+crashing, but it is also not proof that the file is safe. The article must say to stop if the
+download came from another source, the filename/version is unexpected, or Windows reports malware
+instead of an unrecognized app. If **Run anyway** is absent, a managed-device policy or Windows 11
+Smart App Control may be enforcing the block. Microsoft says Smart App Control has no per-app
+exception; the user should not be coached to disable system-wide protection for Chronicle. Use a
+personal/unmanaged device, ask the device administrator, or wait for a signed build. The product
+fix remains signing every Windows release with a stable identity (or Store distribution), not
+normalizing the bypass.
+
+**macOS trust-warning finding:** the current Chronicle DMG is unsigned and unnotarized, so
+Gatekeeper may say the developer cannot be verified or Apple cannot check the app for malicious
+software. Apple warns that overriding this protection can expose the Mac to malware. For a user
+who intentionally downloaded Chronicle from the official release link, the guide may explain:
+attempt to open Chronicle once; open **System Settings → Privacy & Security**; scroll to Security;
+select **Open Anyway** (available for about an hour); authenticate; then select **Open** on the
+repeated prompt. This adds a per-app exception. Do not recommend disabling Gatekeeper globally.
+If macOS says the app **will damage your computer**, has moved it to the Bin, or says it is damaged,
+the user should stop and obtain support/a fresh verified download; those are different conditions.
+Managed Macs may not expose the override. The product fix remains Developer ID signing and Apple
+notarization.
+
+**Content and visual direction:** preserve Chronicle's existing IBM-blue identity, but make help
+lighter, quieter, and more content-first than the marketing home. Use 16 px minimum body text,
+60–75-character reading width, obvious link styling, semantic color tokens, 4.5:1 text contrast,
+visible focus rings, 44 px minimum targets, a sticky desktop article table of contents that becomes
+an inline mobile contents block, native `<details>` for optional explanations, print CSS, restrained
+or no motion, and original Chronicle screenshots annotated with numbered callouts. Never use the
+security-warning red as decoration. The warning guides should start with “You may see this because
+this release is not yet signed,” then present the safe decision check before any override steps.
+
+**Sources:**
+
+- [Microsoft SmartScreen reputation for Windows app developers](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)
+- [Microsoft Smart App Control FAQ](https://support.microsoft.com/en-US/Windows/Security/Threat-Malware-Protection/smart-app-control-frequently-asked-questions)
+- [Apple: Open apps safely on your Mac](https://support.apple.com/en-ie/102445)
+- [Pagefind getting started](https://pagefind.app/docs/)
+- [Nielsen Norman Group: Strategic Design for FAQs](https://media.nngroup.com/media/reports/free/Strategic_Design_for_Frequently_Asked_Questions.pdf)
+
 ### Past Hackathon Winners (if available)
 
 BeMyApp runs recurring IBM events (Build-a-Bot Challenge, IBM Dev Day: Bob Edition, NextGen Hackathon). No public winner list found for this specific series yet — check the hub's community/Discord for July examples. (2026-07-16)
@@ -829,6 +908,22 @@ table because area and color are poor tools for precise comparison.
 - Minimal, clear, documented code — judges are told to reward "well-structured"; the README is a judged artifact, treat it as a feature.
 - For the desktop UI, use a neutral-gray, dark-first palette with IBM blue reserved for primary actions and focus. IBM's public design language recommends gray-dominant product interfaces, blue as the primary action color, paired dark/light themes, and WCAG contrast checks.
 - Keep product navigation in one persistent left shell and use short “productive” motion only to clarify page changes. Carbon presents the UI shell as the stable orientation layer and describes efficient motion as a way to move users forward, not decoration.
+- Replace the landing page's red/green **Without Chronicle / With Chronicle** comparison with one
+  short pinned transformation: a staggered stack of ambiguously named creative files converges
+  into one `campaign.png` asset, then settles into Chronicle's real vertical version timeline.
+  Scroll should advance a small number of legible states—**scattered files → ordered versions →
+  selected version with explanation**—rather than trigger unrelated flourishes. This applies the
+  strongest current scrollytelling pattern (a fixed stage whose scroll position maps to a
+  structured timeline) directly to Chronicle's product metaphor. Use a single GSAP timeline with
+  ScrollTrigger `pin` and numeric `scrub`, animate children rather than the pinned container, and
+  restrict movement to transforms and opacity. Do not add a smooth-scroll dependency or 3D
+  rotation: Chronicle already ships GSAP, and the transformation should feel precise rather than
+  cinematic. On narrow screens, use tap-selectable steps without pinning; under
+  `prefers-reduced-motion`, show the same three states as an immediate crossfade/static sequence.
+  Sources: [GSAP ScrollTrigger](https://gsap.com/docs/v3/Plugins/ScrollTrigger/),
+  [Codrops sticky grid scroll](https://tympanus.net/codrops/2026/03/02/sticky-grid-scroll-building-a-scroll-driven-animated-grid/),
+  [Webflow scroll-animation guidance](https://webflow.com/blog/scroll-animation),
+  [MDN reduced motion](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/%40media/prefers-reduced-motion).
 - Auto-enable the Diagnostics tab in development builds, and provide a separate local Developer
   mode checkbox for packaged support cases. Keep it below Search as secondary, developer-only
   navigation. Do not infer mode from the literal `npm run dev` command, and do not expose privileged
@@ -902,6 +997,45 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-26 - LANDING PROBLEM SECTION REFINEMENT: team review found that introducing Chronicle's
+  version timeline inside Why Chronicle duplicated the later How it works demonstration. The
+  problem section is now deliberately static and literal: five conflicting campaign filenames
+  sit beside one clean `campaign.png`. It contains no version counts, summaries, timeline rows,
+  pinning, or reveal animation. This reserves the complete versioning explanation for How it works
+  and gives the two sections distinct narrative roles - team visual review plus UI hierarchy and
+  purposeful-motion guidance
+- 2026-07-26 - LANDING NARRATIVE REVISION: team review found that a second gallery would repeat
+  the adjacent creative-format carousel and that separate How it works and feature sections
+  repeated the same workflow. The final direction fuses them into one pinned, scroll-only product
+  story built around a single persistent artwork. Scroll advances save, local capture, explanation
+  and remembered-detail search, then append-only restore. The first comparison now pins earlier at
+  laptop widths, mixes distinct PNG and JPG asset families, and uses a fixed timeline grid for
+  aligned dots, text, and timestamps. Mobile and reduced-motion layouts remain ordinary vertical
+  sequences without pinning - team visual review plus the GSAP and accessibility guidance above
+- 2026-07-26 — LANDING TRANSITION RESEARCH: reviewed current scrollytelling, sticky-grid,
+  draggable-timeline, ScrollTrigger, and reduced-motion guidance before replacing the landing
+  comparison. Selected a pinned stack-to-timeline transformation because it turns Chronicle's
+  actual value proposition into the motion itself: duplicate filenames consolidate into one
+  asset, versions align chronologically, and one row reveals its plain-English change. Rejected
+  generic parallax, 3D card rotation, horizontal scroll, and multiple independent reveals because
+  they add spectacle without improving the explanation and would compete with the existing hero
+  video. Implementation should use one scrubbed GSAP timeline, no scroll-jacking, discrete
+  keyboard/touch controls, a non-pinned mobile layout, and a reduced-motion static/crossfade
+  alternative — [GSAP ScrollTrigger](https://gsap.com/docs/v3/Plugins/ScrollTrigger/),
+  [Codrops sticky grid scroll](https://tympanus.net/codrops/2026/03/02/sticky-grid-scroll-building-a-scroll-driven-animated-grid/),
+  [Codrops draggable timeline](https://tympanus.net/codrops/2022/01/03/building-a-scrollable-and-draggable-timeline-with-gsap/),
+  [Webflow scroll-animation guidance](https://webflow.com/blog/scroll-animation),
+  [MDN reduced motion](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/%40media/prefers-reduced-motion)
+- 2026-07-26 — LAND-02 HELP-SITE RESEARCH: selected a static Astro content collection plus
+  build-time Pagefind index, task-based help home, separate first-run/platform/provider/privacy/
+  troubleshooting guides, and a deep-linkable Common Questions page for non-technical creatives.
+  Windows SmartScreen appears because the current `.exe` is unsigned and has no trusted publisher
+  reputation; the ordinary warning can expose More info → Run anyway, while Smart App Control or
+  managed policy may prevent any per-app bypass. macOS Gatekeeper may block the unsigned,
+  unnotarized DMG; after one launch attempt, Privacy & Security → Open Anyway creates a per-app
+  exception. Guidance must distinguish these expected trust warnings from malware/damaged-app
+  alerts, never recommend disabling security globally, and retain signing/notarization as the real
+  fix — official Microsoft, Apple, Pagefind, and Nielsen Norman Group guidance linked above.
 - 2026-07-26 — RELEASE PLEASE COMMIT COLLECTION: the first implementation used `main...dev`, which
   exposed 57 historical commits because persistent `dev` retains the original identities replaced
   by each squash on `main`. The workflow now discovers the latest

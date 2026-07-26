@@ -18,6 +18,7 @@ import { useUpdates } from '../lib/useUpdates'
 import { chronicle } from '../lib/bridge'
 import { friendlyError } from '../lib/friendlyError'
 import { friendlyIpcError } from '../lib/errors'
+import { HELP_CENTER_URL, UPDATE_HELP_URL } from '../lib/helpLinks'
 import { PRIVACY_URL, TERMS_URL } from '../lib/legalAcceptance'
 import type { OnboardingStatus } from '../lib/onboarding'
 
@@ -161,6 +162,13 @@ function AboutSection() {
             <Icon name="refresh" />
             {checking || state?.phase === 'checking' ? 'Checking…' : 'Check now'}
           </button>
+          <a className="secondary-button" href={HELP_CENTER_URL} rel="noreferrer" target="_blank">
+            <Icon name="help" />
+            Help center
+          </a>
+          <a className="secondary-button" href={UPDATE_HELP_URL} rel="noreferrer" target="_blank">
+            Update help
+          </a>
         </div>
         {(actionError || state?.error) && state?.phase !== 'unsupported' && (
           <p className="form-error" role="alert">{actionError || state?.error}</p>
