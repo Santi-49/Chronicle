@@ -4,6 +4,7 @@ Local-first Electron app: watches folders, auto-versions creative files on save,
 and explains what changed between versions with AI. See `docs/challenge/` for the
 full product definition.
 
+
 ## Structure
 
 ```
