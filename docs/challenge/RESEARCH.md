@@ -391,6 +391,109 @@ Sources:
   ten minutes inspecting unrelated installed packages, so clean, declared build environments are
   a reproducibility requirement, not merely a CI speed optimization.
 
+### Windows Auto-Update Delivery (POST-08, 2026-07-26)
+
+- Chronicle's public GitHub Releases are already a viable static update host: the inspected latest
+  release (`v0.9.0`) is public, non-prerelease, and contains its Windows installer and checksum.
+  It does not contain `latest.yml`, so no installed client can use it as an update feed yet.
+- electron-builder's supported Windows auto-update target is NSIS, which Chronicle already uses.
+  `electron-updater` expects builder-generated `app-update.yml` inside installed resources and a
+  release `latest.yml`; it advises against manually calling `setFeedURL`. Chronicle should publish
+  the installer and metadata together from the tagged Windows build and verify every
+  metadata-referenced asset and hash before calling the release healthy.
+- Update capability cannot be added retroactively. Builds through `v0.9.0` contain no updater, so
+  the first updater-capable release requires one manual install. Only a following higher release
+  can demonstrate the genuine installed vA → vB path.
+- Automatic checks must run only in packaged Windows builds and remain independent of capture and
+  local history. The safe UX is background download plus a visible, explicit
+  **Restart to update**, with `autoInstallOnAppQuit` disabled. Ordinary offline/network errors stay
+  out of the global UI; a user-initiated **Check now** may return sanitized retry feedback.
+- An unsigned installer can be transported over GitHub HTTPS and checked against the SHA-512 in
+  `latest.yml`, but this does not establish an independent publisher identity. Chronicle must not
+  describe that as equivalent to Authenticode signing. SmartScreen friction and compromise of the
+  repository/release credential remain risks until a team-owned Windows certificate migration.
+- GitHub update traffic sends no Chronicle project content, paths, credentials, or account payload,
+  but GitHub/CDN still sees ordinary network metadata such as IP address and user agent. Privacy
+  wording should make that distinction rather than claiming “nothing is sent.”
+- Updaters are forward-moving: pulling a broken release is not a reliable downgrade for clients
+  that already installed it. Recovery requires a higher patch release. Staged rollout metadata is
+  available later, but it should not substitute for clean-machine two-release acceptance.
+- The implementation-ready file boundaries, typed IPC gate, workflow assertions, UI states, and
+  acceptance matrix are recorded in `docs/post-08-windows-auto-update-plan.md`.
+
+Sources:
+[electron-builder auto update](https://www.electron.build/docs/features/auto-update/) ·
+[electron-builder publishing](https://www.electron.build/docs/publish/) ·
+[electron-builder updater API](https://www.electron.build/docs/api/electron-updater/) ·
+[GitHub release management](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
+
+### Mandatory Security Updates (POST-08 revision, 2026-07-26)
+
+- Mandatory updating is normally policy interpreted by the application, not a guarantee supplied
+  by the distribution service. Microsoft Store submissions can carry a mandatory date, but
+  Microsoft explicitly leaves enforcement and graceful feature degradation to app code. MSIX App
+  Installer can block activation, showing that full launch blocking is available on Windows, but
+  it is a packaging-level choice rather than the right default for a local-first creative archive.
+- `electron-updater` supplies release discovery, download, SHA-512 checking, Windows signature
+  validation, progress, and staged rollout. Its `minimumSystemVersion` refers to the OS kernel; it
+  has no minimum-Chronicle-version or mandatory-update field. Chronicle needs a separate policy
+  containing vulnerable ranges, minimum safe version, severity, deadline, affected capabilities,
+  version/expiry, and a verifiable signature.
+- A policy hosted and authenticated only by the same GitHub release credential is insufficient for
+  compromise recovery: stealing that credential could otherwise let an attacker replace both the
+  offered program and the instruction that tells clients to trust it. Windows installers need a
+  stable Authenticode publisher signature, and enforcement policy needs an independently protected
+  signing key or a mature signed-metadata framework.
+- TUF's established defenses use signed metadata, hashes, monotonically versioned state,
+  expiration, threshold/delegated keys, and persistent trusted metadata to resist arbitrary
+  software, rollback, mix-and-match, and freeze attacks. Chronicle should evaluate a maintained
+  TUF-compatible client before designing a smaller signed policy format.
+- Chronicle should use four levels: optional, recommended, required-by-deadline, and immediately
+  revoked. Required/revoked versions enter capability-scoped restricted mode after verified policy;
+  they do not lose access to local read/export/restore. A proven storage-integrity vulnerability
+  may make the library read-only, while a gateway/parser issue disables only that surface.
+- Offline enforcement has an unavoidable boundary. A previously cached, fresh verified policy can
+  be enforced offline; a device that never received it cannot know a version was revoked. An
+  unavailable or expired policy must not create an invented launch lock. Chronicle-operated
+  endpoints should independently reject vulnerable client versions for affected online actions.
+- Windows code signing proves publisher identity and detects post-signing modification; it also
+  allows publisher reputation to carry between releases. SHA-512 metadata on the same unsigned
+  release channel is valuable corruption detection but is not an equivalent trust boundary.
+- Version adoption remains observable from the existing content-free app-version distribution.
+  No new “update seen/downloaded/installed/blocked” telemetry is necessary for this plan.
+
+Sources:
+[Microsoft Store mandatory updates](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/package-updates-from-store) ·
+[Microsoft MSIX auto-update and activation blocking](https://learn.microsoft.com/en-us/windows/msix/app-installer/auto-update-and-repair--overview) ·
+[electron-builder auto update](https://www.electron.build/docs/features/auto-update/) ·
+[electron-builder Windows signature verification](https://www.electron.build/docs/win/) ·
+[TUF overview](https://theupdateframework.io/docs/overview/) ·
+[TUF security model](https://theupdateframework.io/docs/security/) ·
+[Microsoft Windows code signing](https://learn.microsoft.com/en-us/windows/msix/package/sign-app-package-using-signtool) ·
+[Microsoft SmartScreen publisher reputation](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)
+
+### POST-08A Implementation Findings (2026-07-26)
+
+- `electron-builder --publish never` still produces local `latest.yml` and an NSIS blockmap when
+  the GitHub publisher is configured, so snapshot CI can validate/archive update metadata without
+  moving the public stable feed. Tagged CI alone uses `--publish always` with the job-scoped
+  `GITHUB_TOKEN`; installed clients receive no token.
+- The packaged controller must guard more than concurrent promises. A periodic or manual check
+  attempted while an update is available, downloading, or ready can otherwise replace the
+  actionable renderer state with `checking`. Chronicle now preserves those phases until download
+  failure or explicit restart.
+- A clean local Windows x64 package produced `Chronicle-Setup-0.10.0.exe` (155,168,746 bytes), its
+  blockmap, `latest.yml`, and installed `resources/app-update.yml`. The manifest version matched
+  `package.json`, its referenced installer existed, and its SHA-512 matched. PowerShell confirmed
+  the installer remains `NotSigned`, consistent with the documented POST-08A trust boundary.
+- The packaged multi-provider sidecar health/import/PSD smoke passed. The complete desktop suite
+  passed 244 tests with one skipped, followed by TypeScript checks and the production renderer/main
+  build.
+- Release adoption needs no new event stream. Comparing the shipped desktop version with the
+  existing app-version distribution yields current-or-newer count/rate and older count, while the
+  exact version chart remains available for diagnosis. This reports installations that already
+  send existing telemetry; it is not a count of every download or every user.
+
 ### Windows Installer and First-Run Onboarding (POST-07, 2026-07-25)
 
 - Chronicle already uses electron-builder's assisted NSIS mode (`oneClick: false`), so the literal
@@ -744,6 +847,16 @@ table because area and color are poor tools for precise comparison.
   validated Gemini provider plus the UI-promised OpenAI and Anthropic integrations in the MVP
   installer. Keep using an isolated build environment and frozen-import smoke because the measured
   provider breadth increases sidecar size and clean analysis time.
+- Treat Windows auto-update as a two-release delivery feature, not a packaging checkbox: explicitly
+  configure the public GitHub feed, publish and verify metadata with the installer from one tag,
+  keep checks asynchronous/offline-safe, require a user-visible restart, and preserve a
+  higher-version hotfix path. Say plainly that the first updater-capable build needs one manual
+  install and that unsigned hash verification is not publisher identity.
+- Separate update convenience from security enforcement: ship the unsigned optional updater as
+  POST-08A, establish signed installers and independently authenticated policy as POST-08B, and
+  only then activate version-range deadlines/revocation as POST-08C. Restrict affected
+  capabilities rather than blanket-locking a local-first archive; always preserve local
+  read/export/restore and use the existing app-version adoption chart instead of new telemetry.
 - Split installation from education: use a lightly branded, native assisted NSIS wizard for trust,
   install choices, and any human-approved clickwrap license; use a dismissible/resumable in-app
   coach-mark tour on the real project, Timeline, and AI Settings screens for learning. Do not own a full
@@ -774,6 +887,32 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-26 — POST-08A IMPLEMENTATION: added packaged-Windows GitHub auto-update plumbing,
+  same-build manifest/blockmap/hash assertions, typed main-to-renderer state, accessible
+  download/restart and Settings/About UI, and current-versus-older release adoption from existing
+  app-version telemetry. Verification passed 244 desktop tests (1 skipped), typecheck, production
+  build, 155 MB unsigned NSIS packaging, local updater metadata/SHA-512 validation, and bundled
+  sidecar/provider/PSD smoke. A lifecycle check now prevents periodic/manual checks from
+  overwriting available/downloading/ready state. No update telemetry or mandatory enforcement was
+  added; real installed vA → published vB acceptance remains open — team implementation plus
+  official electron-builder behavior documented above.
+- 2026-07-26 — POST-08 MANDATORY SECURITY-UPDATE REVISION: Microsoft leaves mandatory Store
+  package enforcement to the app and recommends graceful degradation; electron-updater has no
+  minimum-app-version policy; and TUF demonstrates why signed, versioned, expiring metadata and
+  compromise recovery matter beyond transport hashes. Revised POST-08 into an unsigned
+  optional-updater baseline, a Windows/policy signing foundation, and only then
+  required/revoked-range enforcement. Chronicle will restrict affected capabilities while
+  preserving local read/export/restore, enforce only cached fresh verified policy offline, protect
+  online endpoints independently, and use existing version-adoption telemetry — official
+  Microsoft, electron-builder, and TUF documentation.
+- 2026-07-26 — POST-08 WINDOWS AUTO-UPDATE PLAN: the public `v0.9.0` release has a working NSIS
+  installer but no `latest.yml`, and old clients cannot gain updater code retroactively. Planned an
+  explicit `Santi-49/Chronicle` GitHub publisher, CI-only token, same-build asset/hash assertions,
+  packaged-Windows-only single-flight checks, background download plus explicit restart,
+  offline-silent automatic failures, a narrow typed IPC addition, and genuine two-release
+  acceptance. Unsigned SHA-512/TLS integrity is documented as weaker than publisher signing, and
+  rollback means a higher patch release — public release audit + official electron-builder/GitHub
+  documentation.
 - 2026-07-25 — IBM SKILLSBUILD BOB COURSE: IBM teaches Bob as a collaborative partner for
   technical and non-technical users across five stages: understand the problem, plan, build,
   improve/refine, and document/share. It explicitly rejects replacement/autonomous framing and

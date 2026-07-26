@@ -62,6 +62,9 @@ const API_METHODS = {
   disableApiKeySync: true,
   getAppStatus: true,
   listPendingJobs: true,
+  getUpdateState: true,
+  checkForUpdates: true,
+  restartToUpdate: true,
 } as const satisfies Record<keyof ChronicleApi, true>
 
 const EVENTS = {
@@ -72,6 +75,7 @@ const EVENTS = {
   fileSkipped: true,
   controlPlaneDiagnostic: true,
   applicationDiagnostic: true,
+  updateStateChanged: true,
 } as const satisfies Record<ChronicleEventName, true>
 
 export const API_METHOD_NAMES = Object.keys(API_METHODS) as ReadonlyArray<keyof ChronicleApi>

@@ -14,6 +14,7 @@ import {
   type AiTask,
 } from '../lib/aiCatalog'
 import { useFolders, useSettings } from '../lib/useChronicle'
+import { useUpdates } from '../lib/useUpdates'
 import { chronicle } from '../lib/bridge'
 import { friendlyError } from '../lib/friendlyError'
 import { friendlyIpcError } from '../lib/errors'
@@ -89,11 +90,81 @@ export function SettingsScreen({
           onAdminStateChange={onAdminStateChange}
           onOpenProjects={onOpenProjects}
         />
+        <AboutSection />
         <DeveloperToolsSection
           developerBuild={developerBuild}
           developerMode={developerMode}
           onDeveloperModeChange={onDeveloperModeChange}
         />
+      </div>
+    </section>
+  )
+}
+
+function AboutSection() {
+  const { state, check, restart } = useUpdates()
+  const [checking, setChecking] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const checkedLabel = state?.checkedAt
+    ? new Date(state.checkedAt).toLocaleString()
+    : 'Not checked yet'
+  const statusLabel =
+    state?.phase === 'unsupported'
+      ? 'Automatic updates are available in the installed Windows app.'
+      : state?.phase === 'checking'
+        ? 'Checking for updates…'
+        : state?.phase === 'available' || state?.phase === 'downloading'
+          ? `Chronicle ${state.availableVersion} is downloading.`
+          : state?.phase === 'ready'
+            ? `Chronicle ${state.availableVersion} is ready to install.`
+            : state?.error ?? 'Chronicle is up to date.'
+
+  const runCheck = async () => {
+    setChecking(true)
+    setActionError('')
+    try {
+      await check()
+    } catch {
+      setActionError('Chronicle could not check for updates. Check your connection and retry.')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <section className="settings-section" id="about-settings">
+      <div className="settings-section-heading">
+        <Icon name="info" />
+        <div>
+          <h2>About & updates</h2>
+          <p>Chronicle {state?.currentVersion ?? __APP_VERSION__} · Windows updates use public GitHub Releases.</p>
+        </div>
+      </div>
+      <div className="about-update-status" aria-live="polite">
+        <div>
+          <strong>{statusLabel}</strong>
+          <span>Last checked: {checkedLabel}</span>
+          <small>Update checks never include project files, paths, credentials, or account data.</small>
+        </div>
+        <div className="about-update-actions">
+          {state?.phase === 'ready' && (
+            <button className="primary-button" onClick={() => void restart()} type="button">
+              Restart to update
+            </button>
+          )}
+          <button
+            className="secondary-button"
+            disabled={checking || state?.phase === 'checking' || state?.phase === 'unsupported'}
+            onClick={() => void runCheck()}
+            type="button"
+          >
+            <Icon name="refresh" />
+            {checking || state?.phase === 'checking' ? 'Checking…' : 'Check now'}
+          </button>
+        </div>
+        {(actionError || state?.error) && state?.phase !== 'unsupported' && (
+          <p className="form-error" role="alert">{actionError || state?.error}</p>
+        )}
       </div>
     </section>
   )

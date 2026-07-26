@@ -3,6 +3,7 @@ import type { AppRoute, PrimaryRouteName } from '../types/navigation'
 import { getPrimaryRoute } from '../types/navigation'
 import { Icon, type IconName } from './Icon'
 import { StatusBar } from './StatusBar'
+import { UpdateBanner } from './UpdateBanner'
 
 interface AppShellProps {
   route: AppRoute
@@ -67,6 +68,7 @@ export function AppShell({ route, children, developerMode, isAdmin, onNavigate, 
         <div className="workspace-content" id="main-content" tabIndex={-1}>
           {children}
         </div>
+        <UpdateBanner />
         <StatusBar onOpenJobs={onOpenJobs} />
       </div>
     </div>
