@@ -16,6 +16,7 @@ import type {
   ApplicationDiagnostic,
   ChronicleApi,
   ControlPlaneDiagnostic,
+  SystemIntegrationState,
 } from '../../shared/ipc'
 import { createAiClient } from '../ai/client'
 import { createAiServiceProcess, desktopAiServicePort } from '../ai/service-process'
@@ -49,6 +50,20 @@ export interface ChronicleIpc {
   startUpdater(): void
   /** Removes every handler and stops the watchers (app shutdown). */
   dispose(): Promise<void>
+}
+
+/**
+ * Shell integration owned by the app entry point (it creates the window and the
+ * tray, so it — not this module — knows how to show or hide them).
+ */
+export interface SystemIntegrationHost {
+  /** The launch mode is remembered in C5, so the shell reports everything else. */
+  getState: () => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
+  setOpenAtLogin: (
+    enabled: boolean,
+    opensWindow: boolean,
+  ) => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
+  applyRunInBackground: (enabled: boolean) => void
 }
 
 /**
@@ -144,6 +159,7 @@ export function startChronicleIpc(
   db: ChronicleDb,
   libraryRoot: string,
   previewRoot: string,
+  systemIntegration?: SystemIntegrationHost,
 ): ChronicleIpc {
   // app.getVersion() falls back to Electron's version when development package
   // metadata is unavailable. The build-time package value is always Chronicle's.
@@ -318,6 +334,7 @@ export function startChronicleIpc(
     onTelemetryDisabled: () => telemetryWorker?.disableTelemetry() ?? Promise.resolve(),
     telemetry: telemetryCollector,
     updater: updateController,
+    ...(systemIntegration ? { systemIntegration } : {}),
   })
 
   // POST-04: telemetry worker — only active when the control-plane client is configured.

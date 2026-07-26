@@ -1136,6 +1136,12 @@
 .toggle-field span { display: grid; gap: 4px; }
 .toggle-field strong { font-size: 12px; }
 .toggle-field small { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+/* Same offset the other post-heading blocks use: clear of the description and
+   aligned with the heading text rather than the section icon. */
+.startup-options { display: grid; margin: 22px 0 0 44px; gap: 16px; }
+/* The sign-in window choice is subordinate to the sign-in toggle above it, so
+   it is indented and rule-marked rather than reading as a fourth peer option. */
+.startup-nested { margin-left: 26px; padding-left: 12px; border-left: 1px solid var(--border-subtle); }
 .file-types-field { display: grid; gap: 10px; }
 .file-type-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .file-type-chip { display: inline-flex; padding: 7px 12px; align-items: center; gap: 8px; color: var(--text-muted); font-size: 11px; border: 1px solid var(--border); border-radius: 999px; }

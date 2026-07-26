@@ -342,6 +342,30 @@ export interface UpdateState {
   error: string | null
 }
 
+/**
+ * Desktop-integration state the operating system owns, not Chronicle's database.
+ *
+ * `openAtLogin` deliberately has no C5 setting: the login-item registry is the
+ * single source of truth because the user can revoke it from Task Manager or
+ * System Settings while Chronicle is not running, so a stored copy would drift.
+ * Every read reports what the OS currently says.
+ */
+export interface SystemIntegrationState {
+  /** False in development builds and on platforms without a login-item API. */
+  openAtLoginSupported: boolean
+  /** The operating system's current answer, re-read on every call. */
+  openAtLogin: boolean
+  /**
+   * Whether that login launch also restores the window. False means Chronicle
+   * resumes capture in the tray only. Meaningless while `openAtLogin` is false.
+   */
+  openAtLoginOpensWindow: boolean
+  /** True when Chronicle is running with a tray icon and can close to background. */
+  trayActive: boolean
+  /** Why `openAtLoginSupported` is false; null when it is supported. */
+  unsupportedReason: string | null
+}
+
 /** Renderer-safe view of an AI queue item. Raw internal payloads never cross IPC. */
 export interface PendingJob {
   id: number
@@ -642,6 +666,16 @@ export interface ChronicleApi {
   getAppStatus(): Promise<AppStatus>
   /** FIFO list backing the status bar's pending AI-job count. */
   listPendingJobs(): Promise<PendingJob[]>
+
+  // Background capture and login item (the OS owns openAtLogin, not C5)
+  /** Current login-item and tray state, re-read from the operating system. */
+  getSystemIntegration(): Promise<SystemIntegrationState>
+  /**
+   * Registers or removes Chronicle's login item and returns the re-read state.
+   * `opensWindow` picks between restoring the UI and resuming in the tray only.
+   * Rejects when unsupported so the UI never shows a preference the OS ignored.
+   */
+  setOpenAtLogin(enabled: boolean, opensWindow: boolean): Promise<SystemIntegrationState>
 
   // Application update (packaged Windows only)
   getUpdateState(): Promise<UpdateState>

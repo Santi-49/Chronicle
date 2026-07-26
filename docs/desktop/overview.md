@@ -42,6 +42,11 @@ is still the tracked folder; there is no extra grouping layer between folders an
 ```
 Launch
   │
+  ├─ Already running? ─→ hand over to it (single-instance lock): the resident
+  │                       instance shows/focuses its window and this one exits
+  │
+  ├─ Login launch, tray mode ─→ no window; capture resumes in the notification area
+  │
   ├─ First entry ─→ Welcome screen:  [ Continue local ]          ← primary, no account/backend
   │                                  [ Continue with Google ]    ← API health → system-browser PKCE (F1)
   │
@@ -59,6 +64,17 @@ Launch
   Google; timeout/cancellation errors are concise inline copy rather than raw IPC exceptions.
 - If AI isn't configured yet (no key), the app still captures versions; summaries show as
   pending instead of failing.
+- Only one Chronicle may run per profile. A second launch — a shortcut clicked while the app sits
+  hidden in the tray, for instance — reveals the running window and exits, so two watchers can
+  never contend over the same library.
+- Closing the window keeps capture running by default; the notification-area icon (Chronicle's own
+  app-icon artwork, in the variant matching the shell's light/dark tone) restores the window on
+  click and offers **Quit Chronicle (stops capturing)**. The first close explains this once through
+  a system notification, because a close normally means quitting. If the tray icon cannot be
+  created, closing quits exactly as before — Chronicle never becomes an unreachable process.
+- Capture still requires Chronicle to be running. Saves made while it is closed are reconciled to
+  their *final* state on next launch, so intermediate saves in that window are not recorded
+  individually; **Settings → Startup & background** is where that gap is closed.
 - In development, Electron starts the Python 3.12 service from `services/ai`. In an installed
   Windows build it starts the bundled Gemini-capable sidecar from app resources; no system Python
   is required. Either path is loopback-only, health-checked, and never gates local capture.
@@ -353,12 +369,13 @@ and raw IP addresses never enter the renderer contract.
 
 ### 9. Settings — F1, F2, F4/F9 config
 
-Six sections, in current order:
+Seven sections, in current order:
 
 | Section | Contents |
 |---|---|
 | **Getting started** | Tutorial state plus Restart, Resume, or Replay action. |
 | **Appearance** | Theme: System (default) · Dark · Light |
+| **Startup & background** | **Keep capturing after I close the window** (default on) turns a window close into a hide, leaving Chronicle resident in the notification area with capture, the AI queue, and search intact; turning it off restores quit-on-close. Below it, **Start Chronicle when I sign in** registers a login item, with a nested **Open the Chronicle window at sign-in** choosing between restoring the UI and resuming silently in the tray. With background capture off there is no tray to reach, so those two collapse into one control — **Start Chronicle and open its window when I sign in** — rather than showing a distinction that cannot exist. Whether a login item exists is read back from the operating system on every visit, never stored, because it can be revoked from Task Manager or System Settings; it is disabled with an explanation in development builds and on platforms without a login-item API. The *launch mode* is the one part kept in C5, because Windows does not return a login item's registered arguments. |
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
 | **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker and an explicit task-specific **Test connection** action that uses the saved key without mutating settings. Packaged providers: **Google Gemini · Anthropic Claude · OpenAI**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Custom AI configuration** toggle permits free-text LangChain provider/model pairs for development environments that install them separately. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save/Test until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
 | **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved and audited with notice version/time/installation/account linkage. Usage reporting sends app opens, project removals, hourly search and provider/model usage, current count snapshots, sanitized application failures, and Cloudflare-derived coarse location—never creative content, names, paths, summaries/tags, search text, credentials, or raw IP. It sends on startup and hourly only after changes; turning it off attempts one final request, clears local state, and never retries. Portable preferences sync automatically after each saved change. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. Settings links the privacy policy, exports account or anonymous-installation cloud data as JSON, lets local profiles erase installation usage data, and lets signed-in users permanently delete their account and all linked cloud data. Both erasure flows explicitly preserve local history, originals, and provider keys. |

@@ -80,6 +80,7 @@ vi.mock('../db/repositories', () => ({
 
 const settings: AppSettings = {
   appearance: { theme: 'system' },
+  system: { runInBackground: true, openAtLoginOpensWindow: false },
   ai: {
     mode: 'local',
     chat: { provider: 'google_genai', model: 'gemini-2.5-flash' },

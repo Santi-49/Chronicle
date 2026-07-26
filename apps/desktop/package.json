@@ -47,6 +47,10 @@
       {
         "from": "../../packages/prompts/version-annotation.md",
         "to": "ai/prompts/version-annotation.md"
+      },
+      {
+        "from": "../../packages/brand/assets/png/tray",
+        "to": "tray"
       }
     ],
     "asar": true,
