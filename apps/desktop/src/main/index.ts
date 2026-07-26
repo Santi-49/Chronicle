@@ -98,6 +98,7 @@ app.whenReady().then(() => {
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null)
 
   createWindow()
+  ipc.startUpdater()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

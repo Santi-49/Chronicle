@@ -36,6 +36,7 @@ jobs:
       - run: python scripts/check_versions.py
       - run: npm run package
         working-directory: apps/desktop
+      - run: python scripts/check_windows_update_assets.py
       - run: python scripts/smoke_ai_sidecar.py
       - name: Write installer checksum
         shell: pwsh
@@ -55,6 +56,8 @@ jobs:
           name: Chronicle-${{ steps.version.outputs.app_version }}-windows-${{ github.sha }}
           path: |
             apps/desktop/dist/Chronicle-Setup-*.exe
+            apps/desktop/dist/Chronicle-Setup-*.exe.blockmap
+            apps/desktop/dist/latest.yml
             apps/desktop/dist/SHA256SUMS-windows.txt
           if-no-files-found: error
           retention-days: 30
