@@ -49,26 +49,28 @@ export function AppShell({ route, children, developerMode, isAdmin, onNavigate, 
             ))}
           </ul>
         </nav>
-        <nav className="sidebar-footer" aria-label="Application settings">
-          <button
-            aria-current={activeRoute === 'settings' ? 'page' : undefined}
-            className={activeRoute === 'settings' ? 'sidebar-link sidebar-link-active' : 'sidebar-link'}
-            data-tour="nav-settings"
-            onClick={() => onNavigate({ name: 'settings' })}
-            type="button"
-          >
-            <Icon name="settings" />
-            <span>Settings</span>
-          </button>
+        <div className="sidebar-footer">
+          <UpdateBanner />
+          <nav aria-label="Application settings">
+            <button
+              aria-current={activeRoute === 'settings' ? 'page' : undefined}
+              className={activeRoute === 'settings' ? 'sidebar-link sidebar-link-active' : 'sidebar-link'}
+              data-tour="nav-settings"
+              onClick={() => onNavigate({ name: 'settings' })}
+              type="button"
+            >
+              <Icon name="settings" />
+              <span>Settings</span>
+            </button>
+          </nav>
           <p className="sidebar-version">Chronicle {__APP_VERSION__}</p>
-        </nav>
+        </div>
       </aside>
 
       <div className="workspace-main">
         <div className="workspace-content" id="main-content" tabIndex={-1}>
           {children}
         </div>
-        <UpdateBanner />
         <StatusBar onOpenJobs={onOpenJobs} />
       </div>
     </div>

@@ -1,61 +1,68 @@
 import { useEffect, useState } from 'react'
 import { Icon } from './Icon'
 import { useUpdates } from '../lib/useUpdates'
-import { updateBannerCopy } from './updateBannerCopy'
+import {
+  ignoreUpdateVersion,
+  readIgnoredUpdateVersion,
+  updateBannerCopy,
+} from './updateBannerCopy'
 
 export function UpdateBanner() {
   const { state, restart } = useUpdates()
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null)
+  const [laterVersion, setLaterVersion] = useState<string | null>(null)
+  const [ignoredVersion, setIgnoredVersion] = useState(() => readIgnoredUpdateVersion())
   const [restartError, setRestartError] = useState('')
-  const key = state ? `${state.phase}:${state.availableVersion ?? ''}` : ''
+  const version = state?.availableVersion ?? null
   const copy = state ? updateBannerCopy(state) : null
 
   useEffect(() => {
     setRestartError('')
-  }, [key])
+  }, [version])
 
-  if (!state || !copy || dismissedKey === key) return null
+  if (!state || !copy || !version || laterVersion === version || ignoredVersion === version) {
+    return null
+  }
 
   return (
-    <aside className="update-banner" aria-label="Application update" aria-live="polite">
-      <Icon name={state.phase === 'ready' ? 'check' : 'arrow-down'} />
-      <div className="update-banner-copy">
+    <aside className="update-banner" aria-label="Application update ready" aria-live="polite">
+      <div className="update-banner-heading">
+        <Icon name="check" />
         <strong>{copy}</strong>
-        {state.phase === 'downloading' && (
-          <div className="update-progress-row">
-            <progress
-              aria-label={`Update download ${state.percent ?? 0}%`}
-              max="100"
-              value={state.percent ?? 0}
-            />
-            <span>{state.percent ?? 0}%</span>
-          </div>
-        )}
-        {restartError && <span className="update-banner-error" role="alert">{restartError}</span>}
       </div>
+      {restartError && <span className="update-banner-error" role="alert">{restartError}</span>}
       <div className="update-banner-actions">
-        {state.phase === 'ready' && (
+        <button
+          className="primary-button update-restart-button"
+          onClick={() => {
+            setRestartError('')
+            void restart().catch(() => {
+              setRestartError('Chronicle could not restart. Try again or reopen the app.')
+            })
+          }}
+          type="button"
+        >
+          Restart to update
+        </button>
+        <div className="update-secondary-actions">
           <button
-            className="primary-button update-restart-button"
+            className="text-button update-dismiss-button"
+            onClick={() => setLaterVersion(version)}
+            type="button"
+          >
+            Later
+          </button>
+          <button
+            aria-label={`Ignore Chronicle ${version}`}
+            className="text-button update-dismiss-button"
             onClick={() => {
-              setRestartError('')
-              void restart().catch(() => {
-                setRestartError('Chronicle could not restart. Try again or reopen the app.')
-              })
+              ignoreUpdateVersion(version)
+              setIgnoredVersion(version)
             }}
             type="button"
           >
-            Restart to update
+            Ignore
           </button>
-        )}
-        <button
-          aria-label={state.phase === 'ready' ? 'Install this update later' : 'Dismiss update notice'}
-          className="update-dismiss-button"
-          onClick={() => setDismissedKey(key)}
-          type="button"
-        >
-          {state.phase === 'ready' ? 'Later' : <Icon name="close" />}
-        </button>
+        </div>
       </div>
     </aside>
   )

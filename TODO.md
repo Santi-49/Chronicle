@@ -1288,7 +1288,8 @@ update telemetry.
 > CI-only GitHub publishing, local/published `latest.yml` and blockmap validation, a
 > packaged-Windows-only main-process controller, the narrow typed C1 state/check/restart/event
 > surface, delayed and four-hour single-flight checks, background download, explicit restart,
-> global accessible progress UI, Settings/About status and retry, and an admin update-adoption
+> a compact update-ready notice above Settings with Restart/Later/Ignore actions,
+> Settings/About status and retry, and an admin update-adoption
 > comparison derived from the existing `app_version_distribution` telemetry. No update telemetry
 > was added. The controller preserves active download/ready state against later checks.
 > Verification: 244 desktop tests passed (1 skipped), typecheck and production build passed, a
