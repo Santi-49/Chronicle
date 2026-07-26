@@ -68,14 +68,45 @@ jobs:
         run: |
           set -euo pipefail
 
+          # A persistent dev branch retains the original commits from earlier
+          # squash releases, so main...dev grows forever. Find the most recent
+          # release back-sync, then compare that graph point to this PR head.
+          comparison=$(
+            gh api \
+              --paginate \
+              --slurp \
+              "repos/$GITHUB_REPOSITORY/compare/$BASE_SHA...$HEAD_SHA?per_page=100"
+          )
+          last_sync_sha=$(
+            jq -r '
+              [
+                .[].commits[]
+                | select(
+                    (.commit.message | split("\n")[0])
+                    == "chore: sync released main back into dev"
+                  )
+              ]
+              | sort_by(.commit.committer.date)
+              | (last // {})
+              | .sha // ""
+            ' <<<"$comparison"
+          )
+          range_start="${last_sync_sha:-$BASE_SHA}"
+
+          if [[ -n "$last_sync_sha" ]]; then
+            echo "Collecting changelog commits after back-sync ${last_sync_sha:0:7}."
+          else
+            echo "No prior back-sync found; using the PR base for this initial promotion."
+          fi
+
           # Release Please sees the dev → main squash commit, not the feature
-          # commits behind it. Build its supported override block from the
-          # non-merge Conventional Commits in this exact promotion range.
+          # commits behind it. Build its supported override from the bounded
+          # graph comparison, not from the accumulated dev ancestry.
           override=$(
             gh api \
               --paginate \
               --slurp \
-              "repos/$GITHUB_REPOSITORY/compare/$BASE_SHA...$HEAD_SHA?per_page=100" |
+              "repos/$GITHUB_REPOSITORY/compare/$range_start...$HEAD_SHA?per_page=100" |
               jq -r '
                 [
                   .[].commits[]
@@ -102,7 +133,7 @@ jobs:
           )
 
           if [[ -z "$override" ]]; then
-            echo "::error::No releasable Conventional Commits were found between main and dev."
+            echo "::error::No releasable Conventional Commits were found after the latest release back-sync."
             exit 1
           fi
 
@@ -139,7 +170,7 @@ jobs:
               --method PATCH \
               "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
               -f body="$updated_body" >/dev/null
-            echo "Updated the Release Please commit override from main...dev."
+            echo "Updated the Release Please commit override from ${range_start:0:7}...${HEAD_SHA:0:7}."
           else
             echo "Release Please commit override is already current."
           fi

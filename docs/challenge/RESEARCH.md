@@ -385,12 +385,14 @@ Sources:
   `RELEASE_PLEASE_TOKEN` rather than silently bypassing protected-branch CI.
   ([Release Please Action](https://github.com/googleapis/release-please-action))
 - Release Please recommends squash merges for linear history and supports multiple meaningful
-  changes in one squash through a `BEGIN_COMMIT_OVERRIDE` block in the merged PR body. Chronicle's
-  persistent `dev → main` promotion now generates that block from the exact GitHub comparison:
-  unique non-merge `feat`, `fix`, `deps`, and breaking Conventional Commits are retained, while
-  merge commits and ordinary chores are omitted. The built-in `GITHUB_TOKEN` performs the
-  idempotent body edit so it cannot recursively trigger the privileged merge workflow; the release
-  PAT remains limited to guarded merge actions.
+  changes in one squash through a `BEGIN_COMMIT_OVERRIDE` block in the merged PR body. A persistent
+  `dev` branch needs an explicit boundary: squashed commits acquire new identities on `main`, so
+  the original `dev` commits remain outside `main` ancestry even after back-sync and an unbounded
+  comparison replays old releases. Chronicle finds the latest release back-sync SHA and generates
+  the override only from its graph descendants. Unique non-merge `feat`, `fix`, `deps`, and
+  breaking commits are retained; merge commits, ordinary chores, and exact duplicates are omitted.
+  The built-in `GITHUB_TOKEN` performs the idempotent body edit so it cannot recursively trigger
+  the privileged merge workflow; the release PAT remains limited to guarded merge actions.
   ([Release Please](https://github.com/googleapis/release-please))
 - Local packaging evidence: a clean Python 3.12 environment built the PyInstaller Gemini sidecar
   in about 70 seconds (25.2 MB); both the raw executable and the copy inside Electron resources
@@ -895,12 +897,15 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
-- 2026-07-26 — RELEASE PLEASE COMMIT COLLECTION: the `dev → main` workflow now queries GitHub's
-  exact comparison, extracts and de-duplicates releasable non-merge Conventional Commits, and
-  maintains Release Please's supported commit-override block before the existing squash merge.
-  YAML parsing, diff checks, and representative compare-response filtering verified breaking-
-  commit retention, merge/chore exclusion, and duplicate removal — official Release Please
-  multiple-change and commit-override guidance.
+- 2026-07-26 — RELEASE PLEASE COMMIT COLLECTION: the first implementation used `main...dev`, which
+  exposed 57 historical commits because persistent `dev` retains the original identities replaced
+  by each squash on `main`. The workflow now discovers the latest
+  `chore: sync released main back into dev` SHA and performs a second graph comparison from that
+  boundary to the PR head. It then de-duplicates releasable non-merge Conventional Commits and
+  maintains Release Please's supported commit-override block. The PR base is the first-promotion
+  fallback. YAML parsing, diff checks, and representative boundary/filter fixtures verified
+  historical exclusion, breaking-commit retention, merge/chore exclusion, and duplicate removal
+  — repository graph audit + official Release Please override guidance.
 - 2026-07-26 — POST-08A IMPLEMENTATION: added packaged-Windows GitHub auto-update plumbing,
   same-build manifest/blockmap/hash assertions, typed main-to-renderer state, accessible
   download/restart and Settings/About UI, and current-versus-older release adoption from existing
