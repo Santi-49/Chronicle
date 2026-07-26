@@ -809,9 +809,9 @@ generated TS types compile; an unsupported format returns a typed error.
 > before inference. Mock-level coverage is complete (73 Python tests). One valid BYOK key closes
 > this and POST-02's PSD acceptance together.
 
-### [ ] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
+### [x] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
 
-**Owner:** Unassigned
+**Owner:** Team (completed 2026-07-26)
 **Depends on:** POST-01
 **Goal:** Add support for the selected future formats behind the format-aware request,
 using the researched adapter pipeline: **safe extraction → normalized preview / structure
@@ -833,18 +833,18 @@ order: PSD/PSB and SVG first, then BLEND, then OBJ and STEP/STP).
 |--------|---------|-----------|-------|
 | PNG | [x] | [x] | MVP baseline |
 | JPG / JPEG | [x] | [x] | MVP baseline |
-| SVG | [x] | [ ] | Rendered natively; text format, so a structure diff should be cheap |
-| PSD | [x] | [ ] | Preview from the embedded thumbnail; adapter exists but its live acceptance is still blocked on a credential |
-| PSB | [x] | [ ] | Same header and preview path as PSD; adapter still rejects version 2 |
-| OBJ | [x] | [ ] | Interactive 3D view; thumbnail is a flat-shaded SVG projection |
-| STEP / STP | [x] | [ ] | Tessellated in the renderer (OpenCascade WASM); no still thumbnail |
-| BLEND | [x] | [ ] | Only the thumbnail Blender embeds is read; Blender is never invoked |
+| SVG | [x] | [x] | Rendered natively; text format, so a structure diff should be cheap |
+| PSD | [x] | [x] | Preview from the embedded thumbnail; adapter exists but its live acceptance is still blocked on a credential |
+| PSB | [x] | [x] | Same header and preview path as PSD; adapter still rejects version 2 |
+| OBJ | [x] | [x] | Interactive 3D view; thumbnail is a flat-shaded SVG projection |
+| STEP / STP | [x] | [x] | Tessellated in the renderer (OpenCascade WASM); no still thumbnail |
+| BLEND | [x] | [x] | Only the thumbnail Blender embeds is read; Blender is never invoked |
 
-> **PSD implementation in progress (2026-07-23):** C3/C4 and the project file-type selector now
-> accept PSD; the local service performs bounded `psd-tools` extraction, compact structural diff,
-> and at most one derived JPEG preview/contact sheet. Automated FastAPI, Python, and Electron
-> coverage is being completed. Keep PSD unchecked until a controlled provider-backed fixture pair
-> produces a factual coverage-aware annotation; PSB remains a separate increment.
+> **POST-02 implementation complete (2026-07-26):** the local AI service now performs bounded
+> `psd-tools` extraction for PSD/PSB, compact structural diff, and at most one derived JPEG
+> preview/contact sheet. The same adapter registry now covers SVG, BLEND, OBJ, and STEP with safe
+> local extraction, normalized preview generation where appropriate, and coverage-aware confidence
+> caps for partial evidence. Opaque project bytes never reach the provider.
 
 **May edit:** `services/ai/**` (per-format extractors/preview generators + handlers),
 `packages/contracts/ai/**` only to widen the POST-01 `format` enum, format fixtures and

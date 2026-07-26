@@ -55,7 +55,14 @@ def _image_adapter(format_name: str, media_type: str) -> FormatAdapter:
 def _registry() -> dict[str, FormatAdapter]:
     # Adapter modules are imported on first use, not at module import time:
     # they depend on the request schemas, which in turn read this registry.
+    from .future_formats import (
+        prepare_blend_annotation,
+        prepare_obj_annotation,
+        prepare_step_annotation,
+        prepare_svg_annotation,
+    )
     from .psd_adapter import prepare_psd_annotation
+    from .psd_adapter import prepare_psb_annotation
 
     return {
         "png": _image_adapter("png", "image/png"),
@@ -66,6 +73,36 @@ def _registry() -> dict[str, FormatAdapter]:
             media_type="image/vnd.adobe.photoshop",
             prompt_operation="PSD ",
             prepare=prepare_psd_annotation,
+        ),
+        "psb": FormatAdapter(
+            format="psb",
+            media_type="image/vnd.adobe.photoshop",
+            prompt_operation="PSB ",
+            prepare=prepare_psb_annotation,
+        ),
+        "svg": FormatAdapter(
+            format="svg",
+            media_type="image/svg+xml",
+            prompt_operation="SVG ",
+            prepare=prepare_svg_annotation,
+        ),
+        "blend": FormatAdapter(
+            format="blend",
+            media_type="application/x-blender",
+            prompt_operation="BLEND ",
+            prepare=prepare_blend_annotation,
+        ),
+        "obj": FormatAdapter(
+            format="obj",
+            media_type="model/obj",
+            prompt_operation="OBJ ",
+            prepare=prepare_obj_annotation,
+        ),
+        "step": FormatAdapter(
+            format="step",
+            media_type="model/step",
+            prompt_operation="STEP ",
+            prepare=prepare_step_annotation,
         ),
     }
 
