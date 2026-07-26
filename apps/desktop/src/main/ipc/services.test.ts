@@ -62,21 +62,21 @@ let secretKeys: Map<string, string>
 let validationCalls: Array<{ task: 'chat' | 'embeddings'; provider: string; model: string }>
 let validationValid: boolean
 
-beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ipc-'))
-  libraryRoot = path.join(dir, 'library')
-  workDir = path.join(dir, 'designs')
-  fs.mkdirSync(workDir, { recursive: true })
-  db = openChronicleDb(path.join(dir, DATABASE_FILE_NAME))
-  events = []
-  nextPick = null
-  nextSavePath = null
-  online = true
-  windowTheme = null
-  secretKeys = new Map()
-  validationCalls = []
-  validationValid = true
-  services = createChronicleServices({
+/** Extra service instances a test built itself; disposed with the default one. */
+let extraServices: ChronicleServices[]
+
+/**
+ * Builds a services instance over the current temp database. `overrides` exists
+ * so a test can supply an optional dependency (e.g. the desktop shell
+ * integration) without every other test losing the absent-dependency defaults.
+ */
+function buildServices(overrides: Partial<ChronicleServicesDeps> = {}): ChronicleServices {
+  const instance = createChronicleServices({ ...baseDeps(), ...overrides })
+  return instance
+}
+
+function baseDeps(): ChronicleServicesDeps {
+  return {
     db,
     libraryRoot,
     emit: (event, payload) => events.push({ event, payload }),
@@ -123,11 +123,30 @@ beforeEach(() => {
       },
     },
     settleMs: 120, // production keeps the C4 2 s default
-  })
+  }
+}
+
+beforeEach(() => {
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-ipc-'))
+  libraryRoot = path.join(dir, 'library')
+  workDir = path.join(dir, 'designs')
+  fs.mkdirSync(workDir, { recursive: true })
+  db = openChronicleDb(path.join(dir, DATABASE_FILE_NAME))
+  events = []
+  nextPick = null
+  nextSavePath = null
+  online = true
+  windowTheme = null
+  secretKeys = new Map()
+  validationCalls = []
+  validationValid = true
+  extraServices = []
+  services = buildServices()
 })
 
 afterEach(async () => {
   await services.dispose()
+  for (const extra of extraServices) await extra.dispose()
   db.close()
   fs.rmSync(dir, { recursive: true, force: true })
 })
@@ -808,6 +827,118 @@ describe('settings and the secret boundary', () => {
     expect(updated.ai.chat.provider).toBe('openai')
     expect(updated.controlPlane).toEqual(DEFAULT_SETTINGS.controlPlane) // untouched section
     expect((await services.api.getSettings()).ai.chat.model).toBe('gpt-4o-mini')
+  })
+
+  it('captures in the background by default and rejects a non-boolean patch', async () => {
+    expect((await services.api.getSettings()).system.runInBackground).toBe(true)
+    await expect(
+      services.api.updateSettings({ system: { runInBackground: 'yes' } as never }),
+    ).rejects.toThrow(/runInBackground must be a boolean/)
+  })
+
+  it('applies a changed background preference to the shell exactly once', async () => {
+    const applied: boolean[] = []
+    const wired = buildServices({
+      systemIntegration: {
+        getState: () => ({
+          openAtLoginSupported: true,
+          openAtLogin: false,
+          openAtLoginOpensWindow: false,
+          trayActive: true,
+          unsupportedReason: null,
+        }),
+        setOpenAtLogin: () => {
+          throw new Error('not used here')
+        },
+        applyRunInBackground: (enabled) => applied.push(enabled),
+      },
+    })
+    extraServices.push(wired)
+
+    await wired.api.updateSettings({ system: { runInBackground: false } })
+    expect(applied).toEqual([false])
+    // Re-saving the same value must not churn the tray icon.
+    await wired.api.updateSettings({ system: { runInBackground: false } })
+    expect(applied).toEqual([false])
+    await wired.api.updateSettings({ system: { runInBackground: true } })
+    expect(applied).toEqual([false, true])
+  })
+
+  it('reports start-at-login unsupported when the shell integration is absent', async () => {
+    // The path a headless/test build and any future platform without a login
+    // item takes: the UI must show it as unavailable, never as "off".
+    expect(await services.api.getSystemIntegration()).toEqual({
+      openAtLoginSupported: false,
+      openAtLogin: false,
+      openAtLoginOpensWindow: false,
+      trayActive: false,
+      unsupportedReason: expect.stringContaining('installed app'),
+    })
+    await expect(services.api.setOpenAtLogin(true, true)).rejects.toThrow(/not available/)
+  })
+
+  it('passes both startup choices through and returns the operating system state', async () => {
+    const calls: Array<{ enabled: boolean; opensWindow: boolean }> = []
+    let state = {
+      openAtLoginSupported: true,
+      openAtLogin: false,
+      openAtLoginOpensWindow: false,
+      trayActive: true,
+      unsupportedReason: null,
+    }
+    const wired = buildServices({
+      systemIntegration: {
+        getState: () => state,
+        setOpenAtLogin: (enabled, opensWindow) => {
+          calls.push({ enabled, opensWindow })
+          state = { ...state, openAtLogin: enabled, openAtLoginOpensWindow: opensWindow }
+          return state
+        },
+        applyRunInBackground: () => {},
+      },
+    })
+    extraServices.push(wired)
+
+    expect(await wired.api.setOpenAtLogin(true, false)).toMatchObject({
+      openAtLogin: true,
+      openAtLoginOpensWindow: false,
+    })
+    expect(await wired.api.setOpenAtLogin(true, true)).toMatchObject({
+      openAtLogin: true,
+      openAtLoginOpensWindow: true,
+    })
+    expect(calls).toEqual([
+      { enabled: true, opensWindow: false },
+      { enabled: true, opensWindow: true },
+    ])
+    await expect(wired.api.setOpenAtLogin(true, 'yes' as never)).rejects.toThrow(
+      /opensWindow must be a boolean/,
+    )
+  })
+
+  it('reports the shell\'s refusal instead of the requested value', async () => {
+    // A managed device can accept setLoginItemSettings and ignore it.
+    const wired = buildServices({
+      systemIntegration: {
+        getState: () => ({
+          openAtLoginSupported: true,
+          openAtLogin: false,
+          openAtLoginOpensWindow: false,
+          trayActive: true,
+          unsupportedReason: null,
+        }),
+        setOpenAtLogin: () => ({
+          openAtLoginSupported: true,
+          openAtLogin: false,
+          openAtLoginOpensWindow: false,
+          trayActive: true,
+          unsupportedReason: null,
+        }),
+        applyRunInBackground: () => {},
+      },
+    })
+    extraServices.push(wired)
+    expect(await wired.api.setOpenAtLogin(true, true)).toMatchObject({ openAtLogin: false })
   })
 
   it('tests the selected provider task without changing saved settings', async () => {

@@ -22,6 +22,19 @@ export type AppearanceTheme = 'system' | 'dark' | 'light'
 
 export interface AppSettings {
   appearance: { theme: AppearanceTheme }
+  system: {
+    /**
+     * Closing the window leaves Chronicle capturing from the tray instead of
+     * quitting. Device-local by nature (a tray is a property of this machine's
+     * shell), so it is deliberately excluded from portable settings sync.
+     *
+     * `openAtLogin` is NOT stored here: the operating system's login-item
+     * registry is its single source of truth, because the user can revoke it
+     * from Task Manager or System Settings without Chronicle running. It is
+     * read and written through the dedicated C1 system-integration methods.
+     */
+    runInBackground: boolean
+  }
   ai: {
     /** 'local' = BYOK through the loopback Python service · 'gateway' = Chronicle service (stretch F9). */
     mode: 'local' | 'gateway'

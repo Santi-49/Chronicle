@@ -181,7 +181,14 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
   such on the toggle, because capture, versioning, preview, restore, and keyword
   search work for them while their summaries stay queued.
 - Hidden files/folders and temp files (e.g. `~$…`, `.tmp`, editor autosave/swap files) are ignored.
-- **Done when:** add a folder, save a PNG in a subfolder → version appears; save a `.txt` → nothing happens.
+- **Startup & background** settings decide when watching happens: keep capturing after the window
+  closes (default on, tray-resident), start Chronicle at sign-in, and whether that sign-in launch
+  opens the window or stays in the tray. The login item is the operating system's record, not a
+  synced preference, and is unavailable in development builds. Because a hidden launch with no tray
+  icon would be unreachable, the window option is forced on whenever background capture is off.
+- **Done when:** add a folder, save a PNG in a subfolder → version appears; save a `.txt` → nothing
+  happens; close the window and save again → a version still appears, and the tray icon restores
+  the window; disable background capture → closing the window quits.
 
 ### F3 — Version capture `MVP`
 
@@ -195,6 +202,14 @@ The heart of the product. Exact rules:
 6. Files over **50 MB** are skipped with a visible notice.
 7. **Identity = file path** (MVP): renaming or moving a file starts a new asset. Deleting a file keeps its history visible, marked "file no longer on disk". *(Known limitation — say it in the README; content-hash identity across renames is future work.)*
 8. Hashing and copying never block the UI.
+9. Capture requires Chronicle to be **running**, not **open**. By default, closing the window
+   leaves it resident in the notification area still watching, hashing, annotating, and indexing;
+   only **Quit** stops capture. Users may switch closing back to quitting, and may separately have
+   Chronicle start at sign-in either with its window or silently in the tray (F2 settings). Exactly
+   one instance runs per profile — a second launch reveals the running one — so two watchers can
+   never contend over one library. Saves made while Chronicle is not running are still reconciled
+   to their **final** state by the next launch's initial scan, but intermediate saves in that
+   window are not recorded individually.
 - Normal capture and restore remain append-only. The Timeline also provides an explicit,
   destructive **Reset history to v1** maintenance action behind a typed `RESET` safeguard:
   it keeps the latest stored snapshot as a fresh v1, removes that asset's prior timeline and

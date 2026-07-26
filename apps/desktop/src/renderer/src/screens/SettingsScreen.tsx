@@ -21,7 +21,7 @@ import { friendlyIpcError } from '../lib/errors'
 import { HELP_CENTER_URL, UPDATE_HELP_URL } from '../lib/helpLinks'
 import { PRIVACY_URL, TERMS_URL } from '../lib/legalAcceptance'
 import type { OnboardingStatus } from '../lib/onboarding'
-import type { AiModelPrice } from '../../../shared/ipc'
+import type { AiModelPrice, SystemIntegrationState } from '../../../shared/ipc'
 
 interface SettingsScreenProps {
   developerBuild: boolean
@@ -86,6 +86,7 @@ export function SettingsScreen({
           onResume={onResumeTutorial}
         />
         <AppearanceSection themePreference={themePreference} onThemePreferenceChange={onThemePreferenceChange} />
+        <StartupSection />
         <TrackedFoldersSection onAddProject={onAddProject} />
         <AiSection onAiReady={onAiReady} />
         <AccountSection
@@ -278,6 +279,130 @@ function AppearanceSection({
           </label>
         ))}
       </fieldset>
+    </section>
+  )
+}
+
+// ── Startup & background ────────────────────────────────────────────────
+
+/**
+ * Three related but separate choices, in the order they take effect:
+ * whether closing the window keeps capturing, whether Chronicle starts with
+ * Windows/macOS, and whether that start shows the window.
+ *
+ * The startup preference is read back from the operating system on every load
+ * rather than from settings, because it can be revoked in Task Manager or
+ * System Settings while Chronicle is not running.
+ */
+function StartupSection() {
+  const { settings, save } = useSettings()
+  const [system, setSystem] = useState<SystemIntegrationState>()
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void chronicle.getSystemIntegration().then((state) => {
+      if (!cancelled) setSystem(state)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const runInBackground = settings?.system.runInBackground ?? false
+  // With background capture off there is no tray to reach, so a login launch
+  // must show its window; the main process enforces the same rule.
+  const windowForced = !runInBackground
+  const opensWindow = windowForced || (system?.openAtLoginOpensWindow ?? false)
+
+  const applyLogin = async (enabled: boolean, showWindow: boolean) => {
+    setBusy(true)
+    setError('')
+    try {
+      setSystem(await chronicle.setOpenAtLogin(enabled, showWindow))
+    } catch (cause) {
+      setError(friendlyIpcError(cause, 'Chronicle could not change the startup setting.'))
+      // Re-read so the checkboxes show what the operating system actually has.
+      setSystem(await chronicle.getSystemIntegration())
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const changeBackground = async (enabled: boolean) => {
+    setError('')
+    await save({ system: { runInBackground: enabled } })
+    // Turning background capture off strands a tray-only login launch, so
+    // promote it to a window launch in the same action.
+    if (!enabled && system?.openAtLogin && !system.openAtLoginOpensWindow) {
+      await applyLogin(true, true)
+    }
+  }
+
+  return (
+    <section className="settings-section" id="startup-settings">
+      <div className="settings-section-heading">
+        <Icon name="power" />
+        <div>
+          <h2>Startup &amp; background</h2>
+          <p>Chronicle only captures saves while it is running.</p>
+        </div>
+      </div>
+
+      <div className="startup-options">
+        <label className="toggle-field">
+          <input
+            checked={runInBackground}
+            disabled={!settings}
+            onChange={(event) => void changeBackground(event.target.checked)}
+            type="checkbox"
+          />
+          <span>
+            <strong>Keep capturing after I close the window</strong>
+            <small>
+              Chronicle stays in the notification area and keeps versioning your folders. Open or
+              quit it from the tray icon. Turn this off to make closing the window quit Chronicle.
+            </small>
+          </span>
+        </label>
+
+        <label className="toggle-field">
+          <input
+            checked={system?.openAtLogin ?? false}
+            disabled={busy || !system?.openAtLoginSupported}
+            onChange={(event) => void applyLogin(event.target.checked, opensWindow)}
+            type="checkbox"
+          />
+          <span>
+            <strong>Start Chronicle when I sign in</strong>
+            <small>
+              {system?.openAtLoginSupported
+                ? 'Versions saved while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete.'
+                : (system?.unsupportedReason ?? 'Starting at login is available in the installed app.')}
+            </small>
+          </span>
+        </label>
+
+        <label className="toggle-field startup-nested">
+          <input
+            checked={opensWindow}
+            disabled={busy || !system?.openAtLoginSupported || !system?.openAtLogin || windowForced}
+            onChange={(event) => void applyLogin(true, event.target.checked)}
+            type="checkbox"
+          />
+          <span>
+            <strong>Open the Chronicle window at sign-in</strong>
+            <small>
+              {windowForced
+                ? 'Always on while background capture is off — otherwise Chronicle would start with no window and no tray icon.'
+                : 'Leave this off to start quietly in the notification area and keep capturing without a window.'}
+            </small>
+          </span>
+        </label>
+      </div>
+
+      {error && <p className="form-error" role="alert">{error}</p>}
     </section>
   )
 }

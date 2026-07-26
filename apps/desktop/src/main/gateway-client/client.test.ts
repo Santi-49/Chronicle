@@ -220,6 +220,7 @@ describe('control-plane client', () => {
   it('serializes only the portable settings allowlist', () => {
     const settings: AppSettings = {
       appearance: { theme: 'dark' },
+      system: { runInBackground: true },
       ai: {
         mode: 'local',
         chat: { provider: 'google', model: 'gemini' },

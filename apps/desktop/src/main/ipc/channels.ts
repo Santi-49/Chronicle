@@ -64,6 +64,8 @@ const API_METHODS = {
   disableApiKeySync: true,
   getAppStatus: true,
   listPendingJobs: true,
+  getSystemIntegration: true,
+  setOpenAtLogin: true,
   getUpdateState: true,
   checkForUpdates: true,
   restartToUpdate: true,

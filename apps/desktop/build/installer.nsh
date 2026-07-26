@@ -22,3 +22,15 @@
 !macro customInstallMode
   StrCpy $isForceCurrentInstall "1"
 !macroend
+
+# "Start Chronicle when I sign in" is applied by Electron's
+# app.setLoginItemSettings, which writes a per-user Run value. Uninstalling must
+# remove it, or Windows keeps trying to launch a deleted executable at every
+# sign-in and shows Chronicle as a startup app that no longer exists.
+#
+# The value name matches LOGIN_ITEM_NAME in src/main/system/login-item.ts, which
+# passes it explicitly for exactly this reason. DeleteRegValue succeeds silently
+# when the user never enabled the option.
+!macro customUnInstall
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Chronicle"
+!macroend
