@@ -14,9 +14,9 @@ export const landingContent = {
     "Chronicle keeps a history of your creative images as you work. It explains each change in plain English, so you can find and restore the version you need in seconds.",
   primaryCta: "Download Chronicle",
   secondaryCta: "See how it works",
-  whyTitle: "The file survives. The thinking disappears.",
+  whyTitle: "Five files. One campaign. No clear final.",
   whySubtitle:
-    "Creative work is often reduced to a folder of numbered exports. You can see which file came last, but not what changed, why it mattered, or where the version you remember went.",
+    "Every revision becomes another filename until nobody knows which file to open. Chronicle lets each asset remain one clean working file.",
   formatsTitle: "One idea, built for every creative profession.",
   formatsSubtitle:
     "Photographers, designers, 3D artists, architects, and other creative professionals all face the same problem: their work changes faster than their file history can explain.",

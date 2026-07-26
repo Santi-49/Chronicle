@@ -87,103 +87,64 @@ const pageDescription = "Chronicle automatically saves versions of your creative
         </section>
       </div>
 
-      <!-- ── PROBLEM → HISTORY TRANSFORMATION ──────────────────────────── -->
-      <section class="history-story" id="why" aria-labelledby="why-title" data-history-story>
-        <div class="history-story__heading section-reveal">
+      <!-- ── STATIC FILE-NAMING PROBLEM ─────────────────────────────────── -->
+      <section class="history-story" id="why" aria-labelledby="why-title">
+        <div class="history-story__heading">
           <p class="pill">Why Chronicle</p>
           <h2 id="why-title">{content.whyTitle}</h2>
           <p class="section-copy">{content.whySubtitle}</p>
         </div>
 
-        <div class="history-stage" data-history-stage>
-          <div class="history-stage__frame">
-            <div class="history-stage__copy">
-              <span class="history-stage__step" data-history-step>Without Chronicle</span>
-              <p class="history-stage__statement history-stage__statement--chaos">Eight “final” files. No reliable history.</p>
-              <p class="history-stage__statement history-stage__statement--ordered">One file. Every version. A history you can understand.</p>
+        <div class="why-files" aria-label="Five conflicting campaign files become one working file with Chronicle">
+          <article class="why-files__side why-files__side--messy">
+            <header>
+              <span>Without Chronicle</span>
+              <small>Campaign / exports</small>
+            </header>
+            <div class="why-files__list">
+              {[
+                "campaign-final.png",
+                "campaign.png",
+                "campaign_V2_ok.png",
+                "campaign-final-final.png",
+                "campaign_V2.png",
+              ].map((name) => (
+                <div class="why-file">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 2.75h7.2L18 7.55v13.7H6z" />
+                    <path d="M13 2.75v5h5" />
+                    <path d="m8.5 17 2.4-2.6 1.8 1.8 1.8-2.1 1.5 2.9" />
+                  </svg>
+                  <strong>{name}</strong>
+                </div>
+              ))}
             </div>
+            <p>Five files. No clear final.</p>
+          </article>
 
-            <div class="history-scene" aria-label="Messy duplicate files transform into one Chronicle version timeline">
-              <div class="history-chaos" data-history-chaos>
-                <div class="history-folder-bar">
-                  <span>Campaign / exports</span>
-                  <span>Modified</span>
-                </div>
-                <div class="history-files">
-                  {[
-                    ["campaign_final.png", "Mon 09:14"],
-                    ["product-shot_edit.jpg", "Mon 11:47"],
-                    ["campaign_final_v2.png", "Tue 08:22"],
-                    ["product-shot_FINAL.jpg", "Tue 10:18"],
-                    ["campaign_FINAL_USE.png", "Tue 13:34"],
-                    ["product-shot_client-approved.jpg", "Tue 16:05"],
-                    ["campaign_final_APPROVED2.png", "Thu 09:08"],
-                    ["campaign_FINAL_v8_USE_THIS_ONE.png", "Thu 14:16"],
-                  ].map(([name, time], index) => (
-                    <div class="history-file" data-history-file style={`--file-index:${index}`}>
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M6 2.75h7.2L18 7.55v13.7H6z" />
-                        <path d="M13 2.75v5h5" />
-                        <path d="m8.5 17 2.4-2.6 1.8 1.8 1.8-2.1 1.5 2.9" />
-                      </svg>
-                      <span>{name}</span>
-                      <time>{time}</time>
-                    </div>
-                  ))}
-                </div>
-                <p class="history-folder-question">Which one has the approved layout, and what changed after it?</p>
-              </div>
-
-              <div class="history-chronicle" data-history-chronicle aria-hidden="true">
-                <header class="history-appbar">
-                  <span class="history-appbar__brand">
-                    <img src={chronicleMarkUrl} alt="" width="20" height="20" />
-                    Chronicle
-                  </span>
-                  <span class="history-appbar__status">Watching · saved locally</span>
-                </header>
-                <div class="history-assets">
-                  <div class="history-asset history-asset--active">
-                    <div>
-                      <small>Campaign artwork</small>
-                      <strong>campaign.png</strong>
-                    </div>
-                    <span>8 versions</span>
-                  </div>
-                  <div class="history-asset">
-                    <div>
-                      <small>Product photography</small>
-                      <strong>product-shot.jpg</strong>
-                    </div>
-                    <span>4 versions</span>
-                  </div>
-                </div>
-                <div class="history-timeline">
-                  {[
-                    ["v8", "Latest", "Background changed from navy to teal; tagline removed.", "2m ago"],
-                    ["v7", "", "Logo mark enlarged and moved to the upper-left.", "Yesterday"],
-                    ["v6", "", "Original tagline restored beneath the campaign title.", "2 days ago"],
-                    ["v5", "", "Photography crop tightened around the subject.", "3 days ago"],
-                  ].map(([version, badge, summary, time], index) => (
-                    <div class={`history-version ${index === 0 ? "history-version--active" : ""}`} data-history-version>
-                      <span class="history-version__dot"></span>
-                      <div>
-                        <strong>{version} {badge && <small>{badge}</small>}</strong>
-                        <p>{summary}</p>
-                      </div>
-                      <time>{time}</time>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          <div class="why-files__bridge" aria-hidden="true">
+            <span></span>
+            <div class="why-files__logo">
+              <img src={chronicleMarkUrl} alt="" width="32" height="32" />
             </div>
-
-            <div class="history-progress" aria-hidden="true">
-              <span>Scattered files</span>
-              <i><b data-history-progress></b></i>
-              <span>Clear history</span>
-            </div>
+            <span></span>
           </div>
+
+          <article class="why-files__side why-files__side--clear">
+            <header>
+              <span>With Chronicle</span>
+              <small>Campaign</small>
+            </header>
+            <div class="why-file why-file--clean">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 2.75h7.2L18 7.55v13.7H6z" />
+                <path d="M13 2.75v5h5" />
+                <path d="m8.5 17 2.4-2.6 1.8 1.8 1.8-2.1 1.5 2.9" />
+              </svg>
+              <strong>campaign.png</strong>
+            </div>
+            <p>One working file per asset.</p>
+          </article>
         </div>
       </section>
 
@@ -245,11 +206,14 @@ const pageDescription = "Chronicle automatically saves versions of your creative
                 <span class="process-canvas__eyebrow">Field notes / 2026</span>
                 <strong class="process-canvas__title">Make room<br />for the bold.</strong>
                 <span class="process-canvas__tagline" data-process-tagline>A creative systems conference</span>
-                <span class="process-canvas__tagline process-canvas__tagline--comparison" data-process-before-tagline>A creative systems conference</span>
+                <div class="process-canvas__tagline-mask" data-process-before-tagline>
+                  <span class="process-canvas__tagline process-canvas__tagline--comparison">A creative systems conference</span>
+                </div>
                 <span class="process-canvas__mark" data-process-mark>C</span>
                 <i class="process-canvas__orb process-canvas__orb--one"></i>
                 <i class="process-canvas__orb process-canvas__orb--two"></i>
                 <div class="process-canvas__wipe" data-process-wipe></div>
+                <div class="process-canvas__split-line" data-process-split-line aria-hidden="true"></div>
                 <span class="process-callout process-callout--color" data-process-callout>navy → teal</span>
                 <span class="process-callout process-callout--tagline" data-process-callout>tagline removed</span>
               </div>
@@ -550,11 +514,8 @@ const pageDescription = "Chronicle automatically saves versions of your creative
           animate: "(prefers-reduced-motion: no-preference)",
         },
         (context) => {
-          const historyChronicle = document.querySelector<HTMLElement>("[data-history-chronicle]");
-
           if (context.conditions.reduceMotion) {
             productDemo?.pause();
-            historyChronicle?.setAttribute("aria-hidden", "false");
             return;
           }
 
@@ -587,63 +548,6 @@ const pageDescription = "Chronicle automatically saves versions of your creative
           });
 
           if (context.conditions.isDesktop) {
-            const historyStage = document.querySelector<HTMLElement>("[data-history-stage]");
-            const historyChaos = document.querySelector<HTMLElement>("[data-history-chaos]");
-            const historyFiles = gsap.utils.toArray<HTMLElement>("[data-history-file]");
-            const historyVersions = gsap.utils.toArray<HTMLElement>("[data-history-version]");
-            const chaosStatement = document.querySelector<HTMLElement>(".history-stage__statement--chaos");
-            const orderedStatement = document.querySelector<HTMLElement>(".history-stage__statement--ordered");
-            const historyStep = document.querySelector<HTMLElement>("[data-history-step]");
-            const historyProgress = document.querySelector<HTMLElement>("[data-history-progress]");
-
-            if (historyStage && historyChaos && historyChronicle && chaosStatement && orderedStatement && historyProgress) {
-              gsap.set(historyChronicle, { autoAlpha: 0, y: 28, scale: 0.96 });
-              gsap.set(historyVersions, { autoAlpha: 0, y: 16 });
-              gsap.set(orderedStatement, { autoAlpha: 0, y: 18 });
-              gsap.set(historyProgress, { scaleX: 0 });
-
-              const historyTimeline = gsap.timeline({
-                defaults: { ease: "power3.inOut" },
-                scrollTrigger: {
-                  trigger: historyStage,
-                  start: "top 16%",
-                  end: "+=1400",
-                  pin: true,
-                  scrub: 0.8,
-                  anticipatePin: 1,
-                  onUpdate: ({ progress }) => {
-                    if (historyStep) historyStep.textContent = progress < 0.48 ? "Without Chronicle" : "With Chronicle";
-                    historyChronicle.setAttribute("aria-hidden", String(progress < 0.48));
-                  },
-                },
-              });
-
-              historyTimeline
-                .to(historyProgress, { scaleX: 1, duration: 10, ease: "none" }, 0)
-                .to(
-                  historyFiles,
-                  {
-                    x: 0,
-                    y: (index) => (((historyFiles.length - 1) / 2) - index) * 39,
-                    rotation: 0,
-                    scale: 0.98,
-                    duration: 2.3,
-                    stagger: 0.035,
-                  },
-                  0.7,
-                )
-                .to(historyFiles, { autoAlpha: 0, scale: 0.84, duration: 1.25, stagger: 0.035 }, 3.05)
-                .to(historyChaos, { autoAlpha: 0, y: -20, scale: 0.96, duration: 1.2 }, 3.45)
-                .to(chaosStatement, { autoAlpha: 0, y: -16, duration: 0.75 }, 3.45)
-                .to(orderedStatement, { autoAlpha: 1, y: 0, duration: 1.05 }, 4.05)
-                .to(historyChronicle, { autoAlpha: 1, y: 0, scale: 1, duration: 1.45 }, 3.9)
-                .to(historyVersions, { autoAlpha: 1, y: 0, duration: 1.15, stagger: 0.16 }, 4.75);
-            }
-          } else {
-            historyChronicle?.setAttribute("aria-hidden", "false");
-          }
-
-          if (context.conditions.isDesktop) {
             const processPin = document.querySelector<HTMLElement>("[data-process-pin]");
             const processCount = document.querySelector<HTMLElement>("[data-process-count]");
             const processProgress = document.querySelector<HTMLElement>("[data-process-progress]");
@@ -654,6 +558,7 @@ const pageDescription = "Chronicle automatically saves versions of your creative
             const processBeforeTagline = document.querySelector<HTMLElement>("[data-process-before-tagline]");
             const processMark = document.querySelector<HTMLElement>("[data-process-mark]");
             const processWipe = document.querySelector<HTMLElement>("[data-process-wipe]");
+            const processSplitLine = document.querySelector<HTMLElement>("[data-process-split-line]");
             const processCallouts = gsap.utils.toArray<HTMLElement>("[data-process-callout]");
             const processPulse = document.querySelector<HTMLElement>("[data-process-pulse]");
             const processSnapshot = document.querySelector<HTMLElement>("[data-process-snapshot]");
@@ -667,7 +572,7 @@ const pageDescription = "Chronicle automatically saves versions of your creative
 
             if (
               processPin && processProgress && processCopy.length === 4 && processFolder &&
-              processCanvas && processTagline && processBeforeTagline && processMark && processWipe && processPulse &&
+              processCanvas && processTagline && processBeforeTagline && processMark && processWipe && processSplitLine && processPulse &&
               processSnapshot && processTimeline && processV6 && processV8 && processV9 &&
               processSummary && processSearch && processRestore
             ) {
@@ -676,6 +581,7 @@ const pageDescription = "Chronicle automatically saves versions of your creative
               gsap.set(processTimeline, { autoAlpha: 0, x: 48 });
               gsap.set(processV9, { autoAlpha: 0, y: -12 });
               gsap.set(processWipe, { scaleX: 0 });
+              gsap.set(processSplitLine, { autoAlpha: 0, scaleY: 0.82 });
               gsap.set(processBeforeTagline, { autoAlpha: 0 });
               gsap.set(processCallouts, { autoAlpha: 0, x: 12 });
               gsap.set([processSummary, processSearch, processRestore], { autoAlpha: 0, y: 14 });
@@ -732,11 +638,13 @@ const pageDescription = "Chronicle automatically saves versions of your creative
               showProcessCopy(processSequence, 1, 2, 5.0);
               processSequence
                 .to(processWipe, { scaleX: 1, duration: 0.92 }, 5.05)
+                .to(processSplitLine, { autoAlpha: 1, scaleY: 1, duration: 0.42 }, 5.15)
                 .to(processBeforeTagline, { autoAlpha: 1, duration: 0.42 }, 5.28)
                 .to(processCallouts, { autoAlpha: 1, x: 0, duration: 0.72, stagger: 0.12 }, 5.55)
                 .to(processSummary, { autoAlpha: 1, y: 0, duration: 0.82 }, 6.15)
                 .to(processCallouts, { autoAlpha: 0, x: 10, duration: 0.55, stagger: 0.08 }, 6.65)
                 .to(processBeforeTagline, { autoAlpha: 0, duration: 0.38 }, 6.68)
+                .to(processSplitLine, { autoAlpha: 0, scaleY: 0.82, duration: 0.38 }, 6.68)
                 .to(processWipe, { scaleX: 0, duration: 0.7 }, 6.72)
                 .to(processSummary, { autoAlpha: 0, y: 10, duration: 0.55 }, 7.1)
                 .to(processSearch, { autoAlpha: 1, y: 0, duration: 0.72 }, 7.18)

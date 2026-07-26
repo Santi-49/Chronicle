@@ -997,6 +997,13 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-26 - LANDING PROBLEM SECTION REFINEMENT: team review found that introducing Chronicle's
+  version timeline inside Why Chronicle duplicated the later How it works demonstration. The
+  problem section is now deliberately static and literal: five conflicting campaign filenames
+  sit beside one clean `campaign.png`. It contains no version counts, summaries, timeline rows,
+  pinning, or reveal animation. This reserves the complete versioning explanation for How it works
+  and gives the two sections distinct narrative roles - team visual review plus UI hierarchy and
+  purposeful-motion guidance
 - 2026-07-26 - LANDING NARRATIVE REVISION: team review found that a second gallery would repeat
   the adjacent creative-format carousel and that separate How it works and feature sections
   repeated the same workflow. The final direction fuses them into one pinned, scroll-only product
