@@ -8,11 +8,24 @@ from typing import Any
 
 import pytest
 
-from chronicle_ai.engine import annotate_version, embed_text, validate_provider_model
+from chronicle_ai.engine import (
+    _provider_transport_options,
+    annotate_version,
+    embed_text,
+    validate_provider_model,
+)
 from chronicle_ai.schemas import AnnotateRequest, EmbedTextRequest, ValidateProviderModelRequest
 
 
 IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png", "format": "png"}
+
+
+def test_provider_transport_disables_response_compression() -> None:
+    identity = {"Accept-Encoding": "identity"}
+    assert _provider_transport_options("openai") == {"default_headers": identity}
+    assert _provider_transport_options("anthropic") == {"default_headers": identity}
+    assert _provider_transport_options("google_genai") == {"additional_headers": identity}
+    assert _provider_transport_options("custom") == {}
 
 
 # ---------------------------------------------------------------------------

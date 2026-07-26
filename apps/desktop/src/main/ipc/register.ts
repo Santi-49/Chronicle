@@ -18,7 +18,7 @@ import type {
   ControlPlaneDiagnostic,
 } from '../../shared/ipc'
 import { createAiClient } from '../ai/client'
-import { createAiServiceProcess } from '../ai/service-process'
+import { createAiServiceProcess, desktopAiServicePort } from '../ai/service-process'
 import { createAiWorker } from '../ai/worker'
 import { recordAiCall, recordPersonalActivity } from '../analytics/repository'
 import type { ChronicleDb } from '../db/database'
@@ -247,7 +247,8 @@ export function startChronicleIpc(
     process.env['GOOGLE_OAUTH_CLIENT_ID']?.trim() || bundledGoogleClientId
   const googleClientSecret =
     process.env['GOOGLE_OAUTH_CLIENT_SECRET']?.trim() || bundledGoogleClientSecret
-  const aiClient = createAiClient()
+  const aiServicePort = desktopAiServicePort(app.isPackaged)
+  const aiClient = createAiClient(`http://127.0.0.1:${aiServicePort}`)
   const services = createChronicleServices({
     db,
     libraryRoot,
@@ -333,6 +334,7 @@ export function startChronicleIpc(
   const aiProcess = createAiServiceProcess(
     repositoryRoot,
     app.isPackaged ? process.resourcesPath : undefined,
+    aiServicePort,
   )
   const aiWorker = createAiWorker({
     db,

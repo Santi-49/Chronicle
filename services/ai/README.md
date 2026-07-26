@@ -76,9 +76,9 @@ Configuration validation requires an explicit provider, model, task, and API
 key. Chat validation sends a one-pixel image through the real structured vision
 path; embeddings validation embeds a short probe string. The key and probe are
 never persisted. Because these are real provider calls, they may incur a tiny
-provider charge. OpenAI calls request identity response encoding to avoid a
-malformed gzip/deflate header from an edge or proxy making HTTPX reject an
-otherwise usable provider response.
+provider charge. Built-in provider calls request identity response encoding to
+avoid a malformed gzip/deflate header from an edge or proxy making HTTPX reject
+an otherwise usable provider response.
 
 ## Configuration (`.env`)
 

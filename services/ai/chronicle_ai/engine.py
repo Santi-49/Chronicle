@@ -60,15 +60,20 @@ def _resolve(request_value: str | None, default: str | None, what: str) -> str:
 
 
 def _provider_transport_options(provider: str) -> dict[str, Any]:
-    """Avoid malformed compressed responses observed on some OpenAI routes.
+    """Avoid malformed compressed responses observed across provider routes.
 
     HTTPX automatically decompresses responses based on ``Content-Encoding``.
     A provider edge or local proxy can occasionally label an uncompressed body
-    as gzip/deflate, which fails before LangChain can read the response. Asking
-    OpenAI for identity encoding keeps the normal SDK path but removes that
-    fragile transport step. Other providers retain their native defaults.
+    as gzip/deflate, which fails before LangChain can read the response. Each
+    integration exposes the same header through a differently named standard
+    option, so keep that provider-specific spelling here.
     """
-    return {"default_headers": {"Accept-Encoding": "identity"}} if provider == "openai" else {}
+    headers = {"Accept-Encoding": "identity"}
+    if provider == "google_genai":
+        return {"additional_headers": headers}
+    if provider in {"openai", "anthropic"}:
+        return {"default_headers": headers}
+    return {}
 
 
 def _data_url(image: ImageInput) -> str:
