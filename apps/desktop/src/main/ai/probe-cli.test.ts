@@ -39,6 +39,13 @@ describe('provider probe CLI', () => {
     )
   })
 
+  it('accepts an npm option separator forwarded by a shell wrapper', () => {
+    expect(parseProbeArguments(['--', '--all'])).toMatchObject({
+      all: true,
+      help: false,
+    })
+  })
+
   it('uses saved Settings selections when no catalog filter is supplied', () => {
     expect(selectProbeTargets(settingsDb(), parseProbeArguments([]))).toEqual([
       { task: 'chat', provider: 'openai', model: 'gpt-5.6-terra' },

@@ -241,6 +241,14 @@ export interface ActivityCostGroup {
   unavailableCalls: number
 }
 
+export interface ActivitySavedModel {
+  task: 'chat' | 'embeddings'
+  provider: string
+  model: string
+  /** Null when the live catalog does not list this saved model. */
+  price: AiModelPrice | null
+}
+
 export interface ActivityDashboard {
   generatedAt: string
   periodStart: string
@@ -262,6 +270,8 @@ export interface ActivityDashboard {
     unavailableCostCalls: number
   }
   days: ActivityDashboardDay[]
+  /** Current saved selections, shown even when they have no usage in this range. */
+  savedModels: ActivitySavedModel[]
   costGroups: ActivityCostGroup[]
   pricing: {
     snapshotIds: string[]

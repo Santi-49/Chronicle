@@ -279,7 +279,9 @@ restores; current active project/asset totals; and a provider/model/operation co
 not invent a productivity score.
 
 Every AI attempt stores provider, model, operation, time, success, latency, and nullable token
-usage. Missing SDK metadata remains unavailable. The Electron main process refreshes one live
+usage. Chat calls use provider response metadata; OpenAI and Google embedding calls use the
+providers' exact tokenizer through LangChain because its standard embedding response omits usage.
+Unsupported or failed counters remain unavailable. The Electron main process refreshes one live
 Models.dev price catalog, caches it for offline use, and stamps estimates with the fetched catalog
 hash and exact rates. Existing estimates are immutable; explicit refreshes affect future or still
 unpriced calls only. UI copy distinguishes provider-reported, estimated, and unavailable amounts,
@@ -287,9 +289,11 @@ states USD and the price refresh time, and points users to their provider invoic
 These private analytics tables are separate from opt-in telemetry and contain no creative content,
 paths, names, summaries, tags, search text, or credentials.
 
-After AI settings are saved, each selected model also shows its small live per-million-token list
-price from the same cached Models.dev catalog. The Admin control center offers an all-time range
-that begins automatically at the first control-plane installation log and ends at request time.
+Each saved AI model always shows its small live per-million-token list price in Settings and in
+Activity & Cost, even before that model has recorded a call. An unlisted model remains visible with
+an unavailable-price state rather than receiving a guessed rate. Both surfaces use the same cached
+Models.dev catalog. The Admin control center offers an all-time range that begins automatically at
+the first control-plane installation log and ends at request time.
 
 ### 8.1 Diagnostics — developer-only
 

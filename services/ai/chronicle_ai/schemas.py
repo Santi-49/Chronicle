@@ -180,7 +180,7 @@ class VersionAnnotation(StrictModel):
 
 
 class TokenUsage(StrictModel):
-    """Token counts reported by the provider for one call (null when absent)."""
+    """Exact provider usage or provider-tokenizer counts (null when absent)."""
 
     input_tokens: int | None = None
     output_tokens: int | None = None
@@ -208,8 +208,8 @@ class EmbedTextResponse(StrictModel):
     provider: str
     model: str
     dimensions: Annotated[int, Field(gt=0)]
-    # Embedding token usage is only present when the provider exposes it; the
-    # standard LangChain embedding interface does not, so this is usually null.
+    # LangChain embeddings omit response usage; supported providers use their
+    # exact tokenizer through LangChain's public get_num_tokens method.
     usage: TokenUsage | None = None
     cost: CostEstimate | None = None
 
@@ -221,6 +221,7 @@ class ValidateProviderModelResponse(StrictModel):
     provider: str
     model: str
     message: str
+    usage: TokenUsage | None = None
 
 
 class HealthResponse(StrictModel):

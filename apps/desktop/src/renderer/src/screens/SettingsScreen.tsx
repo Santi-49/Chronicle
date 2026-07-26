@@ -365,8 +365,37 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
   }, [settings])
 
   useEffect(() => {
-    setSavedPrices(null)
-  }, [chatProvider, chatModel, embedProvider, embedModel])
+    if (!settings) return
+    let cancelled = false
+    const loadSavedPrices = async () => {
+      let chat: AiModelPrice | null = null
+      let embeddings: AiModelPrice | null = null
+      try {
+        chat = await chronicle.getAiModelPrice(
+          settings.ai.chat.provider,
+          settings.ai.chat.model,
+        )
+        embeddings = await chronicle.getAiModelPrice(
+          settings.ai.embeddings.provider,
+          settings.ai.embeddings.model,
+        )
+      } catch {
+        // The saved selection remains useful when only cached pricing is
+        // unavailable; display that state instead of hiding the row.
+      }
+      if (!cancelled) setSavedPrices({ chat, embeddings })
+    }
+    void loadSavedPrices()
+    return () => {
+      cancelled = true
+    }
+  }, [settings])
+
+  const formMatchesSaved = settings !== undefined &&
+    chatProvider.trim() === settings.ai.chat.provider &&
+    chatModel.trim() === settings.ai.chat.model &&
+    embedProvider.trim() === settings.ai.embeddings.provider &&
+    embedModel.trim() === settings.ai.embeddings.model
 
   // When switching provider in preset mode, snap the model to that provider's first option.
   const changeProvider = (task: AiTask, providerId: string) => {
@@ -523,7 +552,7 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="chat" provider={chatProvider} model={chatModel} onProvider={(p) => changeProvider('chat', p)} onModel={setChatModel} />
         )}
         {chatError && <p className="ai-task-error" role="alert">{chatError}</p>}
-        {savedPrices && (
+        {savedPrices && formMatchesSaved && (
           <small className="ai-model-price">
             {formatModelPrice(savedPrices.chat, false)}
           </small>
@@ -559,7 +588,7 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="embeddings" provider={embedProvider} model={embedModel} onProvider={(p) => changeProvider('embeddings', p)} onModel={setEmbedModel} />
         )}
         {embedError && <p className="ai-task-error" role="alert">{embedError}</p>}
-        {savedPrices && (
+        {savedPrices && formMatchesSaved && (
           <small className="ai-model-price">
             {formatModelPrice(savedPrices.embeddings, true)}
           </small>

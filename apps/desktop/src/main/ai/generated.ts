@@ -265,7 +265,7 @@ export interface components {
         };
         /**
          * TokenUsage
-         * @description Token counts reported by the provider for one call (null when absent).
+         * @description Exact provider usage or provider-tokenizer counts (null when absent).
          */
         TokenUsage: {
             /** Input Tokens */
@@ -312,6 +312,7 @@ export interface components {
             model: string;
             /** Message */
             message: string;
+            usage?: components["schemas"]["TokenUsage"] | null;
         };
         /** ValidationError */
         ValidationError: {

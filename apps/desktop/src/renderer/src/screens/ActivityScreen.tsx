@@ -200,7 +200,7 @@ export function ActivityScreen() {
             <div className="activity-section-heading">
               <div>
                 <h2 id="cost-breakdown-title">AI cost breakdown</h2>
-                <p>Exact provider usage metadata × the cached live list price.</p>
+                <p>Provider usage or exact tokenizer counts × the cached live list price.</p>
               </div>
               <div className="pricing-source">
                 <span>{dashboard.pricing.available ? 'Models.dev catalog' : 'Price catalog unavailable'}</span>
@@ -211,6 +211,27 @@ export function ActivityScreen() {
                 </small>
               </div>
             </div>
+            {dashboard.savedModels.length > 0 && (
+              <div aria-label="Saved model pricing" className="saved-model-prices">
+                {dashboard.savedModels.map((saved) => (
+                  <article key={`${saved.task}-${saved.provider}-${saved.model}`}>
+                    <div>
+                      <strong>{saved.task === 'chat' ? 'Change summaries' : 'Semantic search'}</strong>
+                      <span>{providerLabel(saved.provider)} · {saved.model}</span>
+                    </div>
+                    <small>
+                      {saved.price
+                        ? `${money.format(saved.price.inputUsdPerMillion)} input${
+                            saved.task === 'chat'
+                              ? ` · ${money.format(saved.price.outputUsdPerMillion)} output`
+                              : ''
+                          } per 1M tokens`
+                        : 'Live list price unavailable'}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            )}
             {dashboard.costGroups.length === 0 ? (
               <div className="cost-empty">
                 <Icon name="spark" />
@@ -229,14 +250,20 @@ export function ActivityScreen() {
                         <td>
                           {group.inputTokens === null
                             ? 'Unavailable'
-                            : `${integer.format(group.inputTokens)} in${group.outputTokens === null ? '' : ` · ${integer.format(group.outputTokens)} out`}`}
+                            : `${integer.format(group.inputTokens)} in${group.outputTokens === null || group.operation === 'embedding' ? '' : ` · ${integer.format(group.outputTokens)} out`}${
+                                group.unavailableCalls > 0
+                                  ? ` · ${integer.format(group.unavailableCalls)} call${group.unavailableCalls === 1 ? '' : 's'} unavailable`
+                                  : ''
+                              }`}
                         </td>
                         <td className="cost-amount">{costLabel(group)}</td>
                         <td>
                           {group.providerReportedUsd !== null
                             ? <span className="cost-basis cost-basis-reported">Provider-reported</span>
                             : group.estimatedUsd !== null
-                              ? <span className="cost-basis">Estimated</span>
+                              ? <span className="cost-basis">
+                                  Estimated{group.unavailableCalls > 0 ? ' · partial' : ''}
+                                </span>
                               : <span className="cost-basis cost-basis-unavailable">Unavailable</span>}
                         </td>
                       </tr>

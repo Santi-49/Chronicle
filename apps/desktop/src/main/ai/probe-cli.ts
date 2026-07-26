@@ -43,6 +43,9 @@ function valueAfter(argv: string[], flag: string): string | undefined {
 }
 
 export function parseProbeArguments(argv: string[]): ProbeArguments {
+  // npm/Make combinations can preserve npm's conventional option separator.
+  // It is syntax, not a probe option, so safely ignore it wherever it appears.
+  argv = argv.filter((argument) => argument !== '--')
   const valueFlags = new Set(['--provider', '--model', '--task'])
   const booleanFlags = new Set(['--all', '--help', '-h'])
   for (let index = 0; index < argv.length; index += 1) {
@@ -153,7 +156,10 @@ export async function runProviderProbe(
       })
       const elapsed = Math.round(performance.now() - startedAt)
       if (result.valid && result.reachable) {
-        console.log(`PASS  ${label} — ${elapsed} ms`)
+        const usage = result.usage?.input_tokens
+          ? ` · ${result.usage.input_tokens} input tokens`
+          : ''
+        console.log(`PASS  ${label} — ${elapsed} ms${usage}`)
       } else {
         console.error(`FAIL  ${label} — ${redact(result.message, apiKey)}`)
         failures += 1

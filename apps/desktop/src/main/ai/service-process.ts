@@ -15,9 +15,15 @@ export interface AiServiceLocation {
   environment: NodeJS.ProcessEnv
 }
 
-/** Keep workspace development isolated from an installed Chronicle sidecar. */
-export function desktopAiServicePort(packaged: boolean): number {
-  return packaged ? 8765 : 8766
+/**
+ * Keep each workspace run isolated from both the installed app and orphaned
+ * sidecars left by an abruptly stopped development shell.
+ */
+export function desktopAiServicePort(
+  packaged: boolean,
+  processId = process.pid,
+): number {
+  return packaged ? 8765 : 20_000 + Math.abs(processId) % 20_000
 }
 
 export function resolveDevelopmentPython(
@@ -49,6 +55,7 @@ export function resolveAiServiceLocation(
   packagedResourcesPath?: string,
   platform: NodeJS.Platform = process.platform,
   port = 8765,
+  reload = false,
 ): AiServiceLocation {
   if (packagedResourcesPath) {
     const sidecarDir = path.join(packagedResourcesPath, 'ai')
@@ -80,6 +87,7 @@ export function resolveAiServiceLocation(
       String(port),
       '--log-level',
       'warning',
+      ...(reload ? ['--reload'] : []),
     ],
     cwd: serviceDir,
     environment: process.env,
@@ -90,6 +98,7 @@ export function createAiServiceProcess(
   repositoryRoot: string,
   packagedResourcesPath?: string,
   port = 8765,
+  reload = false,
 ): AiServiceProcess {
   let child: ChildProcess | undefined
   const location = resolveAiServiceLocation(
@@ -97,6 +106,7 @@ export function createAiServiceProcess(
     packagedResourcesPath,
     process.platform,
     port,
+    reload,
   )
 
   return {

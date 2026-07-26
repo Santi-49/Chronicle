@@ -249,6 +249,14 @@ time, source URL, and exact input/output rates used, so later refreshes never re
 calls. Unknown models or absent token counts remain unavailable. No creative content, query text,
 keys, or account identity is sent to the catalog endpoint.
 
+LangChain's standard embeddings interface returns vectors without response usage. For embedding
+costs, Chronicle therefore uses LangChain's public `get_num_tokens` model method: OpenAI resolves
+the embedding model's local tiktoken encoding, while Google invokes its documented `countTokens`
+endpoint. Counting happens transiently beside the embedding request; Chronicle stores only the
+integer count and never the embedded text. A counter failure leaves usage unavailable without
+failing semantic search, and historical calls cannot be reconstructed because their input was
+intentionally not retained.
+
 **Recommendations:** present costs as a transparency aid rather than accounting; show the source
 and refresh time beside the table; distinguish provider-reported, estimated, and unavailable
 amounts in text; keep activity local and independent of telemetry consent; and never delay capture
@@ -257,6 +265,8 @@ against each provider's official pricing page.
 
 Sources: [Models.dev repository and API](https://github.com/anomalyco/models.dev),
 [OpenAI Usage and Costs guidance](https://platform.openai.com/docs/api-reference/usage),
+[OpenAI tiktoken](https://github.com/openai/tiktoken),
+[Google countTokens API](https://ai.google.dev/api/tokens),
 [Gemini token metadata](https://ai.google.dev/gemini-api/docs/generate-content/tokens),
 [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing),
 [OpenRouter models API](https://openrouter.ai/docs/api/api-reference/models/get-models),
@@ -1277,6 +1287,13 @@ table because area and color are poor tools for precise comparison.
   map; selected the single Models.dev JSON API with conditional refresh, offline cache, immutable
   per-call catalog hashes/rates, and explicit estimate/unavailable labels — team research +
   primary provider docs and live catalog inspection
+
+- 2026-07-26 — POST-09 EMBEDDING USAGE: LangChain's standard embedding result omits provider
+  usage, so Chronicle now counts with the providers' exact tokenizer through LangChain's public
+  model method (local tiktoken for OpenAI, Google `countTokens` for Gemini), stores only the
+  integer count, and leaves historical/private inputs unreconstructed. Live probes returned
+  4 OpenAI and 3 Google input tokens for the same configuration-check text — official tokenizer
+  docs + live saved-key verification
 
 - 2026-07-25 — DESKTOP FORMAT ARCHITECTURE (POST-01 closure + POST-02 desktop half): replaced
   fourteen hardcoded extension checks with one shared format registry, and split "captured and

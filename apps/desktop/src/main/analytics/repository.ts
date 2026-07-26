@@ -3,11 +3,14 @@ import type {
   ActivityDashboard,
   ActivityDashboardDay,
   ActivityDashboardQuery,
+  ActivitySavedModel,
   PersonalActivityKind,
   TelemetryAiOperation,
 } from '../../shared/ipc'
+import type { AppSettings } from '../../shared/settings'
 import type { ChronicleDb } from '../db/database'
-import { estimateCost, pricingCatalogStatus } from './pricing'
+import { getSetting } from '../db/repositories'
+import { estimateCost, getModelPrice, pricingCatalogStatus } from './pricing'
 
 export interface AiCallRecord {
   operation: TelemetryAiOperation
@@ -303,6 +306,20 @@ export function getActivityDashboard(
   } catch {
     // A damaged optional setting does not make the local dashboard unusable.
   }
+  const appSettings = getSetting<AppSettings>(db, 'app-settings')
+  const savedModels: ActivitySavedModel[] = appSettings
+    ? ([
+        { task: 'chat' as const, ...appSettings.ai.chat },
+        { task: 'embeddings' as const, ...appSettings.ai.embeddings },
+      ])
+        .filter(({ provider, model }) => provider.trim() !== '' && model.trim() !== '')
+        .map(({ task, provider, model }) => ({
+          task,
+          provider,
+          model,
+          price: getModelPrice(db, provider, model),
+        }))
+    : []
 
   return {
     generatedAt: now.toISOString(),
@@ -324,6 +341,7 @@ export function getActivityDashboard(
       unavailableCostCalls,
     },
     days: publicDays,
+    savedModels,
     costGroups: [...groups.values()].sort((left, right) =>
       (right.estimatedUsd ?? -1) - (left.estimatedUsd ?? -1) ||
       right.calls - left.calls,

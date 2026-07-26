@@ -329,6 +329,11 @@ def test_embed_text_returns_vector_and_metadata(mock_embed: AsyncMock) -> None:
 
 @patch("chronicle_ai.routes.validate_provider_model", new_callable=AsyncMock)
 def test_validate_provider_model_reports_reachable_configuration(mock_validate: AsyncMock) -> None:
+    mock_validate.return_value = TokenUsage(
+        input_tokens=4,
+        output_tokens=0,
+        total_tokens=4,
+    )
     response = client.post(
         "/validate-provider-model",
         json={
@@ -347,6 +352,7 @@ def test_validate_provider_model_reports_reachable_configuration(mock_validate: 
         provider="openai",
         model="text-embedding-3-small",
         message="Provider and model are reachable.",
+        usage=TokenUsage(input_tokens=4, output_tokens=0, total_tokens=4),
     ).model_dump()
     mock_validate.assert_awaited_once()
 

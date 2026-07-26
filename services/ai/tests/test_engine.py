@@ -59,6 +59,12 @@ class FakeEmbeddings:
         return [0.1, 0.2, 0.3]
 
 
+class FakeTokenCounter:
+    def get_num_tokens(self, text: str) -> int:
+        assert text == "navy background"
+        return 2
+
+
 # ---------------------------------------------------------------------------
 # annotate_version — first-version path
 # ---------------------------------------------------------------------------
@@ -117,6 +123,40 @@ async def test_first_version_uses_description_prompt() -> None:
 
     # One text block + one image block
     assert [block["type"] for block in user_content] == ["text", "image_url"]
+
+
+@pytest.mark.asyncio
+async def test_annotate_omits_deprecated_temperature_for_anthropic() -> None:
+    structured = FakeStructuredModel(
+        {
+            "summary": "A logo.",
+            "changes": ["Initial version"],
+            "tags": ["logo", "initial", "design"],
+            "confidence": None,
+        }
+    )
+    factory_arguments: dict[str, Any] = {}
+
+    def factory(**kwargs: Any) -> FakeChatModel:
+        factory_arguments.update(kwargs)
+        return FakeChatModel(structured)
+
+    await annotate_version(
+        AnnotateRequest.model_validate(
+            {
+                "provider": "anthropic",
+                "model": "claude-sonnet-5",
+                "apiKey": "secret",
+                "fileName": "logo.png",
+                "format": "png",
+                "current": IMAGE,
+            }
+        ),
+        model_factory=factory,
+    )
+
+    assert "temperature" not in factory_arguments
+    assert factory_arguments["default_headers"] == {"Accept-Encoding": "identity"}
 
 
 # ---------------------------------------------------------------------------
@@ -264,15 +304,41 @@ async def test_embed_text_returns_model_identity_and_dimensions() -> None:
             }
         ),
         embeddings_factory=lambda **_: FakeEmbeddings(),
+        token_counter_factory=lambda **_: FakeTokenCounter(),
     )
 
     assert result.embedding == [0.1, 0.2, 0.3]
     assert result.provider == "openai"
     assert result.model == "test-embed-model"
     assert result.dimensions == 3
-    # The standard embedding interface exposes no token usage.
-    assert result.usage is None
+    assert result.usage is not None
+    assert result.usage.input_tokens == 2
+    assert result.usage.output_tokens == 0
+    assert result.usage.total_tokens == 2
     assert result.cost is None
+
+
+@pytest.mark.asyncio
+async def test_embed_text_survives_an_unavailable_provider_tokenizer() -> None:
+    class BrokenTokenCounter:
+        def get_num_tokens(self, _text: str) -> int:
+            raise RuntimeError("countTokens unavailable")
+
+    result = await embed_text(
+        EmbedTextRequest.model_validate(
+            {
+                "provider": "google_genai",
+                "model": "gemini-embedding-001",
+                "apiKey": "secret",
+                "text": "navy background",
+            }
+        ),
+        embeddings_factory=lambda **_: FakeEmbeddings(),
+        token_counter_factory=lambda **_: BrokenTokenCounter(),
+    )
+
+    assert result.embedding == [0.1, 0.2, 0.3]
+    assert result.usage is None
 
 
 @pytest.mark.asyncio

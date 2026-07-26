@@ -20,6 +20,7 @@ ENV_FILE := .env
 	backend run-backend dev stop restart control-plane-up control-plane-down control-plane-health \
 	build build-desktop build-all build-landing build-backend package package-desktop package-macos package-unpacked installer \
 	typecheck test test-local test-desktop test-ai smoke-ai lint check \
+	probe-ai probe-ai-model probe-ai-provider probe-ai-all \
 	migrate makemigration seed generate-types generate-ai-types clean \
 	admin-promote admin-demote admin-list \
 	app-show app-reset-onboarding app-reset-session app-clear-telemetry stats-clear \
@@ -144,6 +145,23 @@ test-ai:
 smoke-ai:
 	$(PYTHON) $(AI_DIR)/tests/manual_smoke.py $(ARGS)
 
+# Probe the API keys encrypted in the local development desktop profile.
+PROVIDER ?= openai
+MODEL ?= gpt-5.6-luna
+TASK ?= chat
+
+probe-ai:
+	cd $(DESKTOP_DIR) && $(NPM) run probe:ai
+
+probe-ai-model:
+	cd $(DESKTOP_DIR) && $(NPM) run probe:ai -- --provider $(PROVIDER) --model $(MODEL) --task $(TASK)
+
+probe-ai-provider:
+	cd $(DESKTOP_DIR) && $(NPM) run probe:ai -- --provider $(PROVIDER)
+
+probe-ai-all:
+	cd $(DESKTOP_DIR) && $(NPM) run probe:ai -- --all
+
 lint: setup-env
 	$(DOCKER_COMPOSE) run --rm api ruff check app tests alembic
 
@@ -258,6 +276,10 @@ help:
 	$(info Local AI service (services/ai, required for AI features):)
 	$(info   make setup-ai       Install the AI service + shipped providers)
 	$(info   make run-ai         Run the loopback AI service on 127.0.0.1:8765)
+	$(info   make probe-ai       Test the currently saved chat + embedding models)
+	$(info   make probe-ai-model Test one model; set PROVIDER= MODEL= TASK=)
+	$(info   make probe-ai-provider Test every curated model for PROVIDER=)
+	$(info   make probe-ai-all   Test every curated model/provider)
 	$(info   make test-ai        Run provider-mocked AI service tests)
 	$(info   make smoke-ai       Live smoke test the annotation pipeline (needs a real key))
 	$(info   make generate-ai-types Regenerate the C3 AI client types)

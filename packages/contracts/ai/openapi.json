@@ -803,7 +803,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "TokenUsage",
-        "description": "Token counts reported by the provider for one call (null when absent)."
+        "description": "Exact provider usage or provider-tokenizer counts (null when absent)."
       },
       "ValidateProviderModelRequest": {
         "properties": {
@@ -874,6 +874,16 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TokenUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,

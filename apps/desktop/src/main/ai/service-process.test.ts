@@ -8,7 +8,8 @@ import {
 
 describe('AI service location', () => {
   it('isolates workspace development from the installed app port', () => {
-    expect(desktopAiServicePort(false)).toBe(8766)
+    expect(desktopAiServicePort(false, 12_345)).toBe(32_345)
+    expect(desktopAiServicePort(false, 22_345)).toBe(22_345)
     expect(desktopAiServicePort(true)).toBe(8765)
   })
 
@@ -18,6 +19,16 @@ describe('AI service location', () => {
 
     expect(location.args.slice(0, 3)).toEqual(['-m', 'uvicorn', 'chronicle_ai.main:app'])
     expect(location.cwd).toBe(path.join(root, 'services', 'ai'))
+  })
+
+  it('can auto-reload workspace source without changing packaged or probe processes', () => {
+    const root = path.resolve('repository')
+    expect(resolveAiServiceLocation(root, undefined, 'win32', 8766, true).args).toContain(
+      '--reload',
+    )
+    expect(resolveAiServiceLocation(root, undefined, 'win32', 8877).args).not.toContain(
+      '--reload',
+    )
   })
 
   it('prefers the prepared workspace environment over system Python', () => {

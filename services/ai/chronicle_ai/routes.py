@@ -206,12 +206,13 @@ async def validate_configuration(
         "model": request.model,
     }
     try:
-        await validate_provider_model(request)
+        usage = await validate_provider_model(request)
         return ValidateProviderModelResponse(
             **values,
             valid=True,
             reachable=True,
             message="Provider and model are reachable.",
+            usage=usage,
         )
     except (ConfigurationError, ValidationError):
         return ValidateProviderModelResponse(

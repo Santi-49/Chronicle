@@ -335,6 +335,7 @@ export function startChronicleIpc(
     repositoryRoot,
     app.isPackaged ? process.resourcesPath : undefined,
     aiServicePort,
+    !app.isPackaged,
   )
   const aiWorker = createAiWorker({
     db,

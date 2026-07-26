@@ -150,6 +150,36 @@
 }
 .pricing-source span { font-size: 13px; font-weight: 650; }
 .pricing-source small { color: var(--text-muted); margin-top: 4px; }
+.saved-model-prices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.saved-model-prices article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+.saved-model-prices strong,
+.saved-model-prices span { display: block; }
+.saved-model-prices span {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+}
+.saved-model-prices small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
 .cost-table-wrap { overflow-x: auto; }
 .cost-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cost-table th {
@@ -207,6 +237,9 @@
   .activity-kpis { grid-template-columns: 1fr; }
   .activity-section-heading { align-items: flex-start; flex-direction: column; }
   .pricing-source { align-items: flex-start; text-align: left; }
+  .saved-model-prices { grid-template-columns: 1fr; }
+  .saved-model-prices article { align-items: flex-start; flex-direction: column; }
+  .saved-model-prices small { text-align: left; white-space: normal; }
 }
 
 @media (prefers-reduced-motion: reduce) {

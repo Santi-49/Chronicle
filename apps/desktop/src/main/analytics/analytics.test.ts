@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openChronicleDb, type ChronicleDb } from '../db/database'
+import { setSetting } from '../db/repositories'
 import {
   getActivityDashboard,
   recordAiCall,
@@ -111,6 +112,49 @@ describe('live pricing snapshots', () => {
 })
 
 describe('personal activity dashboard', () => {
+  it('shows live prices for saved models without requiring recorded calls', async () => {
+    setSetting(db, 'app-settings', {
+      appearance: { theme: 'system' },
+      ai: {
+        mode: 'local',
+        chat: { provider: 'google_genai', model: 'live-test-model' },
+        embeddings: { provider: 'google_genai', model: 'missing-price-model' },
+      },
+      controlPlane: {
+        baseUrl: 'http://localhost:8000',
+        telemetryOptIn: true,
+        settingsSyncEnabled: true,
+        apiKeySyncEnabled: false,
+      },
+    })
+    await refreshPricingCatalog(db, { force: true, fetcher: fetcher(catalog()) })
+
+    const result = getActivityDashboard(
+      db,
+      { rangeDays: 30, timeZone: 'UTC' },
+      new Date('2026-07-26T12:00:00.000Z'),
+    )
+
+    expect(result.totals.aiCalls).toBe(0)
+    expect(result.savedModels).toEqual([
+      {
+        task: 'chat',
+        provider: 'google_genai',
+        model: 'live-test-model',
+        price: expect.objectContaining({
+          inputUsdPerMillion: 2,
+          outputUsdPerMillion: 4,
+        }),
+      },
+      {
+        task: 'embeddings',
+        provider: 'google_genai',
+        model: 'missing-price-model',
+        price: null,
+      },
+    ])
+  })
+
   it('groups activity in the requested timezone and exposes partial cost coverage', () => {
     recordPersonalActivity(db, 'version-capture', {
       occurredAt: '2026-07-25T22:30:00.000Z',
