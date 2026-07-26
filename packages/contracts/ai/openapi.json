@@ -370,7 +370,12 @@
               "png",
               "jpg",
               "jpeg",
-              "psd"
+              "psd",
+              "psb",
+              "svg",
+              "blend",
+              "obj",
+              "step"
             ],
             "title": "Format"
           },
@@ -698,7 +703,11 @@
             "enum": [
               "image/png",
               "image/jpeg",
-              "image/vnd.adobe.photoshop"
+              "image/vnd.adobe.photoshop",
+              "image/svg+xml",
+              "application/x-blender",
+              "model/obj",
+              "model/step"
             ],
             "title": "Mediatype"
           },
@@ -708,7 +717,12 @@
               "png",
               "jpg",
               "jpeg",
-              "psd"
+              "psd",
+              "psb",
+              "svg",
+              "blend",
+              "obj",
+              "step"
             ],
             "title": "Format"
           }

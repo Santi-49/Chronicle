@@ -168,19 +168,29 @@ The ranking is a product hypothesis to validate with users, not a market-share c
   declared geometry, so Chronicle will use it rather than trusting document dimensions.
   ([PSDImage API](https://psd-tools.readthedocs.io/en/stable/reference/psd_tools.html),
   [layer API](https://psd-tools.readthedocs.io/en/latest/reference/psd_tools.api.layers.html))
-- The first adapter increment supports **PSD only**. It extracts locally and sends no opaque PSD
-  bytes to the provider. The provider receives a capped deterministic structure diff plus at most
-  one JPEG: a first-version preview or a before/after comparison sheet. If the normalized
-  composites are pixel-identical, the diff is text-only. Derived images are capped at 1024 px;
-  parser/render limitations become coverage warnings and cap the returned confidence.
+- The Photoshop adapter now supports **PSD and PSB** with the same bounded local extraction
+  pipeline. It extracts locally and sends no opaque Photoshop bytes to the provider. The provider
+  receives a capped deterministic structure diff plus at most one JPEG: a first-version preview or
+  a before/after comparison sheet. If the normalized composites are pixel-identical, the diff is
+  text-only. Derived images are capped at 1024 px; parser/render limitations become coverage
+  warnings and cap the returned confidence.
 - Token policy: send only changed fields, cap structural changes, truncate layer text/names and
   combine the two visual states into one media item. Gemini's current media-resolution controls
   budget roughly 280 image tokens at low and 560 at medium for Gemini 3; exact usage remains
   model-dependent and must be recorded from provider usage metadata.
   ([Gemini media resolution](https://ai.google.dev/gemini-api/docs/media-resolution))
-- PSB remains unchecked until the same adapter is proven under process isolation and stricter
-  large-document time/memory tests. A 50 MB Chronicle capture cap also means PSB needs an explicit
-  product/storage decision rather than being enabled accidentally.
+- PSB now ships behind the same bounded extractor with a normalized-header compatibility warning.
+  Larger real-world PSB files still deserve separate process-isolation and time/memory hardening,
+  but the adapter itself is no longer absent.
+
+#### POST-02 adapter implementation note (2026-07-26)
+
+- The local AI service now ships safe, format-aware adapters for PSD/PSB, SVG, BLEND, OBJ, and
+  STEP, with direct image handling still reserved for PNG/JPG/JPEG.
+- SVG and STEP stay text/structure-first; OBJ adds a bounded flat preview when faces are present;
+  BLEND only reads a safe embedded thumbnail if one can be isolated.
+- Unsupported or partially extracted inputs now degrade through bounded evidence and a capped
+  confidence value instead of sending opaque project bytes to the provider.
 
 #### Validation still required
 
