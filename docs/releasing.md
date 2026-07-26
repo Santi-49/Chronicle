@@ -68,10 +68,12 @@ Repository setup:
 - Protect `main` and require the three **Main PR CI** jobs. For the zero-touch solo flow, use zero
   required approvals; teams that require human approval keep that manual gate.
 - Add repository Actions variable `CHRONICLE_CONTROL_PLANE_URL` with the deployed API origin
+  (for example, `https://chronicle-api.quick2query.com`).
 - Add repository Actions variable `CHRONICLE_LANDING_URL` with the deployed landing-site origin
-  (for example, `https://chronicle-api.quick2query.com`) and repository Actions variable
-  `GOOGLE_OAUTH_CLIENT_ID` with the public Google Desktop OAuth client ID. Add the matching
-  `GOOGLE_OAUTH_CLIENT_SECRET` as a repository Actions secret. Release builds embed all three and
+  (for example, `https://chronicle.quick2query.com`).
+- Add repository Actions variable `GOOGLE_OAUTH_CLIENT_ID` with the public Google Desktop OAuth
+  client ID and the matching `GOOGLE_OAUTH_CLIENT_SECRET` as a repository Actions secret.
+  Release builds embed all four configuration values and
   fail before packaging if any is absent. Google documents that installed apps cannot keep this
   client value confidential; PKCE remains the authorization-code security boundary, while the
   Actions secret prevents casual disclosure in repository configuration and logs.

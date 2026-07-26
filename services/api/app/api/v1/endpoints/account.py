@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import require_permission
+from app.core.dependencies import get_current_user, require_permission
 from app.models.user import User
 from app.schemas.control_plane import (
     AccountDataExport,
@@ -68,7 +68,10 @@ async def export_account_data(
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 async def erase_current_account(
-    user: User = require_permission("account", "delete"),
+    # This endpoint can only erase the authenticated caller; it accepts no
+    # target account ID. Authentication is therefore the authorization
+    # boundary, and stale role/OPA state must not block self-service erasure.
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     await privacy_service.erase_account(user, db)

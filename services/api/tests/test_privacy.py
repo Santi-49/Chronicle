@@ -154,7 +154,10 @@ async def test_self_service_erasure_removes_every_linked_row_and_revokes_session
     await db.commit()
     await token_store.store_token("other-session", str(regular_user.id), 3600)
 
-    response = await client.delete("/api/v1/account", headers=auth(user_token))
+    # Self-erasure is scoped to the bearer account and must remain available
+    # even if deployed OPA role state is stale or denies account:delete.
+    with patch("app.core.opa.check_permission", new=AsyncMock(return_value=False)):
+        response = await client.delete("/api/v1/account", headers=auth(user_token))
     assert response.status_code == 204
     for model in (
         User, AccountSettings, EncryptedSecret, ExternalIdentity, Installation,
