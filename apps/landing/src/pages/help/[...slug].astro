@@ -1,0 +1,63 @@
+---
+import HelpShell from "../../components/HelpShell.astro";
+import { articlePath, getHelpArticle, helpArticles } from "../../helpContent";
+
+export function getStaticPaths() {
+  return helpArticles.map((article) => ({ params: { slug: article.slug }, props: { article } }));
+}
+
+const { article } = Astro.props;
+const related = article.related.map(getHelpArticle).filter(Boolean);
+---
+
+<HelpShell title={article.title} description={article.description} pathname={articlePath(article.slug)}>
+  <div class="help-article-shell">
+    <nav class="help-breadcrumbs" aria-label="Breadcrumb">
+      <a href="/">Chronicle</a><span aria-hidden="true">/</span>
+      <a href="/help/">Help</a><span aria-hidden="true">/</span>
+      <span aria-current="page">{article.category}</span>
+    </nav>
+    <header class="help-article-hero">
+      <p class="help-kicker">{article.category}</p>
+      <h1>{article.title}</h1>
+      <p>{article.description}</p>
+      <div><span>{article.minutes} minute read</span><span>Reviewed {article.updated}</span></div>
+    </header>
+
+    <div class="help-article-layout">
+      <aside class="help-toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <nav>
+          {article.sections.map((section) => <a href={`#${section.id}`}>{section.title}</a>)}
+        </nav>
+        <a class="help-toc__back" href="/help/">Search all help</a>
+      </aside>
+      <article class="help-article" data-pagefind-body>
+        <details class="help-mobile-toc">
+          <summary>On this page</summary>
+          <nav>{article.sections.map((section) => <a href={`#${section.id}`}>{section.title}</a>)}</nav>
+        </details>
+        {article.sections.map((section) => (
+          <section id={section.id}>
+            <h2>{section.title}</h2>
+            <Fragment set:html={section.html} />
+          </section>
+        ))}
+        <footer class="help-article__footer">
+          <strong>Was this guide not enough?</strong>
+          <p>Tell us the Chronicle version, operating system, exact message, and the steps you tried. Never share an API key or creative file.</p>
+          <a href="https://github.com/Santi-49/Chronicle/issues">Ask the Chronicle team</a>
+        </footer>
+      </article>
+    </div>
+
+    {related.length > 0 && (
+      <section class="help-related" aria-labelledby="related-title">
+        <h2 id="related-title">Keep going</h2>
+        <div>
+          {related.map((item) => item && <a href={articlePath(item.slug)}><span>{item.category}</span><strong>{item.title}</strong><p>{item.description}</p></a>)}
+        </div>
+      </section>
+    )}
+  </div>
+</HelpShell>
