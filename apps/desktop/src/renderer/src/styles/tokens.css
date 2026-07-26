@@ -23,6 +23,7 @@
   --warning: #f1c21b;
   --danger: #ff453a;
   --danger-strong: #c62828;
+  --update-shadow: 0 8px 20px rgba(0, 0, 0, 0.34);
   --motion-fast: 150ms;
   --motion-standard: 220ms;
   --ease-productive: cubic-bezier(0.2, 0, 0.38, 0.9);
@@ -47,4 +48,5 @@
   --warning: #8e6a00;
   --danger: #b91c1c;
   --danger-strong: #b91c1c;
+  --update-shadow: 0 5px 14px rgba(0, 0, 0, 0.16);
 }

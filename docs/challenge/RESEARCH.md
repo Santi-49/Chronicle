@@ -390,7 +390,10 @@ Sources:
   the original `dev` commits remain outside `main` ancestry even after back-sync and an unbounded
   comparison replays old releases. Chronicle finds the latest release back-sync SHA and generates
   the override only from its graph descendants. Unique non-merge `feat`, `fix`, `deps`, and
-  breaking commits are retained; merge commits, ordinary chores, and exact duplicates are omitted.
+  breaking commits are retained only when their changed paths affect the shipped desktop app,
+  bundled AI sidecar, consumed contracts/assets, or installer delivery. Merge commits, ordinary
+  chores, exact duplicates, and changes limited to other monorepo products are omitted. Renames
+  test both the previous and current path so moving a desktop file cannot silently disappear.
   The built-in `GITHUB_TOKEN` performs the idempotent body edit so it cannot recursively trigger
   the privileged merge workflow; the release PAT remains limited to guarded merge actions.
   ([Release Please](https://github.com/googleapis/release-please))
@@ -415,9 +418,11 @@ Sources:
   the first updater-capable release requires one manual install. Only a following higher release
   can demonstrate the genuine installed vA → vB path.
 - Automatic checks must run only in packaged Windows builds and remain independent of capture and
-  local history. The safe UX is background download plus a visible, explicit
-  **Restart to update**, with `autoInstallOnAppQuit` disabled. Ordinary offline/network errors stay
-  out of the global UI; a user-initiated **Check now** may return sanitized retry feedback.
+  local history. The safe UX is a compact download-status pill above Settings that becomes one
+  explicit **Relaunch to update** card when ready. Normal click restarts; a right-click or keyboard
+  context menu exposes Restart, session-only Later, and per-release Ignore without adding permanent
+  secondary controls. `autoInstallOnAppQuit` remains disabled. Ordinary offline/network errors
+  stay out of the global UI; a user-initiated **Check now** may return sanitized retry feedback.
 - An unsigned installer can be transported over GitHub HTTPS and checked against the SHA-512 in
   `latest.yml`, but this does not establish an independent publisher identity. Chronicle must not
   describe that as equivalent to Authenticode signing. SmartScreen friction and compromise of the
@@ -1083,6 +1088,17 @@ table because area and color are poor tools for precise comparison.
   only bumps the app version. Development and packaged builds legitimately differ because Electron
   names the user-data directory after the app (`chronicle-desktop` vs `Chronicle`) — local session
   trace + code review
+- 2026-07-26 — DESKTOP CHANGELOG SCOPE DECISION: Release Please commit overrides now inspect each
+  eligible commit's changed files and include it only when it affects the Electron app, bundled AI
+  sidecar, consumed contracts/brand/prompts, or installer build and publication. Pure control-plane,
+  landing, infrastructure, and documentation changes are excluded from desktop release notes;
+  renamed files are matched using both their old and new paths — team direction + workflow review
+- 2026-07-26 — UPDATE NOTICE UX REVISION (supersedes the ready-only variant): update status no
+  longer consumes a full-width shell banner. Chronicle follows Claude Desktop's compact pattern
+  above Settings: a rounded downloading pill becomes one rounded relaunch card with icon, title,
+  version, and chevron, recolored through Chronicle's light/dark tokens. Normal click relaunches;
+  right-click or the keyboard context-menu gesture opens Restart, session-only Later, and
+  per-release Ignore — team direction + reference-image review + UI accessibility review
 
 - 2026-07-25 — DESKTOP FORMAT ARCHITECTURE (POST-01 closure + POST-02 desktop half): replaced
   fourteen hardcoded extension checks with one shared format registry, and split "captured and

@@ -6,8 +6,9 @@
 ## Outcome
 
 Chronicle's public Windows NSIS installer will check the public GitHub Releases feed without
-blocking startup, download a newer release in the background, show progress in the app, and apply
-the downloaded update only when the user chooses **Restart to update**.
+blocking startup, download a newer release silently in the background, and show a compact sidebar
+notice only when the update is ready. The downloaded update is applied only when the user chooses
+**Restart to update**.
 
 The existing pipeline already publishes versioned Windows and macOS installers. POST-08 adds the
 missing Windows update metadata, installed-client behavior, and two-release acceptance evidence.
@@ -240,12 +241,13 @@ Files:
 
 Work:
 
-- Mount one global update affordance inside the normal shell:
-  - `available`: “Chronicle X.Y.Z is available”;
-  - `downloading`: progress with accessible text, not color alone;
-  - `ready`: **Restart to update** and **Later**;
-  - automatic check failures: no banner.
-- Keep the banner dismissible for the session without cancelling the download.
+- Mount one compact update affordance in the sidebar immediately above Settings:
+  - `available` and `downloading`: rounded “Downloading update…” status pill;
+  - `ready`: the pill becomes a single “Relaunch to update” card with release version;
+  - automatic check failures: no global notice.
+- The card itself relaunches to install. Right-click (or the keyboard context-menu gesture) opens
+  **Restart**, **Later**, and **Ignore**: Later dismisses for the session, while Ignore stores the
+  offered version locally and suppresses it across launches. A later release appears normally.
 - Add **Settings → About** with current version, last-check time, state, and **Check now**.
   Explicit failures may appear inline with Retry.
 - Restore focus sensibly if the banner disappears, honor reduced motion, and use a polite live
@@ -269,10 +271,10 @@ Windows clean-profile matrix:
    SmartScreen warning, assisted/current-user install, custom directory, shortcuts, sidecar health,
    local capture, and `vA` in Settings.
 2. With `vA` running, publish higher stable `vB` through the normal Release Please path.
-3. Confirm `vA` detects `vB`, continues capturing while downloading, shows progress, and reaches
-   `ready`.
-4. Choose **Later**; confirm the app remains usable and an ordinary quit does not install.
-5. Relaunch, choose **Restart to update**, and confirm the same install location, shortcuts,
+3. Confirm `vA` detects `vB`, continues capturing while the compact sidebar pill reports the
+   download, and replaces it with the relaunch card after reaching `ready`.
+4. Quit normally without selecting the card and confirm the update is not installed.
+5. Relaunch, choose **Relaunch to update**, and confirm the same install location, shortcuts,
    projects, database, version library, encrypted provider configuration, and onboarding/legal
    state survive.
 6. Confirm Settings and `app.getVersion()` report `vB`, the app captures a new version, and no

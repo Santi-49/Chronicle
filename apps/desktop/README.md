@@ -45,9 +45,13 @@ substantially slower even when the Python bundle cache is warm.
 The installers are unsigned: Windows SmartScreen may warn, while macOS Gatekeeper requires an
 explicit user override. The installed Windows app checks the public stable GitHub Releases feed
 after startup and periodically while open. It downloads newer releases in the background, but
-never applies one on an ordinary quit: the user chooses **Restart to update** from the global
-banner or **Settings → About & updates**. Automatic network failures stay silent; **Check now**
-shows recoverable status. Development, unpacked, macOS, and Linux builds make no update request.
+never applies one on an ordinary quit. A compact pill above **Settings** reports
+**Downloading update…**; once ready, it becomes a single **Relaunch to update** card. Right-click
+opens **Restart**, **Later**, and per-release **Ignore**; normal click still relaunches. The same
+restart action remains available in
+**Settings → About & updates**. Automatic network failures stay silent; **Check now** shows
+recoverable status. Packaged macOS and Linux builds make no update request; development uses a
+temporary visual fixture only when explicitly retained for UI review.
 The first updater-capable version must still be installed manually; only a later release can prove
 the automatic upgrade path. Update requests contain no Chronicle content, paths, credentials, or
 account payload, although GitHub/CDN receives normal connection metadata.

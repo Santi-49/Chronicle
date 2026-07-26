@@ -136,9 +136,13 @@ The normal promotion flow is:
    commits reachable only from persistent `dev`; an unbounded `main...dev` comparison would
    accumulate already released history forever. From the bounded range, the workflow collects
    unique, non-merge Conventional Commit messages for `feat`, `fix`, `deps`, and any `!` breaking
-   change. It maintains Release Please's supported `BEGIN_COMMIT_OVERRIDE` block at the end of the
-   PR description, preserving the human-authored description above it. Merge commits, ordinary
-   chores, and duplicate messages are omitted.
+   change only when that commit changes part of the shipped desktop product. The desktop scope is
+   `apps/desktop`, the bundled `services/ai` sidecar, consumed AI/API contracts, shared brand and
+   prompt assets, and the scripts/workflow that build or publish the installer. It maintains
+   Release Please's supported `BEGIN_COMMIT_OVERRIDE` block at the end of the PR description,
+   preserving the human-authored description above it. Merge commits, ordinary chores, duplicate
+   messages, and commits limited to the control plane, landing page, infrastructure, or
+   documentation are omitted.
 4. The workflow enables auto-merge. All three **Main PR CI** jobs must pass; a failure leaves the
    PR open. Fix failures on `dev`, never directly on `main`.
 5. After the checks pass, GitHub merges the promotion, Release Please opens its metadata PR, the
@@ -149,10 +153,11 @@ The normal promotion flow is:
    a manual merge; automation never overwrites `dev`.
 
 Feature commits should still use Conventional Commit messages. The generated override comes from
-commit messages after the latest release back-sync, not changed-file text, and refreshes whenever
-the promotion head SHA changes. The PR base is used only for the first promotion where no
-back-sync exists. If the bounded comparison contains no releasable commit, promotion fails instead
-of publishing a misleading changelog.
+commit messages after the latest release back-sync and uses each candidate commit's changed paths
+only to decide whether it affects the desktop release; it refreshes whenever the promotion head
+SHA changes. Renames are checked against both the old and new path. The PR base is used only for
+the first promotion where no back-sync exists. If the bounded comparison contains no releasable
+desktop commit, promotion fails instead of publishing a misleading changelog.
 
 ## Creating a new public version
 

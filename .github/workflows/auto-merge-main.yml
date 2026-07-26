@@ -55,7 +55,7 @@ jobs:
             exit 1
           fi
 
-      - name: Add feature commits to the Release Please changelog
+      - name: Add desktop commits to the Release Please changelog
         if: ${{ github.event.pull_request.head.ref == 'dev' }}
         shell: bash
         env:
@@ -101,39 +101,90 @@ jobs:
 
           # Release Please sees the dev → main squash commit, not the feature
           # commits behind it. Build its supported override from the bounded
-          # graph comparison, not from the accumulated dev ancestry.
-          override=$(
-            gh api \
-              --paginate \
-              --slurp \
-              "repos/$GITHUB_REPOSITORY/compare/$range_start...$HEAD_SHA?per_page=100" |
-              jq -r '
-                [
-                  .[].commits[]
-                  | select((.parents | length) == 1)
-                  | .commit.message
-                  | select(
-                      test("^(feat|fix|deps)(\\([^)]+\\))?!?:[ ]+")
-                      or test("^[a-z][a-z0-9-]*(\\([^)]+\\))?!:[ ]+")
-                    )
-                  | gsub("BEGIN_COMMIT_OVERRIDE|END_COMMIT_OVERRIDE"; "")
-                ]
-                | reduce .[] as $message (
-                    [];
-                    if index($message) then . else . + [$message] end
+          # graph comparison, not from the accumulated dev ancestry. Inspect
+          # each eligible commit separately so changes to unrelated monorepo
+          # products do not appear in the desktop application's changelog.
+          candidates_file=$(mktemp)
+          selected_file=$(mktemp)
+          trap 'rm -f "$candidates_file" "$selected_file"' EXIT
+
+          gh api \
+            --paginate \
+            --slurp \
+            "repos/$GITHUB_REPOSITORY/compare/$range_start...$HEAD_SHA?per_page=100" |
+            jq -c '
+              .[].commits[]
+              | select((.parents | length) == 1)
+              | {
+                  sha,
+                  message: (
+                    .commit.message
+                    | select(
+                        test("^(feat|fix|deps)(\\([^)]+\\))?!?:[ ]+")
+                        or test("^[a-z][a-z0-9-]*(\\([^)]+\\))?!:[ ]+")
+                      )
+                    | gsub("BEGIN_COMMIT_OVERRIDE|END_COMMIT_OVERRIDE"; "")
                   )
-                | if length == 0 then
-                    ""
-                  else
-                    "BEGIN_COMMIT_OVERRIDE\n"
-                    + join("\n\n")
-                    + "\nEND_COMMIT_OVERRIDE"
-                  end
-              '
+                }
+            ' >"$candidates_file"
+
+          while IFS= read -r candidate; do
+            commit_sha=$(jq -r '.sha' <<<"$candidate")
+            commit_subject=$(jq -r '.message | split("\n")[0]' <<<"$candidate")
+
+            commit_details=$(
+              gh api \
+                --paginate \
+                --slurp \
+                "repos/$GITHUB_REPOSITORY/commits/$commit_sha?per_page=100"
+            )
+            if jq -e '
+                def desktop_release_path:
+                  startswith("apps/desktop/")
+                  or startswith("services/ai/")
+                  or startswith("packages/contracts/ai/")
+                  or startswith("packages/contracts/api/")
+                  or startswith("packages/brand/")
+                  or startswith("packages/prompts/")
+                  or . == "scripts/build_ai_sidecar.py"
+                  or . == "scripts/check_versions.py"
+                  or . == "scripts/check_windows_update_assets.py"
+                  or . == "scripts/smoke_ai_sidecar.py"
+                  or . == ".github/workflows/release.yml";
+
+                any(
+                  .[].files[]?;
+                  (.filename | desktop_release_path)
+                  or ((.previous_filename // "") | desktop_release_path)
+                )
+              ' <<<"$commit_details" >/dev/null; then
+              printf '%s\n' "$candidate" >>"$selected_file"
+              printf 'Including %s: %s\n' "${commit_sha:0:7}" "$commit_subject"
+            else
+              printf 'Excluding %s (no desktop release files): %s\n' \
+                "${commit_sha:0:7}" "$commit_subject"
+            fi
+          done <"$candidates_file"
+
+          override=$(
+            jq -s -r '
+              [.[].message]
+              | reduce .[] as $message (
+                  [];
+                  if index($message) then . else . + [$message] end
+                )
+              | if length == 0 then
+                  ""
+                else
+                  "BEGIN_COMMIT_OVERRIDE\n"
+                  + join("\n\n")
+                  + "\nEND_COMMIT_OVERRIDE"
+                end
+            ' "$selected_file"
           )
 
           if [[ -z "$override" ]]; then
-            echo "::error::No releasable Conventional Commits were found after the latest release back-sync."
+            echo "::error::No desktop-release Conventional Commits were found after the latest release back-sync."
             exit 1
           fi
 

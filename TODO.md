@@ -1288,7 +1288,9 @@ update telemetry.
 > CI-only GitHub publishing, local/published `latest.yml` and blockmap validation, a
 > packaged-Windows-only main-process controller, the narrow typed C1 state/check/restart/event
 > surface, delayed and four-hour single-flight checks, background download, explicit restart,
-> global accessible progress UI, Settings/About status and retry, and an admin update-adoption
+> a compact Claude-style download pill and relaunch card above Settings, with a right-click
+> Restart/Later/per-version Ignore menu,
+> Settings/About status and retry, and an admin update-adoption
 > comparison derived from the existing `app_version_distribution` telemetry. No update telemetry
 > was added. The controller preserves active download/ready state against later checks.
 > Verification: 244 desktop tests passed (1 skipped), typecheck and production build passed, a
@@ -1301,7 +1303,11 @@ update telemetry.
 > `BEGIN_COMMIT_OVERRIDE` block from the commits after the latest release back-sync before squash
 > merge. It retains unique non-merge `feat`, `fix`, `deps`, and breaking Conventional Commit
 > messages, so updater and related fixes remain separate changelog entries without replaying
-> already released history retained by persistent `dev`.
+> already released history retained by persistent `dev`. The collector now checks each candidate
+> commit's changed files and retains it only when it affects the shipped desktop app, bundled AI
+> sidecar, consumed contracts/assets, or installer build/publish path. Control-plane-only,
+> landing-only, infrastructure-only, and documentation-only commits no longer enter the desktop
+> changelog.
 
 ### [ ] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
 
