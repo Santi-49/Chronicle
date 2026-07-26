@@ -130,12 +130,15 @@ The normal promotion flow is:
 2. Open one PR with base `main` and compare `dev`. Its title must start with `feat:` or `fix:`
    (optionally scoped or breaking), because the workflow squash-merges that title and Release Please
    uses it to determine the next version.
-3. `Auto-merge main promotion` compares the PR's exact `main...dev` SHAs and collects unique,
-   non-merge Conventional Commit messages for `feat`, `fix`, `deps`, and any `!` breaking change.
-   It maintains Release Please's supported `BEGIN_COMMIT_OVERRIDE` block at the end of the PR
-   description, preserving the human-authored description above it. Merge commits, ordinary
-   chores, and duplicate messages are omitted. This retains meaningful feature commits even
-   though the promotion itself is squash-merged.
+3. `Auto-merge main promotion` finds the latest
+   `chore: sync released main back into dev` commit and compares that exact graph point with the
+   PR head. This boundary matters because prior `dev → main` squash merges leave the original
+   commits reachable only from persistent `dev`; an unbounded `main...dev` comparison would
+   accumulate already released history forever. From the bounded range, the workflow collects
+   unique, non-merge Conventional Commit messages for `feat`, `fix`, `deps`, and any `!` breaking
+   change. It maintains Release Please's supported `BEGIN_COMMIT_OVERRIDE` block at the end of the
+   PR description, preserving the human-authored description above it. Merge commits, ordinary
+   chores, and duplicate messages are omitted.
 4. The workflow enables auto-merge. All three **Main PR CI** jobs must pass; a failure leaves the
    PR open. Fix failures on `dev`, never directly on `main`.
 5. After the checks pass, GitHub merges the promotion, Release Please opens its metadata PR, the
@@ -146,9 +149,10 @@ The normal promotion flow is:
    a manual merge; automation never overwrites `dev`.
 
 Feature commits should still use Conventional Commit messages. The generated override comes from
-commit messages, not changed-file text, and refreshes whenever the promotion head SHA changes. If
-the comparison contains no releasable commit, promotion fails instead of publishing a misleading
-changelog.
+commit messages after the latest release back-sync, not changed-file text, and refreshes whenever
+the promotion head SHA changes. The PR base is used only for the first promotion where no
+back-sync exists. If the bounded comparison contains no releasable commit, promotion fails instead
+of publishing a misleading changelog.
 
 ## Creating a new public version
 
