@@ -2564,6 +2564,7 @@ export interface operations {
         parameters: {
             query?: {
                 period_days?: number;
+                all_time?: boolean;
                 start_date?: string | null;
                 end_date?: string | null;
                 account_id?: string | null;

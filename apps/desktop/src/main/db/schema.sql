@@ -104,3 +104,43 @@ CREATE TABLE IF NOT EXISTS settings (
   key    TEXT PRIMARY KEY,
   value  TEXT NOT NULL                       -- JSON
 );
+
+-- POST-09 — private, on-device product activity. This is deliberately
+-- independent of the opt-in telemetry buffer: it is never uploaded and stores
+-- no file names, paths, search text, summaries, tags, or credentials.
+CREATE TABLE IF NOT EXISTS personal_activity (
+  id           INTEGER PRIMARY KEY,
+  occurred_at  TEXT NOT NULL,
+  kind         TEXT NOT NULL CHECK (kind IN ('version-capture','ai-summary','search','restore','project-create')),
+  asset_id     INTEGER,
+  project_id   INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_personal_activity_occurred ON personal_activity(occurred_at);
+
+-- One row per attempted provider call. Nullable usage and cost fields are
+-- intentional: SDKs do not expose them consistently and "unknown" must never
+-- be rewritten as zero.
+CREATE TABLE IF NOT EXISTS ai_usage_calls (
+  id                     INTEGER PRIMARY KEY,
+  occurred_at            TEXT NOT NULL,
+  operation              TEXT NOT NULL CHECK (operation IN ('annotation','embedding')),
+  provider               TEXT NOT NULL,
+  model                  TEXT NOT NULL,
+  success                INTEGER NOT NULL CHECK (success IN (0,1)),
+  latency_ms             INTEGER NOT NULL,
+  input_tokens            INTEGER,
+  output_tokens           INTEGER,
+  total_tokens            INTEGER,
+  provider_reported_usd   REAL,
+  estimated_usd           REAL,
+  currency                TEXT NOT NULL DEFAULT 'USD',
+  price_snapshot_id       TEXT,
+  price_effective_at      TEXT,
+  pricing_source_url      TEXT,
+  input_usd_per_million   REAL,
+  output_usd_per_million  REAL,
+  error_code              TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_calls_occurred ON ai_usage_calls(occurred_at);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_calls_model
+  ON ai_usage_calls(provider, model, operation);

@@ -31,6 +31,7 @@ import {
 import type { TelemetryCollector } from '../telemetry/emitter'
 import type { ApplicationDiagnosticSink } from '../diagnostics'
 import { diagnosticError } from '../diagnostics'
+import type { AiCallRecord } from '../analytics/repository'
 
 const MAX_ATTEMPTS = 3
 
@@ -53,6 +54,10 @@ export interface AiWorkerDependencies {
   ensureService: () => void
   onQueueChanged: () => void
   telemetry?: Pick<TelemetryCollector, 'recordAiUsage'>
+  personalAnalytics?: {
+    recordAiCall: (call: AiCallRecord) => void
+    recordActivity: (kind: 'ai-summary', values: { assetId: number }) => void
+  }
   diagnostic?: ApplicationDiagnosticSink
   pollMs?: number
 }
@@ -191,6 +196,16 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     })
 
     const latencyMs = Date.now() - startedAt
+    deps.personalAnalytics?.recordAiCall({
+      operation: 'annotation',
+      provider: config.provider,
+      model: config.model,
+      success: true,
+      latencyMs,
+      inputTokens: annotation.usage?.input_tokens,
+      outputTokens: annotation.usage?.output_tokens,
+      totalTokens: annotation.usage?.total_tokens,
+    })
     saveAnnotation(deps.db, {
       versionId,
       summary: annotation.summary,
@@ -201,6 +216,7 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       latencyMs,
     })
     deleteJob(deps.db, job.id)
+    deps.personalAnalytics?.recordActivity('ai-summary', { assetId: version.assetId })
     deps.telemetry?.recordAiUsage('annotation', config.provider, config.model, 'success', latencyMs)
     if (!listJobs(deps.db, 'embedding').some((item) => versionIdOf(item) === versionId)) {
       enqueueJob(deps.db, 'embedding', { versionId })
@@ -244,6 +260,16 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       model: embeddingModelIdentity(config.provider, config.model),
     })
     const embeddingLatency = Date.now() - embeddingStart
+    deps.personalAnalytics?.recordAiCall({
+      operation: 'embedding',
+      provider: config.provider,
+      model: config.model,
+      success: true,
+      latencyMs: embeddingLatency,
+      inputTokens: result.usage?.input_tokens,
+      outputTokens: result.usage?.output_tokens,
+      totalTokens: result.usage?.total_tokens,
+    })
     deleteJob(deps.db, job.id)
     deps.telemetry?.recordAiUsage('embedding', config.provider, config.model, 'success', embeddingLatency)
     deps.onQueueChanged()
@@ -326,6 +352,14 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       if (job.jobType === 'ai_annotation') await processAnnotation(job, versionId, config)
       else await processEmbedding(job, versionId, config)
     } catch (error) {
+      deps.personalAnalytics?.recordAiCall({
+        operation,
+        provider: config.provider,
+        model: config.model,
+        success: false,
+        latencyMs: Date.now() - startedAt,
+        errorCode: error instanceof AiServiceError ? error.code : null,
+      })
       deps.telemetry?.recordAiUsage(
         operation, config.provider, config.model, 'failure', Date.now() - startedAt,
       )

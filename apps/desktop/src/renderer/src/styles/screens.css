@@ -472,6 +472,7 @@
 .ai-task legend { padding: 0 6px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
 .ai-task .settings-form-grid { margin: 4px 0 0; }
 .ai-task-hint { margin: 12px 0 0; color: var(--warning); font-size: 11px; }
+.ai-model-price { display: block; margin-top: 10px; color: var(--text-muted); font-size: 11px; line-height: 1.45; font-variant-numeric: tabular-nums; }
 .ai-task-test-row { display: flex; margin-top: 12px; align-items: center; flex-wrap: wrap; gap: 10px; }
 .key-saved-badge { margin-left: 8px; padding: 1px 7px; color: var(--success); font-size: 10px; font-style: normal; border: 1px solid var(--success); border-radius: 999px; }
 .save-cluster { display: flex; align-items: center; gap: 12px; }

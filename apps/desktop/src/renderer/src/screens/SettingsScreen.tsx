@@ -21,6 +21,7 @@ import { friendlyIpcError } from '../lib/errors'
 import { HELP_CENTER_URL, UPDATE_HELP_URL } from '../lib/helpLinks'
 import { PRIVACY_URL, TERMS_URL } from '../lib/legalAcceptance'
 import type { OnboardingStatus } from '../lib/onboarding'
+import type { AiModelPrice } from '../../../shared/ipc'
 
 interface SettingsScreenProps {
   developerBuild: boolean
@@ -317,6 +318,20 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
 
 // ── AI summaries ──────────────────────────────────────────────────────────
 
+const modelRate = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 6,
+})
+
+function formatModelPrice(price: AiModelPrice | null, inputOnly: boolean): string {
+  if (!price) return 'Live list price unavailable for this model.'
+  const input = `${modelRate.format(price.inputUsdPerMillion)} input`
+  const output = inputOnly ? '' : ` · ${modelRate.format(price.outputUsdPerMillion)} output`
+  return `Estimated list price · ${input}${output} per 1M tokens · Models.dev`
+}
+
 function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const { settings, configuredProviders, loading, save, setApiKey, clearApiKey } = useSettings()
 
@@ -326,6 +341,10 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const [embedProvider, setEmbedProvider] = useState('google_genai')
   const [embedModel, setEmbedModel] = useState('gemini-embedding-001')
   const [saveState, setSaveState] = useState<{ message: string; error: boolean } | null>(null)
+  const [savedPrices, setSavedPrices] = useState<{
+    chat: AiModelPrice | null
+    embeddings: AiModelPrice | null
+  } | null>(null)
   const [testingTask, setTestingTask] = useState<AiTask | null>(null)
   const [testStates, setTestStates] = useState<
     Partial<Record<AiTask, { message: string; error: boolean }>>
@@ -344,6 +363,10 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
       isPresetModel('embeddings', settings.ai.embeddings.provider, settings.ai.embeddings.model)
     setDevMode(!preset && settings.ai.chat.provider !== '')
   }, [settings])
+
+  useEffect(() => {
+    setSavedPrices(null)
+  }, [chatProvider, chatModel, embedProvider, embedModel])
 
   // When switching provider in preset mode, snap the model to that provider's first option.
   const changeProvider = (task: AiTask, providerId: string) => {
@@ -383,6 +406,21 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           embeddings: { provider: embedProvider.trim(), model: embedModel.trim() },
         },
       })
+      let chatPrice: AiModelPrice | null = null
+      let embeddingsPrice: AiModelPrice | null = null
+      try {
+        // The first lookup refreshes the shared catalog when stale; the second
+        // then reads that same cache instead of starting a duplicate request.
+        chatPrice = await chronicle.getAiModelPrice(chatProvider.trim(), chatModel.trim())
+        embeddingsPrice = await chronicle.getAiModelPrice(
+          embedProvider.trim(),
+          embedModel.trim(),
+        )
+      } catch {
+        // Pricing is informational and must never turn a successful settings
+        // save into a failure.
+      }
+      setSavedPrices({ chat: chatPrice, embeddings: embeddingsPrice })
       setSaveState({ message: 'Saved.', error: false })
       onAiReady()
     } catch (err) {
@@ -485,6 +523,11 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="chat" provider={chatProvider} model={chatModel} onProvider={(p) => changeProvider('chat', p)} onModel={setChatModel} />
         )}
         {chatError && <p className="ai-task-error" role="alert">{chatError}</p>}
+        {savedPrices && (
+          <small className="ai-model-price">
+            {formatModelPrice(savedPrices.chat, false)}
+          </small>
+        )}
         <div className="ai-task-test-row">
           <button
             className="secondary-button compact-button"
@@ -516,6 +559,11 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="embeddings" provider={embedProvider} model={embedModel} onProvider={(p) => changeProvider('embeddings', p)} onModel={setEmbedModel} />
         )}
         {embedError && <p className="ai-task-error" role="alert">{embedError}</p>}
+        {savedPrices && (
+          <small className="ai-model-price">
+            {formatModelPrice(savedPrices.embeddings, true)}
+          </small>
+        )}
         <div className="ai-task-test-row">
           <button
             className="secondary-button compact-button"

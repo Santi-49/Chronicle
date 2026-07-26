@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -218,6 +218,29 @@ async def test_admin_statistics_accepts_custom_date_range(client, admin_token):
     body = response.json()
     assert body["period_days"] == 1
     assert body["period_start"].startswith(today)
+
+
+async def test_admin_statistics_all_time_starts_at_first_installation(
+    client, db, admin_user, admin_token
+):
+    first_seen = NOW - timedelta(days=500)
+    db.add(Installation(
+        id=uuid.uuid4(),
+        user_id=admin_user.id,
+        app_version="0.1.0",
+        os_family="windows",
+        first_seen_at=first_seen,
+        last_seen_at=first_seen,
+    ))
+    await db.commit()
+    response = await client.get(
+        "/api/v1/admin/statistics?all_time=true",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["period_start"].startswith(first_seen.date().isoformat())
+    assert body["period_days"] >= 501
 
 
 async def test_last_active_admin_cannot_be_demoted(client, admin_user, admin_token):

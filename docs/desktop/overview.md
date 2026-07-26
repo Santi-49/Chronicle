@@ -131,6 +131,7 @@ One window; regions as implemented:
 │  Home    │                                             │
 │  Projects│              Content area                   │
 │  Search  │      (one page at a time, see below)        │
+│  Activity│                                             │
 │          │                                             │
 │  ────────│                                             │
 │  Settings│                                             │
@@ -143,7 +144,7 @@ One window; regions as implemented:
 - **Title bar** — 48 px draggable region with the Chronicle mark; hidden default title bar
   with native Window Controls Overlay on Windows/Linux and traffic lights on macOS. The
   center intentionally stays empty until a real global search/command field earns it.
-- **Sidebar** — primary navigation **Home · Projects · Search**, with **Settings** pinned
+- **Sidebar** — primary navigation **Home · Projects · Search · Activity & Cost**, with **Settings** pinned
   in the footer next to the exact `package.json` app version. Includes a skip-to-content link; the active item
   is marked with `aria-current="page"`.
 - **Content area** — exactly one page at a time; a short reduced-motion-aware transition
@@ -270,6 +271,26 @@ box — the user never chooses a "mode". Click a result → Version details.
   active indexing, work paused offline, and missing AI setup; in every state it confirms that
   keyword search remains available while meaning-based matches catch up.
 
+### Activity & Cost — POST-09
+
+The local Activity & Cost screen works without an account or control plane. It shows a
+timezone-labelled 30/90/365-day or all-time contribution calendar for captures, AI summaries, searches, and
+restores; current active project/asset totals; and a provider/model/operation cost table. It does
+not invent a productivity score.
+
+Every AI attempt stores provider, model, operation, time, success, latency, and nullable token
+usage. Missing SDK metadata remains unavailable. The Electron main process refreshes one live
+Models.dev price catalog, caches it for offline use, and stamps estimates with the fetched catalog
+hash and exact rates. Existing estimates are immutable; explicit refreshes affect future or still
+unpriced calls only. UI copy distinguishes provider-reported, estimated, and unavailable amounts,
+states USD and the price refresh time, and points users to their provider invoice as authority.
+These private analytics tables are separate from opt-in telemetry and contain no creative content,
+paths, names, summaries, tags, search text, or credentials.
+
+After AI settings are saved, each selected model also shows its small live per-million-token list
+price from the same cached Models.dev catalog. The Admin control center offers an all-time range
+that begins automatically at the first control-plane installation log and ends at request time.
+
 ### 8.1 Diagnostics — developer-only
 
 A **Diagnostics** tab appears directly below Search while running `npm run dev`. Packaged builds
@@ -356,6 +377,7 @@ Details, Pending jobs, and the always-visible status-bar failure count.
 | F5 Timeline & details | Home / Project → Timeline → Version details |
 | F6 Restore | Version details (append-only restore + native save-copy fallback) |
 | F7 Hybrid search | Search (`Ctrl/Cmd+K`) |
+| POST-09 Personal analytics | Activity & Cost (local calendar + AI usage and estimates) |
 | F8 Telemetry/privacy (low) | Settings disclosure, auditable preference, normalized delivery, export, retention, installation erasure, and account/cloud deletion |
 | F9 Gateway (stretch) | Settings → AI ("Use Chronicle service") |
 | F10 Admin (stretch) | Admin page (role-gated) |

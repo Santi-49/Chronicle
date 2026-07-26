@@ -21,6 +21,7 @@ import { randomUUID } from 'node:crypto'
 import type { TelemetryCollector } from '../telemetry/emitter'
 import type {
   AiStatus,
+  ActivityDashboardQuery,
   AppStatus,
   ApplicationDiagnostic,
   AssetSummary,
@@ -88,6 +89,13 @@ import { embeddingModelIdentity, search } from '../search'
 import type { AiClient } from '../ai/client'
 import type { ApplicationDiagnosticSink } from '../diagnostics'
 import { diagnosticError } from '../diagnostics'
+import {
+  getActivityDashboard,
+  reconcileUnestimatedAiCalls,
+  recordAiCall,
+  recordPersonalActivity,
+} from '../analytics/repository'
+import { getModelPrice, refreshPricingCatalog } from '../analytics/pricing'
 
 // ── Settings defaults (implementation policy per C5, not contract) ──────
 
@@ -229,6 +237,28 @@ function expectRendererErrorReport(value: unknown): RendererErrorReport {
 function expectString(value: unknown, name: string): string {
   if (typeof value !== 'string') throw new TypeError(`${name} must be a string`)
   return value
+}
+
+function expectActivityDashboardQuery(value: unknown): ActivityDashboardQuery {
+  if (!isPlainObject(value)) throw new TypeError('activity dashboard query must be an object')
+  if (value['rangeDays'] !== 30 && value['rangeDays'] !== 90 &&
+      value['rangeDays'] !== 365 && value['rangeDays'] !== 'all') {
+    throw new TypeError('activity dashboard rangeDays must be 30, 90, 365, or all')
+  }
+  const timeZone = expectString(value['timeZone'], 'activity dashboard timeZone')
+  if (value['refreshPricing'] !== undefined && typeof value['refreshPricing'] !== 'boolean') {
+    throw new TypeError('activity dashboard refreshPricing must be a boolean')
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone }).format()
+  } catch {
+    throw new TypeError('activity dashboard timeZone must be a valid IANA time zone')
+  }
+  return {
+    rangeDays: value['rangeDays'],
+    timeZone,
+    ...(value['refreshPricing'] === true ? { refreshPricing: true } : {}),
+  }
 }
 
 function expectProjectRemovalMode(value: unknown): 'keep-history' | 'delete-history' {
@@ -438,6 +468,10 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           .then((result) => {
             if (result.outcome === 'captured') {
               deps.telemetry?.recordProductActivity('version-capture')
+              recordPersonalActivity(db, 'version-capture', {
+                assetId: result.version.assetId,
+                projectId: owningFolder(candidate.path)?.id,
+              })
               diagnostic({
                 level: 'debug',
                 source: 'capture',
@@ -786,6 +820,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       // POST-04: only enqueue for genuinely new projects, not re-tracks.
       if (!existing) {
         deps.telemetry?.recordProductActivity('project-create')
+        recordPersonalActivity(db, 'project-create', { projectId: folder.id })
         diagnostic({
           level: 'debug',
           source: 'project',
@@ -956,6 +991,10 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       }
       emit('versionCaptured', { assetId: result.version.assetId, versionId: result.version.id })
       deps.telemetry?.recordProductActivity('restore')
+      recordPersonalActivity(db, 'restore', {
+        assetId: result.version.assetId,
+        projectId: version ? owningFolder(getAsset(db, version.assetId)?.path ?? '')?.id : null,
+      })
       pushStatus()
       diagnostic({
         level: 'debug',
@@ -996,8 +1035,31 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         if (apiKey !== null) {
           const client = deps.aiClient
           embedQuery = async (text: string) => {
-            const response = await client.embedText({ provider, model: embeddingsModel, apiKey, text })
-            return response.embedding
+            const startedAt = Date.now()
+            try {
+              const response = await client.embedText({ provider, model: embeddingsModel, apiKey, text })
+              recordAiCall(db, {
+                operation: 'embedding',
+                provider,
+                model: embeddingsModel,
+                success: true,
+                latencyMs: Date.now() - startedAt,
+                inputTokens: response.usage?.input_tokens,
+                outputTokens: response.usage?.output_tokens,
+                totalTokens: response.usage?.total_tokens,
+              })
+              return response.embedding
+            } catch (error) {
+              recordAiCall(db, {
+                operation: 'embedding',
+                provider,
+                model: embeddingsModel,
+                success: false,
+                latencyMs: Date.now() - startedAt,
+                errorCode: error instanceof Error ? error.name : null,
+              })
+              throw error
+            }
           }
         }
       }
@@ -1009,7 +1071,22 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         embeddingsModel: embeddingModelIdentity(provider, embeddingsModel),
       })
       deps.telemetry?.recordSearch(embedQuery !== undefined)
+      recordPersonalActivity(db, 'search')
       return results
+    },
+
+    async getActivityDashboard(query) {
+      const validated = expectActivityDashboardQuery(query)
+      await refreshPricingCatalog(db, { force: validated.refreshPricing })
+      reconcileUnestimatedAiCalls(db)
+      return getActivityDashboard(db, validated)
+    },
+
+    async getAiModelPrice(provider, model) {
+      const validatedProvider = expectString(provider, 'provider')
+      const validatedModel = expectString(model, 'model')
+      await refreshPricingCatalog(db)
+      return getModelPrice(db, validatedProvider, validatedModel)
     },
 
     // F4 — AI retry: re-queue only; the result arrives as annotationUpdated
@@ -1215,6 +1292,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       if (filters.periodDays !== undefined &&
           (!Number.isInteger(filters.periodDays) || filters.periodDays < 1 || filters.periodDays > 366)) {
         throw new TypeError('periodDays must be 1 to 366')
+      }
+      if (filters.allTime !== undefined && typeof filters.allTime !== 'boolean') {
+        throw new TypeError('allTime must be a boolean')
+      }
+      if (filters.allTime && (filters.periodDays !== undefined ||
+          filters.startDate !== undefined || filters.endDate !== undefined)) {
+        throw new TypeError('allTime cannot be combined with another date range')
       }
       const datePattern = /^\d{4}-\d{2}-\d{2}$/
       if ((filters.startDate === undefined) !== (filters.endDate === undefined)) {
@@ -1447,6 +1531,11 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     api,
     start(): void {
       for (const folder of listTrackedFolders(db)) watcher.watch(folder.path)
+      // Warm the pricing cache independently of AI work. A network failure is
+      // non-fatal and leaves the last valid cache in place.
+      void refreshPricingCatalog(db).then(() => {
+        reconcileUnestimatedAiCalls(db)
+      })
       if (deps.account && deps.installation) {
         void deps.account.registerInstallation({
           ...deps.installation,

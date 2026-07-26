@@ -67,11 +67,18 @@ from the configured per-task prices). Embedding responses carry the same
 `usage`/`cost` fields, though the standard embedding interface rarely reports
 token usage, so they are usually null.
 
+The desktop Activity & Cost dashboard does not use hardcoded or sidecar environment prices. It
+records the nullable C3 usage fields and estimates in Electron from a conditionally refreshed,
+locally cached Models.dev catalog. The optional C3 `cost` remains for standalone callers that
+explicitly configure task rates; absent rates produce `null`, never a guessed zero.
+
 Configuration validation requires an explicit provider, model, task, and API
 key. Chat validation sends a one-pixel image through the real structured vision
 path; embeddings validation embeds a short probe string. The key and probe are
 never persisted. Because these are real provider calls, they may incur a tiny
-provider charge.
+provider charge. OpenAI calls request identity response encoding to avoid a
+malformed gzip/deflate header from an edge or proxy making HTTPX reject an
+otherwise usable provider response.
 
 ## Configuration (`.env`)
 

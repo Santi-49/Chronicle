@@ -19,6 +19,7 @@ const primaryNavigation: { name: PrimaryRouteName; label: string; icon: IconName
   { name: 'home', label: 'Home', icon: 'home' },
   { name: 'projects', label: 'Projects', icon: 'folder' },
   { name: 'search', label: 'Search', icon: 'search' },
+  { name: 'activity', label: 'Activity & Cost', icon: 'monitoring' },
   { name: 'admin', label: 'Admin', icon: 'monitoring', adminOnly: true },
   { name: 'diagnostics', label: 'Diagnostics', icon: 'terminal', developerOnly: true },
 ]

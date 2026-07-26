@@ -59,6 +59,18 @@ def _resolve(request_value: str | None, default: str | None, what: str) -> str:
     return value
 
 
+def _provider_transport_options(provider: str) -> dict[str, Any]:
+    """Avoid malformed compressed responses observed on some OpenAI routes.
+
+    HTTPX automatically decompresses responses based on ``Content-Encoding``.
+    A provider edge or local proxy can occasionally label an uncompressed body
+    as gzip/deflate, which fails before LangChain can read the response. Asking
+    OpenAI for identity encoding keeps the normal SDK path but removes that
+    fragile transport step. Other providers retain their native defaults.
+    """
+    return {"default_headers": {"Accept-Encoding": "identity"}} if provider == "openai" else {}
+
+
 def _data_url(image: ImageInput) -> str:
     """Build a data-URL that every LangChain provider understands.
 
@@ -89,6 +101,13 @@ def _usage_from_message(message: Any) -> TokenUsage | None:
 def _estimate_cost(usage: TokenUsage | None, pricing: TaskConfig) -> CostEstimate | None:
     """Estimate USD cost from token usage and the per-million-token prices."""
     if usage is None:
+        return None
+    # A missing configured rate is unknown, not free. The desktop dashboard
+    # uses its separately refreshed live price catalog; this optional C3
+    # estimate exists only for standalone callers that configured both rates.
+    if usage.input_tokens is not None and pricing.input_price_per_m <= 0:
+        return None
+    if usage.output_tokens is not None and usage.output_tokens > 0 and pricing.output_price_per_m <= 0:
         return None
     input_usd = (usage.input_tokens or 0) / 1_000_000 * pricing.input_price_per_m
     output_usd = (usage.output_tokens or 0) / 1_000_000 * pricing.output_price_per_m
@@ -161,6 +180,7 @@ async def annotate_version(
         model_provider=provider,
         api_key=api_key,
         temperature=0,
+        **_provider_transport_options(provider),
     )
     # include_raw keeps the underlying AIMessage so we can read usage_metadata;
     # with_structured_output otherwise returns only the parsed object.
@@ -231,6 +251,7 @@ async def embed_text(
         model=model_name,
         provider=provider,
         api_key=api_key,
+        **_provider_transport_options(provider),
     )
     vector: list[float] = await embeddings.aembed_query(request.text)
     usage = _usage_from_message(embeddings)  # None unless the object reports it

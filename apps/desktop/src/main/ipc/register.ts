@@ -20,6 +20,7 @@ import type {
 import { createAiClient } from '../ai/client'
 import { createAiServiceProcess } from '../ai/service-process'
 import { createAiWorker } from '../ai/worker'
+import { recordAiCall, recordPersonalActivity } from '../analytics/repository'
 import type { ChronicleDb } from '../db/database'
 import { getSetting } from '../db/repositories'
 import type { AppSettings } from '../../shared/settings'
@@ -346,6 +347,10 @@ export function startChronicleIpc(
       void services.api.getAppStatus().then((status) => emit('statusChanged', status))
     },
     telemetry: telemetryCollector,
+    personalAnalytics: {
+      recordAiCall: (call) => recordAiCall(db, call),
+      recordActivity: (kind, values) => recordPersonalActivity(db, kind, values),
+    },
     diagnostic: recordApplicationDiagnostic,
   })
 

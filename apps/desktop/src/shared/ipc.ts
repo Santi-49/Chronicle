@@ -20,7 +20,7 @@ export interface AdminAccountSummary {
   latest_app_version?: string | null; latest_os_family?: string | null
 }
 export interface AdminStatisticsFilters {
-  periodDays?: number; startDate?: string; endDate?: string
+  periodDays?: number; startDate?: string; endDate?: string; allTime?: boolean
   accountId?: string; country?: string; osFamily?: string; appVersion?: string
 }
 export interface AdminCategoryCount { label: string; count: number }
@@ -201,6 +201,86 @@ export interface SearchResult {
   /** Snippet of the matched summary/tags, for display. */
   snippet: string
   matchedBy: 'keyword' | 'semantic' | 'both'
+}
+
+export type PersonalActivityKind =
+  | 'version-capture'
+  | 'ai-summary'
+  | 'search'
+  | 'restore'
+  | 'project-create'
+
+export interface ActivityDashboardQuery {
+  rangeDays: 30 | 90 | 365 | 'all'
+  /** IANA zone supplied by the renderer, e.g. "Europe/Madrid". */
+  timeZone: string
+  /** Bypass the six-hour cache for an explicit user refresh. */
+  refreshPricing?: boolean
+}
+
+export interface ActivityDashboardDay {
+  date: string
+  versionsCaptured: number
+  assetsActive: number
+  aiSummaries: number
+  searches: number
+  restores: number
+  total: number
+}
+
+export interface ActivityCostGroup {
+  provider: string
+  model: string
+  operation: TelemetryAiOperation
+  calls: number
+  successfulCalls: number
+  inputTokens: number | null
+  outputTokens: number | null
+  providerReportedUsd: number | null
+  estimatedUsd: number | null
+  unavailableCalls: number
+}
+
+export interface ActivityDashboard {
+  generatedAt: string
+  periodStart: string
+  periodEnd: string
+  timeZone: string
+  /** Per-call cost collection began here; earlier activity is partial. */
+  costTrackingSince: string
+  partial: boolean
+  totals: {
+    projectsActive: number
+    assetsActive: number
+    versionsCaptured: number
+    aiSummaries: number
+    searches: number
+    restores: number
+    aiCalls: number
+    estimatedUsd: number | null
+    providerReportedUsd: number | null
+    unavailableCostCalls: number
+  }
+  days: ActivityDashboardDay[]
+  costGroups: ActivityCostGroup[]
+  pricing: {
+    snapshotIds: string[]
+    currency: 'USD'
+    sourceUrl: string
+    refreshedAt: string | null
+    available: boolean
+  }
+}
+
+export interface AiModelPrice {
+  provider: string
+  model: string
+  currency: 'USD'
+  inputUsdPerMillion: number
+  outputUsdPerMillion: number
+  sourceUrl: string
+  refreshedAt: string
+  sourceUpdatedAt: string | null
 }
 
 export type RestoreResult =
@@ -481,6 +561,11 @@ export interface ChronicleApi {
 
   // F7 — search
   search(query: string): Promise<SearchResult[]>
+
+  // POST-09 — private, local-only personal activity and estimated AI spend.
+  getActivityDashboard(query: ActivityDashboardQuery): Promise<ActivityDashboard>
+  /** Latest cached live list price for a model; null when the catalog has no match. */
+  getAiModelPrice(provider: string, model: string): Promise<AiModelPrice | null>
 
   // F4 — AI
   retryAnnotation(versionId: number): Promise<void> // re-queues; result arrives as annotationUpdated

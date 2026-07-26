@@ -29,6 +29,8 @@ const API_METHODS = {
   restoreVersion: true,
   saveVersionCopy: true,
   search: true,
+  getActivityDashboard: true,
+  getAiModelPrice: true,
   retryAnnotation: true,
   retryAllFailedJobs: true,
   getSettings: true,

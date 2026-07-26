@@ -225,6 +225,43 @@ commit messages for factuality, usefulness, extraction coverage, latency, and co
 documentation proves the workflows exist; only user evidence can establish frequency and
 willingness to adopt.
 
+### Live AI Pricing and Usage Metadata (2026-07-26)
+
+Chronicle needs one current price source for three direct BYOK providers, but provider request
+responses do not expose a common authoritative cost field. Google Gemini returns token counts in
+`usageMetadata`; OpenAI responses expose input/output usage and separately offers organization
+Usage and Costs APIs; Anthropic message responses return input/output usage. OpenAI explicitly
+states that its Costs endpoint or billing dashboard—not the usage response—is the financial
+authority. Chronicle therefore records provider usage metadata exactly and labels locally
+calculated amounts **estimated**; provider invoices remain authoritative.
+
+| Unified source evaluated | Result |
+|---|---|
+| Provider pricing pages | Authoritative, but three unrelated HTML pages with no common pricing API; desktop scraping would be brittle. |
+| OpenRouter `/api/v1/models` | Live structured prices, but for inference routed and billed by OpenRouter rather than direct provider BYOK calls. |
+| LiteLLM `model_prices_and_context_window.json` | Broad and machine-readable, but its live moving Gemini alias entries were already stale during this review. |
+| **Models.dev `api.json`** | One public JSON schema keyed by provider and exact model ID, with USD-per-million input/output costs for Chronicle's Google, OpenAI, and Anthropic catalogs. Open source, but community-maintained rather than a billing authority. |
+
+**Decision:** fetch `https://models.dev/api.json` in the Electron main process, extract only the
+direct `google`, `openai`, and `anthropic` entries, and cache the last valid catalog for offline
+use. A user refresh bypasses the six-hour cache. Every estimate stores the catalog SHA-256, fetch
+time, source URL, and exact input/output rates used, so later refreshes never reprice completed
+calls. Unknown models or absent token counts remain unavailable. No creative content, query text,
+keys, or account identity is sent to the catalog endpoint.
+
+**Recommendations:** present costs as a transparency aid rather than accounting; show the source
+and refresh time beside the table; distinguish provider-reported, estimated, and unavailable
+amounts in text; keep activity local and independent of telemetry consent; and never delay capture
+or an AI job on price refresh. Before the demo, compare the cached entries for the selected models
+against each provider's official pricing page.
+
+Sources: [Models.dev repository and API](https://github.com/anomalyco/models.dev),
+[OpenAI Usage and Costs guidance](https://platform.openai.com/docs/api-reference/usage),
+[Gemini token metadata](https://ai.google.dev/gemini-api/docs/generate-content/tokens),
+[Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing),
+[OpenRouter models API](https://openrouter.ai/docs/api/api-reference/models/get-models),
+[LiteLLM price map](https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json).
+
 ### Control-Plane Identity, Sync, and Telemetry (2026-07-21)
 
 Google's OpenID Connect guidance identifies the `sub` claim—not email—as the stable,
@@ -1233,6 +1270,13 @@ table because area and color are poor tools for precise comparison.
   version, and chevron, recolored through Chronicle's light/dark tokens. Normal click relaunches;
   right-click or the keyboard context-menu gesture opens Restart, session-only Later, and
   per-release Ignore — team direction + reference-image review + UI accessibility review
+
+- 2026-07-26 — POST-09 LIVE PRICING: request metadata across the three BYOK providers supplies
+  usage, not a common authoritative per-call invoice amount. Compared official pages,
+  OpenRouter, LiteLLM, and Models.dev; rejected routed prices and a demonstrably stale moving-alias
+  map; selected the single Models.dev JSON API with conditional refresh, offline cache, immutable
+  per-call catalog hashes/rates, and explicit estimate/unavailable labels — team research +
+  primary provider docs and live catalog inspection
 
 - 2026-07-25 — DESKTOP FORMAT ARCHITECTURE (POST-01 closure + POST-02 desktop half): replaced
   fourteen hardcoded extension checks with one shared format registry, and split "captured and
