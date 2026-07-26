@@ -119,6 +119,20 @@ class EmbedTextRequest(ProviderConfig):
         return value
 
 
+class EmbedTextsRequest(ProviderConfig):
+    """A bounded group embedded by one provider batch request."""
+
+    texts: Annotated[list[str], Field(min_length=1, max_length=32)]
+
+    @field_validator("texts")
+    @classmethod
+    def texts_must_not_be_blank(cls, values: list[str]) -> list[str]:
+        cleaned = [value.strip() for value in values]
+        if any(not value or len(value) > 10_000 for value in cleaned):
+            raise ValueError("each text must contain 1 to 10000 characters")
+        return cleaned
+
+
 class ValidateProviderModelRequest(StrictModel):
     """A fully specified task configuration to probe against its provider."""
 
@@ -210,6 +224,15 @@ class EmbedTextResponse(StrictModel):
     dimensions: Annotated[int, Field(gt=0)]
     # LangChain embeddings omit response usage; supported providers use their
     # exact tokenizer through LangChain's public get_num_tokens method.
+    usage: TokenUsage | None = None
+    cost: CostEstimate | None = None
+
+
+class EmbedTextsResponse(StrictModel):
+    embeddings: Annotated[list[list[float]], Field(min_length=1, max_length=32)]
+    provider: str
+    model: str
+    dimensions: Annotated[int, Field(gt=0)]
     usage: TokenUsage | None = None
     cost: CostEstimate | None = None
 

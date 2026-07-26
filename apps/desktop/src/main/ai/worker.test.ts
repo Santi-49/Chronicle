@@ -134,6 +134,13 @@ function workerWith(overrides: Record<string, unknown> = {}) {
       model: 'text-embedding-3-small',
       dimensions: 2,
     }),
+    embedTexts: vi.fn().mockImplementation(async ({ texts }: { texts: string[] }) => ({
+      embeddings: texts.map(() => [0.1, 0.2]),
+      provider: 'openai',
+      model: 'text-embedding-3-small',
+      dimensions: 2,
+      usage: { input_tokens: texts.length * 4, output_tokens: 0, total_tokens: texts.length * 4 },
+    })),
     capabilities: vi.fn().mockResolvedValue({
       service: 'chronicle-ai',
       version: '0.1.0',
@@ -256,7 +263,7 @@ describe('AI queue worker', () => {
 
     await worker.runOnce()
 
-    expect(client.embedText).toHaveBeenCalledTimes(1)
+    expect(client.embedTexts).toHaveBeenCalledTimes(1)
     expect(state.savedEmbedding?.versionId).toBe(2)
     // The deferred annotation is still the only job left.
     expect(state.jobs).toEqual([expect.objectContaining({ id: 1, status: 'pending' })])
@@ -287,8 +294,8 @@ describe('AI queue worker', () => {
     expect(emit).toHaveBeenCalledWith('annotationUpdated', { versionId: 2, aiStatus: 'done' })
 
     await worker.runOnce()
-    expect(client.embedText).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'Background changed to teal.\nteal background logo' }),
+    expect(client.embedTexts).toHaveBeenCalledWith(
+      expect.objectContaining({ texts: ['Background changed to teal.\nteal background logo'] }),
     )
     expect(state.savedEmbedding).toEqual({
       versionId: 2,
@@ -312,8 +319,8 @@ describe('AI queue worker', () => {
       createdAt: new Date().toISOString(),
     })
     const { worker, client } = workerWith()
-    client.embedText.mockResolvedValue({
-      embedding: [1, 0],
+    client.embedTexts.mockResolvedValue({
+      embeddings: [[1, 0]],
       provider: 'canonical-openai-name',
       model: 'canonical-model-name',
       dimensions: 2,
@@ -322,6 +329,42 @@ describe('AI queue worker', () => {
     await worker.runOnce()
 
     expect(state.savedEmbedding?.model).toBe('openai:text-embedding-3-small')
+  })
+
+  it('embeds compatible queued versions in one provider request', async () => {
+    state.jobs = [
+      { ...state.jobs[0]!, id: 1, jobType: 'embedding', payload: { versionId: 1 } },
+      { ...state.jobs[0]!, id: 2, jobType: 'embedding', payload: { versionId: 2 } },
+    ]
+    for (const versionId of [1, 2]) {
+      state.annotations.set(versionId, {
+        versionId,
+        summary: `Summary ${versionId}`,
+        changes: [],
+        tags: ['design'],
+        provider: 'google_genai',
+        model: 'gemini-flash-latest',
+        latencyMs: null,
+        createdAt: new Date().toISOString(),
+      })
+    }
+    const recordAiCall = vi.fn()
+    const { worker, client } = workerWith({
+      personalAnalytics: { recordAiCall, recordActivity: vi.fn() },
+    })
+
+    await worker.runOnce()
+
+    expect(client.embedTexts).toHaveBeenCalledOnce()
+    expect(client.embedTexts).toHaveBeenCalledWith(expect.objectContaining({
+      texts: ['Summary 1\ndesign', 'Summary 2\ndesign'],
+    }))
+    expect(recordAiCall).toHaveBeenCalledOnce()
+    expect(recordAiCall).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'embedding',
+      inputTokens: 8,
+    }))
+    expect(state.jobs).toHaveLength(0)
   })
 
   it('keeps jobs untouched while offline', async () => {

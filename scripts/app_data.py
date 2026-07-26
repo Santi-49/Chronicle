@@ -82,6 +82,19 @@ def clear_telemetry(root: Path) -> None:
     delete_settings(root, TELEMETRY_KEYS, "Cleared the pending usage-statistics buffer")
 
 
+def clear_ai_costs(root: Path) -> None:
+    """Remove local provider-call/cost history without touching activity or content."""
+
+    connection = open_db(root)
+    try:
+        deleted = connection.execute("DELETE FROM ai_usage_calls").rowcount
+        connection.commit()
+    finally:
+        connection.close()
+    print(f"Cleared AI call and cost history: removed {deleted} call(s).")
+    print("Projects, versions, embeddings, settings, keys, and activity were preserved.")
+
+
 def show(root: Path) -> None:
     print(f"Profile: {root}")
     print(f"Exists:  {root.exists()}")
@@ -109,14 +122,27 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("show", "reset-onboarding", "reset-session", "clear-telemetry"),
+        choices=(
+            "show",
+            "reset-onboarding",
+            "reset-session",
+            "clear-telemetry",
+            "clear-ai-costs",
+        ),
     )
     parser.add_argument(
         "--packaged",
         action="store_true",
         help=f"target the installed profile ({PACKAGED_APP_NAME}) instead of development",
     )
+    parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="confirm destructive deletion of local AI call/cost history",
+    )
     args = parser.parse_args()
+    if args.action == "clear-ai-costs" and not args.confirm:
+        parser.error("clear-ai-costs requires --confirm")
 
     root = user_data_dir(PACKAGED_APP_NAME if args.packaged else DEV_APP_NAME)
     {
@@ -124,6 +150,7 @@ def main() -> None:
         "reset-onboarding": reset_onboarding,
         "reset-session": reset_session,
         "clear-telemetry": clear_telemetry,
+        "clear-ai-costs": clear_ai_costs,
     }[args.action](root)
 
 

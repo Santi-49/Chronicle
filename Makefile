@@ -23,7 +23,7 @@ ENV_FILE := .env
 	probe-ai probe-ai-model probe-ai-provider probe-ai-all \
 	migrate makemigration seed generate-types generate-ai-types clean \
 	admin-promote admin-demote admin-list \
-	app-show app-reset-onboarding app-reset-session app-clear-telemetry stats-clear \
+	app-show app-reset-onboarding app-reset-session app-clear-telemetry app-clear-ai-costs stats-clear \
 	demo-assets demo-reset demo-set demo-next demo-status demo-clean
 
 # --- Setup -----------------------------------------------------------------
@@ -209,6 +209,10 @@ app-reset-session:
 app-clear-telemetry:
 	$(APP_DATA) clear-telemetry $(APP_DATA_FLAGS)
 
+# Delete only local provider-call/cost history. Chronicle must be closed.
+app-clear-ai-costs:
+	$(APP_DATA) clear-ai-costs $(APP_DATA_FLAGS) $(if $(CONFIRM),--confirm,)
+
 # Truncate usage statistics in the LOCAL control plane. A deployed API is not
 # affected. INSTALLATIONS=1 also drops installation records.
 stats-clear:
@@ -319,6 +323,7 @@ help:
 	$(info   make app-reset-onboarding  Show the welcome screen again)
 	$(info   make app-reset-session     Sign out of the control plane locally)
 	$(info   make app-clear-telemetry   Drop the pending usage-statistics buffer)
+	$(info   make app-clear-ai-costs CONFIRM=1  Clear local AI call/cost history)
 	$(info   make stats-clear    Clear LOCAL control-plane statistics [INSTALLATIONS=1])
 	$(info   make generate-types Generate API TypeScript types)
 	$(info   make test           Run backend tests in Docker)

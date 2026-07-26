@@ -12,9 +12,15 @@ from chronicle_ai.engine import (
     _provider_transport_options,
     annotate_version,
     embed_text,
+    embed_texts,
     validate_provider_model,
 )
-from chronicle_ai.schemas import AnnotateRequest, EmbedTextRequest, ValidateProviderModelRequest
+from chronicle_ai.schemas import (
+    AnnotateRequest,
+    EmbedTextRequest,
+    EmbedTextsRequest,
+    ValidateProviderModelRequest,
+)
 
 
 IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png", "format": "png"}
@@ -57,6 +63,9 @@ class FakeEmbeddings:
     async def aembed_query(self, text: str) -> list[float]:
         assert text == "navy background"
         return [0.1, 0.2, 0.3]
+
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[float(index), 0.2, 0.3] for index, _text in enumerate(texts)]
 
 
 class FakeTokenCounter:
@@ -342,6 +351,28 @@ async def test_embed_text_survives_an_unavailable_provider_tokenizer() -> None:
 
 
 @pytest.mark.asyncio
+async def test_embed_texts_batches_vectors_and_aggregates_exact_usage() -> None:
+    result = await embed_texts(
+        EmbedTextsRequest.model_validate(
+            {
+                "provider": "openai",
+                "model": "text-embedding-3-small",
+                "apiKey": "secret",
+                "texts": ["navy background", "navy background"],
+            }
+        ),
+        embeddings_factory=lambda **_: FakeEmbeddings(),
+        token_counter_factory=lambda **_: FakeTokenCounter(),
+    )
+
+    assert result.embeddings == [[0.0, 0.2, 0.3], [1.0, 0.2, 0.3]]
+    assert result.dimensions == 3
+    assert result.usage is not None
+    assert result.usage.input_tokens == 4
+    assert result.usage.total_tokens == 4
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("task", ["chat", "embeddings"])
 async def test_validate_provider_model_makes_a_real_task_probe(task: str) -> None:
     structured = FakeStructuredModel(
@@ -357,6 +388,10 @@ async def test_validate_provider_model_makes_a_real_task_probe(task: str) -> Non
         async def aembed_query(self, text: str) -> list[float]:
             embedded_text.append(text)
             return [1.0]
+
+        async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+            embedded_text.extend(texts)
+            return [[1.0] for _text in texts]
 
     await validate_provider_model(
         ValidateProviderModelRequest.model_validate(
@@ -375,7 +410,10 @@ async def test_validate_provider_model_makes_a_real_task_probe(task: str) -> Non
         assert structured.messages is not None
         assert structured.messages[1]["content"][-1]["type"] == "image_url"
     else:
-        assert embedded_text == ["Chronicle configuration check"]
+        assert embedded_text == [
+            "Chronicle configuration check",
+            "Chronicle batch configuration check",
+        ]
 
 
 # ---------------------------------------------------------------------------

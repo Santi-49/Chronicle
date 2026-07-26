@@ -16,6 +16,7 @@ from chronicle_ai.schemas import (
     AnnotateResponse,
     CostEstimate,
     EmbedTextResponse,
+    EmbedTextsResponse,
     TokenUsage,
     ValidateProviderModelResponse,
     VersionAnnotation,
@@ -319,6 +320,35 @@ def test_embed_text_returns_vector_and_metadata(mock_embed: AsyncMock) -> None:
     assert body["embedding"] == [0.1, 0.2, 0.3]
     assert body["dimensions"] == 3
     assert body["provider"] == "openai"
+    mock_embed.assert_awaited_once()
+
+
+@patch(
+    "chronicle_ai.routes.embed_texts",
+    new_callable=AsyncMock,
+)
+def test_embed_texts_returns_ordered_batch_and_usage(mock_embed: AsyncMock) -> None:
+    mock_embed.return_value = EmbedTextsResponse(
+        embeddings=[[0.1, 0.2], [0.3, 0.4]],
+        provider="openai",
+        model="text-embedding-3-small",
+        dimensions=2,
+        usage=TokenUsage(input_tokens=7, output_tokens=0, total_tokens=7),
+    )
+
+    response = client.post(
+        "/embed-texts",
+        json={
+            "provider": "openai",
+            "model": "text-embedding-3-small",
+            "apiKey": "secret",
+            "texts": ["first", "second"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["embeddings"] == [[0.1, 0.2], [0.3, 0.4]]
+    assert response.json()["usage"]["input_tokens"] == 7
     mock_embed.assert_awaited_once()
 
 

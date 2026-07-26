@@ -67,7 +67,8 @@ from the configured per-task prices). Embedding responses carry the same
 `usage`/`cost` fields. LangChain's embedding result contains only the vector,
 so Chronicle uses LangChain's public model-tokenizer method for exact OpenAI
 and Google input counts; a tokenizer failure remains nullable and never fails
-the embedding.
+the embedding. `/embed-texts` accepts 1–32 ordered texts for one provider batch;
+the desktop worker currently caps queue batches at 16.
 
 The desktop Activity & Cost dashboard does not use hardcoded or sidecar environment prices. It
 records the nullable C3 usage fields and estimates in Electron from a conditionally refreshed,

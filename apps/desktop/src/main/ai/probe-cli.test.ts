@@ -76,6 +76,7 @@ describe('provider probe CLI', () => {
           capabilities: vi.fn(),
           annotate: vi.fn(),
           embedText: vi.fn(),
+          embedTexts: vi.fn(),
           validateProviderModel: vi.fn().mockRejectedValue(
             new Error('provider echoed secret-key'),
           ),

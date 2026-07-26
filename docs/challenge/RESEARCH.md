@@ -1295,6 +1295,13 @@ table because area and color are poor tools for precise comparison.
   4 OpenAI and 3 Google input tokens for the same configuration-check text — official tokenizer
   docs + live saved-key verification
 
+- 2026-07-26 — EMBEDDING BATCHING: both shipped embedding integrations implement LangChain's
+  ordered `aembed_documents` batch method. Chronicle now batches up to 16 queued version-index
+  texts per provider call, validates one returned vector per input, and records aggregate exact
+  token usage once per real batch. Interactive search remains on `aembed_query` so throughput
+  work does not add query latency. Two-text live probes passed for OpenAI and Google — installed
+  LangChain provider interfaces + live saved-key verification
+
 - 2026-07-25 — DESKTOP FORMAT ARCHITECTURE (POST-01 closure + POST-02 desktop half): replaced
   fourteen hardcoded extension checks with one shared format registry, and split "captured and
   displayed" from "annotated by AI" into independent capabilities negotiated through a new

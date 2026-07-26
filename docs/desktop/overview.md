@@ -289,11 +289,17 @@ states USD and the price refresh time, and points users to their provider invoic
 These private analytics tables are separate from opt-in telemetry and contain no creative content,
 paths, names, summaries, tags, search text, or credentials.
 
-Each saved AI model always shows its small live per-million-token list price in Settings and in
-Activity & Cost, even before that model has recorded a call. An unlisted model remains visible with
-an unavailable-price state rather than receiving a guessed rate. Both surfaces use the same cached
-Models.dev catalog. The Admin control center offers an all-time range that begins automatically at
-the first control-plane installation log and ends at request time.
+Queued version-index embeddings are drained in ordered batches of up to 16 texts through C3,
+reducing provider round trips while keeping interactive search-query embeddings single-item and
+latency-oriented. Each real batch produces one usage/cost call record with aggregate exact input
+tokens; vector order is checked before results are attached to versions.
+
+Settings shows the small live per-million-token list price for the current provider/model fields
+and refreshes it after every selection change (debounced for custom typing). Activity & Cost shows
+the persisted selections even before either model has recorded a call. An unlisted model remains
+visible with an unavailable-price state rather than receiving a guessed rate. Both surfaces use
+the same cached Models.dev catalog. The Admin control center offers an all-time range that begins
+automatically at the first control-plane installation log and ends at request time.
 
 ### 8.1 Diagnostics — developer-only
 

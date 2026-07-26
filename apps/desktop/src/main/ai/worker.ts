@@ -34,6 +34,7 @@ import { diagnosticError } from '../diagnostics'
 import type { AiCallRecord } from '../analytics/repository'
 
 const MAX_ATTEMPTS = 3
+export const EMBEDDING_BATCH_SIZE = 16
 
 export interface AiWorker {
   start(): void
@@ -239,27 +240,67 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     })
   }
 
-  async function processEmbedding(
-    job: QueueItem,
-    versionId: number,
+  async function processEmbeddingBatch(
+    jobs: QueueItem[],
     config: ProviderRequest,
   ): Promise<void> {
-    const annotation = getAnnotation(deps.db, versionId)
-    if (!annotation) {
-      deleteJob(deps.db, job.id)
+    const items: Array<{
+      job: QueueItem
+      versionId: number
+      sourceText: string
+    }> = []
+    for (const job of jobs) {
+      const versionId = versionIdOf(job)
+      const annotation = versionId === null ? undefined : getAnnotation(deps.db, versionId)
+      if (versionId === null || !annotation) {
+        deleteJob(deps.db, job.id)
+        continue
+      }
+      items.push({
+        job,
+        versionId,
+        sourceText: `${annotation.summary}\n${annotation.tags.join(' ')}`,
+      })
+    }
+    if (items.length === 0) {
+      deps.onQueueChanged()
       return
     }
 
-    const sourceText = `${annotation.summary}\n${annotation.tags.join(' ')}`
     const embeddingStart = Date.now()
-    const result = await deps.client.embedText({ ...config, text: sourceText })
-    saveEmbedding(deps.db, {
-      versionId,
-      vector: Float32Array.from(result.embedding),
-      sourceText,
-      model: embeddingModelIdentity(config.provider, config.model),
+    const result = await deps.client.embedTexts({
+      ...config,
+      texts: items.map((item) => item.sourceText),
     })
+    if (result.embeddings.length !== items.length) {
+      throw new Error(
+        `AI service returned ${result.embeddings.length} embeddings for ${items.length} jobs`,
+      )
+    }
     const embeddingLatency = Date.now() - embeddingStart
+    items.forEach((item, index) => {
+      saveEmbedding(deps.db, {
+        versionId: item.versionId,
+        vector: Float32Array.from(result.embeddings[index]!),
+        sourceText: item.sourceText,
+        model: embeddingModelIdentity(config.provider, config.model),
+      })
+      deleteJob(deps.db, item.job.id)
+      diagnostic({
+        level: 'debug',
+        source: 'ai',
+        event: 'embedding_generated',
+        message: `Generated an embedding for version ${item.versionId}.`,
+        context: {
+          jobId: item.job.id,
+          versionId: item.versionId,
+          batchSize: items.length,
+          provider: config.provider,
+          model: config.model,
+          latencyMs: embeddingLatency,
+        },
+      })
+    })
     deps.personalAnalytics?.recordAiCall({
       operation: 'embedding',
       provider: config.provider,
@@ -270,22 +311,8 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       outputTokens: result.usage?.output_tokens,
       totalTokens: result.usage?.total_tokens,
     })
-    deleteJob(deps.db, job.id)
     deps.telemetry?.recordAiUsage('embedding', config.provider, config.model, 'success', embeddingLatency)
     deps.onQueueChanged()
-    diagnostic({
-      level: 'debug',
-      source: 'ai',
-      event: 'embedding_generated',
-      message: `Generated an embedding for version ${versionId}.`,
-      context: {
-        jobId: job.id,
-        versionId,
-        provider: config.provider,
-        model: config.model,
-        latencyMs: embeddingLatency,
-      },
-    })
   }
 
   /**
@@ -334,6 +361,11 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       }
     }
     if (!job) return
+    const jobs = job.jobType === 'embedding'
+      ? candidates
+          .filter((candidate) => candidate.jobType === 'embedding')
+          .slice(0, EMBEDDING_BATCH_SIZE)
+      : [job]
     const versionId = versionIdOf(job)
     if (versionId === null) {
       deleteJob(deps.db, job.id)
@@ -350,7 +382,7 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     const startedAt = Date.now()
     try {
       if (job.jobType === 'ai_annotation') await processAnnotation(job, versionId, config)
-      else await processEmbedding(job, versionId, config)
+      else await processEmbeddingBatch(jobs, config)
     } catch (error) {
       deps.personalAnalytics?.recordAiCall({
         operation,
@@ -363,7 +395,13 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
       deps.telemetry?.recordAiUsage(
         operation, config.provider, config.model, 'failure', Date.now() - startedAt,
       )
-      handleFailure(job, versionId, error)
+      if (job.jobType === 'embedding') {
+        for (const batchJob of jobs) {
+          handleFailure(batchJob, versionIdOf(batchJob), error)
+        }
+      } else {
+        handleFailure(job, versionId, error)
+      }
     } finally {
       running = false
     }

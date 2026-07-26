@@ -341,9 +341,11 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const [embedProvider, setEmbedProvider] = useState('google_genai')
   const [embedModel, setEmbedModel] = useState('gemini-embedding-001')
   const [saveState, setSaveState] = useState<{ message: string; error: boolean } | null>(null)
-  const [savedPrices, setSavedPrices] = useState<{
+  const [priceState, setPriceState] = useState<{
+    key: string
     chat: AiModelPrice | null
     embeddings: AiModelPrice | null
+    loading: boolean
   } | null>(null)
   const [testingTask, setTestingTask] = useState<AiTask | null>(null)
   const [testStates, setTestStates] = useState<
@@ -365,37 +367,53 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
   }, [settings])
 
   useEffect(() => {
-    if (!settings) return
+    const chatProviderId = chatProvider.trim()
+    const chatModelId = chatModel.trim()
+    const embeddingProviderId = embedProvider.trim()
+    const embeddingModelId = embedModel.trim()
+    const key = [
+      chatProviderId,
+      chatModelId,
+      embeddingProviderId,
+      embeddingModelId,
+    ].join('\u001f')
     let cancelled = false
-    const loadSavedPrices = async () => {
+    setPriceState({ key, chat: null, embeddings: null, loading: true })
+    const timer = setTimeout(async () => {
       let chat: AiModelPrice | null = null
       let embeddings: AiModelPrice | null = null
-      try {
-        chat = await chronicle.getAiModelPrice(
-          settings.ai.chat.provider,
-          settings.ai.chat.model,
-        )
-        embeddings = await chronicle.getAiModelPrice(
-          settings.ai.embeddings.provider,
-          settings.ai.embeddings.model,
-        )
-      } catch {
-        // The saved selection remains useful when only cached pricing is
-        // unavailable; display that state instead of hiding the row.
+      if (chatProviderId && chatModelId) {
+        try {
+          chat = await chronicle.getAiModelPrice(chatProviderId, chatModelId)
+        } catch {
+          // One unavailable model must not hide the other task's price.
+        }
       }
-      if (!cancelled) setSavedPrices({ chat, embeddings })
-    }
-    void loadSavedPrices()
+      if (embeddingProviderId && embeddingModelId) {
+        try {
+          embeddings = await chronicle.getAiModelPrice(
+            embeddingProviderId,
+            embeddingModelId,
+          )
+        } catch {
+          // Pricing is informational; editing and saving remain available.
+        }
+      }
+      if (!cancelled) setPriceState({ key, chat, embeddings, loading: false })
+    }, 250)
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
-  }, [settings])
+  }, [chatProvider, chatModel, embedProvider, embedModel])
 
-  const formMatchesSaved = settings !== undefined &&
-    chatProvider.trim() === settings.ai.chat.provider &&
-    chatModel.trim() === settings.ai.chat.model &&
-    embedProvider.trim() === settings.ai.embeddings.provider &&
-    embedModel.trim() === settings.ai.embeddings.model
+  const priceKey = [
+    chatProvider.trim(),
+    chatModel.trim(),
+    embedProvider.trim(),
+    embedModel.trim(),
+  ].join('\u001f')
+  const currentPrices = priceState?.key === priceKey ? priceState : null
 
   // When switching provider in preset mode, snap the model to that provider's first option.
   const changeProvider = (task: AiTask, providerId: string) => {
@@ -435,21 +453,6 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           embeddings: { provider: embedProvider.trim(), model: embedModel.trim() },
         },
       })
-      let chatPrice: AiModelPrice | null = null
-      let embeddingsPrice: AiModelPrice | null = null
-      try {
-        // The first lookup refreshes the shared catalog when stale; the second
-        // then reads that same cache instead of starting a duplicate request.
-        chatPrice = await chronicle.getAiModelPrice(chatProvider.trim(), chatModel.trim())
-        embeddingsPrice = await chronicle.getAiModelPrice(
-          embedProvider.trim(),
-          embedModel.trim(),
-        )
-      } catch {
-        // Pricing is informational and must never turn a successful settings
-        // save into a failure.
-      }
-      setSavedPrices({ chat: chatPrice, embeddings: embeddingsPrice })
       setSaveState({ message: 'Saved.', error: false })
       onAiReady()
     } catch (err) {
@@ -552,9 +555,11 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="chat" provider={chatProvider} model={chatModel} onProvider={(p) => changeProvider('chat', p)} onModel={setChatModel} />
         )}
         {chatError && <p className="ai-task-error" role="alert">{chatError}</p>}
-        {savedPrices && formMatchesSaved && (
-          <small className="ai-model-price">
-            {formatModelPrice(savedPrices.chat, false)}
+        {chatProvider.trim() && chatModel.trim() && (
+          <small aria-live="polite" className="ai-model-price">
+            {!currentPrices || currentPrices.loading
+              ? 'Checking live list price…'
+              : formatModelPrice(currentPrices?.chat ?? null, false)}
           </small>
         )}
         <div className="ai-task-test-row">
@@ -588,9 +593,11 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="embeddings" provider={embedProvider} model={embedModel} onProvider={(p) => changeProvider('embeddings', p)} onModel={setEmbedModel} />
         )}
         {embedError && <p className="ai-task-error" role="alert">{embedError}</p>}
-        {savedPrices && formMatchesSaved && (
-          <small className="ai-model-price">
-            {formatModelPrice(savedPrices.embeddings, true)}
+        {embedProvider.trim() && embedModel.trim() && (
+          <small aria-live="polite" className="ai-model-price">
+            {!currentPrices || currentPrices.loading
+              ? 'Checking live list price…'
+              : formatModelPrice(currentPrices?.embeddings ?? null, true)}
           </small>
         )}
         <div className="ai-task-test-row">

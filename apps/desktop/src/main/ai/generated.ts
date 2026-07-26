@@ -82,6 +82,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/embed-texts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Text Embeddings */
+        post: operations["create_text_embeddings_embed_texts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/validate-provider-model": {
         parameters: {
             query?: never;
@@ -200,6 +217,33 @@ export interface components {
         EmbedTextResponse: {
             /** Embedding */
             embedding: number[];
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Dimensions */
+            dimensions: number;
+            usage?: components["schemas"]["TokenUsage"] | null;
+            cost?: components["schemas"]["CostEstimate"] | null;
+        };
+        /**
+         * EmbedTextsRequest
+         * @description A bounded group embedded by one provider batch request.
+         */
+        EmbedTextsRequest: {
+            /** Provider */
+            provider?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Apikey */
+            apiKey?: string | null;
+            /** Texts */
+            texts: string[];
+        };
+        /** EmbedTextsResponse */
+        EmbedTextsResponse: {
+            /** Embeddings */
+            embeddings: number[][];
             /** Provider */
             provider: string;
             /** Model */
@@ -488,6 +532,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmbedTextResponse"];
+                };
+            };
+            /** @description No provider/model/key configured */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+            /** @description Provider rejected the credential */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+            /** @description Provider rejected the request size */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Provider quota or rate limit reached */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+            /** @description Provider or model output error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+            /** @description Provider integration unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+            /** @description Provider timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceErrorResponse"];
+                };
+            };
+        };
+    };
+    create_text_embeddings_embed_texts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmbedTextsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmbedTextsResponse"];
                 };
             };
             /** @description No provider/model/key configured */

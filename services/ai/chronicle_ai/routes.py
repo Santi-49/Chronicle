@@ -8,6 +8,7 @@ from .engine import (
     UnsupportedFormatError,
     annotate_version,
     embed_text,
+    embed_texts,
     validate_provider_model,
 )
 from .psd_adapter import PsdExtractionError
@@ -17,6 +18,8 @@ from .schemas import (
     CapabilitiesResponse,
     EmbedTextRequest,
     EmbedTextResponse,
+    EmbedTextsRequest,
+    EmbedTextsResponse,
     HealthResponse,
     ServiceErrorResponse,
     ValidateProviderModelRequest,
@@ -174,6 +177,30 @@ async def annotate(request: AnnotateRequest) -> AnnotateResponse:
 async def create_text_embedding(request: EmbedTextRequest) -> EmbedTextResponse:
     try:
         return await embed_text(request)
+    except ConfigurationError as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "configuration_error", "message": str(error)},
+        ) from error
+    except ImportError as error:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "provider_unavailable", "message": "The provider is not installed."},
+        ) from error
+    except TimeoutError as error:
+        raise HTTPException(
+            status_code=504,
+            detail={"code": "provider_timeout", "message": "The embedding provider timed out."},
+        ) from error
+    except Exception as error:
+        key = request.api_key.get_secret_value() if request.api_key else None
+        raise _provider_error(error, "embedding", key) from error
+
+
+@router.post("/embed-texts", response_model=EmbedTextsResponse, responses=ERROR_RESPONSES)
+async def create_text_embeddings(request: EmbedTextsRequest) -> EmbedTextsResponse:
+    try:
+        return await embed_texts(request)
     except ConfigurationError as error:
         raise HTTPException(
             status_code=400,
