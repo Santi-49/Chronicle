@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.0](https://github.com/Santi-49/Chronicle/compare/v0.11.1...v0.12.0) (2026-07-26)
+
+
+### Features
+
+* enhance update experience with compact notifications and ignore option ([35100b9](https://github.com/Santi-49/Chronicle/commit/35100b9d0b1e60ec0eebf1b30b83768ea5efc425))
+* implement compact update notifications with context menu options for relaunch and ignore ([35100b9](https://github.com/Santi-49/Chronicle/commit/35100b9d0b1e60ec0eebf1b30b83768ea5efc425))
+
+
+### Bug Fixes
+
+* **changelog:** refine desktop release commit filtering and update documentation ([35100b9](https://github.com/Santi-49/Chronicle/commit/35100b9d0b1e60ec0eebf1b30b83768ea5efc425))
+
 ## [0.11.1](https://github.com/Santi-49/Chronicle/compare/v0.11.0...v0.11.1) (2026-07-26)
 
 
