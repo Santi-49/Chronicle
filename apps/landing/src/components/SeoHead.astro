@@ -5,7 +5,7 @@ interface Props {
   title: string;
   description: string;
   pathname: string;
-  pageType?: "home" | "about" | "privacy" | "terms";
+  pageType?: "home" | "about" | "privacy" | "terms" | "help";
 }
 
 const { title, description, pathname, pageType = "home" } = Astro.props;
@@ -24,7 +24,7 @@ const structuredData = pageType === "home" || pageType === "about"
       url: canonicalUrl.href,
       downloadUrl: landingContent.appUrl,
       codeRepository: landingContent.githubUrl,
-      softwareHelp: `${landingContent.githubUrl}/issues`,
+      softwareHelp: new URL("/help/", Astro.site ?? Astro.url).href,
     }
   : {
       "@context": "https://schema.org",

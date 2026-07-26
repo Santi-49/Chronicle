@@ -152,6 +152,7 @@ button:disabled {
   gap: 9px;
   font-size: 13px;
   font-weight: 650;
+  text-decoration: none;
 }
 
 .primary-button {

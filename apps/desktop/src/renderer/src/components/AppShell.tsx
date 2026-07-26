@@ -4,6 +4,7 @@ import { getPrimaryRoute } from '../types/navigation'
 import { Icon, type IconName } from './Icon'
 import { StatusBar } from './StatusBar'
 import { UpdateBanner } from './UpdateBanner'
+import { HELP_CENTER_URL } from '../lib/helpLinks'
 
 interface AppShellProps {
   route: AppRoute
@@ -51,7 +52,16 @@ export function AppShell({ route, children, developerMode, isAdmin, onNavigate, 
         </nav>
         <div className="sidebar-footer">
           <UpdateBanner />
-          <nav aria-label="Application settings">
+          <nav aria-label="Help and application settings">
+            <a
+              className="sidebar-link"
+              href={HELP_CENTER_URL}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Icon name="help" />
+              <span>Help</span>
+            </a>
             <button
               aria-current={activeRoute === 'settings' ? 'page' : undefined}
               className={activeRoute === 'settings' ? 'sidebar-link sidebar-link-active' : 'sidebar-link'}
