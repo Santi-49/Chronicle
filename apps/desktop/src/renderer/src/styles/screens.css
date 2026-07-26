@@ -600,6 +600,14 @@
 .project-danger-zone > div > p:last-child { max-width: 390px; margin: 8px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
 .project-danger-zone > .project-removal-confirmation { width: 100%; max-width: none; }
 .settings-section > .secondary-button { margin-left: 44px; }
+.about-update-status { display: grid; margin: 22px 0 0 44px; gap: 14px; }
+.about-update-status > div:first-child { display: grid; gap: 6px; }
+.about-update-status strong { font-size: 13px; }
+.about-update-status span,
+.about-update-status small { color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.about-update-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.about-update-actions button { min-height: 44px; }
+.about-update-status > .form-error { margin: 0; }
 .settings-form-grid { display: grid; margin: 24px 0 0 44px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .settings-form-grid label { display: grid; gap: 8px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
 .settings-form-grid input,
@@ -975,6 +983,7 @@
   .save-cluster-end,
   .api-keys,
   .settings-section > .secondary-button { margin-left: 0; }
+  .about-update-status { margin-left: 0; }
   .account-resource-row { align-items: flex-start; flex-direction: column; gap: 12px; }
   .ai-task .settings-form-grid { margin-left: 0; }
   .api-key-row { grid-template-columns: 1fr; gap: 8px; }
@@ -1034,6 +1043,7 @@
 .admin-bars i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); border-radius: inherit; transform-origin: left; transition: filter 160ms ease, transform 160ms ease; }
 .admin-bars>div:hover i,.admin-bars>div:focus-visible i { filter: brightness(1.12); transform: scaleY(1.25); }
 .admin-bars strong { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-chart-summary { margin: 14px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
 .admin-trend { position: relative; margin-top: 14px; }.admin-trend svg { display: block; width: 100%; min-height: 150px; overflow: visible; }
 .admin-trend polyline { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .admin-trend-area { opacity: 1; }.admin-trend circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; cursor: crosshair; transition: r 140ms ease, stroke-width 140ms ease; }

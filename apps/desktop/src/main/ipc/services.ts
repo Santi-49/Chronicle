@@ -32,6 +32,7 @@ import type {
   PendingJob,
   RendererErrorReport,
   TrackedFolder,
+  UpdateState,
   VersionDetails,
   VersionSummary,
 } from '../../shared/ipc'
@@ -161,6 +162,12 @@ export interface ChronicleServicesDeps {
   /** Callback fired when the user turns telemetry off — worker clears queue + server inventory. */
   onTelemetryDisabled?: () => Promise<void>
   telemetry?: TelemetryCollector
+  /** Packaged Windows updater. Unsupported/dev builds use an inert fallback. */
+  updater?: {
+    getState: () => UpdateState
+    checkForUpdates: () => Promise<UpdateState>
+    restartToUpdate: () => Promise<void>
+  }
   /** Test-only overrides; production uses the C4 settle default and initial scan. */
   settleMs?: number
   emitInitial?: boolean
@@ -1413,6 +1420,26 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         })
       }
       return pending
+    },
+
+    async getUpdateState() {
+      return deps.updater?.getState() ?? {
+        phase: 'unsupported',
+        currentVersion: deps.installation?.appVersion ?? '0.0.0',
+        availableVersion: null,
+        percent: null,
+        checkedAt: null,
+        error: null,
+      }
+    },
+
+    async checkForUpdates() {
+      return deps.updater?.checkForUpdates() ?? api.getUpdateState()
+    },
+
+    async restartToUpdate() {
+      if (!deps.updater) throw new Error('Application updates are unavailable in this build')
+      await deps.updater.restartToUpdate()
     },
   }
 

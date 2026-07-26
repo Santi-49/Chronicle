@@ -231,6 +231,27 @@ export interface AppStatus {
   aiConfigured: boolean // false → UI shows "configure AI in Settings"
 }
 
+/** Packaged Windows application-update lifecycle. No feed URL or local path crosses IPC. */
+export type UpdatePhase =
+  | 'unsupported'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+
+export interface UpdateState {
+  phase: UpdatePhase
+  currentVersion: string
+  availableVersion: string | null
+  /** Rounded 0–100 download progress; null before a download begins. */
+  percent: number | null
+  /** Last completed check, including a failed manual/automatic check. */
+  checkedAt: string | null
+  /** Sanitized recovery copy. Automatic failures do not create a global banner. */
+  error: string | null
+}
+
 /** Renderer-safe view of an AI queue item. Raw internal payloads never cross IPC. */
 export interface PendingJob {
   id: number
@@ -526,6 +547,13 @@ export interface ChronicleApi {
   getAppStatus(): Promise<AppStatus>
   /** FIFO list backing the status bar's pending AI-job count. */
   listPendingJobs(): Promise<PendingJob[]>
+
+  // Application update (packaged Windows only)
+  getUpdateState(): Promise<UpdateState>
+  /** User-initiated check; single-flighted with the automatic check. */
+  checkForUpdates(): Promise<UpdateState>
+  /** Valid only after updateStateChanged reports `ready`. */
+  restartToUpdate(): Promise<void>
 }
 
 // ── Main → renderer (push events) ──────────────────────────────────────
@@ -545,6 +573,8 @@ export interface ChronicleEvents {
   controlPlaneDiagnostic: ControlPlaneDiagnostic
   /** One structured application lifecycle/error event — update developer diagnostics. */
   applicationDiagnostic: ApplicationDiagnostic
+  /** Packaged Windows updater changed phase or download progress. */
+  updateStateChanged: UpdateState
 }
 
 export type ChronicleEventName = keyof ChronicleEvents
