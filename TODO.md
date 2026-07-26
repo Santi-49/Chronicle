@@ -1288,7 +1288,8 @@ update telemetry.
 > CI-only GitHub publishing, local/published `latest.yml` and blockmap validation, a
 > packaged-Windows-only main-process controller, the narrow typed C1 state/check/restart/event
 > surface, delayed and four-hour single-flight checks, background download, explicit restart,
-> a compact update-ready notice above Settings with Restart/Later/Ignore actions,
+> a compact Claude-style download pill and relaunch card above Settings, with a right-click
+> Restart/Later/per-version Ignore menu,
 > Settings/About status and retry, and an admin update-adoption
 > comparison derived from the existing `app_version_distribution` telemetry. No update telemetry
 > was added. The controller preserves active download/ready state against later checks.

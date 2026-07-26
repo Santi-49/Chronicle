@@ -241,12 +241,13 @@ Files:
 
 Work:
 
-- Mount one compact update-ready affordance in the sidebar immediately above Settings:
-  - `available` and `downloading`: no global message; download continues in the background;
-  - `ready`: “Update ready” with **Restart to update**, **Later**, and **Ignore**;
+- Mount one compact update affordance in the sidebar immediately above Settings:
+  - `available` and `downloading`: rounded “Downloading update…” status pill;
+  - `ready`: the pill becomes a single “Relaunch to update” card with release version;
   - automatic check failures: no global notice.
-- **Later** hides the notice for the current app session. **Ignore** stores the offered version
-  locally and suppresses that version across launches; a later release appears normally.
+- The card itself relaunches to install. Right-click (or the keyboard context-menu gesture) opens
+  **Restart**, **Later**, and **Ignore**: Later dismisses for the session, while Ignore stores the
+  offered version locally and suppresses it across launches. A later release appears normally.
 - Add **Settings → About** with current version, last-check time, state, and **Check now**.
   Explicit failures may appear inline with Retry.
 - Restore focus sensibly if the banner disappears, honor reduced motion, and use a polite live
@@ -270,10 +271,10 @@ Windows clean-profile matrix:
    SmartScreen warning, assisted/current-user install, custom directory, shortcuts, sidecar health,
    local capture, and `vA` in Settings.
 2. With `vA` running, publish higher stable `vB` through the normal Release Please path.
-3. Confirm `vA` detects `vB`, continues capturing while downloading without a global progress
-   message, and shows the sidebar notice only after reaching `ready`.
-4. Choose **Later**; confirm the app remains usable and an ordinary quit does not install.
-5. Relaunch, choose **Restart to update**, and confirm the same install location, shortcuts,
+3. Confirm `vA` detects `vB`, continues capturing while the compact sidebar pill reports the
+   download, and replaces it with the relaunch card after reaching `ready`.
+4. Quit normally without selecting the card and confirm the update is not installed.
+5. Relaunch, choose **Relaunch to update**, and confirm the same install location, shortcuts,
    projects, database, version library, encrypted provider configuration, and onboarding/legal
    state survive.
 6. Confirm Settings and `app.getVersion()` report `vB`, the app captures a new version, and no

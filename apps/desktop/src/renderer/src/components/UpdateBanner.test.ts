@@ -17,26 +17,33 @@ const base: UpdateState = {
 }
 
 describe('updateBannerCopy', () => {
-  it('stays hidden until the update is ready to install', () => {
+  it('stays hidden when no update is active', () => {
     expect(updateBannerCopy(base)).toBeNull()
     expect(updateBannerCopy({ ...base, phase: 'checking' })).toBeNull()
     expect(updateBannerCopy({ ...base, phase: 'unsupported' })).toBeNull()
-    expect(updateBannerCopy({ ...base, phase: 'available', availableVersion: '1.1.0' })).toBeNull()
+  })
+
+  it('uses one compact message while the update downloads', () => {
+    expect(updateBannerCopy({
+      ...base,
+      phase: 'available',
+      availableVersion: '1.1.0',
+    })).toBe('Downloading update…')
     expect(updateBannerCopy({
       ...base,
       phase: 'downloading',
       availableVersion: '1.1.0',
       percent: 48,
-    })).toBeNull()
+    })).toBe('Downloading update…')
   })
 
-  it('shows only a compact ready message after download', () => {
+  it('switches to the relaunch action after download', () => {
     expect(updateBannerCopy({
       ...base,
       phase: 'ready',
       availableVersion: '1.1.0',
       percent: 100,
-    })).toBe('Update ready')
+    })).toBe('Relaunch to update')
   })
 
   it('persists the version selected with Ignore', () => {

@@ -3,7 +3,10 @@ import type { UpdateState } from '../../../shared/ipc'
 export const IGNORED_UPDATE_VERSION_KEY = 'chronicle-ignored-update-version'
 
 export function updateBannerCopy(state: UpdateState): string | null {
-  return state.phase === 'ready' && state.availableVersion ? 'Update ready' : null
+  if (!state.availableVersion) return null
+  if (state.phase === 'available' || state.phase === 'downloading') return 'Downloading update…'
+  if (state.phase === 'ready') return 'Relaunch to update'
+  return null
 }
 
 export function readIgnoredUpdateVersion(

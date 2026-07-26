@@ -418,11 +418,11 @@ Sources:
   the first updater-capable release requires one manual install. Only a following higher release
   can demonstrate the genuine installed vA → vB path.
 - Automatic checks must run only in packaged Windows builds and remain independent of capture and
-  local history. The safe UX is a silent background download followed by a compact ready notice
-  above Settings with an explicit **Restart to update**; **Later** dismisses it for the session and
-  **Ignore** suppresses only that release. `autoInstallOnAppQuit` remains disabled. Ordinary
-  offline/network errors stay out of the global UI; a user-initiated **Check now** may return
-  sanitized retry feedback.
+  local history. The safe UX is a compact download-status pill above Settings that becomes one
+  explicit **Relaunch to update** card when ready. Normal click restarts; a right-click or keyboard
+  context menu exposes Restart, session-only Later, and per-release Ignore without adding permanent
+  secondary controls. `autoInstallOnAppQuit` remains disabled. Ordinary offline/network errors
+  stay out of the global UI; a user-initiated **Check now** may return sanitized retry feedback.
 - An unsigned installer can be transported over GitHub HTTPS and checked against the SHA-512 in
   `latest.yml`, but this does not establish an independent publisher identity. Chronicle must not
   describe that as equivalent to Authenticode signing. SmartScreen friction and compromise of the
@@ -1093,11 +1093,12 @@ table because area and color are poor tools for precise comparison.
   sidecar, consumed contracts/brand/prompts, or installer build and publication. Pure control-plane,
   landing, infrastructure, and documentation changes are excluded from desktop release notes;
   renamed files are matched using both their old and new paths — team direction + workflow review
-- 2026-07-26 — UPDATE NOTICE UX REVISION: automatic update discovery and download progress no
-  longer consume a full-width shell banner. Chronicle stays quiet while downloading and adds a
-  compact, polite-live-region notice directly above Settings only after the installer is ready.
-  Restart is primary; Later dismisses for the session; Ignore persists only the offered version so
-  future releases remain visible — team direction + UI accessibility review
+- 2026-07-26 — UPDATE NOTICE UX REVISION (supersedes the ready-only variant): update status no
+  longer consumes a full-width shell banner. Chronicle follows Claude Desktop's compact pattern
+  above Settings: a rounded downloading pill becomes one rounded relaunch card with icon, title,
+  version, and chevron, recolored through Chronicle's light/dark tokens. Normal click relaunches;
+  right-click or the keyboard context-menu gesture opens Restart, session-only Later, and
+  per-release Ignore — team direction + reference-image review + UI accessibility review
 
 - 2026-07-25 — DESKTOP FORMAT ARCHITECTURE (POST-01 closure + POST-02 desktop half): replaced
   fourteen hardcoded extension checks with one shared format registry, and split "captured and
