@@ -390,7 +390,10 @@ Sources:
   the original `dev` commits remain outside `main` ancestry even after back-sync and an unbounded
   comparison replays old releases. Chronicle finds the latest release back-sync SHA and generates
   the override only from its graph descendants. Unique non-merge `feat`, `fix`, `deps`, and
-  breaking commits are retained; merge commits, ordinary chores, and exact duplicates are omitted.
+  breaking commits are retained only when their changed paths affect the shipped desktop app,
+  bundled AI sidecar, consumed contracts/assets, or installer delivery. Merge commits, ordinary
+  chores, exact duplicates, and changes limited to other monorepo products are omitted. Renames
+  test both the previous and current path so moving a desktop file cannot silently disappear.
   The built-in `GITHUB_TOKEN` performs the idempotent body edit so it cannot recursively trigger
   the privileged merge workflow; the release PAT remains limited to guarded merge actions.
   ([Release Please](https://github.com/googleapis/release-please))
@@ -1083,6 +1086,11 @@ table because area and color are poor tools for precise comparison.
   only bumps the app version. Development and packaged builds legitimately differ because Electron
   names the user-data directory after the app (`chronicle-desktop` vs `Chronicle`) — local session
   trace + code review
+- 2026-07-26 — DESKTOP CHANGELOG SCOPE DECISION: Release Please commit overrides now inspect each
+  eligible commit's changed files and include it only when it affects the Electron app, bundled AI
+  sidecar, consumed contracts/brand/prompts, or installer build and publication. Pure control-plane,
+  landing, infrastructure, and documentation changes are excluded from desktop release notes;
+  renamed files are matched using both their old and new paths — team direction + workflow review
 
 - 2026-07-25 — DESKTOP FORMAT ARCHITECTURE (POST-01 closure + POST-02 desktop half): replaced
   fourteen hardcoded extension checks with one shared format registry, and split "captured and

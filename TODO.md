@@ -1301,7 +1301,11 @@ update telemetry.
 > `BEGIN_COMMIT_OVERRIDE` block from the commits after the latest release back-sync before squash
 > merge. It retains unique non-merge `feat`, `fix`, `deps`, and breaking Conventional Commit
 > messages, so updater and related fixes remain separate changelog entries without replaying
-> already released history retained by persistent `dev`.
+> already released history retained by persistent `dev`. The collector now checks each candidate
+> commit's changed files and retains it only when it affects the shipped desktop app, bundled AI
+> sidecar, consumed contracts/assets, or installer build/publish path. Control-plane-only,
+> landing-only, infrastructure-only, and documentation-only commits no longer enter the desktop
+> changelog.
 
 ### [ ] POST-09 — Build the user Activity & Cost dashboard `Post-MVP`
 
