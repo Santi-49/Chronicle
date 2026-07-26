@@ -15,6 +15,7 @@ import editIcon from '@material-symbols/svg-400/outlined/edit.svg'
 import deleteIcon from '@material-symbols/svg-400/outlined/delete.svg'
 import folderPlusIcon from '@material-symbols/svg-400/outlined/create_new_folder.svg'
 import folderIcon from '@material-symbols/svg-400/outlined/folder.svg'
+import helpIcon from '@material-symbols/svg-400/outlined/help.svg'
 import homeIcon from '@material-symbols/svg-400/outlined/home.svg'
 import imageIcon from '@material-symbols/svg-400/outlined/image.svg'
 import infoIcon from '@material-symbols/svg-400/outlined/info.svg'
@@ -54,6 +55,7 @@ export type IconName =
   | 'delete'
   | 'folder-plus'
   | 'folder'
+  | 'help'
   | 'home'
   | 'hourglass'
   | 'image'
@@ -91,6 +93,7 @@ const icons: Record<IconName, string> = {
   delete: deleteIcon,
   'folder-plus': folderPlusIcon,
   folder: folderIcon,
+  help: helpIcon,
   home: homeIcon,
   hourglass: hourglassIcon,
   image: imageIcon,
