@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/Santi-49/Chronicle/compare/v0.11.0...v0.11.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* Test auto update ([0839c29](https://github.com/Santi-49/Chronicle/commit/0839c2999f784ae4b1b8af2537e8fb5213a31a9c))
+
 ## [0.11.0](https://github.com/Santi-49/Chronicle/compare/v0.10.0...v0.11.0) (2026-07-26)
 
 
