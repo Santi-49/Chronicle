@@ -15,6 +15,8 @@ type AccountSettingsRead = components['schemas']['AccountSettingsRead']
 // Pydantic component directly, so either valid OpenAPI representation works.
 type PortableSettings = components['schemas']['AccountSettingsUpdate']['settings']
 type EncryptedSecretRead = components['schemas']['EncryptedSecretRead']
+type AccountDataExport = components['schemas']['AccountDataExport']
+type InstallationDataExport = components['schemas']['InstallationDataExport']
 // C6 telemetry wire schemas — the request bodies are validated against the
 // generated contract so the emitter allowlist can never drift from it silently.
 type TelemetryBatch = components['schemas']['TelemetryBatch']
@@ -57,6 +59,15 @@ export interface ControlPlaneClient {
   getEncryptedSecret(): Promise<EncryptedSecretRead | null>
   putEncryptedSecret(envelope: string, expectedRevision: number): Promise<EncryptedSecretRead>
   deleteEncryptedSecret(): Promise<void>
+  exportAccountData(): Promise<AccountDataExport>
+  exportInstallationData(installationId: string): Promise<InstallationDataExport>
+  deleteInstallationData(installationId: string): Promise<void>
+  deleteAccount(): Promise<void>
+  recordTelemetryPreference(
+    installationId: string,
+    enabled: boolean,
+    noticeVersion: string,
+  ): Promise<void>
   /** POST /api/v1/telemetry/batches — best-effort, offline-tolerant. */
   sendTelemetryBatch(batch: TelemetryBatchPayload): Promise<void>
 }
@@ -166,7 +177,7 @@ export function portableSettings(local: AppSettings): PortableSettings {
     },
     telemetry: {
       enabled: local.controlPlane.telemetryOptIn,
-      notice_version: '2026-07-21',
+      notice_version: '2026-07-25',
       updated_at: new Date().toISOString(),
     },
   }
@@ -186,6 +197,8 @@ export function createControlPlaneClient(
   tokens: TokenStore,
   onDiagnostic: ControlPlaneDiagnosticSink = () => {},
 ): ControlPlaneClient {
+  let refreshInFlight: Promise<boolean> | null = null
+
   async function auditedFetch(path: string, init: RequestInit): Promise<Response> {
     const startedAt = Date.now()
     const method = init.method?.toUpperCase() ?? 'GET'
@@ -226,6 +239,42 @@ export function createControlPlaneClient(
     }
   }
 
+  /**
+   * Renews the session at most once at a time, returning whether a usable
+   * access token exists afterwards.
+   *
+   * The control plane rotates refresh tokens and revokes the presented one
+   * immediately, so a refresh token is single-use. Two authenticated requests
+   * that hit 401 together would otherwise each post the *same* refresh token:
+   * the first rotates it and the second is told the token was revoked, which
+   * cleared the session and signed the user out. Startup makes that the normal
+   * case — the access token has usually expired between runs, and React
+   * StrictMode double-invokes the effect that reads the account state.
+   */
+  async function renewSession(staleAccessToken: string): Promise<boolean> {
+    const current = tokens.read()
+    if (!current) return false
+    // Another caller already rotated the pair while this request was in
+    // flight; its access token is fresh, so just retry with it.
+    if (current.access_token !== staleAccessToken) return true
+    if (!refreshInFlight) {
+      const attempt = (async () => {
+        const response = await auditedFetch('/api/v1/auth/refresh', {
+          method: 'POST',
+          headers: { authorization: `Bearer ${current.refresh_token}` },
+        })
+        if (!response.ok) {
+          tokens.clear()
+          return false
+        }
+        tokens.write((await response.json()) as TokenPair)
+        return true
+      })()
+      refreshInFlight = attempt.finally(() => { refreshInFlight = null })
+    }
+    return refreshInFlight
+  }
+
   async function raw<T>(path: string, init: RequestInit = {}, authenticated = false): Promise<T> {
     const headers = new Headers(init.headers)
     if (init.body !== undefined) headers.set('content-type', 'application/json')
@@ -235,18 +284,11 @@ export function createControlPlaneClient(
       headers.set('authorization', `Bearer ${current.access_token}`)
     }
     let response = await auditedFetch(path, { ...init, headers })
-    if (response.status === 401 && authenticated && tokens.read()) {
-      const refresh = tokens.read()!.refresh_token
-      const refreshed = await auditedFetch('/api/v1/auth/refresh', {
-        method: 'POST',
-        headers: { authorization: `Bearer ${refresh}` },
-      })
-      if (refreshed.ok) {
-        tokens.write((await refreshed.json()) as TokenPair)
+    if (response.status === 401 && authenticated) {
+      const stale = headers.get('authorization')?.replace(/^Bearer /, '') ?? ''
+      if (await renewSession(stale)) {
         headers.set('authorization', `Bearer ${tokens.read()!.access_token}`)
         response = await auditedFetch(path, { ...init, headers })
-      } else {
-        tokens.clear()
       }
     }
     if (!response.ok) {
@@ -407,6 +449,31 @@ export function createControlPlaneClient(
       method: 'PUT', body: JSON.stringify({ envelope, expected_revision: expectedRevision }),
     }, true),
     deleteEncryptedSecret: () => raw<void>('/api/v1/account/secrets', { method: 'DELETE' }, true),
+    exportAccountData: () => raw<AccountDataExport>('/api/v1/account/export', {}, true),
+    exportInstallationData: (installationId) => raw<InstallationDataExport>(
+      `/api/v1/installations/${encodeURIComponent(installationId)}/export`,
+      {},
+      tokens.read() !== null,
+    ),
+    deleteInstallationData: (installationId) => raw<void>(
+      `/api/v1/installations/${encodeURIComponent(installationId)}/data`,
+      { method: 'DELETE' },
+      tokens.read() !== null,
+    ),
+    async deleteAccount() {
+      await raw<void>('/api/v1/account', { method: 'DELETE' }, true)
+      tokens.clear()
+    },
+    recordTelemetryPreference: (installationId, enabled, noticeVersion) =>
+      raw<void>('/api/v1/telemetry/preference', {
+        method: 'POST',
+        body: JSON.stringify({
+          installation_id: installationId,
+          enabled,
+          notice_version: noticeVersion,
+          updated_at: new Date().toISOString(),
+        }),
+      }),
     async sendTelemetryBatch(payload) {
       // Typed against the generated C6 contract, not a hand-shaped object.
       const batch: TelemetryBatch = {

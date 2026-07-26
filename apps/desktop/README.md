@@ -46,6 +46,28 @@ because AWS requires multiple credential fields and a region rather than Chronic
 single encrypted key per provider. Code signing, Apple notarization, and in-app auto-update remain
 future work.
 
+The Windows `.exe` uses the native electron-builder assisted NSIS wizard—no custom HTML and no
+replacement installer script. Chronicle supplies a 150×57 header and 164×314 sidebar (24-bit BMP),
+short native Welcome/Finish copy, an editable destination, and a current-user install that avoids
+an unnecessary administrator prompt. `build/installer.nsh` also declares NSIS's required license
+checkbox mode, but no license page is configured. Chronicle instead presents links to the hosted
+Terms of Service and Privacy Policy beside the actions that enter the app. Continuing records the
+document versions, timestamp, and continuation method on that device; Settings keeps both links
+available. A human legal review may still require a separate installer license later.
+The link origin is compiled from `CHRONICLE_LANDING_URL` (defaulting to the current production
+site); release workflows read it from the same-named GitHub Actions repository variable.
+
+On a genuinely fresh profile, launching Chronicle and continuing locally (or signing in) opens a
+resumable three-step tutorial over the real workspace: create a project, open an asset Timeline,
+then configure/test an optional AI provider or defer it. The tutorial never blocks local capture,
+stores no paths or keys, uses coach-mark dialogs to point at the real controls, can be skipped,
+and can be replayed from
+**Settings → Getting started**.
+
+When the effective Terms or Privacy version constants change, an upgraded profile returns to a
+short review screen once. Accepting it preserves the existing tutorial state. This record is
+device-local; Chronicle does not currently claim server-side account acceptance evidence.
+
 ## CI, versions, and releases
 
 `package.json` is the desktop version source of truth; electron-builder, the sidebar, installation

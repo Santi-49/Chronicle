@@ -16,6 +16,7 @@ jobs:
     runs-on: windows-latest
     env:
       CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
+      CHRONICLE_LANDING_URL: ${{ vars.CHRONICLE_LANDING_URL }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:
@@ -64,6 +65,7 @@ jobs:
     runs-on: macos-15
     env:
       CHRONICLE_CONTROL_PLANE_URL: ${{ vars.CHRONICLE_CONTROL_PLANE_URL }}
+      CHRONICLE_LANDING_URL: ${{ vars.CHRONICLE_LANDING_URL }}
       GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
       GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
     steps:

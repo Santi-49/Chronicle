@@ -121,6 +121,11 @@ async def delete_encrypted_secret(user: User, db: AsyncSession) -> None:
 async def register_installation(
     data: InstallationRegister, db: AsyncSession
 ) -> InstallationRead:
+    # Installation registration may be the only control-plane traffic when
+    # usage reporting is disabled, so it also advances configured retention.
+    from app.services.telemetry_service import apply_retention
+
+    await apply_retention(db)
     now = datetime.now(timezone.utc)
     row = await db.get(Installation, data.installation_id)
     if row is None:

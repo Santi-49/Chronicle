@@ -1,6 +1,6 @@
 # Chronicle Project Status
 
-> Team dashboard · Updated 2026-07-21 · Submission deadline: **2026-07-31, 11:59 PM ET**
+> Team dashboard · Updated 2026-07-25 · Submission deadline: **2026-07-31, 11:59 PM ET**
 
 Start here at the beginning of a work session. Use [TODO.md](TODO.md) to claim work and
 [Project Overview](docs/PROJECT_OVERVIEW.md) if you are new to Chronicle.
@@ -40,7 +40,7 @@ the local Python service, restores prior versions append-only, and runs hybrid h
 | Assets, Timeline, Version Details | Complete (MVP-08) | Live C1 queries/events and real thumbnails; keyboard timeline traversal; explicit pending/failed/restore states; retry feedback; missing-source badges; completed restore/save-copy controls; and a typed-safeguard reset that turns the latest snapshot into a freshly annotated v1. |
 | Restore engine | Complete (MVP-07) | Selected library bytes overwrite the original path and append a provenance-marked version with no AI job. A missing original folder switches the UI to a native Save a copy dialog. Acceptance covers v2→v6, missing-folder fallback, cancellation, and validation. |
 | Search UI and engine | Complete (MVP-10 and MVP-11) | FTS5 keyword and provider/model-scoped cosine semantic search return live version results and degrade to keyword-only when AI is unavailable. Embedding configuration changes queue deduplicated reindex jobs over existing annotation text, and Search explains live indexing, offline, and AI-setup states. |
-| Backend control plane | Auth/RBAC + usage statistics ready | POST-04 v2 stores normalized sessions, removals, hourly search/provider-model AI usage, sanitized app errors, coarse Cloudflare location, and current installation/project counts. It remains optional and must not delay the MVP. |
+| Backend control plane | Auth/RBAC + usage statistics + GDPR controls ready | POST-04 v2 stores normalized content-free usage data. POST-06 adds notice-versioned preference audit, configured retention, portable account/installation export, anonymous installation erasure, and transactional self-service account/cloud deletion with full session revocation. It remains optional and never gates local use. |
 | Landing page | Existing optional page | Not part of the MVP; do not spend time here before the desktop app works. |
 | Demo and submission | Demo pack merged (DEMO-01) | Three approved, generated image histories and a git-ignored watched workspace are documented in `demo-assets/`; video, final README evidence, and SkillsBuild completion remain outstanding. |
 

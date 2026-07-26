@@ -155,6 +155,12 @@ Best-effort, idempotent registration of a random client-generated installation U
 
 Associates the random installation with the current account. **Auth:** JWT.
 
+### `GET /installations/{installation_id}/export` · `DELETE /installations/{installation_id}/data`
+
+Exports a machine-readable copy or idempotently erases the registration, preference audit, and
+every usage-statistics row for the random installation. Anonymous installations authorize by the
+unpredictable local UUID; linked installations additionally require that account's JWT.
+
 ---
 
 ## Account
@@ -173,6 +179,19 @@ metadata, base URLs, secrets, and unknown properties are rejected.
 desktop performs scrypt key derivation and AES-256-GCM encryption; the API never receives the
 passphrase, plaintext provider keys, or a decryption key. Missing GET returns `404`; stale PUT
 returns `409 revision_conflict`; DELETE returns `204`.
+
+### `GET /account/export` · `DELETE /account`
+
+**Auth:** JWT + OPA `account:read` / `account:delete`. Export returns a versioned JSON copy of the
+account, identities, portable settings, opaque encrypted envelope, linked installations,
+preference audit, and all linked usage statistics (never the password hash). DELETE atomically
+erases those rows plus role links and the user, then revokes all active Chronicle sessions.
+Repeated use of an erased session returns `401`. This is distinct from the admin soft-delete route.
+
+### `POST /telemetry/preference`
+
+Records the reporting choice, installed notice version, client timestamp, and random installation.
+The API derives the optional account link from the installation row; clients cannot assert a user id.
 
 ---
 

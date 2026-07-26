@@ -17,15 +17,23 @@ import { useFolders, useSettings } from '../lib/useChronicle'
 import { chronicle } from '../lib/bridge'
 import { friendlyError } from '../lib/friendlyError'
 import { friendlyIpcError } from '../lib/errors'
+import { PRIVACY_URL, TERMS_URL } from '../lib/legalAcceptance'
+import type { OnboardingStatus } from '../lib/onboarding'
 
 interface SettingsScreenProps {
   developerBuild: boolean
   developerMode: boolean
   themePreference: ThemePreference
   onAddProject: () => void
+  onOpenProjects: () => void
   onDeveloperModeChange: (enabled: boolean) => void
   onThemePreferenceChange: (preference: ThemePreference) => void
   onAdminStateChange: (isAdmin: boolean) => void
+  onboardingStatus: OnboardingStatus
+  onAiReady: () => void
+  onReplayTutorial: () => void
+  onResumeTutorial: () => void
+  focusSection?: 'ai'
 }
 
 const appearanceOptions: { value: ThemePreference; label: string; description: string }[] = [
@@ -39,10 +47,27 @@ export function SettingsScreen({
   developerMode,
   themePreference,
   onAddProject,
+  onOpenProjects,
   onDeveloperModeChange,
   onThemePreferenceChange,
   onAdminStateChange,
+  onboardingStatus,
+  onAiReady,
+  onReplayTutorial,
+  onResumeTutorial,
+  focusSection,
 }: SettingsScreenProps) {
+  useEffect(() => {
+    if (focusSection !== 'ai') return
+    const frame = window.requestAnimationFrame(() => {
+      const section = document.getElementById('ai-settings')
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      section?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' })
+      section?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [focusSection])
+
   return (
     <section className="page settings-page" aria-labelledby="settings-title">
       <PageHeader
@@ -52,15 +77,64 @@ export function SettingsScreen({
       />
 
       <div className="settings-sections">
+        <GettingStartedSection
+          status={onboardingStatus}
+          onReplay={onReplayTutorial}
+          onResume={onResumeTutorial}
+        />
         <AppearanceSection themePreference={themePreference} onThemePreferenceChange={onThemePreferenceChange} />
         <TrackedFoldersSection onAddProject={onAddProject} />
-        <AiSection />
-        <AccountSection onAdminStateChange={onAdminStateChange} />
+        <AiSection onAiReady={onAiReady} />
+        <AccountSection
+          onAdminStateChange={onAdminStateChange}
+          onOpenProjects={onOpenProjects}
+        />
         <DeveloperToolsSection
           developerBuild={developerBuild}
           developerMode={developerMode}
           onDeveloperModeChange={onDeveloperModeChange}
         />
+      </div>
+    </section>
+  )
+}
+
+function GettingStartedSection({
+  status,
+  onReplay,
+  onResume,
+}: {
+  status: OnboardingStatus
+  onReplay: () => void
+  onResume: () => void
+}) {
+  const active = status === 'active'
+  const complete = status === 'complete'
+  return (
+    <section className="settings-section">
+      <div className="settings-section-heading">
+        <Icon name="spark" />
+        <div>
+          <h2>Getting started</h2>
+          <p>Create a project, learn the Timeline, and configure optional AI at your own pace.</p>
+        </div>
+      </div>
+      <div className="getting-started-settings-copy">
+        <p>
+          {active
+            ? 'The guided tour is active. Follow the highlighted controls or skip it at any time.'
+            : complete
+              ? 'Tutorial completed. Replay it whenever you want a quick refresher.'
+              : 'The guided tour is hidden. Resume it without losing completed steps.'}
+        </p>
+        <button
+          className="secondary-button"
+          onClick={active || complete ? onReplay : onResume}
+          type="button"
+        >
+          <Icon name={active || complete ? 'refresh' : 'spark'} />
+          {active ? 'Restart tutorial' : complete ? 'Replay tutorial' : 'Resume tutorial'}
+        </button>
       </div>
     </section>
   )
@@ -164,7 +238,7 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
 
 // ── AI summaries ──────────────────────────────────────────────────────────
 
-function AiSection() {
+function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const { settings, configuredProviders, loading, save, setApiKey, clearApiKey } = useSettings()
 
   const [devMode, setDevMode] = useState(false)
@@ -231,6 +305,7 @@ function AiSection() {
         },
       })
       setSaveState({ message: 'Saved.', error: false })
+      onAiReady()
     } catch (err) {
       const reason = friendlyIpcError(err, 'The AI configuration could not be validated.')
       setSaveState({
@@ -276,6 +351,7 @@ function AiSection() {
           error: !result.valid,
         },
       }))
+      if (result.valid && task === 'chat') onAiReady()
     } catch (error) {
       setTestStates((current) => ({
         ...current,
@@ -305,7 +381,7 @@ function AiSection() {
   }, [chatProvider, embedProvider])
 
   return (
-    <section className="settings-section">
+    <section className="settings-section" data-tour="ai-settings" id="ai-settings" tabIndex={-1}>
       <div className="settings-section-heading">
         <Icon name="spark" />
         <div><h2>AI summaries</h2><p>Optional. Versions are always captured, even when AI is unavailable.</p></div>
@@ -397,6 +473,8 @@ function AiSection() {
             provider={provider.id}
             label={provider.label}
             saved={configuredProviders.includes(provider.id)}
+            tourTarget={provider.id === chatProvider}
+            onReady={onAiReady}
             onSave={setApiKey}
             onClear={clearApiKey}
           />
@@ -410,12 +488,16 @@ function ApiKeyRow({
   provider,
   label,
   saved,
+  tourTarget,
+  onReady,
   onSave,
   onClear,
 }: {
   provider: string
   label: string
   saved: boolean
+  tourTarget: boolean
+  onReady: () => void
   onSave: (provider: string, key: string) => Promise<void>
   onClear: (provider: string) => Promise<void>
 }) {
@@ -429,6 +511,7 @@ function ApiKeyRow({
       await onSave(provider, draft.trim())
       setDraft('')
       setStatus('Saved.')
+      onReady()
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err))
     }
@@ -449,6 +532,7 @@ function ApiKeyRow({
         <Icon name="key" />
         <input
           aria-label={`${label} API key`}
+          data-tour={tourTarget ? 'ai-provider-key' : undefined}
           onChange={(event) => setDraft(event.target.value)}
           placeholder={saved ? 'Saved - type to replace it' : 'Paste API key'}
           type="password"
@@ -456,7 +540,15 @@ function ApiKeyRow({
         />
       </div>
       <div className="api-key-actions">
-        <button className="secondary-button compact-button" disabled={!draft.trim()} onClick={() => void save()} type="button">Save</button>
+        <button
+          className="secondary-button compact-button"
+          data-tour={tourTarget ? 'ai-provider-key-save' : undefined}
+          disabled={!draft.trim()}
+          onClick={() => void save()}
+          type="button"
+        >
+          Save
+        </button>
         {saved && <button className="text-button" onClick={() => void clear()} type="button">Remove</button>}
       </div>
       {status && <span className="api-key-status inline-status" role="status">{status}</span>}
@@ -508,7 +600,10 @@ function ProviderModelPicker({
 
 // ── Account ────────────────────────────────────────────────────────────────
 
-function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdminStateChange'>) {
+function AccountSection({
+  onAdminStateChange,
+  onOpenProjects,
+}: Pick<SettingsScreenProps, 'onAdminStateChange' | 'onOpenProjects'>) {
   const { settings, save } = useSettings()
   const [email, setEmail] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -517,12 +612,15 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
   const [authBusy, setAuthBusy] = useState(false)
   const [authStatus, setAuthStatus] = useState<string | null>(null)
   const [keyStatus, setKeyStatus] = useState<string | null>(null)
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [showUsageDeleteConfirmation, setShowUsageDeleteConfirmation] = useState(false)
 
   const refreshAccount = async () => {
     const state = await chronicle.getAccountState()
     setEmail(state.email)
-    setIsAdmin(state.isAdmin)
-    onAdminStateChange(state.isAdmin)
+    const admin = state.mode === 'signed-in' && state.isAdmin
+    setIsAdmin(admin)
+    onAdminStateChange(admin)
   }
 
   const checkControlPlane = async () => {
@@ -585,6 +683,32 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
     }
   }
 
+  const exportAccount = async () => {
+    await runAuth(async () => {
+      const saved = await chronicle.exportAccountData()
+      if (!saved) throw new Error('Export cancelled.')
+    }, 'Account data exported.')
+  }
+
+  const deleteAccount = async () => {
+    await runAuth(async () => {
+      await chronicle.deleteCloudAccount()
+      setShowDeleteConfirmation(false)
+    }, 'Account and linked cloud data permanently deleted. Chronicle is now in local mode; local history and provider keys were kept.')
+  }
+
+  const deleteUsageData = async () => {
+    await runAuth(async () => {
+      await chronicle.deleteCloudUsageData()
+      if (settings) {
+        await save({
+          controlPlane: { ...settings.controlPlane, telemetryOptIn: false },
+        })
+      }
+      setShowUsageDeleteConfirmation(false)
+    }, 'This installation’s registered and usage data was deleted, and usage reporting was turned off.')
+  }
+
   return (
     <section className="settings-section">
       <div className="settings-section-heading">
@@ -596,14 +720,14 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
           {email ? `Signed in as ${email}${isAdmin ? ' (admin)' : ''}.` : 'Running in local mode. Local features remain available offline.'}
         </p>
         <div className="account-access-actions">
-          {controlPlaneAvailable && (
+          {controlPlaneAvailable && !email && (
             <button
               className="google-button settings-google-button"
               disabled={authBusy}
-              onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, email ? 'Google account linked.' : 'Signed in with Google.')}
+              onClick={() => void runAuth(async () => { await chronicle.loginWithGoogle() }, 'Signed in with Google.')}
               type="button"
             >
-              <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : email ? 'Link Google account' : 'Continue with Google'}</span>
+              <span className="google-button-label"><GoogleMark />{authBusy ? 'Connecting…' : 'Continue with Google'}</span>
             </button>
           )}
           {email && <button className="secondary-button" disabled={authBusy} onClick={() => void runAuth(() => chronicle.logout(), 'Signed out.')} type="button">Sign out</button>}
@@ -653,6 +777,114 @@ function AccountSection({ onAdminStateChange }: Pick<SettingsScreenProps, 'onAdm
                 <button className="text-button" onClick={() => void toggleKeySync(false)} type="button">Disable and delete cloud copy</button>
               </div>
               {keyStatus && <span className="inline-status" role="status">{keyStatus}</span>}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="account-resource-list">
+        <div className="account-resource-row">
+          <div className="account-resource-copy">
+            <strong>Legal and privacy</strong>
+            <p>Review the policies that apply when you use Chronicle.</p>
+          </div>
+          <div className="account-legal-links">
+            <a href={TERMS_URL} rel="noreferrer" target="_blank">
+              Terms
+            </a>
+            <a href={PRIVACY_URL} rel="noreferrer" target="_blank">
+              Privacy
+            </a>
+          </div>
+        </div>
+        <div className="account-resource-row">
+          <div className="account-resource-copy">
+            <strong>Your cloud data</strong>
+            <p>Download a copy of the information Chronicle stores online.</p>
+          </div>
+          <button
+            className="secondary-button compact-button"
+            disabled={authBusy || !controlPlaneAvailable}
+            onClick={() => void exportAccount()}
+            type="button"
+          >
+            Export data
+          </button>
+        </div>
+      </div>
+
+      {!email && controlPlaneAvailable && (
+        <div className="account-danger-zone">
+          <div>
+            <strong>Delete this installation’s cloud data</strong>
+            <p>Erase its random registration, preference record, and uploaded usage statistics. Local creative data is not affected.</p>
+          </div>
+          {!showUsageDeleteConfirmation ? (
+            <button className="danger-button" onClick={() => setShowUsageDeleteConfirmation(true)} type="button">
+              Delete cloud usage data
+            </button>
+          ) : (
+            <div className="account-delete-confirmation" role="alert">
+              <strong>Delete cloud usage data?</strong>
+              <p>This turns usage reporting off and permanently deletes server data for this random installation ID. Watched folders, original files, the version library, and provider keys stay on this device.</p>
+              <div className="account-delete-actions">
+                <button className="secondary-button compact-button" onClick={() => setShowUsageDeleteConfirmation(false)} type="button">Cancel</button>
+                <button className="danger-button" disabled={authBusy} onClick={() => void deleteUsageData()} type="button">Delete cloud usage data</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {email && (
+        <div className="account-danger-zone">
+          <div>
+            <strong>Delete account and cloud data</strong>
+            <p>Permanently erase the Chronicle account and all data linked to it on Chronicle's control plane.</p>
+          </div>
+          {!showDeleteConfirmation ? (
+            <button
+              className="danger-button"
+              disabled={authBusy}
+              onClick={() => setShowDeleteConfirmation(true)}
+              type="button"
+            >
+              Delete account and cloud data
+            </button>
+          ) : (
+            <div className="account-delete-confirmation" role="alert">
+              <strong>This cannot be undone.</strong>
+              <p>
+                Chronicle will permanently delete your account, Google identity link, synced
+                preferences, encrypted key envelope, linked installations, and account-linked
+                usage statistics.
+              </p>
+              <p>
+                Watched folders, original files, the local version library, and provider keys
+                saved on this device will not be deleted. Usage reporting is an independent
+                control above.
+              </p>
+              <button className="text-button" onClick={onOpenProjects} type="button">
+                Open Projects to manage local project/history deletion
+              </button>
+              <div className="account-delete-actions">
+                <button
+                  className="secondary-button compact-button"
+                  disabled={authBusy}
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="danger-button"
+                  disabled={authBusy}
+                  onClick={() => void deleteAccount()}
+                  type="button"
+                >
+                  {authBusy ? 'Deleting…' : 'Permanently delete account'}
+                </button>
+              </div>
             </div>
           )}
         </div>

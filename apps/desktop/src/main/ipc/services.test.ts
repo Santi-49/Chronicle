@@ -40,6 +40,7 @@ import {
   createChronicleServices,
   DEFAULT_SETTINGS,
   type ChronicleServices,
+  type ChronicleServicesDeps,
 } from './services'
 
 interface RecordedEvent {
@@ -130,9 +131,13 @@ afterEach(async () => {
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-async function waitFor(predicate: () => boolean, what: string, timeoutMs = 8_000): Promise<void> {
+async function waitFor(
+  predicate: () => boolean | Promise<boolean>,
+  what: string,
+  timeoutMs = 8_000,
+): Promise<void> {
   const start = Date.now()
-  while (!predicate()) {
+  while (!(await predicate())) {
     if (Date.now() - start > timeoutMs) throw new Error(`timed out waiting for ${what}`)
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
@@ -183,6 +188,43 @@ describe('C1 contract surface', () => {
       isAdmin: false,
     })
     await expect(services.api.logout()).resolves.toBeUndefined()
+  })
+
+  it('requires sign-out before starting another Google sign-in', async () => {
+    await services.dispose()
+    let googleCredentialRequested = false
+    services = createChronicleServices({
+      db,
+      libraryRoot,
+      emit: () => {},
+      pickFolder: async () => null,
+      pickVersionCopyPath: async () => null,
+      secrets: {
+        set: () => {},
+        has: () => false,
+        clear: () => {},
+        providers: () => [],
+        entries: () => ({}),
+      },
+      isOnline: () => true,
+      setWindowTheme: () => {},
+      googleCredential: async () => {
+        googleCredentialRequested = true
+        return 'unused-google-credential'
+      },
+      account: {
+        accountState: async () => ({
+          mode: 'signed-in',
+          email: 'signed-in@example.com',
+          isAdmin: false,
+        }),
+      } as ChronicleServicesDeps['account'],
+    })
+
+    await expect(services.api.loginWithGoogle()).rejects.toThrow(
+      /Sign out before continuing with another Google account/,
+    )
+    expect(googleCredentialRequested).toBe(false)
   })
 
   it('validates and applies the native window theme', async () => {
@@ -269,6 +311,54 @@ describe('tracked folders and capture events', () => {
     await expect(services.api.updateFolder(999, { displayName: 'x' })).rejects.toThrow(/Unknown folder/)
     await expect(services.api.updateFolder(1.5, {})).rejects.toThrow(TypeError)
   })
+
+  it(
+    'enabling a file type captures the files already in the folder',
+    async () => {
+      // A project created before a format shipped stores the old selection, so
+      // its existing files of that type must be captured when it is enabled —
+      // not left waiting for someone to re-save them.
+      const folder = await services.api.addFolder(workDir, { allowedExtensions: ['.png'] })
+      writeFile('mark.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"></svg>')
+      writeFile('logo.png', pngBytes(12, 12))
+      await waitFor(() => eventsOf('versionCaptured').length === 1, 'the PNG capture')
+      expect((await services.api.listAssets()).map((asset) => asset.format)).toEqual(['png'])
+
+      await services.api.updateFolder(folder.id, {
+        allowedExtensions: [...SUPPORTED_EXTENSIONS],
+      })
+
+      await waitFor(() => eventsOf('versionCaptured').length === 2, 'the SVG capture')
+      const assets = await services.api.listAssets()
+      expect(assets.map((asset) => asset.format).sort()).toEqual(['png', 'svg'])
+      // Re-scanning must not add a second version of the unchanged PNG.
+      expect(assets.every((asset) => asset.versionCount === 1)).toBe(true)
+    },
+    20_000,
+  )
+
+  it(
+    'marks assets missing whose files disappeared while Chronicle was closed',
+    async () => {
+      const capture = await seedCapture('gone.png', pngBytes(14, 14))
+      const asset = getVersion(db, capture.versionId)!.assetId
+      // Delete before the folder is watched: no unlink event ever reaches the
+      // watcher, so only the post-scan reconciliation can notice.
+      fs.rmSync(path.join(workDir, 'gone.png'))
+
+      await services.api.addFolder(workDir)
+
+      await waitFor(
+        async () => (await services.api.listAssets()).some((item) => !item.onDisk),
+        'the missing-file reconciliation',
+      )
+      const listed = (await services.api.listAssets()).find((item) => item.id === asset)
+      expect(listed?.onDisk).toBe(false)
+      // History is kept (F3.7) — only the on-disk flag changes.
+      expect(listed?.versionCount).toBe(1)
+    },
+    20_000,
+  )
 
   it('removeFolder stops watching and keeps history by default', async () => {
     const capture = await seedCapture('kept.png', pngBytes(20, 20))
@@ -910,6 +1000,50 @@ describe('settings and the secret boundary', () => {
     await services.api.clearApiKey('google')
     expect(await services.api.configuredProviders()).toEqual(['openai'])
   })
+
+  it('deletes only cloud account state and preserves local history and provider keys', async () => {
+    const capture = await seedCapture('local-history.png', pngBytes(4, 4))
+    await services.api.setApiKey('google_genai', 'local-provider-key')
+    setSetting(db, 'app-settings', {
+      ...DEFAULT_SETTINGS,
+      controlPlane: {
+        ...DEFAULT_SETTINGS.controlPlane,
+        settingsSyncEnabled: true,
+        apiKeySyncEnabled: true,
+      },
+    })
+    await services.dispose()
+    let cloudDeleted = false
+    services = createChronicleServices({
+      db,
+      libraryRoot,
+      emit: () => {},
+      pickFolder: async () => null,
+      pickVersionCopyPath: async () => null,
+      secrets: {
+        set: (provider, plaintext) => { secretKeys.set(provider, plaintext) },
+        has: (provider) => secretKeys.has(provider),
+        clear: (provider) => { secretKeys.delete(provider) },
+        providers: () => [...secretKeys.keys()],
+        entries: () => Object.fromEntries(secretKeys),
+      },
+      isOnline: () => true,
+      setWindowTheme: () => {},
+      account: {
+        deleteAccount: async () => { cloudDeleted = true },
+      } as ChronicleServicesDeps['account'],
+    })
+
+    await services.api.deleteCloudAccount()
+
+    expect(cloudDeleted).toBe(true)
+    expect(getVersion(db, capture.versionId)).not.toBeNull()
+    expect(await services.api.configuredProviders()).toContain('google_genai')
+    expect((await services.api.getSettings()).controlPlane).toMatchObject({
+      settingsSyncEnabled: false,
+      apiKeySyncEnabled: false,
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1031,5 +1165,65 @@ describe('media helpers', () => {
     ]) {
       expect(parseChronicleUrl(url), url).toBeNull()
     }
+  })
+})
+
+/**
+ * POST-03 — the installation ID identifies one installation over its lifetime.
+ * Deleting the local database (routine in development) or updating the app must
+ * not make the control plane see a brand-new installation.
+ */
+describe('installation identity', () => {
+  let root: string
+  let registered: string[]
+
+  function startOnce(): void {
+    const database = openChronicleDb(path.join(root, DATABASE_FILE_NAME))
+    const instance = createChronicleServices({
+      db: database,
+      libraryRoot: path.join(root, 'library'),
+      emit: () => {},
+      pickFolder: async () => null,
+      pickVersionCopyPath: async () => null,
+      secrets: {
+        set: () => {},
+        has: () => false,
+        clear: () => {},
+        providers: () => [],
+        entries: () => ({}),
+      },
+      isOnline: () => true,
+      setWindowTheme: () => {},
+      installation: { appVersion: '0.8.0', osFamily: 'windows' },
+      installationIdPath: path.join(root, 'installation-id'),
+      // Only registerInstallation is exercised; start() calls nothing else.
+      account: {
+        registerInstallation: async (descriptor) => {
+          registered.push(descriptor.installationId)
+        },
+      } as ChronicleServicesDeps['account'],
+    })
+    instance.start()
+    database.close()
+  }
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'chronicle-install-'))
+    registered = []
+  })
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true })
+  })
+
+  it('reuses the same ID across restarts and after the database is deleted', async () => {
+    startOnce()
+    fs.rmSync(path.join(root, DATABASE_FILE_NAME))
+    startOnce()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(registered).toHaveLength(2)
+    expect(registered[0]).toBe(registered[1])
+    expect(fs.readFileSync(path.join(root, 'installation-id'), 'utf8')).toBe(registered[0])
   })
 })

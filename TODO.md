@@ -1061,7 +1061,7 @@ line in `docs/bob-log.md`.
 **Done when:** An `admin` user reads live aggregates through the admin UI; a non-admin cannot
 reach it; no file-level data is ever exposed.
 
-### [ ] POST-06 — Make Chronicle GDPR-compliant `Post-MVP`
+### [x] POST-06 — Make Chronicle GDPR-compliant `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-03, POST-04 (data handling, consent, and account data must exist first)
@@ -1106,7 +1106,7 @@ and read an accurate privacy policy; the team has recorded a defensible lawful b
 collection purpose; disclosures and retention match what the app/API/logging infrastructure
 actually send/store; and the local creative library is never uploaded.
 
-### [ ] POST-06A — Add self-service account and cloud-data deletion `Post-MVP`
+### [x] POST-06A — Add self-service account and cloud-data deletion `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** POST-03; coordinate with POST-04 before telemetry tables ship
@@ -1147,35 +1147,66 @@ removes all account-linked server data and invalidates sessions; the user return
 local mode; local creative history and local provider keys remain untouched; and tests prove that
 no linked installation, identity, settings, encrypted secret, or telemetry record remains.
 
-### [ ] POST-07 — Research and improve the install / onboarding experience `Post-MVP`
+### [X] POST-07 — Research and improve the install / onboarding experience `Post-MVP`
 
 **Owner:** Unassigned
 **Depends on:** MVP-12 (a working, packaged app to install)
-**Goal:** Research and improve the first-run install/onboarding screen so a new user gets
-from "just installed" to "folder tracked, first version captured" with minimal friction,
-including clear AI-sidecar health and provider-availability guidance.
+**Goal:** Brand the literal Windows `.exe` installation wizard, add an approved license/terms
+acceptance page if legally required, and guide a first-time user through a real project, Timeline,
+and optional AI-provider setup with minimal friction.
 
-**Required reading first:** the startup-flow section of `docs/desktop/overview.md` (Continue
-local vs. Log in / Register), and Risk #8 in `docs/spec.md` §8 (the installed Windows build
-bundles the Gemini/OpenAI/Anthropic sidecar; the app degrades gracefully and shows a health check).
-**Then research references** with the user before designing (as LAND-01 requires for the
-landing page): strong desktop-app onboarding patterns; agree direction before visual work.
+**Research/design source:** [`docs/post-07-install-onboarding-plan.md`](docs/post-07-install-onboarding-plan.md).
+It records the current installer/UI baseline, electron-builder/NSIS capabilities and limits,
+legal-content gate, recommended native-installer flow, contextual tutorial, file boundaries,
+tests, and decisions that must be approved before implementation.
 
-**May edit:** Renderer onboarding/first-run screens and the status-bar AI-service health
-affordance (`apps/desktop/**`), electron-builder installer config if packaging is in scope.
+**May edit:** electron-builder NSIS configuration and build resources; renderer first-run,
+Home/New Project/Project/Timeline/Settings onboarding integration and focused tests; related docs.
 **Must not edit:** C1/C3/C5 contracts; local capture behavior.
 
-**Required functionality:** A clear first-run flow (pick a folder, understand Continue local
-vs. account, understand and check AI readiness) that never blocks core capture
-when AI is unavailable; graceful empty/error/"AI pending" states; the "No AI-slop bar" quality
-standard from LAND-01 applies to the visuals.
+**Required functionality:**
+
+1. Retain electron-builder's maintained assisted NSIS flow. Add Chronicle header/sidebar artwork
+   and short welcome/finish copy through supported config/include hooks; do not replace the full
+   installer script.
+2. Add an EULA/terms page only after a human owner approves its entity, scope, text, version,
+   languages, and public URLs. If clickwrap is required, use NSIS's required license checkbox.
+   Keep telemetry/key-sync choices purpose-specific inside the app.
+3. After Continue local or sign-in, show a dismissible/resumable Getting started guided tour:
+   coach-mark dialogs point to the real controls for creating a project, opening an asset Timeline,
+   and optionally configuring/testing an AI provider. Drive completion from real app state rather
+   than tutorial-button clicks.
+4. Make Back, Skip, close, keyboard focus, Escape, replay, restart/resume, reduced motion, and
+   AI-unavailable states explicit. AI setup never blocks capture or tutorial completion.
+5. Keep tutorial state versioned and separate from the existing welcome-entry flag; store no path,
+   credential, or creative metadata in renderer local storage.
 
 **Docs to update:** `docs/desktop/overview.md` (onboarding flow), `apps/desktop/README.md`
 (install/run + AI-service prerequisite); one line in `docs/bob-log.md`.
 
-**Done when:** A teammate who has never seen the app can install it, understand the AI
-readiness state, track a folder, and capture a first version without help; capture still works
-when the AI service is down (versions show "pending").
+**Done when:** Clean-machine evidence proves the branded installer, approved acceptance gate,
+current-user/UAC behavior, custom path, shortcuts, upgrade, and uninstall; and a teammate who has
+never seen Chronicle can create a project, reach a real Timeline, and either configure AI or defer
+it without help. Capture still works when the AI service is down (versions show queued/pending),
+and the tutorial resumes, dismisses, and replays accessibly.
+
+> Implemented 2026-07-25/26 (manual acceptance still open): native assisted-NSIS
+> welcome/finish branding, exact-size 24-bit header/sidebar art, forced current-user install, and
+> the dormant native required-license-checkbox hook are built without custom HTML or a replacement NSIS
+> script. The app now has a resumable three-step tutorial driven by real project, Timeline, and
+> validated AI state; anchored coach marks spotlight the real buttons and relocate as the user
+> moves through the screens, with Back, persistent Skip/close, optional AI deferral, reduced
+> motion, and replay from Settings. The live Terms (2026-07-22) and Privacy Policy (2026-07-25)
+> are now linked beside the first-run actions and permanently from Settings. Continuing records
+> the accepted versions, time, and local/Google method on the device; a policy-version change asks
+> upgraded users to review again without restarting their tutorial. A real 0.9.0 x64
+> NSIS package compiled successfully, and the current full desktop suite passed (231 passed,
+> 1 skipped).
+> The installer intentionally has no EULA page: Chronicle uses the in-app agreement for both
+> local and online-service entry, while telemetry remains a separate preference. The task remains
+> unchecked until a human approves the legal entity/controller, current Terms/Privacy text and
+> acceptance-evidence policy, explicitly confirms no installer EULA is required, chooses a public
+> repository license, and the clean-machine teammate/install/upgrade/uninstall matrix passes.
 
 ### [ ] POST-08 — Publish the app and wire Windows auto-update `Post-MVP`
 

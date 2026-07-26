@@ -185,6 +185,38 @@ describe('control-plane client', () => {
     expect(store.read()?.access_token).toBe('new')
   })
 
+  it('keeps the session when two requests hit an expired access token together', async () => {
+    // The control plane rotates refresh tokens and revokes the presented one,
+    // so a second concurrent refresh with the same token is rejected. React
+    // StrictMode double-invokes the effect that reads the account state, which
+    // used to sign the user out on every development launch.
+    const store = tokenStore({ access_token: 'old', refresh_token: 'refresh', token_type: 'bearer' })
+    const spent = new Set<string>()
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const authorization = new Headers(init?.headers).get('authorization')
+      if (String(_url).endsWith('/auth/refresh')) {
+        const presented = authorization?.replace('Bearer ', '') ?? ''
+        if (spent.has(presented)) return new Response('{"detail":"Token revoked"}', { status: 401 })
+        spent.add(presented)
+        return new Response(JSON.stringify({
+          access_token: 'new', refresh_token: 'new-refresh', token_type: 'bearer',
+        }), { status: 200 })
+      }
+      return authorization === 'Bearer new'
+        ? new Response(JSON.stringify(user), { status: 200 })
+        : new Response('{}', { status: 401 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createControlPlaneClient(() => 'http://control-plane', store)
+    const [first, second] = await Promise.all([client.accountState(), client.accountState()])
+
+    expect(first).toMatchObject({ mode: 'signed-in' })
+    expect(second).toMatchObject({ mode: 'signed-in' })
+    expect(store.read()?.refresh_token).toBe('new-refresh')
+    expect(spent.size).toBe(1)
+  })
+
   it('serializes only the portable settings allowlist', () => {
     const settings: AppSettings = {
       appearance: { theme: 'dark' },
@@ -217,5 +249,40 @@ describe('control-plane client', () => {
     const body = String((fetchMock.mock.calls[0]?.[1] as RequestInit).body)
     expect(body).toContain('installation_id')
     expect(body).not.toMatch(/hostname|path|project|file/i)
+  })
+
+  it('records the installed notice and server-derived telemetry preference', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createControlPlaneClient(() => 'http://control-plane', tokenStore())
+
+    await client.recordTelemetryPreference(
+      '00000000-0000-0000-0000-000000000001',
+      false,
+      '2026-07-25',
+    )
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'http://control-plane/api/v1/telemetry/preference',
+    )
+    expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).toMatchObject({
+      installation_id: '00000000-0000-0000-0000-000000000001',
+      enabled: false,
+      notice_version: '2026-07-25',
+    })
+  })
+
+  it('clears local Chronicle tokens only after account erasure succeeds', async () => {
+    const store = tokenStore({
+      access_token: 'access',
+      refresh_token: 'refresh',
+      token_type: 'bearer',
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
+    const client = createControlPlaneClient(() => 'http://control-plane', store)
+
+    await client.deleteAccount()
+
+    expect(store.read()).toBeNull()
   })
 })

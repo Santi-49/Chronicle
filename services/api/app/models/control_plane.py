@@ -51,6 +51,25 @@ class Installation(Base, TimestampMixin):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class TelemetryPreferenceAudit(Base, UUIDMixin, TimestampMixin):
+    """Auditable disclosure/preference history without trusting a client-supplied account id."""
+
+    __tablename__ = "telemetry_preference_audit"
+    __table_args__ = (
+        Index("ix_telemetry_preference_audit_installation_id", "installation_id"),
+        Index("ix_telemetry_preference_audit_user_id", "user_id"),
+    )
+    installation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("installations.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    notice_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    preference_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class LocationColumns:
     country_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
     region_code: Mapped[str | None] = mapped_column(String(16), nullable=True)

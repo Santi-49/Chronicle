@@ -31,6 +31,9 @@ Existing endpoints remain: `POST /api/v1/auth/register`, `POST /api/v1/auth/logi
 - `PUT /api/v1/installations/{installation_id}/link` associates the random installation with the
   authenticated account. Installation registration is best-effort and measures installations,
   not unique people; no hardware ID, hostname, local account name, or project metadata is accepted.
+- `GET /api/v1/installations/{installation_id}/export` and `DELETE
+  /api/v1/installations/{installation_id}/data` provide portable access and idempotent erasure.
+  A linked installation additionally requires its account's Chronicle session.
 
 ## Portable account settings
 
@@ -56,6 +59,16 @@ Existing endpoints remain: `POST /api/v1/auth/register`, `POST /api/v1/auth/logi
 Authenticated account/settings and secret operations require OPA `(account, read)` or `(account,
 write)`, granted to `user` and `admin`. Installation registration is intentionally public;
 installation linking requires an authenticated Chronicle session.
+
+## Privacy rights and self-service erasure
+
+- `POST /api/v1/telemetry/preference` records the installed notice version, preference timestamp,
+  random installation, and server-derived account link.
+- `GET /api/v1/account/export` returns a schema-versioned machine-readable copy of all linked
+  control-plane data without a password hash.
+- `DELETE /api/v1/account` requires OPA `(account, delete)`, deletes the user and every linked
+  identity/settings/secret/installation/telemetry row in one transaction, then revokes all sessions.
+  It is intentionally separate from the admin-only user deactivation route.
 
 ## Telemetry (POST-04)
 

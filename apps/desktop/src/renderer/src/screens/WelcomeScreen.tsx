@@ -4,13 +4,19 @@ import { GoogleMark } from '../components/GoogleMark'
 import { Icon } from '../components/Icon'
 import { chronicle } from '../lib/bridge'
 import { friendlyError } from '../lib/friendlyError'
+import { PRIVACY_URL, TERMS_URL } from '../lib/legalAcceptance'
 
 interface WelcomeScreenProps {
   onContinue: () => void
   onContinueGoogle: () => Promise<void>
+  returningForLegalAcceptance?: boolean
 }
 
-export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  onContinue,
+  onContinueGoogle,
+  returningForLegalAcceptance = false,
+}: WelcomeScreenProps) {
   const [googleState, setGoogleState] = useState<string | null>(null)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [controlPlaneAvailable, setControlPlaneAvailable] = useState(false)
@@ -77,10 +83,19 @@ export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenPro
 
       <section className="welcome-access" aria-label="Choose how to continue">
         <div className="access-card">
-          <p className="eyebrow">Welcome</p>
-          <h2>Start your Chronicle</h2>
+          <p className="eyebrow">{returningForLegalAcceptance ? 'One-time review' : 'Welcome'}</p>
+          <h2>{returningForLegalAcceptance ? 'Review and continue' : 'Start your Chronicle'}</h2>
           <p className="access-description">
-            Keep your history on this device. You can connect an account later.
+            {returningForLegalAcceptance
+              ? 'Please review the terms that apply to Chronicle and its optional online services.'
+              : 'Keep your history on this device. You can connect an account later.'}
+          </p>
+
+          <p className="legal-acceptance-note">
+            By continuing, you agree to our{' '}
+            <a href={TERMS_URL} rel="noreferrer" target="_blank">Terms</a>
+            {' '}and acknowledge our{' '}
+            <a href={PRIVACY_URL} rel="noreferrer" target="_blank">Privacy Policy</a>.
           </p>
 
           <div className="access-actions">
@@ -103,13 +118,9 @@ export function WelcomeScreen({ onContinue, onContinueGoogle }: WelcomeScreenPro
           </div>
 
           <p className="privacy-note">
-            <strong>Help improve Chronicle</strong> is enabled by default. Chronicle sends usage
-            statistics such as app opens, project/version counts, searches, AI provider/model use,
-            sanitized application failures, and coarse location derived by Cloudflare. Creative
-            files, project names, paths, AI summaries, tags, search text, credentials, and raw IP
-            addresses are <em>not</em> stored.
-            You can turn this off in{' '}
-            <strong>Settings → Account</strong> at any time.
+            <strong>Help improve Chronicle is on by default.</strong> We collect anonymous usage
+            and reliability data, never your creative work. Manage this in{' '}
+            <strong>Settings → Account</strong>.
           </p>
         </div>
       </section>

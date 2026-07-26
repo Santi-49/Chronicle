@@ -20,6 +20,15 @@ const MAX_BYTES = 16 * 1024 * 1024
 const MAX_VERTICES = 400_000
 const MAX_TRIANGLES = 400_000
 
+/** Destroy a read stream and resolve once its file descriptor is really closed. */
+async function closeStream(stream: fs.ReadStream | undefined): Promise<void> {
+  if (!stream || stream.closed) return
+  await new Promise<void>((resolve) => {
+    stream.once('close', resolve)
+    stream.destroy()
+  })
+}
+
 /**
  * Read vertices and triangulated faces. Never throws: an unreadable or
  * non-OBJ file yields an empty mesh, which the caller renders as "no preview".
@@ -55,7 +64,10 @@ export async function parseObj(filePath: string): Promise<Mesh> {
   } catch {
     return EMPTY_MESH
   } finally {
-    stream?.destroy()
+    // Wait for the handle to actually close, not just for destroy() to be
+    // requested: on Windows an open handle blocks deleting or replacing the
+    // file, which would surface as Chronicle locking a designer's own save.
+    await closeStream(stream)
   }
 
   return {

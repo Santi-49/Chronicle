@@ -16,6 +16,7 @@
  */
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { TelemetryCollector } from '../telemetry/emitter'
 import type {
@@ -91,9 +92,10 @@ import { diagnosticError } from '../diagnostics'
 
 const SETTINGS_KEY = 'app-settings'
 const INSTALLATION_ID_KEY = 'control-plane-installation-id'
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TELEMETRY_DEFAULT_MIGRATION_KEY = 'post03-telemetry-default-applied'
 const SETTINGS_SYNC_DEFAULT_MIGRATION_KEY = 'post03-settings-sync-default-applied'
-const TELEMETRY_NOTICE_SHOWN_KEY = 'post04-telemetry-notice-shown'
+const TELEMETRY_NOTICE_VERSION = '2026-07-25'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   appearance: { theme: 'system' },
@@ -142,6 +144,11 @@ export interface ChronicleServicesDeps {
   rendererDiagnostic?: ApplicationDiagnosticSink
   preloadDiagnostic?: ApplicationDiagnosticSink
   installation?: Omit<InstallationDescriptor, 'installationId'>
+  /**
+   * File the installation ID is mirrored to, outside the database. Optional:
+   * without it the ID lives only in `settings` (the behavior tests rely on).
+   */
+  installationIdPath?: string
   /** Applies theme colors to native title-bar controls. */
   setWindowTheme: (theme: WindowTheme) => void
   /**
@@ -366,6 +373,52 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     return folder.allowedExtensions.includes(path.extname(abs).toLowerCase())
   }
 
+  /** Order-insensitive comparison of a folder's saved selection lists. */
+  function sameSelection(left: readonly string[], right: readonly string[]): boolean {
+    if (left.length !== right.length) return false
+    const a = [...left].sort()
+    const b = [...right].sort()
+    return a.every((value, index) => value === b[index])
+  }
+
+  /** Assets stored under a tracked folder's path. */
+  function assetsUnder(folderPath: string): ReturnType<typeof listAssets> {
+    const root = path.resolve(folderPath)
+    return listAssets(db).filter((asset) => {
+      const relative = path.relative(root, asset.path)
+      return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
+    })
+  }
+
+  /**
+   * After a folder's initial scan, mark assets whose files are gone.
+   *
+   * The watcher only reports deletions it witnesses, so a file removed while
+   * Chronicle was closed would otherwise still look present — its history stays
+   * (F3.7), but the UI must say the file is no longer on disk.
+   */
+  async function reconcileMissingFiles(folderPath: string): Promise<void> {
+    let marked = 0
+    for (const asset of assetsUnder(folderPath)) {
+      if (!asset.onDisk) continue
+      try {
+        await fs.access(asset.path)
+      } catch {
+        markFileMissing(db, asset.path)
+        marked += 1
+      }
+    }
+    if (marked === 0) return
+    diagnostic({
+      level: 'debug',
+      source: 'watcher',
+      event: 'missing_files_reconciled',
+      message: `Marked ${marked} asset(s) as no longer on disk after scanning a project.`,
+      context: { count: marked },
+    })
+    pushStatus()
+  }
+
   // Watcher → capture → events (the wiring MVP-03/04 left open). Capture
   // results are handled asynchronously; nothing here blocks an IPC reply.
   const watcher: FolderWatcher = createFolderWatcher(
@@ -442,6 +495,11 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           context: { fileName: path.basename(filePath) },
         })
       },
+      onReady: (folderPath) => {
+        void reconcileMissingFiles(folderPath).catch((error) => {
+          console.error('[chronicle] could not reconcile missing files:', folderPath, error)
+        })
+      },
       onError: (error) => {
         const code = (error as NodeJS.ErrnoException).code
         const lockedFile = code === 'EBUSY'
@@ -481,12 +539,32 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     }
   }
 
+  /**
+   * The installation's stable random ID (POST-03). It is mirrored to a small
+   * file beside the database so that resetting or deleting `chronicle.db` —
+   * routine during development — does not register a brand-new installation
+   * with the control plane. An app update touches neither copy, so updating
+   * keeps the existing installation record and only bumps its app version.
+   */
   function installationId(): string {
-    const existing = getSetting<string>(db, INSTALLATION_ID_KEY)
-    if (existing) return existing
-    const created = randomUUID()
-    setSetting(db, INSTALLATION_ID_KEY, created)
-    return created
+    const stored = getSetting<string>(db, INSTALLATION_ID_KEY)
+    const mirrored = readMirroredInstallationId()
+    const id = stored ?? mirrored ?? randomUUID()
+    if (stored !== id) setSetting(db, INSTALLATION_ID_KEY, id)
+    if (mirrored !== id && deps.installationIdPath) {
+      try { writeFileSync(deps.installationIdPath, id, 'utf8') } catch { /* best effort */ }
+    }
+    return id
+  }
+
+  function readMirroredInstallationId(): string | undefined {
+    if (!deps.installationIdPath) return undefined
+    try {
+      const contents = readFileSync(deps.installationIdPath, 'utf8').trim()
+      return UUID_PATTERN.test(contents) ? contents : undefined
+    } catch {
+      return undefined
+    }
   }
 
   function requireAccount(): ControlPlaneClient {
@@ -520,8 +598,22 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
 
   async function afterSignIn(): Promise<void> {
     if (!deps.account) return
-    void deps.account.linkInstallation(installationId()).catch(() => {})
+    try {
+      await deps.account.linkInstallation(installationId())
+    } catch {
+      // Account sign-in remains usable if installation linking is temporarily unavailable.
+    }
     await applyRemoteSettings()
+    try {
+      const effective = await api.getSettings()
+      await deps.account.recordTelemetryPreference(
+        installationId(),
+        effective.controlPlane.telemetryOptIn,
+        TELEMETRY_NOTICE_VERSION,
+      )
+    } catch {
+      // Preference audit is retried at the next startup/settings change.
+    }
   }
 
   function summaryTextOf(version: VersionRecord): string | null {
@@ -706,14 +798,35 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     async updateFolder(folderId, patch) {
       const id = expectId(folderId, 'folderId')
       const validatedPatch = expectFolderMeta(patch, 'patch')
+      const before = listTrackedFolders(db).find((folder) => folder.id === id)
       const updated = updateTrackedFolder(db, id, validatedPatch)
       if (!updated) throw new Error(`Unknown folder: ${folderId}`)
+
+      // A changed file-type or exclusion selection changes which *existing*
+      // files are capturable. The watcher's initial scan already ran, so
+      // re-watch the folder to scan it again under the new rules — otherwise a
+      // newly enabled file type would only be captured at its next save.
+      // Capture dedupes by content hash, so re-scanning adds no versions for
+      // files Chronicle already stores.
+      const selectionChanged =
+        before !== undefined &&
+        (!sameSelection(before.allowedExtensions, updated.allowedExtensions) ||
+          !sameSelection(before.excludedPaths, updated.excludedPaths))
+      if (selectionChanged) {
+        await watcher.unwatch(updated.path)
+        watcher.watch(updated.path)
+      }
+
       diagnostic({
         level: 'debug',
         source: 'project',
         event: 'project_updated',
         message: `Updated project ${updated.displayName}.`,
-        context: { projectId: id, changedFields: Object.keys(validatedPatch) },
+        context: {
+          projectId: id,
+          changedFields: Object.keys(validatedPatch),
+          rescanned: selectionChanged,
+        },
       })
       return updated
     },
@@ -1011,6 +1124,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       // POST-04: if telemetry was just turned off, clear the queue + server inventory.
       const wasOn = current.controlPlane.telemetryOptIn
       const isOff = !next.controlPlane.telemetryOptIn
+      if (wasOn !== next.controlPlane.telemetryOptIn && deps.account) {
+        void deps.account.recordTelemetryPreference(
+          installationId(),
+          next.controlPlane.telemetryOptIn,
+          TELEMETRY_NOTICE_VERSION,
+        ).catch(() => {})
+      }
       if (wasOn && isOff) {
         await deps.onTelemetryDisabled?.()
       }
@@ -1132,20 +1252,56 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
     async loginWithGoogle() {
       if (!deps.googleCredential) throw new Error('Google sign-in is not configured')
+      const account = requireAccount()
+      const current = await account.accountState()
+      if (current.mode === 'signed-in') {
+        throw new Error('Sign out before continuing with another Google account')
+      }
       if (!(await api.checkControlPlaneHealth())) {
         throw new Error('Google sign-in is temporarily unavailable')
       }
-      const account = requireAccount()
       const credential = await deps.googleCredential()
-      const current = await account.accountState()
-      const state = current.mode === 'signed-in'
-        ? await account.linkGoogleCredential(credential)
-        : await account.loginWithGoogleCredential(credential)
+      const state = await account.loginWithGoogleCredential(credential)
       await afterSignIn()
       return state
     },
     async logout() {
       await deps.account?.logout()
+    },
+    async exportAccountData() {
+      const account = requireAccount()
+      const accountState = await account.accountState()
+      const data = accountState.mode === 'signed-in'
+        ? await account.exportAccountData()
+        : await account.exportInstallationData(installationId())
+      const destination = await deps.pickVersionCopyPath(
+        `chronicle-account-data-${new Date().toISOString().slice(0, 10)}.json`,
+      )
+      if (!destination) return false
+      writeFileSync(destination, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+      return true
+    },
+    async deleteCloudUsageData() {
+      await requireAccount().deleteInstallationData(installationId())
+      const local = await api.getSettings()
+      if (local.controlPlane.telemetryOptIn) {
+        const disabled = mergeSettings(local, {
+          controlPlane: { ...local.controlPlane, telemetryOptIn: false },
+        })
+        setSetting(db, SETTINGS_KEY, disabled)
+        await deps.onTelemetryDisabled?.()
+      }
+    },
+    async deleteCloudAccount() {
+      await requireAccount().deleteAccount()
+      const local = await api.getSettings()
+      setSetting(db, SETTINGS_KEY, mergeSettings(local, {
+        controlPlane: {
+          ...local.controlPlane,
+          settingsSyncEnabled: false,
+          apiKeySyncEnabled: false,
+        },
+      }))
     },
     async syncSettings() {
       const local = await api.getSettings()
@@ -1268,6 +1424,13 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         void deps.account.registerInstallation({
           ...deps.installation,
           installationId: installationId(),
+        }).then(async () => {
+          const local = await api.getSettings()
+          await deps.account!.recordTelemetryPreference(
+            installationId(),
+            local.controlPlane.telemetryOptIn,
+            TELEMETRY_NOTICE_VERSION,
+          )
         }).catch(() => {})
       }
       deps.telemetry?.recordAppOpened()

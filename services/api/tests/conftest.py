@@ -116,6 +116,12 @@ class FakeRedis:
         for k in keys:
             self._store.pop(k, None)
 
+    async def scan_iter(self, match=None):
+        prefix = str(match or "").removesuffix("*")
+        for key in list(self._store):
+            if not match or key.startswith(prefix):
+                yield key
+
     async def aclose(self):
         pass
 
