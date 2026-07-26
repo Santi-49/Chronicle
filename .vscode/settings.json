@@ -1,0 +1,8 @@
+{
+  "makefile.configureOnOpen": false,
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "file": ".github/instructions/commit-message.instructions.md"
+    }
+  ]
+}
