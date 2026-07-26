@@ -312,7 +312,9 @@ function StartupSection() {
 
   const runInBackground = settings?.system.runInBackground ?? false
   // With background capture off there is no tray to reach, so a login launch
-  // must show its window; the main process enforces the same rule.
+  // must show its window; the main process enforces the same rule. Rather than
+  // showing a checkbox that ticks itself and then refuses to be changed, the
+  // choice disappears and the single remaining behavior is stated in words.
   const windowForced = !runInBackground
   const opensWindow = windowForced || (system?.openAtLoginOpensWindow ?? false)
 
@@ -332,7 +334,12 @@ function StartupSection() {
 
   const changeBackground = async (enabled: boolean) => {
     setError('')
-    await save({ system: { runInBackground: enabled } })
+    await save({
+      system: {
+        runInBackground: enabled,
+        openAtLoginOpensWindow: settings?.system.openAtLoginOpensWindow ?? false,
+      },
+    })
     // Turning background capture off strands a tray-only login launch, so
     // promote it to a window launch in the same action.
     if (!enabled && system?.openAtLogin && !system.openAtLoginOpensWindow) {
@@ -367,6 +374,13 @@ function StartupSection() {
           </span>
         </label>
 
+        {/*
+          With background capture off there is no tray icon, so the only
+          reachable login launch is one that opens the window — a single choice,
+          shown as a single control. Offering "start at login" and "open the
+          window" separately there would present a distinction that does not
+          exist, with one of them permanently forced.
+        */}
         <label className="toggle-field">
           <input
             checked={system?.openAtLogin ?? false}
@@ -375,31 +389,38 @@ function StartupSection() {
             type="checkbox"
           />
           <span>
-            <strong>Start Chronicle when I sign in</strong>
+            <strong>
+              {windowForced
+                ? 'Start Chronicle and open its window when I sign in'
+                : 'Start Chronicle when I sign in'}
+            </strong>
             <small>
-              {system?.openAtLoginSupported
-                ? 'Versions saved while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete.'
-                : (system?.unsupportedReason ?? 'Starting at login is available in the installed app.')}
+              {!system?.openAtLoginSupported
+                ? (system?.unsupportedReason ?? 'Starting at login is available in the installed app.')
+                : windowForced
+                  ? 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete. The window opens because background capture is off — without a tray icon there would be no way to reach Chronicle.'
+                  : 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete.'}
             </small>
           </span>
         </label>
 
-        <label className="toggle-field startup-nested">
-          <input
-            checked={opensWindow}
-            disabled={busy || !system?.openAtLoginSupported || !system?.openAtLogin || windowForced}
-            onChange={(event) => void applyLogin(true, event.target.checked)}
-            type="checkbox"
-          />
-          <span>
-            <strong>Open the Chronicle window at sign-in</strong>
-            <small>
-              {windowForced
-                ? 'Always on while background capture is off — otherwise Chronicle would start with no window and no tray icon.'
-                : 'Leave this off to start quietly in the notification area and keep capturing without a window.'}
-            </small>
-          </span>
-        </label>
+        {!windowForced && (
+          <label className="toggle-field startup-nested">
+            <input
+              checked={opensWindow}
+              disabled={busy || !system?.openAtLoginSupported || !system?.openAtLogin}
+              onChange={(event) => void applyLogin(true, event.target.checked)}
+              type="checkbox"
+            />
+            <span>
+              <strong>Open the Chronicle window at sign-in</strong>
+              <small>
+                Leave this off to start quietly in the notification area and keep capturing without
+                a window.
+              </small>
+            </span>
+          </label>
+        )}
       </div>
 
       {error && <p className="form-error" role="alert">{error}</p>}

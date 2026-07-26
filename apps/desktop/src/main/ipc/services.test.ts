@@ -855,12 +855,12 @@ describe('settings and the secret boundary', () => {
     })
     extraServices.push(wired)
 
-    await wired.api.updateSettings({ system: { runInBackground: false } })
+    await wired.api.updateSettings({ system: { runInBackground: false, openAtLoginOpensWindow: false } })
     expect(applied).toEqual([false])
     // Re-saving the same value must not churn the tray icon.
-    await wired.api.updateSettings({ system: { runInBackground: false } })
+    await wired.api.updateSettings({ system: { runInBackground: false, openAtLoginOpensWindow: false } })
     expect(applied).toEqual([false])
-    await wired.api.updateSettings({ system: { runInBackground: true } })
+    await wired.api.updateSettings({ system: { runInBackground: true, openAtLoginOpensWindow: false } })
     expect(applied).toEqual([false, true])
   })
 
@@ -914,6 +914,42 @@ describe('settings and the secret boundary', () => {
     await expect(wired.api.setOpenAtLogin(true, 'yes' as never)).rejects.toThrow(
       /opensWindow must be a boolean/,
     )
+  })
+
+  it('remembers the launch mode across restarts and forgets nothing on refusal', async () => {
+    // Windows does not return a login item's registered arguments, so the mode
+    // lives in C5. A fresh services instance must still show the same choice.
+    let present = false
+    const shell = {
+      getState: () => ({
+        openAtLoginSupported: true,
+        openAtLogin: present,
+        trayActive: true,
+        unsupportedReason: null,
+      }),
+      setOpenAtLogin: (enabled: boolean) => {
+        present = enabled
+        return shell.getState()
+      },
+      applyRunInBackground: () => {},
+    }
+    const first = buildServices({ systemIntegration: shell })
+    extraServices.push(first)
+    await first.api.setOpenAtLogin(true, true)
+
+    const second = buildServices({ systemIntegration: shell })
+    extraServices.push(second)
+    expect(await second.api.getSystemIntegration()).toMatchObject({
+      openAtLogin: true,
+      openAtLoginOpensWindow: true,
+    })
+
+    // Removing the login item keeps the remembered mode for the next time.
+    await second.api.setOpenAtLogin(false, true)
+    expect(await second.api.getSystemIntegration()).toMatchObject({
+      openAtLogin: false,
+      openAtLoginOpensWindow: true,
+    })
   })
 
   it('reports the shell\'s refusal instead of the requested value', async () => {

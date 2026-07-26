@@ -38,14 +38,32 @@ export const LOGIN_ITEM_NAME = 'Chronicle'
 /** `background` = tray only (no window); `window` = restore the UI as well. */
 export type LoginLaunchMode = 'background' | 'window'
 
-export interface LoginItemStatus {
-  enabled: boolean
-  mode: LoginLaunchMode
+/**
+ * What Electron reports back about the login item.
+ *
+ * Measured on Windows (Electron 43) against a real registered entry, because
+ * the documented field is not the one that works there:
+ *
+ *   registry: Chronicle = "…\Chronicle.exe" --hidden
+ *   getLoginItemSettings({ path, args: ['--hidden'] })
+ *     → openAtLogin: false                    ← compares against process.execPath only
+ *       executableWillLaunchAtLogin: true     ← the field that actually answers the question
+ *       launchItems: [{ name: 'Chronicle', args: [] }]   ← registered args are NOT returned
+ *
+ * Two consequences drive the code below. `openAtLogin` alone reports a live
+ * entry as absent, so both fields are OR-ed. And because the registered
+ * arguments do not survive the round trip, the launch *mode* cannot be
+ * recovered from the shell on Windows — it is remembered in C5 instead, while
+ * the OS remains authoritative for whether the entry exists at all.
+ */
+export interface LoginItemReading {
+  openAtLogin: boolean
+  executableWillLaunchAtLogin?: boolean
 }
 
 /** The slice of Electron's `app` this module needs. */
 export interface LoginItemAdapter {
-  getLoginItemSettings(options?: { path?: string; args?: string[] }): { openAtLogin: boolean }
+  getLoginItemSettings(options?: { path?: string; args?: string[] }): LoginItemReading
   setLoginItemSettings(options: {
     openAtLogin: boolean
     name?: string
@@ -60,10 +78,10 @@ export interface LoginItemController {
   readonly supported: boolean
   /** Why it cannot; null when supported. */
   readonly unsupportedReason: string | null
-  /** Re-reads the operating system. Reports disabled when unsupported. */
-  read(): LoginItemStatus
-  /** Applies the preference and returns the re-read OS state. Throws when unsupported. */
-  write(status: LoginItemStatus): LoginItemStatus
+  /** Re-reads the operating system: is this executable registered to launch at login? */
+  read(): boolean
+  /** Applies the preference and returns the re-read OS answer. Throws when unsupported. */
+  write(enabled: boolean, mode: LoginLaunchMode): boolean
 }
 
 export interface LoginItemOptions {
@@ -86,44 +104,39 @@ export function createLoginItemController(options: LoginItemOptions): LoginItemC
   const argsFor = (mode: LoginLaunchMode): string[] =>
     mode === 'background' ? [HIDDEN_LAUNCH_ARG] : []
 
-  // Reads pass the same executable/arguments a write registered, because both
-  // platforms match a login item by that exact identity.
-  const identity = (mode: LoginLaunchMode): { path?: string; args: string[] } => ({
-    ...(options.execPath === undefined ? {} : { path: options.execPath }),
-    args: argsFor(mode),
-  })
-
-  const probe = (mode: LoginLaunchMode): boolean => {
+  const read = (): boolean => {
+    if (!supported) return false
     try {
-      return options.adapter.getLoginItemSettings(identity(mode)).openAtLogin
+      // Queried with defaults — meaning "this executable". Passing the
+      // registered arguments would *narrow* the match, and on Windows those
+      // arguments are not returned by the query, so a correctly registered
+      // hidden launch would read back as absent (see LoginItemReading).
+      const reading = options.adapter.getLoginItemSettings(
+        options.execPath === undefined ? undefined : { path: options.execPath },
+      )
+      return reading.openAtLogin || reading.executableWillLaunchAtLogin === true
     } catch {
       // A shell that refuses the query must not break the Settings screen.
       return false
     }
   }
 
-  const read = (): LoginItemStatus => {
-    if (!supported) return { enabled: false, mode: 'background' }
-    // Which of the two registrations exists also tells us the chosen mode, so
-    // the launch mode needs no separate stored copy either.
-    if (probe('window')) return { enabled: true, mode: 'window' }
-    if (probe('background')) return { enabled: true, mode: 'background' }
-    return { enabled: false, mode: 'background' }
-  }
-
   return {
     supported,
     unsupportedReason,
     read,
-    write(status: LoginItemStatus): LoginItemStatus {
+    write(enabled: boolean, mode: LoginLaunchMode): boolean {
       if (!supported) {
         throw new Error(unsupportedReason ?? 'Starting at login is not supported in this build')
       }
       options.adapter.setLoginItemSettings({
-        openAtLogin: status.enabled,
+        openAtLogin: enabled,
         name: LOGIN_ITEM_NAME,
-        enabled: status.enabled,
-        ...identity(status.mode),
+        enabled,
+        ...(options.execPath === undefined ? {} : { path: options.execPath }),
+        // The registered command line is what actually decides how Windows and
+        // macOS launch Chronicle, whatever the query can read back afterwards.
+        args: argsFor(mode),
       })
       // Report what the OS now says rather than what we asked for: a managed
       // device can refuse the write, and the checkbox must not lie.

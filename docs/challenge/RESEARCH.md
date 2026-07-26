@@ -715,11 +715,20 @@ shaped the implementation:
   treatment in reverse: if `new Tray()` fails there is no way back to the window and no visible way
   out, so closing must quit exactly as before. Both rules live in one small pure module with tests,
   because both fail silently rather than loudly.
-- **The login item belongs to the operating system, not to C5.** A user can revoke a startup entry
-  from Task Manager or macOS System Settings while Chronicle is not running, so a mirrored boolean
-  in settings would drift and display a preference the shell had already discarded. Chronicle
-  re-reads `app.getLoginItemSettings()` on every visit and reports what the OS says after a write,
-  because a managed device can accept the call and ignore it. Development builds are excluded on the
+- **The login item belongs to the operating system, not to C5 — but Windows only half-answers.**
+  A user can revoke a startup entry from Task Manager or macOS System Settings while Chronicle is
+  not running, so a mirrored boolean in settings would drift and display a preference the shell had
+  already discarded. Chronicle re-reads `app.getLoginItemSettings()` on every visit and reports what
+  the OS says after a write, because a managed device can accept the call and ignore it. Measuring
+  that read against a real registered entry (Electron 43, Windows 11) corrected two assumptions the
+  documentation invites: the documented `openAtLogin` field stays **false** for a live entry —
+  `executableWillLaunchAtLogin` is the field that answers — and a login item's **registered
+  arguments are not returned** (`launchItems[0].args` is `[]` for a value registered with
+  `--hidden`). Passing those arguments to the query therefore *narrows* the match and reads a
+  correctly registered hidden launch back as absent. The first build shipped both mistakes: the
+  checkbox could never appear ticked even with `HKCU\…\Run\Chronicle` present. The fix reads with
+  defaults, ORs both fields, and keeps only the launch *mode* in C5 — the registered command line
+  still decides the real launch, so a stale mode costs at most a wrong checkbox. Development builds are excluded on the
   same `app.isPackaged` grounds the updater uses: `process.execPath` is Electron's own binary under
   `npm run dev`, so registering it would add a startup entry that launches a bare Electron and
   outlives the checkout. Electron's Windows implementation writes an `HKCU\…\CurrentVersion\Run`
@@ -729,13 +738,23 @@ shaped the implementation:
   [Electron Tray](https://www.electronjs.org/docs/latest/api/tray))
 
 Two product decisions worth recording. **Start at login and open the window at sign-in are separate
-choices**, encoded as the registered launch arguments rather than a second stored flag — which also
-means the launch mode is recoverable by probing which registration exists. A hidden launch is
-downgraded to a visible one whenever background capture is off, since otherwise the user gets a
-process with neither window nor tray icon. And **background capture defaults on while start-at-login
-defaults off**: a history that only records saves made while a window happened to be open is the
-failure the product exists to prevent, but adding a startup entry is the user's decision, especially
-for an unsigned build (see the POST-08 trust-boundary note above).
+choices**, encoded as the registered launch arguments. But they are only separate *while there is a
+tray*: with background capture off, a hidden launch would leave a process with neither window nor
+tray icon, so the two controls collapse into one — "Start Chronicle and open its window when I sign
+in". An earlier revision instead force-ticked and disabled the nested option, which read as the
+interface fighting the user; presenting one control for one real choice is both simpler and more
+honest than presenting a distinction that cannot exist. And **background capture defaults on while
+start-at-login defaults off**: a history that only records saves made while a window happened to be
+open is the failure the product exists to prevent, but adding a startup entry is the user's
+decision, especially for an unsigned build (see the POST-08 trust-boundary note above).
+
+A third finding came from the same session: **the AI sidecar has to be reaped before the process
+exits.** `will-quit` fired disposal without awaiting it, so Electron could exit first and leave a
+live `chronicle-ai-sidecar.exe` behind — Windows does not reap a spawned child with its parent. Each
+orphan holds port 8765 and a lock on its own executable, which is precisely what makes a later
+`make package` fail with `PermissionError`/`EBUSY`, and would block an installer from replacing the
+binary during an update. Shutdown now awaits disposal under a bounded race, because an unquittable
+app is worse than a leaked child.
 
 The tray icon reuses Chronicle's existing app-icon artwork in colour rather than a new monochrome
 glyph. A monochrome tray glyph is the stricter Windows 11 convention, but the tray is where users
@@ -1114,7 +1133,12 @@ table because area and color are poor tools for precise comparison.
   Starting at login and opening the window at login are separate options carried in the registered
   launch arguments. Background capture defaults on, start-at-login defaults off. Verified by driving
   the built app: close hid the window with the process alive, and a second launch handed over to the
-  running instance — official Electron app/Tray documentation plus live verification
+  running instance. Follow-up: measured Electron's Windows login-item read against a real
+  registered entry and found `openAtLogin` false for a live entry (`executableWillLaunchAtLogin`
+  is the working field) and registered arguments absent from the result, so the launch mode is
+  remembered in C5 while the OS stays authoritative for existence; also made shutdown await AI
+  sidecar disposal so orphaned sidecars stop accumulating and stop locking the packaging output
+  — official Electron app/Tray documentation plus live measurement and verification
 - 2026-07-26 - LANDING PROBLEM SECTION REFINEMENT: team review found that introducing Chronicle's
   version timeline inside Why Chronicle duplicated the later How it works demonstration. The
   problem section is now deliberately static and literal: five conflicting campaign filenames

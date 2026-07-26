@@ -183,9 +183,10 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
 - Hidden files/folders and temp files (e.g. `~$…`, `.tmp`, editor autosave/swap files) are ignored.
 - **Startup & background** settings decide when watching happens: keep capturing after the window
   closes (default on, tray-resident), start Chronicle at sign-in, and whether that sign-in launch
-  opens the window or stays in the tray. The login item is the operating system's record, not a
-  synced preference, and is unavailable in development builds. Because a hidden launch with no tray
-  icon would be unreachable, the window option is forced on whenever background capture is off.
+  opens the window or stays in the tray. Whether a login item exists is the operating system's
+  record, not a synced preference, and is unavailable in development builds; only the launch mode
+  is remembered locally. Because a hidden launch with no tray icon would be unreachable, switching
+  background capture off collapses the two startup options into one that always opens the window.
 - **Done when:** add a folder, save a PNG in a subfolder → version appears; save a `.txt` → nothing
   happens; close the window and save again → a version still appears, and the tray icon restores
   the window; disable background capture → closing the window quits.

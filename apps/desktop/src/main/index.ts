@@ -234,18 +234,14 @@ app.whenReady().then(async () => {
   // as an injected host rather than importing them. Every method reads live
   // state, because the tray is created after the bridge starts.
   const systemIntegration: SystemIntegrationHost = {
-    getState: () => {
-      const status = loginItem?.read() ?? { enabled: false, mode: 'background' as const }
-      return {
-        openAtLoginSupported: loginItem?.supported ?? false,
-        openAtLogin: status.enabled,
-        openAtLoginOpensWindow: status.mode === 'window',
-        trayActive: tray?.active() ?? false,
-        unsupportedReason: loginItem?.unsupportedReason ?? null,
-      }
-    },
+    getState: () => ({
+      openAtLoginSupported: loginItem?.supported ?? false,
+      openAtLogin: loginItem?.read() ?? false,
+      trayActive: tray?.active() ?? false,
+      unsupportedReason: loginItem?.unsupportedReason ?? null,
+    }),
     setOpenAtLogin: (enabled, opensWindow) => {
-      loginItem?.write({ enabled, mode: opensWindow ? 'window' : 'background' })
+      loginItem?.write(enabled, opensWindow ? 'window' : 'background')
       return systemIntegration.getState()
     },
     applyRunInBackground: (enabled) => {
@@ -281,7 +277,9 @@ app.whenReady().then(async () => {
     !shouldStartHidden({
       argv: process.argv,
       openedAtLogin: app.getLoginItemSettings().wasOpenedAtLogin,
-      loginMode: loginItem.read().mode,
+      // macOS restores a login item without our argument, so the remembered
+      // mode is what says whether a window was wanted there.
+      loginMode: settings.system.openAtLoginOpensWindow ? 'window' : 'background',
       trayAvailable: tray.active(),
     })
   ) {
@@ -296,12 +294,44 @@ app.on('window-all-closed', () => {
   if (lifecycle?.shouldQuitWhenAllWindowsClosed() ?? process.platform !== 'darwin') app.quit()
 })
 
+/** Runs at most once; every quit route waits on this same promise. */
+let shutdown: Promise<void> | null = null
+
+/**
+ * Stop the watchers and the Python AI sidecar *before* the process exits.
+ *
+ * This has to be awaited, not fired and forgotten. The sidecar is a spawned
+ * child that Windows does not reap with its parent, so an Electron process that
+ * exits first leaves a live `chronicle-ai-sidecar.exe` behind — one per session,
+ * accumulating, each still holding port 8765 and a lock on its own executable
+ * (which is also what breaks the next packaging run and would block an
+ * installer from replacing it during an update).
+ *
+ * Bounded, because an unquittable app is worse than a leaked child: if disposal
+ * has not finished in time, the quit proceeds anyway.
+ */
+function beginShutdown(): Promise<void> {
+  shutdown ??= (async () => {
+    tray?.dispose()
+    await Promise.race([
+      ipc?.dispose() ?? Promise.resolve(),
+      new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+    ])
+  })()
+  return shutdown
+}
+
 // Covers every exit route that does not go through the tray: Cmd+Q, the
 // updater's quitAndInstall, and the OS asking the app to close at logout.
-app.on('before-quit', () => lifecycle?.beginQuit())
+app.on('before-quit', (event) => {
+  lifecycle?.beginQuit()
+  // Second pass — disposal already ran or is running, so let the quit through.
+  if (shutdown) return
+  event.preventDefault()
+  void beginShutdown().finally(() => app.quit())
+})
 
+// Fallback for a quit that never reached the handler above.
 app.on('will-quit', () => {
-  // Best-effort: stop the folder watchers so shutdown doesn't leak handles.
-  tray?.dispose()
-  void ipc?.dispose()
+  void beginShutdown()
 })

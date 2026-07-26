@@ -114,7 +114,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // product exists to prevent. Starting at login is deliberately NOT implied
   // by it: adding a startup entry is the user's decision to make, and this
   // build is unsigned (RESEARCH.md, 2026-07-26).
-  system: { runInBackground: true },
+  system: { runInBackground: true, openAtLoginOpensWindow: false },
   ai: {
     mode: 'local',
     // Default demo provider/model (Google Gemini) — validated in RESEARCH.md's
@@ -189,9 +189,16 @@ export interface ChronicleServicesDeps {
    * effect testable. Absent in tests → the feature reports itself unsupported.
    */
   systemIntegration?: {
-    /** Re-reads the operating system's login item; never a cached copy. */
-    getState: () => SystemIntegrationState
-    setOpenAtLogin: (enabled: boolean, opensWindow: boolean) => SystemIntegrationState
+    /**
+     * Re-reads the operating system's login item; never a cached copy. The
+     * launch mode is not part of this — Windows cannot report it back — so
+     * this layer composes the OS answer with the remembered C5 preference.
+     */
+    getState: () => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
+    setOpenAtLogin: (
+      enabled: boolean,
+      opensWindow: boolean,
+    ) => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
     /** Creates or removes the tray icon when the C5 preference changes. */
     applyRunInBackground: (enabled: boolean) => void
   }
@@ -339,7 +346,18 @@ export function mergeSettings(current: AppSettings, patch: unknown): AppSettings
     if (!isPlainObject(system) || typeof system['runInBackground'] !== 'boolean') {
       throw new TypeError('settings.system.runInBackground must be a boolean')
     }
-    next.system = { runInBackground: system['runInBackground'] }
+    if (
+      system['openAtLoginOpensWindow'] !== undefined &&
+      typeof system['openAtLoginOpensWindow'] !== 'boolean'
+    ) {
+      throw new TypeError('settings.system.openAtLoginOpensWindow must be a boolean')
+    }
+    next.system = {
+      runInBackground: system['runInBackground'],
+      openAtLoginOpensWindow:
+        (system['openAtLoginOpensWindow'] as boolean | undefined) ??
+        current.system.openAtLoginOpensWindow,
+    }
   }
 
   if (patch['appearance'] !== undefined) {
@@ -1549,13 +1567,18 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
 
     async getSystemIntegration() {
-      return deps.systemIntegration?.getState() ?? {
-        openAtLoginSupported: false,
-        openAtLogin: false,
-        openAtLoginOpensWindow: false,
-        trayActive: false,
-        unsupportedReason: 'Starting at login is available in the installed app.',
+      const remembered = (await api.getSettings()).system.openAtLoginOpensWindow
+      const shell = deps.systemIntegration?.getState()
+      if (!shell) {
+        return {
+          openAtLoginSupported: false,
+          openAtLogin: false,
+          openAtLoginOpensWindow: remembered,
+          trayActive: false,
+          unsupportedReason: 'Starting at login is available in the installed app.',
+        }
       }
+      return { ...shell, openAtLoginOpensWindow: remembered }
     },
 
     async setOpenAtLogin(enabled, opensWindow) {
@@ -1564,7 +1587,22 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       if (!deps.systemIntegration) {
         throw new Error('Starting at login is not available in this build')
       }
-      const state = deps.systemIntegration.setOpenAtLogin(enabled, opensWindow)
+      const shell = deps.systemIntegration.setOpenAtLogin(enabled, opensWindow)
+      // Remember the mode only when the entry exists; a refused or removed
+      // login item leaves the previous preference untouched.
+      const current = await api.getSettings()
+      if (shell.openAtLogin && current.system.openAtLoginOpensWindow !== opensWindow) {
+        setSetting(db, SETTINGS_KEY, {
+          ...current,
+          system: { ...current.system, openAtLoginOpensWindow: opensWindow },
+        })
+      }
+      const state: SystemIntegrationState = {
+        ...shell,
+        openAtLoginOpensWindow: shell.openAtLogin
+          ? opensWindow
+          : current.system.openAtLoginOpensWindow,
+      }
       // A managed device can refuse the write, so report the OS's answer.
       if (state.openAtLogin !== enabled || (enabled && state.openAtLoginOpensWindow !== opensWindow)) {
         diagnostic({

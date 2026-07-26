@@ -57,8 +57,12 @@ export interface ChronicleIpc {
  * tray, so it — not this module — knows how to show or hide them).
  */
 export interface SystemIntegrationHost {
-  getState: () => SystemIntegrationState
-  setOpenAtLogin: (enabled: boolean, opensWindow: boolean) => SystemIntegrationState
+  /** The launch mode is remembered in C5, so the shell reports everything else. */
+  getState: () => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
+  setOpenAtLogin: (
+    enabled: boolean,
+    opensWindow: boolean,
+  ) => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
   applyRunInBackground: (enabled: boolean) => void
 }
 
