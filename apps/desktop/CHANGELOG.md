@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/Santi-49/Chronicle/compare/v0.12.0...v0.13.0) (2026-07-26)
+
+
+### Features
+
+* **help:** implement static searchable Help center for non-technical users ([642eb13](https://github.com/Santi-49/Chronicle/commit/642eb138662fd42c6fc13276f531ad0d5eb6540f))
+* **landing:** implement static searchable help center with task-based setup ([642eb13](https://github.com/Santi-49/Chronicle/commit/642eb138662fd42c6fc13276f531ad0d5eb6540f))
+
 ## [0.12.0](https://github.com/Santi-49/Chronicle/compare/v0.11.1...v0.12.0) (2026-07-26)
 
 
