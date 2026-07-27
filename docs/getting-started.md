@@ -1,243 +1,325 @@
 # Getting Started
 
-> For humans. Read this first, then go build.
+> Everything needed to run, develop, test, and package Chronicle.
+>
+> New to the project? Read [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) first for a
+> plain-language map, then come back here for commands.
 
 ---
 
-## What you're working with
+## The one thing to understand first
 
-This repo eliminates the usual hackathon dead-time. Auth, roles, a database, a running API — all done. Your job is to plug in the challenge-specific logic and build the frontend on top of it.
+**Chronicle is the desktop app.** Everything else in this repository is optional.
 
-There are two apps and one backend:
-
+```text
+apps/desktop/     Electron + React + TypeScript — the product
+services/ai/      Local FastAPI + LangChain sidecar — needed only for AI features
+services/api/     Optional FastAPI control plane — needed only for accounts/telemetry
+apps/landing/     Astro marketing, help center, and legal site — optional
+services/module/  Optional inference-gateway logic — stretch scope, not built
 ```
-apps/desktop/     Chronicle desktop app (Electron + React) — the product
-apps/landing/     Static landing page (Astro) — optional
-services/api/     REST API (FastAPI) — already implemented, used as control plane
-services/module/  Your challenge logic lives here
-```
 
-The backend and the frontend never talk to each other's internals. They communicate through **contracts** — more on that in a moment.
+Capture, version history, previews, restore, and keyword search require **no Docker, no
+account, and no network.** If you only want to work on the product, you only need the first
+path.
 
 ---
 
-## Step 0 — Fill in the challenge context
+## Prerequisites
 
-> This is the one thing an AI cannot do for you. Do it before writing any code.
+| Tool | Version | Needed for |
+|---|---|---|
+| **Node.js** | 20+ (22 recommended) | The desktop app |
+| **Python** | 3.12 | The local AI service, and building its packaged sidecar |
+| **GNU Make** | any | The command surface below |
+| **Git** | any | Obviously |
+| **Docker Desktop** | any | *Only* the optional control plane and its tests |
 
-The `docs/challenge/` folder has four files. For this project they are **already filled in** for the AI Builders Challenge (Chronicle) — keep them updated as things change:
+**On Windows, run `make` from Git Bash or WSL** — not PowerShell or `cmd`.
 
-| File | What goes in it |
-|---|---|
-| `CHALLENGE.md` | Problem statement, judging criteria, provided data/APIs, hard rules |
-| `VISION.md` | Your solution concept, key features, demo script |
-| `CONSTRAINTS.md` | Which apps you're building, team ownership, timeline, design direction |
-| `RESEARCH.md` | What you found out about the organizer, the problem space, what to emphasize |
-
-**Why this matters:** every team using AI will have a basic solution. What makes your solution different lives entirely in these files. Claude reads them at the start of every session — if they're empty, it doesn't know what problem you're solving.
-
-They were filled in at kickoff (2026-07-16) — update them as you learn more, especially `RESEARCH.md` before major design decisions.
+Native modules: `better-sqlite3` is compiled for Electron during setup. If Windows lacks
+build tools, see [`apps/desktop/README.md`](../apps/desktop/README.md).
 
 ---
 
-## First-time setup
-
-**You need:** Docker Desktop, Git, Node.js 20+
+## Path 1 — Run the app (start here)
 
 ```bash
-# 1. Clone
-git clone <repo-url> && cd AI-Builders-Bob
-
-# 2. Configure the optional control plane
-make setup-env
-# Open .env and set JWT_SECRET_KEY (any string ≥32 chars)
-# Set FIRST_ADMIN_EMAIL and FIRST_ADMIN_PASSWORD
-# Set CHRONICLE_CONTROL_PLANE_URL (normally http://localhost:8000)
-# Set GOOGLE_OAUTH_CLIENT_ID for Google desktop sign-in
-
-# 3. Start the optional control plane and run migrations
-make control-plane-up
-
-# 4. Verify identity/reachability
-make control-plane-health
-# → {"status":"ok","service":"chronicle-control-plane","version":"0.2.0"}
+make setup      # install desktop dependencies + prepare demo-assets/workspace/
+make run        # open Electron with hot reload
 ```
 
-Open `http://localhost:8000/docs` to browse the API interactively.
+That's it. A real desktop window opens with hot reload and Chrome DevTools. Choose
+**Continue local** at the welcome screen, add a folder, and save an image into it.
 
-### What's running
-
-| URL | What |
-|---|---|
-| `http://localhost:8000/docs` | Swagger UI — try every endpoint here |
-| `http://localhost:8000/health` | Chronicle control-plane preflight |
-
-Docker Compose project name is `chronicle`; its service names are `api`, `postgres`, `redis`,
-and `opa`. Only the API publishes a host port. The other services are reachable by those service
-names inside the Compose network.
-
----
-
-## AI tooling — MCP servers and Skills
-
-This template is set up to work with Claude Code. Two things power that integration: **MCP servers** and **Skills**.
-
-### MCP servers
-
-MCP servers give Claude direct access to tools — query the database, drive a browser, inspect containers — without copy-pasting output. The project ships with five pre-configured servers in `.mcp.json`:
-
-| Server | What it does |
-|---|---|
-| `postgres` | Query the DB, inspect schema, verify migrations |
-| `playwright` | Control a real browser — test frontends, take screenshots |
-| `docker` | Stream container logs, exec into running services |
-| `fetch` | Fetch any URL and get the content as Markdown |
-| `markitdown` | Convert PDFs, DOCX, and HTML files to Markdown |
-
-**Verify they're working** by opening Claude Code in this project and running `/mcp`. You should see all five servers listed as connected. If any are missing, check that `uv` and Node.js are installed — those are the two runtimes the servers need.
-
-Full setup instructions (for other agents, VS Code Copilot, etc.) are in [docs/mcp-servers.md](mcp-servers.md).
-
-### Skills
-
-Skills are curated knowledge packs for specific domains. They live in `.skills/` and Claude loads them when they're relevant — you don't need to manage them manually.
-
-This project has skills for:
-
-| Domain | When it's used |
-|---|---|
-| `design/ui-ux-pro-max` | Any visual design decision — color, typography, component patterns |
-| `animation/gsap-*` | GSAP animations in the landing page or the desktop app's renderer |
-
-You don't invoke them manually for the most part. The main exception is when you want to steer a design decision — you can ask Claude to search the design database explicitly:
+If Electron's downloaded binary needs repair:
 
 ```bash
-python .skills/design/ui-ux-pro-max/scripts/search.py "fintech dashboard dark mode" --design-system
+make ensure-electron && make run
 ```
 
----
-
-## The API already does this
-
-You don't need to build any of it:
-
-- Register / login / logout / token refresh
-- JWT auth with Redis token revocation (so logout actually works)
-- Role-based access control via OPA — add a new resource in one Rego line
-- User management, role/permission CRUD
-
-Everything protected. Everything tested. Start from there.
-
----
-
-## The contracts system
-
-This is the core idea of the template. Here's why it exists and how it works.
-
-### The problem it solves
-
-At a hackathon, the team splits up: some people work on infrastructure and API wiring, others work on the actual challenge logic. Without a clear boundary, you end up with two bad outcomes:
-
-- **Everyone blocks on each other.** The frontend can't start until the API is ready. The API can't start until the module is ready.
-- **Everything gets tangled.** Challenge logic seeps into API routes. API assumptions leak into the module. Two weeks later (or two hours later) it's a mess.
-
-### The solution: agree on the interface, then work in parallel
-
-A **contract** states what operation a boundary exposes, what it does, and the
-formats of its inputs, outputs, and errors. It does not choose the algorithm,
-prompt, tools, storage, provider, orchestration, or internal classes. Use the
-native mechanism for the boundary rather than inventing a wrapper.
-
-### A concrete example
-
-Let's say the hackathon challenge is: **given a recipe ingredient list, suggest wine pairings.**
-
-**Step 1 — Define the contract** (`packages/contracts/module/interface.py`)
-
-```python
-from typing import Protocol, TypedDict
-
-class PairingInput(TypedDict):
-    user_id: str
-    ingredients: list[str]
-
-class PairingOutput(TypedDict):
-    wines: list[str]
-    explanation: str
-
-class ModuleContract(Protocol):
-    async def suggest_pairing(self, input: PairingInput) -> PairingOutput: ...
-```
-
-The team agrees on the operation and I/O, then independently researches and implements each side.
-
-**Step 2 — Module team implements the logic** (`services/module/app/implementation.py`)
-
-```python
-from packages.contracts.module.interface import ModuleContract, PairingInput, PairingOutput
-
-class WinePairingModule:
-    async def suggest_pairing(self, input: PairingInput) -> PairingOutput:
-        # Call an LLM, run a model, query a database — whatever the challenge needs
-        wines = await call_llm(input["ingredients"])
-        return {"wines": wines, "explanation": "Because garlic."}
-```
-
-The module team can test this in total isolation. They don't need the API to exist.
-
-**Step 3 — API team wires it up** (`services/api/app/services/pairing_service.py`)
-
-```python
-from packages.contracts.module.interface import ModuleContract, PairingInput
-
-async def get_pairing(module: ModuleContract, user_id: str, ingredients: list[str]):
-    return await module.suggest_pairing({"user_id": user_id, "ingredients": ingredients})
-```
-
-The API team codes against the Protocol type — they don't care how the module works, just that it satisfies the interface. Python checks this at runtime automatically (no inheritance needed).
-
-**The result:** both teams ship features without stepping on each other.
-
-### The frontend contract works the same way
-
-The API auto-generates a TypeScript types file from its schemas. Run this whenever the backend adds or changes an endpoint:
+<details>
+<summary>Without Make</summary>
 
 ```bash
-make generate-types
-# writes packages/contracts/api/generated/index.ts
+npm --prefix apps/desktop ci
+npm --prefix apps/desktop run ensure-electron
+npm --prefix apps/desktop run dev
 ```
 
-Import from there in your frontend code — never write API types by hand. When the backend changes a schema, TypeScript will tell you immediately at compile time.
+</details>
 
----
+### Where the app stores things
 
-## Adding a new feature (the full loop)
+| What | Where |
+|---|---|
+| SQLite database | Electron user-data directory (`chronicle-desktop` in dev, `Chronicle` when packaged) |
+| Version library | A content-addressed folder beside the database |
+| Derived previews | Cached per content hash beside the library — disposable |
+| Provider keys | Encrypted via Electron `safeStorage`, one per provider |
 
-When you need a new resource (say, a `/pairings` endpoint):
-
-1. **Backend** — add a Pydantic schema in `services/api/app/schemas/`
-2. **Backend** — add a service in `services/api/app/services/`
-3. **Backend** — add a route in `services/api/app/api/v1/endpoints/`
-4. **Backend** — add one line to `infra/opa/policies/roles.rego` for authorization
-5. **Backend** — run `make makemigration MSG="add pairings table"` if you need a new table
-6. **Everyone** — run `make generate-types` so the frontend gets updated types
-7. **Desktop app** — import the new types and build
-
----
-
-## Day-to-day commands
+Useful reset commands during development:
 
 ```bash
-make control-plane-up                # start control plane in background + migrate
-make control-plane-health            # verify API identity/reachability
-make control-plane-down              # shut down the control plane
-make migrate                         # apply migrations
-make makemigration MSG="..."         # create a new migration
-make generate-types                  # sync TypeScript types from the API
-make test                            # backend tests in Docker
-make test-desktop                    # desktop tests
-make lint                            # backend Ruff checks
-make check                           # desktop typecheck/tests + backend tests/lint
+make app-show               # print resolved app data locations
+make app-reset-onboarding   # replay the first-run tutorial
+make app-reset-session      # clear the signed-in session
+make app-clear-ai-costs     # clear local Activity & Cost records
+```
+
+---
+
+## Path 2 — Enable AI summaries and semantic search
+
+Without this, Chronicle still captures versions — summaries just show as *pending*.
+
+```bash
+make setup-ai   # install the loopback AI service and its default Gemini provider
+```
+
+Then in the app: **Settings → AI summaries**. Configure the two tasks independently
+(change summaries, and semantic search), save a provider key for each selected provider, and
+save. Electron starts and health-checks the sidecar automatically — you do not run it yourself.
+
+Notes that will save you time:
+
+- **Save is disabled until the selected provider has a key.** That is intentional.
+- **A changed provider/model is live-probed before it persists.** A rejected configuration
+  rolls back to the previous working values. The probe is a real provider call and may cost a
+  fraction of a cent.
+- **Changing the embedding provider/model re-queues existing text for reindexing** — vision
+  annotation is *not* rerun.
+- Google Gemini is the validated default. Anthropic offers no embeddings API, so it appears
+  only under change summaries.
+
+Diagnose provider configuration without launching the UI:
+
+```bash
+make probe-ai                          # probe the saved selections
+make probe-ai-model PROVIDER=... MODEL=...
+make probe-ai-provider PROVIDER=...
+make probe-ai-all                      # the whole curated catalog
+make smoke-ai                          # bundled-sidecar health/import smoke
+make run-ai                            # run the sidecar standalone (rarely needed)
+```
+
+---
+
+## Path 3 — Run the demo history
+
+The repository ships three deterministic, original image stories so capture and AI can be
+tested against the same files every time.
+
+1. Add `demo-assets/workspace/` as a Chronicle project.
+2. Advance a story:
+
+```bash
+make demo-reset               # back to v1 for every asset
+make demo-next ASSET=logo     # navy → teal
+make demo-next ASSET=logo     # tagline removed
+make demo-status              # what state each asset is in
+make demo-set ASSET=logo STEP=2
+```
+
+Available assets and the full command list are in
+[`demo-assets/README.md`](../demo-assets/README.md).
+
+---
+
+## Path 4 — The optional control plane
+
+Only needed for Google sign-in, portable settings, encrypted key backup, usage statistics, and
+admin analytics. **Nothing in the local creative workflow depends on it.**
+
+```bash
+make setup-env            # create .env from the example
+```
+
+Then edit `.env`:
+
+| Variable | Notes |
+|---|---|
+| `JWT_SECRET_KEY` | Any string ≥ 32 characters |
+| `FIRST_ADMIN_EMAIL` / `FIRST_ADMIN_PASSWORD` | Seeds the first admin account |
+| `CHRONICLE_CONTROL_PLANE_URL` | Normally `http://localhost:8000` — the **origin only**, no `/api/v1` |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | For desktop Google sign-in |
+
+```bash
+make control-plane-up       # start Postgres, Redis, OPA, and the API; run migrations
+make control-plane-health   # → {"status":"ok","service":"chronicle-control-plane",...}
+make control-plane-down
+```
+
+Browse the API interactively at <http://localhost:8000/docs>.
+
+Compose project name is `chronicle`; services are `api`, `postgres`, `redis`, and `opa`. Only
+`api` publishes a host port. **There is no `module` container** — the module is imported
+in-process by `api`.
+
+Admin and migration helpers:
+
+```bash
+make migrate
+make makemigration MSG="add pairings table"
+make seed
+make admin-list
+make admin-promote EMAIL=someone@example.com
+make stats-clear
+```
+
+Packaged releases embed the public control-plane URL and OAuth client ID at build time from
+GitHub Actions repository variables, so an installed app needs no `.env`.
+
+---
+
+## Build, test, and package
+
+```bash
+make typecheck        # TypeScript renderer + main-process checks
+make test-desktop     # Vitest desktop suite (runs under Electron's Node)
+make test-ai          # provider-mocked Python AI tests
+make test             # control-plane pytest in Docker  (make test-local runs it directly)
+make lint             # Ruff
+make check            # typecheck + test-desktop + test + lint
+```
+
+```bash
+make build            # production desktop build
+make package          # Windows NSIS installer      → apps/desktop/dist/
+make package-macos    # macOS DMG (run on macOS)    → apps/desktop/dist/
+make package-unpacked # faster, unpacked build for driving the real app
+```
+
+Packaging builds a self-contained PyInstaller AI sidecar, so installed users need no Python.
+Build it from a **clean, declared Python environment** — a polluted global interpreter has been
+measured making dependency analysis take more than ten minutes.
+
+Current installers are **unsigned**: Windows SmartScreen and macOS Gatekeeper may warn. See
+[releasing.md](releasing.md).
+
+---
+
+## How we work
+
+### Branches
+
+`main` is stable and releasable. `dev` is shared integration. Work happens on
+`feat/…`, `fix/…`, or `docs/…` branches cut from `dev` and merged back by reviewed PR.
+**Nobody pushes directly to `dev` or `main`.**
+
+```bash
+git checkout dev && git pull
+git checkout -b feat/short-name
+# ... work, test, document ...
+git commit -m "feat(scope): what changed"
+git push -u origin feat/short-name
+```
+
+Commit messages follow Conventional Commits — Release Please derives versions and changelogs
+from them.
+
+### Definition of done
+
+A PR is done when:
+
+- [ ] `make typecheck` and the relevant test suites pass
+- [ ] Generated types are regenerated if a contract changed (`make generate-types`, `make generate-ai-types`)
+- [ ] Documentation is updated if behavior changed
+- [ ] One line is added to [bob-log.md](bob-log.md) describing how IBM Bob was used
+
+Keep PRs focused — one task slice, ideally under ~300 lines.
+
+### Contracts — the rule that keeps this repo parallelizable
+
+A **contract** states what an operation does and the format of its inputs, outputs, and errors.
+It does **not** choose the algorithm, prompt, model, provider, storage layout, retry policy, or
+internal classes. Each boundary uses its native mechanism rather than an invented wrapper.
+
+| Boundary | Source of truth | Rule |
+|---|---|---|
+| Renderer ↔ Electron main | `apps/desktop/src/shared/ipc.ts` | Treat as stable; propose changes separately |
+| Main ↔ local AI service | AI service OpenAPI + `packages/contracts/ai/output.schema.json` | Regenerate the TS client; never hand-write |
+| Filesystem ↔ watcher | `apps/desktop/src/main/watcher/rules.ts` | Preserve formats, size cap, and settle guarantee |
+| Settings | `apps/desktop/src/shared/settings.ts` | Secrets must never enter renderer-readable settings |
+| App ↔ control plane | `packages/contracts/api/openapi.json` | Generated types only |
+| Backend ↔ module | `packages/contracts/module/interface.py` | Stretch scope |
+
+```bash
+make generate-types      # control-plane OpenAPI → packages/contracts/api/generated/index.ts
+make generate-ai-types   # AI service OpenAPI → generated TS client
+```
+
+Full rules and rationale: [contracts.md](contracts.md).
+
+### Adding a control-plane resource (the whole loop)
+
+1. Pydantic schema in `services/api/app/schemas/`
+2. Service function in `services/api/app/services/`
+3. Route in `services/api/app/api/v1/endpoints/`
+4. One `(resource, action)` entry in `infra/opa/policies/roles.rego`
+5. Matching permissions in the next Alembic migration seed
+6. `make makemigration MSG="..."` then `make migrate`
+7. `make generate-types` so the desktop app gets updated types
+
+### Adding a creative format
+
+Two **independent** changes, by design:
+
+1. **Capture and display** — one entry in `apps/desktop/src/shared/formats.ts` plus its handler
+   in `apps/desktop/src/main/formats/`. The watcher, capture, media protocol, previews,
+   telemetry buckets, and UI all derive from the registry.
+2. **AI annotation** — later, separately: one `FormatAdapter` in
+   `services/ai/chronicle_ai/formats.py` plus its prompt sections in
+   `packages/prompts/version-annotation.md`.
+
+Until step 2 exists, that format's versions capture, preview, restore, and keyword-search
+normally while their annotation jobs stay honestly *queued*.
+
+### Prompts
+
+Prompt content lives **only** in `packages/prompts/*.md` with YAML front matter — never inlined
+in Python or TypeScript. A prompt revision is an implementation experiment, free to change as
+long as C3's output schema still validates.
+
+---
+
+## AI tooling for contributors
+
+The repository is configured for AI coding agents. Point yours at the required reading listed at
+the top of [TODO.md](../TODO.md) — those files are the source of truth for scope, contracts, and
+hard rules, and code contradicting them gets rejected in review even if it works.
+
+**MCP servers** (`.mcp.json`): `postgres`, `playwright`, `docker`, `fetch`, `markitdown`. Verify
+with `/mcp` in Claude Code. Setup for other agents: [mcp-servers.md](mcp-servers.md).
+
+> **`docker` caveat:** always pass `service` explicitly. Valid names are `api`, `postgres`,
+> `redis`, `opa`.
+
+**Skills** (`.skills/`) cover GSAP animation and UI/UX design decisions, loaded contextually.
+To steer a design decision explicitly:
+
+```bash
+python .skills/design/ui-ux-pro-max/scripts/search.py "dark mode dashboard" --design-system
 ```
 
 ---
@@ -246,10 +328,14 @@ make check                           # desktop typecheck/tests + backend tests/l
 
 | You're working on | Read |
 |---|---|
-| The team spec (stack, rules, MVP scope) | [spec.md](spec.md) — **read before building anything** |
-| Backend routes and auth | [backend/overview.md](backend/overview.md) |
-| Challenge module logic | [contracts.md](contracts.md) |
-| Desktop app | `apps/desktop/` — run `npm install && npm run dev` |
-| Authorization / roles | [backend/rbac.md](backend/rbac.md) |
-| Database / migrations | [backend/database.md](backend/database.md) |
-| System architecture | [architecture/overview.md](architecture/overview.md) |
+| Anything — read this first | [spec.md](spec.md) — stack, rules, MVP scope F1–F10 |
+| Understanding the whole project | [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) |
+| The renderer or any screen | [desktop/overview.md](desktop/overview.md) |
+| AI annotation, embeddings, or providers | [ai-approach.md](ai-approach.md) |
+| Contract boundaries | [contracts.md](contracts.md) |
+| System and service architecture | [architecture/overview.md](architecture/overview.md) |
+| Backend routes, auth, RBAC, database | [backend/overview.md](backend/overview.md) |
+| Versioning, CI, and releases | [releasing.md](releasing.md) |
+| Privacy, lawful basis, retention | [privacy-policy.md](privacy-policy.md) |
+| The judging case | [challenge-fit.md](challenge-fit.md) |
+| Claiming a task | [TODO.md](../TODO.md) · [PROJECT_STATUS.md](../PROJECT_STATUS.md) |
