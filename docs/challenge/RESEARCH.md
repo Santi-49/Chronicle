@@ -1123,6 +1123,23 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-27 — LANDING SEARCH IDENTITY AND FAVICON FINDING: the live site emitted
+  `<link rel="canonical">`, `og:url`, `sitemap.xml`, and `robots.txt` pointing at
+  `https://3560a44e.chronicle-9bi.pages.dev/`, because `astro.config.mjs` fell back to
+  Cloudflare's `CF_PAGES_URL`, which is the **per-deployment** address and changes on every
+  build. Every deploy therefore published a different self-reference than the domain Google
+  had indexed. The production domain is now the built-in default and `PUBLIC_SITE_URL` is the
+  only override. Google states that the favicon must be crawlable by Googlebot-Image, square,
+  and preferably larger than 48×48, and that it is chosen once per hostname from the home page;
+  the site shipped only a size-less SVG, while `/favicon.ico` — the path browsers and crawlers
+  probe by default — returned the home page HTML with status 200. Added generated 48/96/180/192/512
+  PNGs plus a real multi-size `favicon.ico`, and `WebSite` structured data so results can be
+  labelled "Chronicle" instead of the bare hostname. Google documents several days to several
+  weeks before a favicon change appears, so this is not verifiable on the day it ships. Still
+  open: Cloudflare Pages answers unknown paths with 200 and the home page, which is a soft-404
+  pattern worth fixing separately — live site inspection +
+  [Google favicon guidance](https://developers.google.com/search/docs/appearance/favicon-in-search),
+  [Google site names](https://developers.google.com/search/docs/appearance/site-names)
 - 2026-07-27 — PROJECT BROWSING AND REMOVED-FILE RETENTION DECISION: the Project screen's
   "folder filter" only ever grouped by the first path segment, so everything deeper collapsed into
   one chip and nested work was unreachable. It is replaced by a breadcrumb-driven browser over the

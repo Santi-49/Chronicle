@@ -437,7 +437,7 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
     <section className="settings-section">
       <div className="settings-section-heading">
         <Icon name="folder-plus" />
-        <div><h2>Tracked folders</h2><p>PNG and JPG files in these folders are versioned automatically.</p></div>
+        <div><h2>Tracked folders</h2><p>Supported creative files in these folders are versioned automatically. Each project chooses which file types it captures.</p></div>
       </div>
       {folders.length === 0 ? (
         <p className="settings-empty">No folders tracked yet.</p>

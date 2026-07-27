@@ -170,7 +170,9 @@ import { landingContent } from "../content";
     <h2>Retention and your controls</h2>
     <p>
       Local creative history remains on your device until you remove it using Chronicle or delete the app's
-      local data. Raw session, project-removal, and sanitized-error records are kept for up to 90 days; hourly
+      local data, with one exception: when a watched file is no longer on disk, Chronicle keeps its stored
+      version history under Removed files for 30 days and then deletes it permanently from your device. You can
+      delete that history sooner from the same place. Raw session, project-removal, and sanitized-error records are kept for up to 90 days; hourly
       usage rollups for up to 400 days; and current inventory snapshots for up to 30 days. Anonymous installation
       registrations and preference records expire after 400 inactive days. Cloud account records, identities,
       linked installations, and synced settings are kept while your account is active. Chronicle access and
