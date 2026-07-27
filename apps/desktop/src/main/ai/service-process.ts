@@ -1,5 +1,6 @@
 /** Starts and stops the local Python FastAPI AI service. */
 import { spawn, type ChildProcess } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 
 export interface AiServiceProcess {
@@ -14,11 +15,47 @@ export interface AiServiceLocation {
   environment: NodeJS.ProcessEnv
 }
 
+/**
+ * Keep each workspace run isolated from both the installed app and orphaned
+ * sidecars left by an abruptly stopped development shell.
+ */
+export function desktopAiServicePort(
+  packaged: boolean,
+  processId = process.pid,
+): number {
+  return packaged ? 8765 : 20_000 + Math.abs(processId) % 20_000
+}
+
+export function resolveDevelopmentPython(
+  repositoryRoot: string,
+  platform: NodeJS.Platform = process.platform,
+  fileExists: (candidate: string) => boolean = existsSync,
+): string {
+  if (process.env['CHRONICLE_PYTHON']) return process.env['CHRONICLE_PYTHON']
+  const executable = platform === 'win32' ? 'python.exe' : 'python'
+  const scriptsDirectory = platform === 'win32' ? 'Scripts' : 'bin'
+  const candidates = [
+    path.join(repositoryRoot, 'services', 'ai', '.venv', scriptsDirectory, executable),
+    path.join(
+      repositoryRoot,
+      'apps',
+      'desktop',
+      'build',
+      'sidecar-venv',
+      scriptsDirectory,
+      executable,
+    ),
+  ]
+  return candidates.find(fileExists) ?? 'python'
+}
+
 /** Resolve development Python or the self-contained installed sidecar. */
 export function resolveAiServiceLocation(
   repositoryRoot: string,
   packagedResourcesPath?: string,
   platform: NodeJS.Platform = process.platform,
+  port = 8765,
+  reload = false,
 ): AiServiceLocation {
   if (packagedResourcesPath) {
     const sidecarDir = path.join(packagedResourcesPath, 'ai')
@@ -31,6 +68,7 @@ export function resolveAiServiceLocation(
       cwd: sidecarDir,
       environment: {
         ...process.env,
+        CHRONICLE_AI_PORT: String(port),
         CHRONICLE_PROMPT_PATH: path.join(sidecarDir, 'prompts', 'version-annotation.md'),
       },
     }
@@ -38,7 +76,7 @@ export function resolveAiServiceLocation(
 
   const serviceDir = path.join(repositoryRoot, 'services', 'ai')
   return {
-    command: process.env['CHRONICLE_PYTHON'] || 'python',
+    command: resolveDevelopmentPython(repositoryRoot, platform),
     args: [
       '-m',
       'uvicorn',
@@ -46,9 +84,10 @@ export function resolveAiServiceLocation(
       '--host',
       '127.0.0.1',
       '--port',
-      '8765',
+      String(port),
       '--log-level',
       'warning',
+      ...(reload ? ['--reload'] : []),
     ],
     cwd: serviceDir,
     environment: process.env,
@@ -58,9 +97,17 @@ export function resolveAiServiceLocation(
 export function createAiServiceProcess(
   repositoryRoot: string,
   packagedResourcesPath?: string,
+  port = 8765,
+  reload = false,
 ): AiServiceProcess {
   let child: ChildProcess | undefined
-  const location = resolveAiServiceLocation(repositoryRoot, packagedResourcesPath)
+  const location = resolveAiServiceLocation(
+    repositoryRoot,
+    packagedResourcesPath,
+    process.platform,
+    port,
+    reload,
+  )
 
   return {
     start(): void {

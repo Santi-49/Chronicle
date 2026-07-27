@@ -159,6 +159,40 @@ Setup for a fresh BYOK user:
 3. Keys are stored per provider in Electron `safeStorage`, never readable back
    over IPC and never sent to Chronicle's backend by default.
 
+### Developer provider/model probe
+
+The headless probe uses the API keys already saved by the developer workspace
+and makes the same minimal live calls as **Settings → AI → Save**. It never
+prints plaintext keys:
+
+```bash
+cd apps/desktop
+npm run probe:ai
+npm run probe:ai -- -- --provider openai --model gpt-5.6-terra --task chat
+npm run probe:ai -- -- --provider google_genai
+npm run probe:ai -- -- --all
+```
+
+The same probes are available from the repository root:
+
+```bash
+make probe-ai
+make probe-ai-model PROVIDER=openai MODEL=gpt-5.6-luna TASK=chat
+make probe-ai-provider PROVIDER=google_genai
+make probe-ai-all
+```
+
+With no filters it checks the saved chat and embeddings selections. `--all`
+checks every model in Chronicle's curated catalog for providers that have a
+locally saved key; missing keys are reported as `SKIP`. These are real provider
+calls and may incur a small charge.
+
+Each workspace run owns a PID-derived loopback port; installed Chronicle owns
+`8765`. This prevents both a running installed sidecar and an orphaned earlier
+development sidecar from serving stale code to the current UI. Development
+prefers `services/ai/.venv`, then the prepared `build/sidecar-venv`, before
+falling back to system Python. The probe remains isolated on `8877`.
+
 Caveats worth stating in the demo (do not overclaim): the live probe and every
 summary/embedding are **real provider calls** that leave the device and may incur
 a small charge; cost estimates (≈$0.007–0.011/annotation for Flash) are

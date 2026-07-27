@@ -111,7 +111,7 @@ class AdminStatistics(StrictModel):
     generated_at: datetime
     period_start: datetime
     period_end: datetime
-    period_days: int = Field(ge=1, le=366)
+    period_days: int = Field(ge=1)
     overview: AdminOverview
     inventory_averages: AdminInventoryAverages
     file_type_distribution: list[AdminCategoryCount]

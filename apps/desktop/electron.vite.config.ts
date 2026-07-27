@@ -20,6 +20,7 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     define: {
+      __APP_VERSION__: JSON.stringify(packageJson.version),
       __CHRONICLE_CONTROL_PLANE_URL__: JSON.stringify(
         process.env['CHRONICLE_CONTROL_PLANE_URL']?.trim() ?? '',
       ),

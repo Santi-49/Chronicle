@@ -8,11 +8,30 @@ from typing import Any
 
 import pytest
 
-from chronicle_ai.engine import annotate_version, embed_text, validate_provider_model
-from chronicle_ai.schemas import AnnotateRequest, EmbedTextRequest, ValidateProviderModelRequest
+from chronicle_ai.engine import (
+    _provider_transport_options,
+    annotate_version,
+    embed_text,
+    embed_texts,
+    validate_provider_model,
+)
+from chronicle_ai.schemas import (
+    AnnotateRequest,
+    EmbedTextRequest,
+    EmbedTextsRequest,
+    ValidateProviderModelRequest,
+)
 
 
 IMAGE = {"base64": "aW1hZ2U=", "mediaType": "image/png", "format": "png"}
+
+
+def test_provider_transport_disables_response_compression() -> None:
+    identity = {"Accept-Encoding": "identity"}
+    assert _provider_transport_options("openai") == {"default_headers": identity}
+    assert _provider_transport_options("anthropic") == {"default_headers": identity}
+    assert _provider_transport_options("google_genai") == {"additional_headers": identity}
+    assert _provider_transport_options("custom") == {}
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +63,15 @@ class FakeEmbeddings:
     async def aembed_query(self, text: str) -> list[float]:
         assert text == "navy background"
         return [0.1, 0.2, 0.3]
+
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[float(index), 0.2, 0.3] for index, _text in enumerate(texts)]
+
+
+class FakeTokenCounter:
+    def get_num_tokens(self, text: str) -> int:
+        assert text == "navy background"
+        return 2
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +132,40 @@ async def test_first_version_uses_description_prompt() -> None:
 
     # One text block + one image block
     assert [block["type"] for block in user_content] == ["text", "image_url"]
+
+
+@pytest.mark.asyncio
+async def test_annotate_omits_deprecated_temperature_for_anthropic() -> None:
+    structured = FakeStructuredModel(
+        {
+            "summary": "A logo.",
+            "changes": ["Initial version"],
+            "tags": ["logo", "initial", "design"],
+            "confidence": None,
+        }
+    )
+    factory_arguments: dict[str, Any] = {}
+
+    def factory(**kwargs: Any) -> FakeChatModel:
+        factory_arguments.update(kwargs)
+        return FakeChatModel(structured)
+
+    await annotate_version(
+        AnnotateRequest.model_validate(
+            {
+                "provider": "anthropic",
+                "model": "claude-sonnet-5",
+                "apiKey": "secret",
+                "fileName": "logo.png",
+                "format": "png",
+                "current": IMAGE,
+            }
+        ),
+        model_factory=factory,
+    )
+
+    assert "temperature" not in factory_arguments
+    assert factory_arguments["default_headers"] == {"Accept-Encoding": "identity"}
 
 
 # ---------------------------------------------------------------------------
@@ -251,15 +313,63 @@ async def test_embed_text_returns_model_identity_and_dimensions() -> None:
             }
         ),
         embeddings_factory=lambda **_: FakeEmbeddings(),
+        token_counter_factory=lambda **_: FakeTokenCounter(),
     )
 
     assert result.embedding == [0.1, 0.2, 0.3]
     assert result.provider == "openai"
     assert result.model == "test-embed-model"
     assert result.dimensions == 3
-    # The standard embedding interface exposes no token usage.
-    assert result.usage is None
+    assert result.usage is not None
+    assert result.usage.input_tokens == 2
+    assert result.usage.output_tokens == 0
+    assert result.usage.total_tokens == 2
     assert result.cost is None
+
+
+@pytest.mark.asyncio
+async def test_embed_text_survives_an_unavailable_provider_tokenizer() -> None:
+    class BrokenTokenCounter:
+        def get_num_tokens(self, _text: str) -> int:
+            raise RuntimeError("countTokens unavailable")
+
+    result = await embed_text(
+        EmbedTextRequest.model_validate(
+            {
+                "provider": "google_genai",
+                "model": "gemini-embedding-001",
+                "apiKey": "secret",
+                "text": "navy background",
+            }
+        ),
+        embeddings_factory=lambda **_: FakeEmbeddings(),
+        token_counter_factory=lambda **_: BrokenTokenCounter(),
+    )
+
+    assert result.embedding == [0.1, 0.2, 0.3]
+    assert result.usage is None
+
+
+@pytest.mark.asyncio
+async def test_embed_texts_batches_vectors_and_aggregates_exact_usage() -> None:
+    result = await embed_texts(
+        EmbedTextsRequest.model_validate(
+            {
+                "provider": "openai",
+                "model": "text-embedding-3-small",
+                "apiKey": "secret",
+                "texts": ["navy background", "navy background"],
+            }
+        ),
+        embeddings_factory=lambda **_: FakeEmbeddings(),
+        token_counter_factory=lambda **_: FakeTokenCounter(),
+    )
+
+    assert result.embeddings == [[0.0, 0.2, 0.3], [1.0, 0.2, 0.3]]
+    assert result.dimensions == 3
+    assert result.usage is not None
+    assert result.usage.input_tokens == 4
+    assert result.usage.total_tokens == 4
 
 
 @pytest.mark.asyncio
@@ -279,6 +389,10 @@ async def test_validate_provider_model_makes_a_real_task_probe(task: str) -> Non
             embedded_text.append(text)
             return [1.0]
 
+        async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
+            embedded_text.extend(texts)
+            return [[1.0] for _text in texts]
+
     await validate_provider_model(
         ValidateProviderModelRequest.model_validate(
             {
@@ -296,7 +410,10 @@ async def test_validate_provider_model_makes_a_real_task_probe(task: str) -> Non
         assert structured.messages is not None
         assert structured.messages[1]["content"][-1]["type"] == "image_url"
     else:
-        assert embedded_text == ["Chronicle configuration check"]
+        assert embedded_text == [
+            "Chronicle configuration check",
+            "Chronicle batch configuration check",
+        ]
 
 
 # ---------------------------------------------------------------------------

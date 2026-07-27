@@ -200,7 +200,8 @@ function Filters({
   return <div className="admin-filters" aria-label="Analytics filters">
     <label><span>Period</span><select value={range} onChange={(event) => setRange(event.target.value)}>
       <option value="7">Last 7 days</option><option value="30">Last 30 days</option>
-      <option value="90">Last 90 days</option><option value="custom">Custom range</option>
+      <option value="90">Last 90 days</option><option value="all">All time</option>
+      <option value="custom">Custom range</option>
     </select></label>
     {range === 'custom' && <>
       <label><span>Start date</span><input type="date" value={startDate}
@@ -315,7 +316,7 @@ function Audience({ data }: { data: AdminStatistics }) {
       ['New installations', data.overview.new_installations],
       ['On current release', pf.format(latestRate), adoption.latestVersion
         ? `${nf.format(adoption.latestCount)} on ${adoption.latestVersion} or newer` : 'No version data'],
-      ['Need an update', adoption.outdatedCount, 'Reporting an older app version'],
+      ['Need an update', adoption.outdatedCount, 'Active on an older app version'],
     ]} />
     <div className="admin-grid">
       <article className="admin-panel"><h2>Installation growth</h2><p>First-seen installations per day.</p>
@@ -325,7 +326,7 @@ function Audience({ data }: { data: AdminStatistics }) {
       <article className="admin-panel"><h2>Update adoption</h2>
         <p>
           {adoption.latestVersion
-            ? `Reporting installations on ${adoption.latestVersion} or newer compared with older releases.`
+            ? `Active installations on ${adoption.latestVersion} or newer compared with older releases.`
             : 'No valid Chronicle release versions were reported in this period.'}
         </p>
         <Bars values={adoption.latestVersion ? [
@@ -335,7 +336,7 @@ function Audience({ data }: { data: AdminStatistics }) {
         <p className="admin-chart-summary">
           {adoption.total
             ? `${pf.format(latestRate)} are on the current release or newer; ${nf.format(adoption.outdatedCount)} may need an update.`
-            : 'No reporting installations are available for this comparison.'}
+            : 'No active installations are available for this comparison.'}
         </p>
       </article>
       <article className="admin-panel"><h2>Release detail</h2>
@@ -541,7 +542,7 @@ export function AdminScreen() {
     ...(
       range === 'custom'
         ? startDate && endDate ? { startDate, endDate } : {}
-        : { periodDays: Number(range) }
+        : range === 'all' ? { allTime: true } : { periodDays: Number(range) }
     ),
     ...(account ? { accountId: account.id } : {}),
     ...(country ? { country } : {}),

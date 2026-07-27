@@ -16,10 +16,12 @@ import type {
   ApplicationDiagnostic,
   ChronicleApi,
   ControlPlaneDiagnostic,
+  SystemIntegrationState,
 } from '../../shared/ipc'
 import { createAiClient } from '../ai/client'
-import { createAiServiceProcess } from '../ai/service-process'
+import { createAiServiceProcess, desktopAiServicePort } from '../ai/service-process'
 import { createAiWorker } from '../ai/worker'
+import { recordAiCall, recordPersonalActivity } from '../analytics/repository'
 import type { ChronicleDb } from '../db/database'
 import { getSetting } from '../db/repositories'
 import type { AppSettings } from '../../shared/settings'
@@ -48,6 +50,20 @@ export interface ChronicleIpc {
   startUpdater(): void
   /** Removes every handler and stops the watchers (app shutdown). */
   dispose(): Promise<void>
+}
+
+/**
+ * Shell integration owned by the app entry point (it creates the window and the
+ * tray, so it — not this module — knows how to show or hide them).
+ */
+export interface SystemIntegrationHost {
+  /** The launch mode is remembered in C5, so the shell reports everything else. */
+  getState: () => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
+  setOpenAtLogin: (
+    enabled: boolean,
+    opensWindow: boolean,
+  ) => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
+  applyRunInBackground: (enabled: boolean) => void
 }
 
 /**
@@ -143,7 +159,11 @@ export function startChronicleIpc(
   db: ChronicleDb,
   libraryRoot: string,
   previewRoot: string,
+  systemIntegration?: SystemIntegrationHost,
 ): ChronicleIpc {
+  // app.getVersion() falls back to Electron's version when development package
+  // metadata is unavailable. The build-time package value is always Chronicle's.
+  const appVersion = __APP_VERSION__
   const osFamily =
     process.platform === 'win32' ? 'windows'
       : process.platform === 'darwin' ? 'macos'
@@ -151,7 +171,7 @@ export function startChronicleIpc(
   const telemetryCollector = createTelemetryCollector(
     db,
     () => getSetting<string>(db, 'control-plane-installation-id') ?? 'unknown',
-    app.getVersion(),
+    appVersion,
     osFamily,
   )
   const applicationDiagnostics: ApplicationDiagnostic[] = []
@@ -176,7 +196,7 @@ export function startChronicleIpc(
   const { autoUpdater } = electronUpdater
   const updateController = createUpdateController({
     supported: app.isPackaged && process.platform === 'win32',
-    currentVersion: app.getVersion(),
+    currentVersion: appVersion,
     updater: autoUpdater as unknown as UpdaterAdapter,
     emit: (state) => emit('updateStateChanged', state),
     diagnostic: recordApplicationDiagnostic,
@@ -246,7 +266,8 @@ export function startChronicleIpc(
     process.env['GOOGLE_OAUTH_CLIENT_ID']?.trim() || bundledGoogleClientId
   const googleClientSecret =
     process.env['GOOGLE_OAUTH_CLIENT_SECRET']?.trim() || bundledGoogleClientSecret
-  const aiClient = createAiClient()
+  const aiServicePort = desktopAiServicePort(app.isPackaged)
+  const aiClient = createAiClient(`http://127.0.0.1:${aiServicePort}`)
   const services = createChronicleServices({
     db,
     libraryRoot,
@@ -293,7 +314,7 @@ export function startChronicleIpc(
     rendererDiagnostic: (draft) => recordDiagnosticWithProcess(draft, 'renderer'),
     preloadDiagnostic: (draft) => recordDiagnosticWithProcess(draft, 'preload'),
     installation: {
-      appVersion: app.getVersion(),
+      appVersion,
       osFamily,
     },
     installationIdPath: path.join(app.getPath('userData'), 'installation-id'),
@@ -313,6 +334,7 @@ export function startChronicleIpc(
     onTelemetryDisabled: () => telemetryWorker?.disableTelemetry() ?? Promise.resolve(),
     telemetry: telemetryCollector,
     updater: updateController,
+    ...(systemIntegration ? { systemIntegration } : {}),
   })
 
   // POST-04: telemetry worker — only active when the control-plane client is configured.
@@ -332,6 +354,8 @@ export function startChronicleIpc(
   const aiProcess = createAiServiceProcess(
     repositoryRoot,
     app.isPackaged ? process.resourcesPath : undefined,
+    aiServicePort,
+    !app.isPackaged,
   )
   const aiWorker = createAiWorker({
     db,
@@ -346,6 +370,10 @@ export function startChronicleIpc(
       void services.api.getAppStatus().then((status) => emit('statusChanged', status))
     },
     telemetry: telemetryCollector,
+    personalAnalytics: {
+      recordAiCall: (call) => recordAiCall(db, call),
+      recordActivity: (kind, values) => recordPersonalActivity(db, kind, values),
+    },
     diagnostic: recordApplicationDiagnostic,
   })
 
@@ -437,7 +465,7 @@ export function startChronicleIpc(
     event: 'application_started',
     message: 'Chronicle main-process diagnostics started.',
     context: {
-      appVersion: app.getVersion(),
+      appVersion,
       packaged: app.isPackaged,
       controlPlaneBaseUrl: developmentControlPlaneUrl ?? controlPlaneBaseUrl,
     },

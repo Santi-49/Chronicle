@@ -21,6 +21,7 @@ import { friendlyIpcError } from '../lib/errors'
 import { HELP_CENTER_URL, UPDATE_HELP_URL } from '../lib/helpLinks'
 import { PRIVACY_URL, TERMS_URL } from '../lib/legalAcceptance'
 import type { OnboardingStatus } from '../lib/onboarding'
+import type { AiModelPrice, SystemIntegrationState } from '../../../shared/ipc'
 
 interface SettingsScreenProps {
   developerBuild: boolean
@@ -85,6 +86,7 @@ export function SettingsScreen({
           onResume={onResumeTutorial}
         />
         <AppearanceSection themePreference={themePreference} onThemePreferenceChange={onThemePreferenceChange} />
+        <StartupSection />
         <TrackedFoldersSection onAddProject={onAddProject} />
         <AiSection onAiReady={onAiReady} />
         <AccountSection
@@ -281,6 +283,151 @@ function AppearanceSection({
   )
 }
 
+// ── Startup & background ────────────────────────────────────────────────
+
+/**
+ * Three related but separate choices, in the order they take effect:
+ * whether closing the window keeps capturing, whether Chronicle starts with
+ * Windows/macOS, and whether that start shows the window.
+ *
+ * The startup preference is read back from the operating system on every load
+ * rather than from settings, because it can be revoked in Task Manager or
+ * System Settings while Chronicle is not running.
+ */
+function StartupSection() {
+  const { settings, save } = useSettings()
+  const [system, setSystem] = useState<SystemIntegrationState>()
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void chronicle.getSystemIntegration().then((state) => {
+      if (!cancelled) setSystem(state)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const runInBackground = settings?.system.runInBackground ?? false
+  // With background capture off there is no tray to reach, so a login launch
+  // must show its window; the main process enforces the same rule. Rather than
+  // showing a checkbox that ticks itself and then refuses to be changed, the
+  // choice disappears and the single remaining behavior is stated in words.
+  const windowForced = !runInBackground
+  const opensWindow = windowForced || (system?.openAtLoginOpensWindow ?? false)
+
+  const applyLogin = async (enabled: boolean, showWindow: boolean) => {
+    setBusy(true)
+    setError('')
+    try {
+      setSystem(await chronicle.setOpenAtLogin(enabled, showWindow))
+    } catch (cause) {
+      setError(friendlyIpcError(cause, 'Chronicle could not change the startup setting.'))
+      // Re-read so the checkboxes show what the operating system actually has.
+      setSystem(await chronicle.getSystemIntegration())
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const changeBackground = async (enabled: boolean) => {
+    setError('')
+    await save({
+      system: {
+        runInBackground: enabled,
+        openAtLoginOpensWindow: settings?.system.openAtLoginOpensWindow ?? false,
+      },
+    })
+    // Turning background capture off strands a tray-only login launch, so
+    // promote it to a window launch in the same action.
+    if (!enabled && system?.openAtLogin && !system.openAtLoginOpensWindow) {
+      await applyLogin(true, true)
+    }
+  }
+
+  return (
+    <section className="settings-section" id="startup-settings">
+      <div className="settings-section-heading">
+        <Icon name="power" />
+        <div>
+          <h2>Startup &amp; background</h2>
+          <p>Chronicle only captures saves while it is running.</p>
+        </div>
+      </div>
+
+      <div className="startup-options">
+        <label className="toggle-field">
+          <input
+            checked={runInBackground}
+            disabled={!settings}
+            onChange={(event) => void changeBackground(event.target.checked)}
+            type="checkbox"
+          />
+          <span>
+            <strong>Keep capturing after I close the window</strong>
+            <small>
+              Chronicle stays in the notification area and keeps versioning your folders. Open or
+              quit it from the tray icon. Turn this off to make closing the window quit Chronicle.
+            </small>
+          </span>
+        </label>
+
+        {/*
+          With background capture off there is no tray icon, so the only
+          reachable login launch is one that opens the window — a single choice,
+          shown as a single control. Offering "start at login" and "open the
+          window" separately there would present a distinction that does not
+          exist, with one of them permanently forced.
+        */}
+        <label className="toggle-field">
+          <input
+            checked={system?.openAtLogin ?? false}
+            disabled={busy || !system?.openAtLoginSupported}
+            onChange={(event) => void applyLogin(event.target.checked, opensWindow)}
+            type="checkbox"
+          />
+          <span>
+            <strong>
+              {windowForced
+                ? 'Start Chronicle and open its window when I sign in'
+                : 'Start Chronicle when I sign in'}
+            </strong>
+            <small>
+              {!system?.openAtLoginSupported
+                ? (system?.unsupportedReason ?? 'Starting at login is available in the installed app.')
+                : windowForced
+                  ? 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete. The window opens because background capture is off — without a tray icon there would be no way to reach Chronicle.'
+                  : 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete.'}
+            </small>
+          </span>
+        </label>
+
+        {!windowForced && (
+          <label className="toggle-field startup-nested">
+            <input
+              checked={opensWindow}
+              disabled={busy || !system?.openAtLoginSupported || !system?.openAtLogin}
+              onChange={(event) => void applyLogin(true, event.target.checked)}
+              type="checkbox"
+            />
+            <span>
+              <strong>Open the Chronicle window at sign-in</strong>
+              <small>
+                Leave this off to start quietly in the notification area and keep capturing without
+                a window.
+              </small>
+            </span>
+          </label>
+        )}
+      </div>
+
+      {error && <p className="form-error" role="alert">{error}</p>}
+    </section>
+  )
+}
+
 // ── Tracked folders ─────────────────────────────────────────────────────
 
 function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
@@ -317,6 +464,20 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
 
 // ── AI summaries ──────────────────────────────────────────────────────────
 
+const modelRate = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 6,
+})
+
+function formatModelPrice(price: AiModelPrice | null, inputOnly: boolean): string {
+  if (!price) return 'Live list price unavailable for this model.'
+  const input = `${modelRate.format(price.inputUsdPerMillion)} input`
+  const output = inputOnly ? '' : ` · ${modelRate.format(price.outputUsdPerMillion)} output`
+  return `Estimated list price · ${input}${output} per 1M tokens · Models.dev`
+}
+
 function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const { settings, configuredProviders, loading, save, setApiKey, clearApiKey } = useSettings()
 
@@ -326,6 +487,12 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
   const [embedProvider, setEmbedProvider] = useState('google_genai')
   const [embedModel, setEmbedModel] = useState('gemini-embedding-001')
   const [saveState, setSaveState] = useState<{ message: string; error: boolean } | null>(null)
+  const [priceState, setPriceState] = useState<{
+    key: string
+    chat: AiModelPrice | null
+    embeddings: AiModelPrice | null
+    loading: boolean
+  } | null>(null)
   const [testingTask, setTestingTask] = useState<AiTask | null>(null)
   const [testStates, setTestStates] = useState<
     Partial<Record<AiTask, { message: string; error: boolean }>>
@@ -344,6 +511,55 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
       isPresetModel('embeddings', settings.ai.embeddings.provider, settings.ai.embeddings.model)
     setDevMode(!preset && settings.ai.chat.provider !== '')
   }, [settings])
+
+  useEffect(() => {
+    const chatProviderId = chatProvider.trim()
+    const chatModelId = chatModel.trim()
+    const embeddingProviderId = embedProvider.trim()
+    const embeddingModelId = embedModel.trim()
+    const key = [
+      chatProviderId,
+      chatModelId,
+      embeddingProviderId,
+      embeddingModelId,
+    ].join('\u001f')
+    let cancelled = false
+    setPriceState({ key, chat: null, embeddings: null, loading: true })
+    const timer = setTimeout(async () => {
+      let chat: AiModelPrice | null = null
+      let embeddings: AiModelPrice | null = null
+      if (chatProviderId && chatModelId) {
+        try {
+          chat = await chronicle.getAiModelPrice(chatProviderId, chatModelId)
+        } catch {
+          // One unavailable model must not hide the other task's price.
+        }
+      }
+      if (embeddingProviderId && embeddingModelId) {
+        try {
+          embeddings = await chronicle.getAiModelPrice(
+            embeddingProviderId,
+            embeddingModelId,
+          )
+        } catch {
+          // Pricing is informational; editing and saving remain available.
+        }
+      }
+      if (!cancelled) setPriceState({ key, chat, embeddings, loading: false })
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [chatProvider, chatModel, embedProvider, embedModel])
+
+  const priceKey = [
+    chatProvider.trim(),
+    chatModel.trim(),
+    embedProvider.trim(),
+    embedModel.trim(),
+  ].join('\u001f')
+  const currentPrices = priceState?.key === priceKey ? priceState : null
 
   // When switching provider in preset mode, snap the model to that provider's first option.
   const changeProvider = (task: AiTask, providerId: string) => {
@@ -485,6 +701,13 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="chat" provider={chatProvider} model={chatModel} onProvider={(p) => changeProvider('chat', p)} onModel={setChatModel} />
         )}
         {chatError && <p className="ai-task-error" role="alert">{chatError}</p>}
+        {chatProvider.trim() && chatModel.trim() && (
+          <small aria-live="polite" className="ai-model-price">
+            {!currentPrices || currentPrices.loading
+              ? 'Checking live list price…'
+              : formatModelPrice(currentPrices?.chat ?? null, false)}
+          </small>
+        )}
         <div className="ai-task-test-row">
           <button
             className="secondary-button compact-button"
@@ -516,6 +739,13 @@ function AiSection({ onAiReady }: { onAiReady: () => void }) {
           <ProviderModelPicker task="embeddings" provider={embedProvider} model={embedModel} onProvider={(p) => changeProvider('embeddings', p)} onModel={setEmbedModel} />
         )}
         {embedError && <p className="ai-task-error" role="alert">{embedError}</p>}
+        {embedProvider.trim() && embedModel.trim() && (
+          <small aria-live="polite" className="ai-model-price">
+            {!currentPrices || currentPrices.loading
+              ? 'Checking live list price…'
+              : formatModelPrice(currentPrices?.embeddings ?? null, true)}
+          </small>
+        )}
         <div className="ai-task-test-row">
           <button
             className="secondary-button compact-button"
