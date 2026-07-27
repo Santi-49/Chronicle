@@ -31,8 +31,10 @@ restricted to a one-file PR.
 
 ### Format support is one registry, two independent capabilities
 
-Chronicle captures and displays more creative formats than the AI service can
-annotate, and those two capabilities advance separately.
+Capturing a format and annotating it are separate capabilities that advance
+separately. They are level again as of POST-02 — every captured format has an
+adapter — but the app still treats them as independent, because the sidecar
+beside it is not guaranteed to be the one this build expects.
 
 `apps/desktop/src/shared/formats.ts` is the single place a format is declared.
 Every format-aware code path in the desktop app — the C4 extension set, capture
@@ -41,12 +43,16 @@ request shape, telemetry buckets, and the renderer's viewer and copy — reads i
 instead of testing file extensions. A format's *displayed* behavior therefore
 changes in one place.
 
-Whether a format can be **annotated** is a separate, runtime question. The AI
-service publishes its adapter registry through `GET /capabilities`, and the app
-asks rather than assumes. A captured version whose format has no adapter keeps
-its annotation job queued and reports the C1 status `deferred`; it is never
-failed, never retried, and never blocks other queued work. When an adapter
-ships, the queued jobs drain on their own.
+Whether a format can be **annotated** is a runtime question. The AI service
+publishes its adapter registry through `GET /capabilities`, and the app asks
+rather than assumes: one cached answer (`src/main/ai/capabilities.ts`) is shared
+by the queue worker, which decides what to send, and the C1 read paths, which
+decide what to display, so the two cannot disagree. A captured version the
+running service cannot annotate keeps its annotation job queued and reports the
+C1 status `deferred`; it is never failed, never retried, and never blocks other
+queued work. When a service that supports it runs, the queued jobs drain on
+their own. An unreachable service defers nothing — the request itself reports an
+unsupported format.
 
 Adding a format is consequently two independent changes: one registry entry
 plus its handler in the desktop app, and — later, separately — one adapter plus

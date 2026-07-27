@@ -210,10 +210,9 @@ exclude individual files, and enable/disable file types while a live count shows
 will be tracked. Those rules persist and apply to initial capture and future saves.
 
 One toggle appears per format in the registry — PNG, JPG/JPEG, SVG, PSD, PSB, OBJ, STEP/STP,
-BLEND. Every one of them is captured, versioned, previewed, restorable, and keyword-searchable.
-Toggles for formats whose **AI change summaries** are not implemented yet carry a
-*no AI summary yet* note, and a hint below the row explains that those versions' summary jobs
-stay queued until support ships. Breadcrumb back to Projects.
+BLEND. Every one of them is captured, versioned, previewed, restorable, keyword-searchable, and
+given an **AI change summary** once a provider is configured, so no toggle carries a caveat.
+Breadcrumb back to Projects.
 
 ### 5. Project — F2, F5
 

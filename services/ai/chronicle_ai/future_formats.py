@@ -1,13 +1,16 @@
-"""Safe local extractors for SVG, OBJ, STEP, and BLEND annotations."""
-""" Lightweight Python parsers that extract text metadata, structural trees, and 
-static 2D preview images directly from file bytes on your local server."""
+"""Safe local extractors for SVG, OBJ, STEP, and BLEND annotations.
+
+Pure-Python parsing of the stored bytes: text metadata, structural inventories,
+and a small normalized 2D preview where one can be derived locally. Nothing here
+launches an authoring application or evaluates code carried inside a file.
+"""
 
 from __future__ import annotations
 
 import base64
 import json
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Callable

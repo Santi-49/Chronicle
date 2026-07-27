@@ -21,6 +21,7 @@ import type {
 import { createAiClient } from '../ai/client'
 import { createAiServiceProcess, desktopAiServicePort } from '../ai/service-process'
 import { createAiWorker } from '../ai/worker'
+import { createAnnotationCapabilities } from '../ai/capabilities'
 import { recordAiCall, recordPersonalActivity } from '../analytics/repository'
 import type { ChronicleDb } from '../db/database'
 import { getSetting } from '../db/repositories'
@@ -268,6 +269,9 @@ export function startChronicleIpc(
     process.env['GOOGLE_OAUTH_CLIENT_SECRET']?.trim() || bundledGoogleClientSecret
   const aiServicePort = desktopAiServicePort(app.isPackaged)
   const aiClient = createAiClient(`http://127.0.0.1:${aiServicePort}`)
+  // One capability answer shared by the queue worker and the C1 read paths, so
+  // what the worker skips and what the UI calls 'deferred' can never diverge.
+  const annotationCapabilities = createAnnotationCapabilities(aiClient)
   const services = createChronicleServices({
     db,
     libraryRoot,
@@ -330,6 +334,7 @@ export function startChronicleIpc(
       }
     },
     aiClient,
+    annotationCapabilities,
     readApiKey: (provider) => readApiKey(db, provider),
     onTelemetryDisabled: () => telemetryWorker?.disableTelemetry() ?? Promise.resolve(),
     telemetry: telemetryCollector,
@@ -361,6 +366,7 @@ export function startChronicleIpc(
     db,
     libraryRoot,
     client: aiClient,
+    capabilities: annotationCapabilities,
     emit,
     getSettings: services.api.getSettings,
     readApiKey: (provider) => readApiKey(db, provider),

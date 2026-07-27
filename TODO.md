@@ -834,8 +834,8 @@ order: PSD/PSB and SVG first, then BLEND, then OBJ and STEP/STP).
 | PNG | [x] | [x] | MVP baseline |
 | JPG / JPEG | [x] | [x] | MVP baseline |
 | SVG | [x] | [x] | Rendered natively; text format, so a structure diff should be cheap |
-| PSD | [x] | [x] | Preview from the embedded thumbnail; adapter exists but its live acceptance is still blocked on a credential |
-| PSB | [x] | [x] | Same header and preview path as PSD; adapter still rejects version 2 |
+| PSD | [x] | [x] | Preview from the embedded thumbnail; live acceptance still blocked on a credential |
+| PSB | [x] | [x] | Same header and preview path as PSD; the adapter normalizes the version-2 header |
 | OBJ | [x] | [x] | Interactive 3D view; thumbnail is a flat-shaded SVG projection |
 | STEP / STP | [x] | [x] | Tessellated in the renderer (OpenCascade WASM); no still thumbnail |
 | BLEND | [x] | [x] | Only the thumbnail Blender embeds is read; Blender is never invoked |
@@ -845,6 +845,40 @@ order: PSD/PSB and SVG first, then BLEND, then OBJ and STEP/STP).
 > preview/contact sheet. The same adapter registry now covers SVG, BLEND, OBJ, and STEP with safe
 > local extraction, normalized preview generation where appropriate, and coverage-aware confidence
 > caps for partial evidence. Opaque project bytes never reach the provider.
+>
+> **Desktop wiring closed 2026-07-27.** The adapters shipped but nothing reached them: the desktop
+> registry still declared `aiFormat: null` for SVG, PSB, OBJ, STEP, and BLEND, so every one of
+> those versions sat permanently `deferred`. Two defects were found and fixed while wiring it up:
+>
+> 1. **`services/ai/chronicle_ai/future_formats.py` did not import.** A second module docstring had
+>    been left above `from __future__ import annotations`, which is a `SyntaxError`. Because the
+>    adapter registry imports that module on first use, and request validation reads the registry,
+>    **every** annotation was broken — PNG and JPG included — and 60 of the 90 Python tests failed
+>    on a clean checkout. The suite would have caught it; it had not been run.
+> 2. **`deferred` was assumed, not discovered.** The C1 read paths derived it from the static
+>    registry, so with the registry corrected the state became unreachable — an installed app
+>    beside an older sidecar would have shown "pending" forever. The `GET /capabilities` answer is
+>    now cached once (`apps/desktop/src/main/ai/capabilities.ts`) and shared by the queue worker and
+>    the C1 read paths, so the queue and the UI cannot disagree. An unreachable service defers
+>    nothing.
+>
+> A new desktop test compares every registry `aiFormat`/`mediaType` against the C3 enum in
+> `packages/contracts/ai/openapi.json`, which is the drift that caused this.
+>
+> **Verified:** 90 Python tests · 307 desktop tests · typecheck · and, against the real running
+> sidecar, all 8 formats × (first-version, diff) driven with desktop-shaped requests built from the
+> desktop's own fixtures — 16/16 validated, extracted locally, and reached the provider (rejected at
+> the credential, as expected with a deliberately invalid key). An undeclared format is still
+> refused with HTTP 422.
+>
+> **Rebuild the sidecar before packaging.** The frozen sidecar left in
+> `apps/desktop/build/sidecar/` reports only `png, jpg, jpeg, psd`, so an installer built from it
+> would capture the new formats and defer all of their summaries. Development is unaffected (it runs
+> the repository source), and the capability negotiation above makes that stale case *honest* rather
+> than broken — but `make package` must run before the next release.
+>
+> **Still open (unchanged):** no *successful* live provider annotation of the new formats. That
+> needs one valid BYOK key and closes POST-01's and POST-02's live acceptance together.
 
 **May edit:** `services/ai/**` (per-format extractors/preview generators + handlers),
 `packages/contracts/ai/**` only to widen the POST-01 `format` enum, format fixtures and

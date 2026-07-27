@@ -215,6 +215,43 @@ The ranking is a product hypothesis to validate with users, not a market-share c
   Larger real-world PSB files still deserve separate process-isolation and time/memory hardening,
   but the adapter itself is no longer absent.
 
+#### POST-02 desktop wiring findings (2026-07-27)
+
+Finishing POST-02 meant connecting adapters that already existed to an app that was still
+declaring their formats unannotatable. Three findings are worth keeping:
+
+- **A capability can be "shipped" and reach nobody.** The AI service annotated eight formats and
+  published them through `/capabilities`, while the desktop registry still carried
+  `aiFormat: null` for SVG, PSB, OBJ, STEP, and BLEND — so every such version sat permanently
+  `deferred`. Both halves passed their own tests. What was missing was an assertion *across* the
+  boundary; there is now a desktop test comparing every registry `aiFormat`/`mediaType` against the
+  C3 enum in `packages/contracts/ai/openapi.json`, which is the artifact both sides already share.
+- **A lazily imported registry converts a syntax error into a silent, total outage.** A second
+  module docstring had been left above `from __future__ import annotations` in `future_formats.py`,
+  which Python rejects. Because the adapter registry imports that module on first use, and request
+  *validation* reads the registry, no annotation could succeed at all — PNG and JPG included — and
+  60 of 90 Python tests failed on a clean checkout. Deferring an import to break a cycle also
+  defers the error that proves the module is loadable, so the import cycle deserves a cheap guard
+  (running the suite is one).
+- **"Discovered, not assumed" has to hold on both sides of the process.** The queue worker asked
+  `/capabilities`, but the C1 read paths inferred `deferred` from the static registry. That was
+  invisible while the two agreed and would have become wrong the moment they did not — an installed
+  app beside an older sidecar would show "pending" forever. One cached answer is now shared by the
+  worker and the read paths. It fails open: an unreachable service defers nothing, because claiming
+  a format is unsupported when the service simply is not running would be a guess presented as a
+  fact.
+
+**Verification approach.** Mock-level tests cannot show that two independently versioned processes
+agree, so the eight formats were driven through the *running* sidecar with requests built by the
+desktop's own format registry and test fixtures, using a deliberately invalid API key: local
+extraction is ahead of credential resolution in the pipeline, so `provider_auth_error` is positive
+evidence that the request validated and the adapter produced provider-safe evidence. All 16
+requests (8 formats × first-version and diff) reached the provider; an undeclared format was still
+refused with HTTP 422. One caveat this exposed: the desktop's `photoshopBytes` fixture is a
+header-and-resources stub for thumbnail extraction and is *not* a document `psd-tools` can parse,
+so PSD/PSB evidence requires a real `PSDImage`-generated document. A successful live annotation
+still needs a valid BYOK credential.
+
 #### POST-02 adapter implementation note (2026-07-26)
 
 - The local AI service now ships safe, format-aware adapters for PSD/PSB, SVG, BLEND, OBJ, and
@@ -1133,6 +1170,18 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-27 — POST-02 DESKTOP WIRING: the AI adapters were complete but unreachable — the desktop
+  registry still declared SVG, PSB, OBJ, STEP, and BLEND unannotatable, so their versions sat
+  permanently `deferred` while both halves passed their own tests. Wiring them up exposed that a
+  stray second module docstring above `from __future__ import annotations` made the lazily imported
+  adapter registry unimportable, which broke *every* annotation including the PNG/JPG demo path (60
+  of 90 Python tests failing on a clean checkout, unrun), and that `deferred` was inferred from the
+  static registry rather than `GET /capabilities` — so correcting the registry would have made an
+  older sidecar show "pending" forever. One cached capability answer is now shared by the queue
+  worker and the C1 read paths, failing open when the service is unreachable. Added a test asserting
+  every registry `aiFormat`/`mediaType` against the C3 enum, and verified by driving all 8 formats
+  × 2 modes through the real sidecar with the desktop's own fixtures — repository audit plus live
+  loopback verification
 - 2026-07-26 — POST-10 BACKGROUND CAPTURE AND START-AT-LOGIN: capture already ran window-independently
   in the main process, so tray residency was a lifecycle change rather than a capture change. Added a
   single-instance lock (previously absent and previously harmless), a latched quitting flag so the

@@ -13,6 +13,7 @@ worker, the typed HTTP client, and the process lifecycle stay here.
 |---|---|
 | `client.ts` | Typed loopback HTTP client for the AI service (C3), generated types + `AiServiceError`. |
 | `generated.ts` | HTTP types generated from the service's OpenAPI schema. Do not hand-edit. |
+| `capabilities.ts` | Caches `GET /capabilities` — the formats the running service can annotate. |
 | `service-process.ts` | Starts repository Python in development or the bundled executable from Electron resources in installed builds. |
 | `worker.ts` | FIFO worker: drains annotation/embedding jobs and persists their results. |
 | `worker.test.ts` | Provider-mocked worker behaviour tests. |
@@ -33,6 +34,14 @@ created. Offline and service-down states leave jobs untouched. Failure handling:
   displays their sanitized last error and provides an explicit **Retry all
   failed jobs** action; the per-version **Retry AI** action requeues one failed
   annotation.
+
+Format support is negotiated, not assumed. `capabilities.ts` asks the service
+which formats it can annotate and caches the answer (retrying at most every 30 s
+while it is unreachable); the same instance is shared with the C1 read paths in
+`ipc/services.ts`, so what the worker skips and what the UI labels `deferred`
+can never diverge. A job whose format the service does not list is **skipped**
+rather than returned on, so one deferred job cannot block the FIFO queue behind
+it. An unreachable service defers nothing and the request itself decides.
 
 Installed Windows builds include a PyInstaller Gemini/OpenAI/Anthropic sidecar and canonical prompt under
 `resources/ai`; they do not require system Python. Development still runs uvicorn from
