@@ -7,7 +7,7 @@
  * so tests can't load it); all behavior lives in services.ts, which is
  * tested directly.
  */
-import { app, BrowserWindow, dialog, ipcMain, net, protocol } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron'
 import electronUpdater from 'electron-updater'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -43,10 +43,11 @@ import { CHRONICLE_SCHEME, parseChronicleUrl } from './media'
 import { createSafeStorageSecretStore, readApiKey } from './secrets'
 import { createChronicleServices } from './services'
 import { createUpdateController, type UpdaterAdapter } from '../updater/controller'
+import { createManualUpdateController } from '../updater/manual'
 
 export interface ChronicleIpc {
   api: ChronicleApi
-  /** Starts the delayed packaged-Windows check after the main window exists. */
+  /** Starts the delayed packaged check after the main window exists. */
   startUpdater(): void
   /** Removes every handler and stops the watchers (app shutdown). */
   dispose(): Promise<void>
@@ -64,6 +65,38 @@ export interface SystemIntegrationHost {
     opensWindow: boolean,
   ) => Omit<SystemIntegrationState, 'openAtLoginOpensWindow'>
   applyRunInBackground: (enabled: boolean) => void
+}
+
+const REQUEST_TIMEOUT_MS = 15_000
+
+/**
+ * Reads public release metadata for the manual (macOS) update check. Sends no
+ * Chronicle data beyond the request itself, and gives up quickly so a slow or
+ * blocked network never leaves the check stuck reporting "Checking…".
+ */
+async function fetchReleaseJson(url: string): Promise<unknown> {
+  const request = net.fetch(url, {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+    // Electron does not document `signal` support for net.fetch, so the race
+    // below — not this — is what guarantees the check cannot hang forever.
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  }).then(async (response) => {
+    if (!response.ok) throw new Error(`Release metadata request failed (${response.status})`)
+    return response.json() as unknown
+  })
+
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error('Release metadata request timed out')), REQUEST_TIMEOUT_MS)
+  })
+  try {
+    return await Promise.race([request, timeout])
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**
@@ -191,16 +224,28 @@ export function startChronicleIpc(
   const recordApplicationDiagnostic: ApplicationDiagnosticSink = (draft): void =>
     recordDiagnosticWithProcess(draft, 'main')
 
-  // electron-updater is CommonJS. Destructuring the default import avoids the
-  // ESM interop problem documented by electron-builder.
-  const { autoUpdater } = electronUpdater
-  const updateController = createUpdateController({
-    supported: app.isPackaged && process.platform === 'win32',
-    currentVersion: appVersion,
-    updater: autoUpdater as unknown as UpdaterAdapter,
-    emit: (state) => emit('updateStateChanged', state),
-    diagnostic: recordApplicationDiagnostic,
-  })
+  // macOS ships unsigned, so it cannot install an update in place — it only
+  // detects one and hands the published DMG to the browser. Everywhere else
+  // uses electron-updater, which is packaged-Windows-only in practice.
+  const updateController = process.platform === 'darwin'
+    ? createManualUpdateController({
+      supported: app.isPackaged,
+      currentVersion: appVersion,
+      arch: process.arch,
+      fetchJson: fetchReleaseJson,
+      openExternal: (url) => shell.openExternal(url),
+      emit: (state) => emit('updateStateChanged', state),
+      diagnostic: recordApplicationDiagnostic,
+    })
+    : createUpdateController({
+      // electron-updater is CommonJS. Destructuring the default import avoids
+      // the ESM interop problem documented by electron-builder.
+      supported: app.isPackaged && process.platform === 'win32',
+      currentVersion: appVersion,
+      updater: electronUpdater.autoUpdater as unknown as UpdaterAdapter,
+      emit: (state) => emit('updateStateChanged', state),
+      diagnostic: recordApplicationDiagnostic,
+    })
 
   const controlPlaneDiagnostics: ControlPlaneDiagnostic[] = []
   let nextControlPlaneDiagnosticId = 1

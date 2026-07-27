@@ -189,11 +189,15 @@ export interface ChronicleServicesDeps {
   /** Callback fired when the user turns telemetry off — worker clears queue + server inventory. */
   onTelemetryDisabled?: () => Promise<void>
   telemetry?: TelemetryCollector
-  /** Packaged Windows updater. Unsupported/dev builds use an inert fallback. */
+  /**
+   * Packaged updater: in-place on Windows, detect-and-download on macOS.
+   * Unsupported/dev builds use an inert fallback.
+   */
   updater?: {
     getState: () => UpdateState
     checkForUpdates: () => Promise<UpdateState>
     restartToUpdate: () => Promise<void>
+    openDownload: () => Promise<void>
   }
   /**
    * Desktop shell integration. The tray/login-item wiring lives in the Electron
@@ -1708,6 +1712,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     async getUpdateState() {
       return deps.updater?.getState() ?? {
         phase: 'unsupported',
+        delivery: 'automatic',
         currentVersion: deps.installation?.appVersion ?? '0.0.0',
         availableVersion: null,
         percent: null,
@@ -1723,6 +1728,11 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     async restartToUpdate() {
       if (!deps.updater) throw new Error('Application updates are unavailable in this build')
       await deps.updater.restartToUpdate()
+    },
+
+    async openUpdateDownload() {
+      if (!deps.updater) throw new Error('Application updates are unavailable in this build')
+      await deps.updater.openDownload()
     },
   }
 

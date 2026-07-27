@@ -50,17 +50,26 @@ never applies one on an ordinary quit. A compact pill above **Settings** reports
 opens **Restart**, **Later**, and per-release **Ignore**; normal click still relaunches. The same
 restart action remains available in
 **Settings → About & updates**. Automatic network failures stay silent; **Check now** shows
-recoverable status. Packaged macOS and Linux builds make no update request; development uses a
-temporary visual fixture only when explicitly retained for UI review.
-The first updater-capable version must still be installed manually; only a later release can prove
-the automatic upgrade path. Update requests contain no Chronicle content, paths, credentials, or
-account payload, although GitHub/CDN receives normal connection metadata.
+recoverable status.
+
+The installed **macOS** app cannot replace itself — an unsigned, unnotarized bundle has no
+Squirrel.Mac install path — so it only *detects* a release. On the same schedule it reads the
+public GitHub latest-release metadata, and when a newer version exists the same card appears
+saying **Update available**. Clicking it opens that release's `.dmg` (matched to the running
+architecture, falling back to the release page) in the default browser, so the user installs
+it themselves; the right-click menu offers **Download installer**, **Later**, and per-release
+**Ignore**, and **Settings → About & updates** carries the same download button. Linux and
+development builds make no update request at all.
+
+The first updater-capable Windows version must still be installed manually; only a later release
+can prove the automatic upgrade path. Update requests contain no Chronicle content, paths,
+credentials, or account payload, although GitHub/CDN receives normal connection metadata.
 
 Amazon Bedrock is not offered
 because AWS requires multiple credential fields and a region rather than Chronicle's current
-single encrypted key per provider. Windows code signing, Apple notarization, macOS auto-update,
-and remotely enforced mandatory security updates remain gated follow-up work. The unsigned feed
-supports optional/recommended updates only.
+single encrypted key per provider. Windows code signing, Apple notarization, in-place macOS
+updating, and remotely enforced mandatory security updates remain gated follow-up work. The
+unsigned feed supports optional/recommended updates only.
 
 The Windows `.exe` uses the native electron-builder assisted NSIS wizard—no custom HTML and no
 replacement installer script. Chronicle supplies a 150×57 header and 164×314 sidebar (24-bit BMP),

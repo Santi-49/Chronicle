@@ -556,6 +556,42 @@ Sources:
   exact version chart remains available for diagnosis. This reports installations that already
   send existing telemetry; it is not a count of every download or every user.
 
+### macOS Detect-Only Updates (POST-08A follow-up, 2026-07-27)
+
+macOS was previously left with no update behavior at all, on the correct grounds that
+`electron-updater` cannot install an unsigned bundle. But *detecting* a release and *applying* one
+are separable, and only the second needs a signature — so the honest middle option is a notice that
+hands the published installer to the user.
+
+- Chronicle reads `https://api.github.com/repos/Santi-49/Chronicle/releases/latest` rather than
+  publishing `latest-mac.yml`. The release endpoint already excludes drafts and prereleases, returns
+  `tag_name` for the comparison, and returns each asset's `browser_download_url` — which is what a
+  detect-only path actually needs, since nothing will consume updater metadata. It also works for
+  releases already published, and adds no CI step to the macOS job.
+- The asset is matched by the architecture in electron-builder's own
+  `Chronicle-${version}-mac-${arch}.dmg` artifact name, then falls back to any published DMG, then
+  to the release page. Only Apple Silicon is built today, so an Intel client must not be dead-ended
+  by a missing exact match.
+- The state machine, not the UI, is what keeps the promise honest: a `manual` delivery reports
+  `available` as a **terminal** phase and never `downloading`/`ready`, so no code path can offer a
+  restart the build cannot perform. `UpdateState.delivery` carries that distinction across C1, and
+  the download URL never leaves the main process — the renderer only calls `openUpdateDownload()`.
+- A refresh that fails while a release is already offered must not overwrite the actionable card
+  with error copy, and must not flicker it back to “Checking…”. Both are quiet: the diagnostic is
+  recorded, `checkedAt` moves, and the offer stands.
+- Electron does **not** document `signal`/`AbortSignal` support for `net.fetch`. The timeout is
+  therefore a `Promise.race`, not a trusted abort — an undocumented no-op would otherwise leave
+  Settings reporting “Checking…” forever with **Check now** disabled.
+- This is convenience, not security: the download is unsigned and unnotarized, so Gatekeeper still
+  requires the documented per-app override, and detection cannot be described as verified publisher
+  identity. In-place macOS updating stays gated on Developer ID signing and notarization.
+
+Sources:
+[Apple: open apps safely on your Mac](https://support.apple.com/en-ie/102445) ·
+[GitHub releases API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release) ·
+[electron-builder auto update](https://www.electron.build/docs/features/auto-update/) ·
+[Electron net.fetch](https://www.electronjs.org/docs/latest/api/net)
+
 ### Windows Installer and First-Run Onboarding (POST-07, 2026-07-25)
 
 - Chronicle already uses electron-builder's assisted NSIS mode (`oneClick: false`), so the literal
@@ -1123,6 +1159,19 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-27 — MACOS DETECT-ONLY UPDATES: separated *detecting* a release from *applying* one, since
+  only the second needs a signature. Packaged macOS now reads the public `releases/latest` endpoint
+  on the existing schedule and shows the same compact card as **Update available**, whose action
+  opens the matching `Chronicle-<version>-mac-<arch>.dmg` in the default browser; no `latest-mac.yml`
+  is published because nothing would consume it, and the existing DMG upload suffices. C1 gained
+  `UpdateState.delivery` (`automatic` | `manual`) plus `openUpdateDownload()`, and `manual` treats
+  `available` as terminal so no path can offer a restart the unsigned build cannot perform. The
+  download URL stays in the main process. Two implementation findings: Electron does not document
+  `signal` support for `net.fetch`, so the 15 s limit is a `Promise.race` rather than a trusted
+  abort (an undocumented no-op would strand Settings on “Checking…”); and a failed refresh over an
+  already-offered release must stay quiet instead of replacing an actionable card with an error.
+  Gatekeeper still requires the documented per-app override, so this is convenience, not verified
+  publisher identity — official Electron/electron-builder/GitHub/Apple docs linked above
 - 2026-07-27 — LANDING SEARCH IDENTITY AND FAVICON FINDING: the live site emitted
   `<link rel="canonical">`, `og:url`, `sitemap.xml`, and `robots.txt` pointing at
   `https://3560a44e.chronicle-9bi.pages.dev/`, because `astro.config.mjs` fell back to

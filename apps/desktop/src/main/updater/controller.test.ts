@@ -42,11 +42,20 @@ describe('update controller', () => {
   it('stays inert on unsupported builds', async () => {
     const { controller, emitted, updater } = setup(false)
 
-    expect(controller.getState()).toMatchObject({ phase: 'unsupported', currentVersion: '1.2.3' })
+    expect(controller.getState()).toMatchObject({
+      phase: 'unsupported',
+      delivery: 'automatic',
+      currentVersion: '1.2.3',
+    })
     await controller.checkForUpdates()
 
     expect(updater.check).not.toHaveBeenCalled()
     expect(emitted).toEqual([])
+  })
+
+  it('rejects the manual-delivery download action', async () => {
+    const { controller } = setup()
+    await expect(controller.openDownload()).rejects.toThrow(/installs updates itself/)
   })
 
   it('configures safe stable-channel behavior and single-flights checks', async () => {

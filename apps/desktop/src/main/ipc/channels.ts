@@ -70,6 +70,7 @@ const API_METHODS = {
   getUpdateState: true,
   checkForUpdates: true,
   restartToUpdate: true,
+  openUpdateDownload: true,
 } as const satisfies Record<keyof ChronicleApi, true>
 
 const EVENTS = {

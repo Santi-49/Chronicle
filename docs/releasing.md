@@ -226,3 +226,20 @@ release is a manual bootstrap.
 
 A bad release is recovered with a higher patch version, never by replacing assets or forcing a
 downgrade. Record both release URLs and the clean-profile evidence before closing POST-08.
+
+## macOS update-notice acceptance
+
+The macOS DMG is unsigned and unnotarized, so it cannot install an update in place. The installed
+app only *detects* one: it reads `https://api.github.com/repos/Santi-49/Chronicle/releases/latest`
+and, when the published tag is a higher version, shows the same card as **Update available**. The
+action opens that release's `Chronicle-<version>-mac-<arch>.dmg` in the default browser — falling
+back to any published DMG, then to the release page — and the user installs it. macOS therefore
+needs no `latest-mac.yml`, and the existing `gh release upload` of the DMG is enough.
+
+1. Install `vA` manually on a Mac and publish a higher stable `vB`.
+2. Confirm `vA` shows **Update available** with `vB`'s number, that the browser opens the correct
+   architecture's DMG, and that nothing is installed automatically.
+3. Confirm **Later** and **Skip this version** suppress the card, and that
+   **Settings → About & updates** shows the same status plus a working **Check now**.
+4. Repeat with the network blocked: the check fails silently, an already-detected release stays
+   actionable, and capture/timeline/restore remain fully usable.

@@ -1299,6 +1299,19 @@ update telemetry.
 > smoke passed. The task remains open until a real installed vA → published vB clean-profile
 > upgrade is evidenced.
 
+> **macOS update notice added 2026-07-27:** packaged macOS cannot install an update in place while
+> it is unsigned, but it can detect one. It now reads the public `releases/latest` metadata on the
+> same schedule and shows the same compact card as **Update available**; its action opens that
+> release's architecture-matched DMG in the default browser (falling back to any DMG, then the
+> release page) so the user installs it. C1 gained `UpdateState.delivery` (`automatic` | `manual`)
+> and `openUpdateDownload()`; the download URL never crosses IPC, and `manual` treats `available`
+> as terminal so no path can offer a restart the build cannot perform. Settings → About & updates
+> carries the matching **Download Chronicle _x.y.z_** button. Verification: 327 desktop tests
+> passed (1 skipped), typecheck and production build passed. The macOS acceptance matrix in
+> `docs/releasing.md` (installed vA sees published vB, opens the right DMG, and Later/Skip/offline
+> behave) remains open alongside the Windows vA → vB evidence. In-place macOS updating stays gated
+> on Developer ID signing and notarization.
+
 > Release handoff automation added 2026-07-26: `auto-merge-main.yml` derives a Release Please
 > `BEGIN_COMMIT_OVERRIDE` block from the commits after the latest release back-sync before squash
 > merge. It retains unique non-merge `feat`, `fix`, `deps`, and breaking Conventional Commit

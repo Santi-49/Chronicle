@@ -1,5 +1,8 @@
 import type { UpdateState } from '../../shared/ipc'
 import type { ApplicationDiagnosticSink } from '../diagnostics'
+import { createPeriodicCheck, type UpdateController } from './shared'
+
+export type { UpdateController }
 
 type UpdateInfoLike = { version: string }
 type DownloadProgressLike = { percent: number }
@@ -23,14 +26,6 @@ export interface UpdaterAdapter {
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
 }
 
-export interface UpdateController {
-  getState(): UpdateState
-  checkForUpdates(): Promise<UpdateState>
-  restartToUpdate(): Promise<void>
-  start(): void
-  dispose(): void
-}
-
 interface UpdateControllerOptions {
   supported: boolean
   currentVersion: string
@@ -42,13 +37,11 @@ interface UpdateControllerOptions {
   intervalMs?: number
 }
 
-const DEFAULT_INITIAL_DELAY_MS = 10_000
-const DEFAULT_INTERVAL_MS = 4 * 60 * 60 * 1_000
-
 export function createUpdateController(options: UpdateControllerOptions): UpdateController {
   const now = options.now ?? Date.now
   let state: UpdateState = {
     phase: options.supported ? 'idle' : 'unsupported',
+    delivery: 'automatic',
     currentVersion: options.currentVersion,
     availableVersion: null,
     percent: null,
@@ -56,9 +49,6 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     error: null,
   }
   let checkPromise: Promise<UpdateState> | null = null
-  let initialTimer: ReturnType<typeof setTimeout> | null = null
-  let intervalTimer: ReturnType<typeof setInterval> | null = null
-  let started = false
   let restartStarted = false
   let lastProgressAt = 0
   let lastProgressPercent = -1
@@ -200,6 +190,8 @@ export function createUpdateController(options: UpdateControllerOptions): Update
     return checkPromise
   }
 
+  const periodic = createPeriodicCheck(() => void check(), options)
+
   return {
     getState: () => ({ ...state }),
     checkForUpdates: check,
@@ -211,22 +203,15 @@ export function createUpdateController(options: UpdateControllerOptions): Update
       restartStarted = true
       options.updater.quitAndInstall(true, true)
     },
+    openDownload(): Promise<void> {
+      return Promise.reject(new Error('This build installs updates itself'))
+    },
     start(): void {
-      if (!options.supported || started) return
-      started = true
-      initialTimer = setTimeout(() => {
-        initialTimer = null
-        void check()
-      }, options.initialDelayMs ?? DEFAULT_INITIAL_DELAY_MS)
-      intervalTimer = setInterval(() => {
-        void check()
-      }, options.intervalMs ?? DEFAULT_INTERVAL_MS)
+      if (!options.supported) return
+      periodic.start()
     },
     dispose(): void {
-      if (initialTimer) clearTimeout(initialTimer)
-      if (intervalTimer) clearInterval(intervalTimer)
-      initialTimer = null
-      intervalTimer = null
+      periodic.stop()
       for (const [event, listener] of Object.entries(listeners) as Array<
         [UpdaterEvent, (...args: unknown[]) => void]
       >) {

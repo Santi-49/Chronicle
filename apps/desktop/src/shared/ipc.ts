@@ -341,7 +341,7 @@ export interface AppStatus {
   aiConfigured: boolean // false → UI shows "configure AI in Settings"
 }
 
-/** Packaged Windows application-update lifecycle. No feed URL or local path crosses IPC. */
+/** Packaged application-update lifecycle. No feed URL or local path crosses IPC. */
 export type UpdatePhase =
   | 'unsupported'
   | 'idle'
@@ -350,11 +350,20 @@ export type UpdatePhase =
   | 'downloading'
   | 'ready'
 
+/**
+ * How this build applies an update.
+ * - `automatic` — packaged Windows: downloaded in the background, installed on restart.
+ * - `manual` — packaged macOS: only detected. The unsigned app cannot replace itself,
+ *   so `available` is terminal and the user downloads the published installer.
+ */
+export type UpdateDelivery = 'automatic' | 'manual'
+
 export interface UpdateState {
   phase: UpdatePhase
+  delivery: UpdateDelivery
   currentVersion: string
   availableVersion: string | null
-  /** Rounded 0–100 download progress; null before a download begins. */
+  /** Rounded 0–100 download progress; null before a download begins, always null when manual. */
   percent: number | null
   /** Last completed check, including a failed manual/automatic check. */
   checkedAt: string | null
@@ -704,12 +713,17 @@ export interface ChronicleApi {
    */
   setOpenAtLogin(enabled: boolean, opensWindow: boolean): Promise<SystemIntegrationState>
 
-  // Application update (packaged Windows only)
+  // Application update (packaged builds only)
   getUpdateState(): Promise<UpdateState>
   /** User-initiated check; single-flighted with the automatic check. */
   checkForUpdates(): Promise<UpdateState>
-  /** Valid only after updateStateChanged reports `ready`. */
+  /** Automatic delivery only; valid after updateStateChanged reports `ready`. */
   restartToUpdate(): Promise<void>
+  /**
+   * Manual delivery only: opens the published installer for the detected release in
+   * the operating system's browser. The URL stays in the main process.
+   */
+  openUpdateDownload(): Promise<void>
 }
 
 // ── Main → renderer (push events) ──────────────────────────────────────
@@ -733,7 +747,7 @@ export interface ChronicleEvents {
   controlPlaneDiagnostic: ControlPlaneDiagnostic
   /** One structured application lifecycle/error event — update developer diagnostics. */
   applicationDiagnostic: ApplicationDiagnostic
-  /** Packaged Windows updater changed phase or download progress. */
+  /** The packaged updater changed phase or download progress. */
   updateStateChanged: UpdateState
 }
 
