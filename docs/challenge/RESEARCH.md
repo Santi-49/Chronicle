@@ -1123,6 +1123,20 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-27 — PROJECT BROWSING AND REMOVED-FILE RETENTION DECISION: the Project screen's
+  "folder filter" only ever grouped by the first path segment, so everything deeper collapsed into
+  one chip and nested work was unreachable. It is replaced by a breadcrumb-driven browser over the
+  project's own tree, derived from captured assets rather than a disk scan, so every row shown is
+  openable and no re-scan is needed to draw it. Recently changed is capped at the last four files
+  (2×2) and a remembered gallery/list toggle switches the current level's layout. Removed files
+  move out of the main view: `assets.missing_since` (schema v9) stamps the moment a file leaves the
+  disk, an aside counts down a **30-day** retention window, and a startup plus 6-hourly sweep then
+  deletes that history permanently. Existing pre-v9 removals start their window at upgrade rather
+  than at an invented past date. Manual deletion (one file or all removed files) is refused while a
+  file is still on disk — whole-project deletion already exists on project removal — and both paths
+  now share one `deleteAssetsPermanently` implementation so orphan-blob cleanup cannot diverge.
+  Derived previews are deliberately not swept: they are content-hash keyed, unreferenced, and
+  documented as disposable — team decision + implementation review
 - 2026-07-26 — POST-10 BACKGROUND CAPTURE AND START-AT-LOGIN: capture already ran window-independently
   in the main process, so tray residency was a lifecycle change rather than a capture change. Added a
   single-instance lock (previously absent and previously harmless), a latched quitting flag so the

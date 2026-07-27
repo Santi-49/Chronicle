@@ -30,6 +30,7 @@ import type {
   FolderMetaPatch,
   FolderScanEntry,
   ControlPlaneDiagnostic,
+  DeleteAssetHistoryResult,
   PendingJob,
   RendererErrorReport,
   SystemIntegrationState,
@@ -38,6 +39,7 @@ import type {
   VersionDetails,
   VersionSummary,
 } from '../../shared/ipc'
+import { REMOVED_ASSET_RETENTION_DAYS } from '../../shared/ipc'
 import type { AppSettings } from '../../shared/settings'
 import { aiSelectionError } from '../../shared/aiCatalog'
 import type { ChronicleDb } from '../db/database'
@@ -54,7 +56,9 @@ import {
   getSetting,
   setSetting,
   setVersionAiStatus,
+  deleteAssetsPermanently,
   deleteProjectHistory,
+  listExpiredMissingAssetIds,
   removeTrackedFolder,
   resetAssetHistory as resetStoredAssetHistory,
   updateTrackedFolder,
@@ -106,6 +110,14 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const TELEMETRY_DEFAULT_MIGRATION_KEY = 'post03-telemetry-default-applied'
 const SETTINGS_SYNC_DEFAULT_MIGRATION_KEY = 'post03-settings-sync-default-applied'
 const TELEMETRY_NOTICE_VERSION = '2026-07-25'
+
+/**
+ * How often the removed-file retention sweep runs while the app is open. The
+ * window itself is contractual (C1 `REMOVED_ASSET_RETENTION_DAYS`); this is
+ * only how promptly an expired entry is noticed. A sweep also runs at startup,
+ * so an app that is rarely open still catches up.
+ */
+const RETENTION_SWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000
 
 export const DEFAULT_SETTINGS: AppSettings = {
   appearance: { theme: 'system' },
@@ -486,7 +498,8 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       try {
         await fs.access(asset.path)
       } catch {
-        markFileMissing(db, asset.path)
+        const assetId = markFileMissing(db, asset.path)
+        if (assetId !== null) emit('assetMissing', { assetId })
         marked += 1
       }
     }
@@ -572,7 +585,9 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         }
       },
       onRemoved: (filePath) => {
-        markFileMissing(db, filePath)
+        const assetId = markFileMissing(db, filePath)
+        if (assetId === null) return // never captured, or already marked
+        emit('assetMissing', { assetId })
         diagnostic({
           level: 'debug',
           source: 'watcher',
@@ -610,6 +625,56 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       .getAppStatus()
       .then((status) => emit('statusChanged', status))
       .catch(() => {})
+  }
+
+  /** Removes library blobs no surviving version references. Best effort. */
+  async function removeOrphanBlobs(hashes: readonly string[]): Promise<void> {
+    await Promise.all(
+      hashes.map((hash) =>
+        fs.rm(libraryFilePathFor(libraryRoot, hash), { force: true }).catch((error) => {
+          console.warn('[chronicle] could not remove orphaned library blob:', hash, error)
+        }),
+      ),
+    )
+  }
+
+  /**
+   * Permanently erases assets and their stored bytes, then announces it.
+   * Shared by the user's explicit delete and the retention sweep so both
+   * paths clean up identically.
+   */
+  async function eraseAssets(assetIds: number[]): Promise<DeleteAssetHistoryResult> {
+    if (assetIds.length === 0) return { deletedAssets: 0, deletedVersions: 0 }
+    const deleted = deleteAssetsPermanently(db, assetIds)
+    await removeOrphanBlobs(deleted.orphanedContentHashes)
+    emit('assetsDeleted', { assetIds })
+    pushStatus()
+    return { deletedAssets: deleted.deletedAssets, deletedVersions: deleted.deletedVersions }
+  }
+
+  /**
+   * F3.7 retention — a file that has been gone from disk for longer than the
+   * contractual window has its history deleted permanently. Only removed files
+   * expire; anything still on disk is untouched no matter how old it is.
+   */
+  async function purgeExpiredRemovedAssets(): Promise<void> {
+    const cutoff = new Date(
+      Date.now() - REMOVED_ASSET_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString()
+    const expired = listExpiredMissingAssetIds(db, cutoff)
+    if (expired.length === 0) return
+    const result = await eraseAssets(expired)
+    diagnostic({
+      level: 'debug',
+      source: 'application',
+      event: 'removed_assets_expired',
+      message: `Deleted ${result.deletedAssets} removed file(s) whose ${REMOVED_ASSET_RETENTION_DAYS}-day retention window ended.`,
+      context: {
+        assetCount: result.deletedAssets,
+        versionCount: result.deletedVersions,
+        retentionDays: REMOVED_ASSET_RETENTION_DAYS,
+      },
+    })
   }
 
   /**
@@ -929,13 +994,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       try {
         if (validatedMode === 'delete-history') {
           const deleted = deleteProjectHistory(db, id)
-          await Promise.all(
-            deleted.orphanedContentHashes.map((hash) =>
-              fs.rm(libraryFilePathFor(libraryRoot, hash), { force: true }).catch((error) => {
-                console.warn('[chronicle] could not remove orphaned library blob:', hash, error)
-              }),
-            ),
-          )
+          await removeOrphanBlobs(deleted.orphanedContentHashes)
         } else {
           removeTrackedFolder(db, id)
         }
@@ -968,6 +1027,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           displayName: item.displayName,
           path: item.path,
           onDisk: item.onDisk,
+          missingSince: item.missingSince,
           versionCount: item.versionCount,
           lastCapturedAt: item.lastCapturedAt ?? item.createdAt,
           lastSummary: item.lastSummary,
@@ -1017,6 +1077,30 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         context: { assetId: id, versionId: result.version.id },
       })
       return { versionId: result.version.id }
+    },
+
+    async deleteAssetHistory(assetIds) {
+      if (!Array.isArray(assetIds)) throw new TypeError('assetIds must be an array')
+      const ids = [...new Set(assetIds.map((value) => expectId(value, 'assetId')))]
+      for (const id of ids) {
+        const asset = getAsset(db, id)
+        if (!asset) throw new Error(`Unknown asset: ${id}`)
+        // Deleting is offered for files that are already gone. Refusing a live
+        // file here means no UI mistake can erase history that is still being
+        // added to; a whole project is deleted through removeFolder instead.
+        if (asset.onDisk) {
+          throw new Error(`${asset.displayName} is still on disk, so its history was not deleted`)
+        }
+      }
+      const result = await eraseAssets(ids)
+      diagnostic({
+        level: 'debug',
+        source: 'capture',
+        event: 'removed_assets_deleted',
+        message: `Permanently deleted ${result.deletedAssets} removed file(s).`,
+        context: { assetCount: result.deletedAssets, versionCount: result.deletedVersions },
+      })
+      return result
     },
 
     // F6 — append-only restore + native save-copy fallback
@@ -1642,15 +1726,29 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
     },
   }
 
+  let retentionTimer: ReturnType<typeof setInterval> | undefined
+
   return {
     api,
     start(): void {
       for (const folder of listTrackedFolders(db)) watcher.watch(folder.path)
+      const sweep = (): void => {
+        void purgeExpiredRemovedAssets().catch((error) => {
+          console.error('[chronicle] removed-file retention sweep failed:', error)
+        })
+      }
+      sweep()
+      retentionTimer = setInterval(sweep, RETENTION_SWEEP_INTERVAL_MS)
       // Warm the pricing cache independently of AI work. A network failure is
       // non-fatal and leaves the last valid cache in place.
-      void refreshPricingCatalog(db).then(() => {
-        reconcileUnestimatedAiCalls(db)
-      })
+      void refreshPricingCatalog(db)
+        .then(() => {
+          reconcileUnestimatedAiCalls(db)
+        })
+        // Non-fatal by design: an unreachable catalog, or a shutdown that
+        // closed the database first, must not surface as an unhandled
+        // rejection. The last valid cache stays in place either way.
+        .catch(() => {})
       if (deps.account && deps.installation) {
         void deps.account.registerInstallation({
           ...deps.installation,
@@ -1667,6 +1765,8 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
       deps.telemetry?.recordAppOpened()
     },
     dispose(): Promise<void> {
+      if (retentionTimer) clearInterval(retentionTimer)
+      retentionTimer = undefined
       return watcher.close()
     },
   }

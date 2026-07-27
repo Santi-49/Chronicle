@@ -185,7 +185,7 @@ export function ActivityScreen() {
             <div className="activity-section-heading">
               <div>
                 <h2 id="activity-calendar-title">Daily activity</h2>
-                <p>Versions, summaries, searches, and restores—without a productivity score.</p>
+                <p>Versions, summaries, searches, and restores, without a productivity score.</p>
               </div>
               <div aria-label="Activity intensity legend" className="activity-legend">
                 <span>Less</span>

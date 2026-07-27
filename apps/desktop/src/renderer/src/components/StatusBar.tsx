@@ -23,12 +23,12 @@ export function StatusBar({ onOpenJobs }: { onOpenJobs: () => void }) {
     <footer className="status-bar" aria-label="Application status">
       <span className="status-item">
         <Icon name="folder" />
-        {status ? `${status.watchedFolders} watched` : '—'}
+        {status ? `${status.watchedFolders} watched` : 'Loading'}
       </span>
 
       <span className="status-item">
         <span className={`status-dot ${status?.online ? 'status-dot-online' : 'status-dot-offline'}`} aria-hidden="true" />
-        {status ? (status.online ? 'Online' : 'Offline') : '—'}
+        {status ? (status.online ? 'Online' : 'Offline') : 'Loading'}
       </span>
 
       <span className="status-item">

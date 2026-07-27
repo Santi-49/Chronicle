@@ -398,7 +398,7 @@ function StartupSection() {
               {!system?.openAtLoginSupported
                 ? (system?.unsupportedReason ?? 'Starting at login is available in the installed app.')
                 : windowForced
-                  ? 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete. The window opens because background capture is off — without a tray icon there would be no way to reach Chronicle.'
+                  ? 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete. The window opens because background capture is off, and without a tray icon there would be no way to reach Chronicle.'
                   : 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete.'}
             </small>
           </span>
@@ -1052,7 +1052,7 @@ function AccountSection({
               onChange={(event) => void updateControlPlane({ telemetryOptIn: event.target.checked })}
               type="checkbox"
             />
-            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends app activity, provider/model usage, sanitized failures, count snapshots, and coarse location derived by Cloudflare—never creative files, names, paths, summaries, tags, search text, credentials, or raw IP.</small></span>
+            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends app activity, provider/model usage, sanitized failures, count snapshots, and coarse location derived by Cloudflare. It never includes creative files, names, paths, summaries, tags, search text, credentials, or raw IP.</small></span>
           </label>
           <label className="toggle-field">
             <input

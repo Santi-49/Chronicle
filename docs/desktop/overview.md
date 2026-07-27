@@ -217,8 +217,28 @@ stay queued until support ships. Breadcrumb back to Projects.
 
 ### 5. Project — F2, F5
 
-One project's assets: thumbnail, file name, version count, last-change summary.
-Breadcrumbs Projects → project. Click an asset → its Timeline.
+One project's captured files. Breadcrumbs Projects → project → each folder entered.
+Click an asset → its Timeline.
+
+- **Recently changed** shows the four most recently captured files across the whole project
+  as a 2×2 block, so the work in progress is visible before any navigation.
+
+- **Files** browses the project's real folder structure. Subfolders are listed first, each with
+  its recursive file count and most recent change; entering one extends the breadcrumb and a
+  Back row returns to the parent. The tree is derived from what Chronicle has captured, so a
+  folder with nothing captured in it has nothing to open. A **Gallery / List** toggle switches
+  the files at the current level between preview cards and a compact row list; the choice is
+  remembered on the device.
+
+- **Removed files** is a collapsed section below the browser. A file that left the disk moves
+  out of the main view and waits here with its version count, when it was removed, and how many
+  days of retention are left. Chronicle deletes an entry permanently 30 days after the file
+  disappeared (`REMOVED_ASSET_RETENTION_DAYS`); the sweep runs at startup and periodically while
+  the app is open. Its stored versions stay readable until then, and the row opens its Timeline.
+  **Delete now** on one row, or **Delete all removed files**, erases that history immediately
+  after a confirmation. Deletion is offered only for files that are already gone, so live
+  history cannot be lost by a mis-click; deleting a whole project's history is still done from
+  Edit project.
 
 - **Edit project** opens a dedicated screen that reuses the New Project form. It changes the
   display name, optional description, icon, color, enabled file types, and ignored files. The
@@ -227,9 +247,6 @@ Breadcrumbs Projects → project. Click an asset → its Timeline.
   permanently delete the project and all associated local history. The two choices are presented
   as peer delete actions, with the history-deleting choice visually stronger; original working
   files are never deleted.
-
-- A missing source file is marked on its asset card and Timeline header while every stored
-  version remains available (F3.7).
 
 ### 6. Asset Timeline — F3, F5
 

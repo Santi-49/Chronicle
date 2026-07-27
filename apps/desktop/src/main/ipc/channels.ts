@@ -26,6 +26,7 @@ const API_METHODS = {
   getTimeline: true,
   getVersionDetails: true,
   resetAssetHistory: true,
+  deleteAssetHistory: true,
   restoreVersion: true,
   saveVersionCopy: true,
   search: true,
@@ -74,6 +75,8 @@ const API_METHODS = {
 const EVENTS = {
   versionCaptured: true,
   assetHistoryReset: true,
+  assetMissing: true,
+  assetsDeleted: true,
   annotationUpdated: true,
   statusChanged: true,
   fileSkipped: true,

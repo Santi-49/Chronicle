@@ -106,10 +106,13 @@ export function useFolders(): FoldersApi {
 
 export function useAssets(): AsyncState<AssetSummary[]> & { assets: AssetSummary[] } {
   const state = useAsyncData<AssetSummary[]>(() => chronicle.listAssets(), [])
-  // New captures and finished annotations both change the assets list.
+  // New captures and finished annotations both change the assets list; so do
+  // files leaving the disk and history being erased.
   useChronicleEvent('versionCaptured', state.reload)
   useChronicleEvent('assetHistoryReset', state.reload)
   useChronicleEvent('annotationUpdated', state.reload)
+  useChronicleEvent('assetMissing', state.reload)
+  useChronicleEvent('assetsDeleted', state.reload)
   return { ...state, assets: state.data ?? [] }
 }
 
@@ -252,66 +255,28 @@ export function useSearch(query: string, debounceMs = 200): SearchState {
   return { results, loading, unavailable }
 }
 
-// ── Folder / asset grouping helpers ─────────────────────────────────────
-// A "project" in the UI is a tracked folder; an asset belongs to the folder
-// whose path is the longest prefix of the asset's path.
+// ── Folder / asset helpers ──────────────────────────────────────────────
+// Re-exported so screens keep one import for project data and its shaping.
+// The implementations live in projectFiles.ts, which has no bridge import and
+// is therefore unit-testable.
 
-function withSep(p: string): string {
-  return p.endsWith('\\') || p.endsWith('/') ? p : p + (p.includes('\\') ? '\\' : '/')
-}
-
-export function folderContainsAsset(folder: TrackedFolder, asset: AssetSummary): boolean {
-  return asset.path === folder.path || asset.path.startsWith(withSep(folder.path))
-}
-
-export function assetsForFolder(folder: TrackedFolder, assets: AssetSummary[]): AssetSummary[] {
-  return assets.filter((asset) => folderContainsAsset(folder, asset))
-}
-
-/** The tracked folder an asset lives under (longest matching path), if any. */
-export function folderForAsset(
-  asset: AssetSummary | undefined,
-  folders: TrackedFolder[],
-): TrackedFolder | undefined {
-  if (!asset) return undefined
-  return folders
-    .filter((folder) => folderContainsAsset(folder, asset))
-    .sort((a, b) => b.path.length - a.path.length)[0]
-}
-
-export interface AssetSubfolder {
-  /** Immediate subfolder name, or null for files directly in the folder root. */
-  name: string | null
-  assets: AssetSummary[]
-}
-
-/** Groups a folder's assets by their immediate subfolder (root files first). */
-export function groupBySubfolder(folder: TrackedFolder, assets: AssetSummary[]): AssetSubfolder[] {
-  const sep = folder.path.includes('\\') ? '\\' : '/'
-  const groups = new Map<string | null, AssetSummary[]>()
-  for (const asset of assetsForFolder(folder, assets)) {
-    const relative = asset.path.startsWith(withSep(folder.path))
-      ? asset.path.slice(withSep(folder.path).length)
-      : asset.path
-    const parts = relative.split(/[\\/]/)
-    const name = parts.length > 1 ? parts[0]! : null
-    groups.set(name, [...(groups.get(name) ?? []), asset])
-  }
-  return [...groups.entries()]
-    .sort(([a], [b]) => (a === null ? -1 : b === null ? 1 : a.localeCompare(b)))
-    .map(([name, folderAssets]) => ({ name, assets: folderAssets }))
-}
-
-/** Aggregate version count across a set of assets. */
-export function totalVersions(assets: AssetSummary[]): number {
-  return assets.reduce((sum, asset) => sum + asset.versionCount, 0)
-}
+export {
+  assetsForFolder,
+  browseFolder,
+  folderContainsAsset,
+  folderForAsset,
+  relativeSegments,
+  retentionDaysLeft,
+  totalVersions,
+  type BrowsedContents,
+  type BrowsedFolder,
+} from './projectFiles'
 
 /** Compact relative-time label from an ISO timestamp (best-effort, no deps). */
 export function relativeTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return 'Never'
   const then = new Date(iso).getTime()
-  if (Number.isNaN(then)) return '—'
+  if (Number.isNaN(then)) return 'Never'
   const seconds = Math.round((Date.now() - then) / 1000)
   if (seconds < 60) return 'just now'
   const minutes = Math.round(seconds / 60)

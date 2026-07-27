@@ -169,9 +169,9 @@ export function VersionDetailsScreen({
           </div>
           <dl className="metadata-grid">
             <div><dt>File size</dt><dd>{formatBytes(version.sizeBytes)}</dd></div>
-            <div><dt>Dimensions</dt><dd>{version.width && version.height ? `${version.width} × ${version.height}` : '—'}</dd></div>
+            <div><dt>Dimensions</dt><dd>{version.width && version.height ? `${version.width} × ${version.height}` : 'Unknown'}</dd></div>
             <div><dt>Content hash</dt><dd className="mono-value">{version.contentHash.slice(0, 8)}…{version.contentHash.slice(-4)}</dd></div>
-            <div><dt>Format</dt><dd>{format ?? '—'}</dd></div>
+            <div><dt>Format</dt><dd>{format ?? 'Unknown'}</dd></div>
           </dl>
         </div>
 

@@ -502,7 +502,7 @@ function Users({ onInspect }: { onInspect: (account: AdminAccountSummary) => voi
           {' · '}{account.google_linked ? 'Google-linked' : 'Password account'}
           {!account.is_active && ' · inactive'}</small></td>
         <td>{account.last_login_at ? new Date(account.last_login_at).toLocaleString() : 'Never'}</td>
-        <td>{account.latest_app_version ? `v${account.latest_app_version}` : '—'}
+        <td>{account.latest_app_version ? `v${account.latest_app_version}` : 'Unknown'}
           <small>{account.latest_os_family ?? 'No reported OS'}</small></td>
         <td>{account.installation_count} installs<small>{account.current_project_count} projects · {account.current_version_count} versions</small></td>
         <td><span className={account.is_admin ? 'admin-role admin' : 'admin-role'}>{account.is_admin ? 'Admin' : 'User'}</span></td>

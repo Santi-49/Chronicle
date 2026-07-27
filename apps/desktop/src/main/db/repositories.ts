@@ -20,6 +20,8 @@ export interface AssetRecord {
   createdAt: string
   lastSeenAt: string | null
   onDisk: boolean
+  /** When the file was first seen to be gone; null while it is on disk. */
+  missingSince: string | null
 }
 
 /** Asset plus the aggregates handlers need to build C1 `AssetSummary`. */
@@ -220,12 +222,14 @@ export function removeTrackedFolder(db: ChronicleDb, folderId: number): void {
   db.prepare('DELETE FROM tracked_folders WHERE id = ?').run(folderId)
 }
 
-export interface DeleteProjectHistoryResult {
+export interface DeleteHistoryResult {
   deletedAssets: number
   deletedVersions: number
   /** Blobs no remaining version references; callers may safely remove these from the library. */
   orphanedContentHashes: string[]
 }
+
+export type DeleteProjectHistoryResult = DeleteHistoryResult
 
 /** True when `candidate` is a file below `root` (not a similarly-prefixed sibling). */
 function isInsideFolder(root: string, candidate: string): boolean {
@@ -234,31 +238,22 @@ function isInsideFolder(root: string, candidate: string): boolean {
 }
 
 /**
- * Permanently removes one project's local metadata. Assets owned by a more
- * specific nested tracked folder are deliberately excluded. File bytes are
- * returned as orphan hashes because filesystem deletion belongs to the caller.
+ * Permanently removes the given assets and everything derived from them:
+ * versions, annotations, embeddings, keyword rows, and queued AI work. File
+ * bytes are returned as orphan hashes because filesystem deletion belongs to
+ * the caller — content is shared, so only hashes no remaining version points
+ * at are safe to delete.
  */
-export function deleteProjectHistory(
+export function deleteAssetsPermanently(
   db: ChronicleDb,
-  folderId: number,
-): DeleteProjectHistoryResult {
-  const folders = listTrackedFolders(db)
-  const folder = folders.find((item) => item.id === folderId)
-  if (!folder) return { deletedAssets: 0, deletedVersions: 0, orphanedContentHashes: [] }
-
-  const ownedAssets = listAssets(db).filter((asset) => {
-    if (!isInsideFolder(folder.path, asset.path)) return false
-    const owner = folders
-      .filter((candidate) => isInsideFolder(candidate.path, asset.path))
-      .sort((a, b) => b.path.length - a.path.length)[0]
-    return owner?.id === folderId
-  })
-  const assetIds = new Set(ownedAssets.map((asset) => asset.id))
-  const versions = ownedAssets.flatMap((asset) => listVersions(db, asset.id))
+  ids: Iterable<number>,
+): DeleteHistoryResult {
+  const assetIds = new Set(ids)
+  const versions = [...assetIds].flatMap((assetId) => listVersions(db, assetId))
   const versionIds = new Set(versions.map((version) => version.id))
   const candidateHashes = new Set(versions.map((version) => version.contentHash))
 
-  return db.transaction((): DeleteProjectHistoryResult => {
+  return db.transaction((): DeleteHistoryResult => {
     // Queue payloads are JSON-linked, so remove only work targeting deleted versions.
     for (const job of listJobs(db)) {
       if (job.jobType !== 'ai_annotation' && job.jobType !== 'embedding') continue
@@ -284,7 +279,6 @@ export function deleteProjectHistory(
       deleteVersions.run(assetId)
       deleteAsset.run(assetId)
     }
-    removeTrackedFolder(db, folderId)
 
     const stillReferenced = db.prepare('SELECT 1 FROM versions WHERE content_hash = ? LIMIT 1')
     const orphanedContentHashes = [...candidateHashes].filter(
@@ -298,6 +292,33 @@ export function deleteProjectHistory(
   })()
 }
 
+/**
+ * Permanently removes one project's local metadata. Assets owned by a more
+ * specific nested tracked folder are deliberately excluded.
+ */
+export function deleteProjectHistory(
+  db: ChronicleDb,
+  folderId: number,
+): DeleteProjectHistoryResult {
+  const folders = listTrackedFolders(db)
+  const folder = folders.find((item) => item.id === folderId)
+  if (!folder) return { deletedAssets: 0, deletedVersions: 0, orphanedContentHashes: [] }
+
+  const ownedAssets = listAssets(db).filter((asset) => {
+    if (!isInsideFolder(folder.path, asset.path)) return false
+    const owner = folders
+      .filter((candidate) => isInsideFolder(candidate.path, asset.path))
+      .sort((a, b) => b.path.length - a.path.length)[0]
+    return owner?.id === folderId
+  })
+
+  return db.transaction((): DeleteProjectHistoryResult => {
+    const result = deleteAssetsPermanently(db, ownedAssets.map((asset) => asset.id))
+    removeTrackedFolder(db, folderId)
+    return result
+  })()
+}
+
 // ── Assets (identity = path, spec F3.7) ─────────────────────────────────
 
 interface AssetRow {
@@ -307,6 +328,7 @@ interface AssetRow {
   created_at: string
   last_seen_at: string | null
   on_disk: number
+  missing_since: string | null
 }
 
 function toAsset(row: AssetRow): AssetRecord {
@@ -317,6 +339,7 @@ function toAsset(row: AssetRow): AssetRecord {
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
     onDisk: row.on_disk === 1,
+    missingSince: row.on_disk === 1 ? null : row.missing_since,
   }
 }
 
@@ -339,9 +362,30 @@ export function createAsset(db: ChronicleDb, assetPath: string): AssetRecord {
   return getAsset(db, info.lastInsertRowid as number)!
 }
 
-/** Marks whether the tracked file still exists on disk (history is kept either way). */
+/**
+ * Marks whether the tracked file still exists on disk. History is kept either
+ * way; going missing also stamps `missing_since`, which starts the retention
+ * window. The stamp is only taken the first time — a repeated mark must not
+ * extend the window — and is cleared when the file comes back.
+ */
 export function setAssetOnDisk(db: ChronicleDb, assetId: number, onDisk: boolean): void {
-  db.prepare('UPDATE assets SET on_disk = ? WHERE id = ?').run(onDisk ? 1 : 0, assetId)
+  db.prepare(
+    `UPDATE assets
+        SET on_disk = ?,
+            missing_since = CASE WHEN ? = 1 THEN NULL
+                                 ELSE COALESCE(missing_since, strftime('%Y-%m-%dT%H:%M:%fZ','now')) END
+      WHERE id = ?`,
+  ).run(onDisk ? 1 : 0, onDisk ? 1 : 0, assetId)
+}
+
+/** Ids of removed assets whose retention window expired at or before `cutoffIso`. */
+export function listExpiredMissingAssetIds(db: ChronicleDb, cutoffIso: string): number[] {
+  const rows = db
+    .prepare(
+      'SELECT id FROM assets WHERE on_disk = 0 AND missing_since IS NOT NULL AND missing_since <= ? ORDER BY id',
+    )
+    .all(cutoffIso) as Array<{ id: number }>
+  return rows.map((row) => row.id)
 }
 
 /** Assets with the aggregates the Assets screen needs, most recently captured first. */
