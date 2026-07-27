@@ -7,10 +7,10 @@ import {
 } from './service-process'
 
 describe('AI service location', () => {
-  it('isolates workspace development from the installed app port', () => {
+  it('isolates both workspace and installed sessions from orphaned sidecars', () => {
     expect(desktopAiServicePort(false, 12_345)).toBe(32_345)
     expect(desktopAiServicePort(false, 22_345)).toBe(22_345)
-    expect(desktopAiServicePort(true)).toBe(8765)
+    expect(desktopAiServicePort(true, 12_345)).toBe(32_345)
   })
 
   it('uses repository Python in development', () => {
