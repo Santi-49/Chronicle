@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.0](https://github.com/Santi-49/Chronicle/compare/v0.14.0...v1.0.0) (2026-07-27)
+
+
+### Features
+
+* Add support for new file formats (PSB, SVG, OBJ, STEP, BLEND) with extraction and annotation capabilities ([33509e5](https://github.com/Santi-49/Chronicle/commit/33509e5b2d54d5896a4128dc8213d16b980fd890))
+* **ai:** enable annotation for additional formats and improve capability handling ([33509e5](https://github.com/Santi-49/Chronicle/commit/33509e5b2d54d5896a4128dc8213d16b980fd890))
+* **ai:** enhance BLEND file handling and error reporting ([33509e5](https://github.com/Santi-49/Chronicle/commit/33509e5b2d54d5896a4128dc8213d16b980fd890))
+* **landing:** enhance favicon support and improve site identity for SEO ([33509e5](https://github.com/Santi-49/Chronicle/commit/33509e5b2d54d5896a4128dc8213d16b980fd890))
+* **project:** enhance project browsing with folder navigation and removed files retention ([33509e5](https://github.com/Santi-49/Chronicle/commit/33509e5b2d54d5896a4128dc8213d16b980fd890))
+* **updater:** implement macOS update detection with manual download option ([33509e5](https://github.com/Santi-49/Chronicle/commit/33509e5b2d54d5896a4128dc8213d16b980fd890))
+
+
+### Bug Fixes
+
+* **ai:** make OBJ summaries artist-friendly ([33509e5](https://github.com/Santi-49/Chronicle/commit/33509e5b2d54d5896a4128dc8213d16b980fd890))
+* **ai:** make SVG summaries artist-friendly ([33509e5](https://github.com/Santi-49/Chronicle/commit/33509e5b2d54d5896a4128dc8213d16b980fd890))
+* **desktop:** isolate packaged AI sidecar ports ([33509e5](https://github.com/Santi-49/Chronicle/commit/33509e5b2d54d5896a4128dc8213d16b980fd890))
+
 ## [0.14.0](https://github.com/Santi-49/Chronicle/compare/v0.13.0...v0.14.0) (2026-07-27)
 
 
