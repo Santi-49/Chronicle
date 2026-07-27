@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import gzip
 from io import BytesIO
 from typing import Any
 
@@ -11,7 +12,9 @@ from PIL import Image
 from psd_tools import PSDImage
 
 from chronicle_ai.engine import annotate_version
-from chronicle_ai.schemas import AnnotateRequest, VersionAnnotation
+from chronicle_ai.formats import ExtractionError
+from chronicle_ai.future_formats import extract_blend, prepare_blend_annotation
+from chronicle_ai.schemas import AnnotateRequest, ImageInput, VersionAnnotation
 
 
 class FakeStructuredModel:
@@ -155,9 +158,68 @@ def _make_step_bytes(*, schema: str, offset: float) -> bytes:
     ).encode("utf-8")
 
 
-def _make_blend_bytes(*, color: tuple[int, int, int], version: str) -> bytes:
-    preview = _jpeg_preview(color)
-    return b"BLENDER" + version.encode("ascii") + preview
+def _blend_block(code: bytes, body: bytes) -> bytes:
+    """One 64-bit little-endian file-block: code, length, address, SDNA, count."""
+
+    return (
+        code
+        + len(body).to_bytes(4, "little")
+        + (0).to_bytes(8, "little")
+        + (0).to_bytes(4, "little")
+        + (1).to_bytes(4, "little")
+        + body
+    )
+
+
+def _make_blend_bytes(
+    *,
+    color: tuple[int, int, int],
+    version: str,
+    thumbnail: bool = True,
+    compression: str | None = None,
+    edge: int = 24,
+) -> bytes:
+    """A .blend carrying the RGBA `TEST` thumbnail block Blender writes.
+
+    Blender stores that image bottom row first, so the *last* rows written here
+    are the ones that should appear at the top. The fixture writes the bright
+    band last for exactly that reason: a decoder that forgets to flip returns a
+    visibly different image and the orientation assertion fails.
+
+    Blender's *Compress* option wraps the whole file in one gzip (older) or
+    Zstandard (3.0+) stream, which is why `compression` exists here — the first
+    implementation only accepted the raw magic and rejected every compressed save.
+    """
+
+    blocks = b""
+    if thumbnail:
+        rows = []
+        for row in range(edge):
+            # File order is bottom-up: dark half first, bright half last.
+            shade = tuple(value // 2 for value in color) if row < edge // 2 else color
+            rows.append(bytes(shade + (255,)) * edge)
+        body = edge.to_bytes(4, "little") + edge.to_bytes(4, "little") + b"".join(rows)
+        blocks += _blend_block(b"TEST", body)
+    blocks += _blend_block(b"ENDB", b"")
+
+    raw = b"BLENDER" + version.encode("ascii") + blocks
+    if compression == "gzip":
+        return gzip.compress(raw)
+    if compression == "zstandard":
+        import zstandard
+
+        return zstandard.ZstdCompressor().compress(raw)
+    return raw
+
+
+def _blend_input(data: bytes) -> ImageInput:
+    return ImageInput.model_validate(
+        {
+            "base64": base64.b64encode(data).decode("ascii"),
+            "mediaType": "application/x-blender",
+            "format": "blend",
+        }
+    )
 
 
 CASE_DATA = {
@@ -181,8 +243,10 @@ CASE_DATA = {
     },
     "blend": {
         "media_type": "application/x-blender",
-        "previous": _make_blend_bytes(color=(255, 128, 128), version="-v293"),
-        "current": _make_blend_bytes(color=(128, 160, 255), version="-v300"),
+        # Compressed on both sides, because that is what Blender's Compress
+        # option produces and what real demo files turned out to be.
+        "previous": _make_blend_bytes(color=(255, 128, 128), version="-v293", compression="gzip"),
+        "current": _make_blend_bytes(color=(128, 160, 255), version="-v403", compression="gzip"),
         "has_preview": True,
     },
     "obj": {
@@ -247,3 +311,81 @@ async def test_future_formats_annotate_diffs(format_name: str) -> None:
     image_blocks = [block for block in content if block["type"] == "image_url"]
     assert len(image_blocks) == (1 if case["has_preview"] else 0)
     assert "Deterministic local" in content[0]["text"]
+
+
+# ---------------------------------------------------------------------------
+# BLEND extraction
+#
+# Blender's Compress option stores the whole file as one gzip or Zstandard
+# stream, so a saved .blend frequently does not begin with the BLENDER magic.
+# The first implementation required that magic and scavenged the file for any
+# embedded PNG/JPEG, which failed every compressed save outright and could have
+# presented an unrelated packed texture as the scene thumbnail.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("compression", [None, "gzip", "zstandard"])
+def test_extract_blend_reads_the_thumbnail_however_the_file_is_stored(compression) -> None:
+    data = _make_blend_bytes(color=(200, 60, 40), version="-v403", compression=compression)
+    evidence = extract_blend(_blend_input(data))
+
+    assert evidence.metadata["blenderVersion"] == "403"
+    assert evidence.metadata["compression"] == (compression or "none")
+    assert evidence.metadata["hasThumbnail"] is True
+    assert evidence.preview is not None
+    assert evidence.preview.size == (24, 24)
+    # Blender writes the image bottom row first, so the band written last must
+    # come back at the top rather than mirrored to the bottom.
+    top = evidence.preview.convert("RGB").getpixel((12, 2))
+    bottom = evidence.preview.convert("RGB").getpixel((12, 21))
+    assert sum(top) > sum(bottom)
+    assert evidence.warnings == ()
+
+
+def test_extract_blend_without_a_thumbnail_warns_instead_of_failing() -> None:
+    data = _make_blend_bytes(color=(0, 0, 0), version="-v403", thumbnail=False)
+    evidence = extract_blend(_blend_input(data))
+
+    assert evidence.preview is None
+    assert evidence.metadata["hasThumbnail"] is False
+    assert any("no embedded thumbnail" in warning for warning in evidence.warnings)
+
+
+def test_extract_blend_refuses_an_implausible_thumbnail_size() -> None:
+    """A declared size is never trusted enough to allocate from."""
+
+    body = (40_000).to_bytes(4, "little") + (40_000).to_bytes(4, "little") + b"\x00" * 16
+    data = b"BLENDER-v403" + _blend_block(b"TEST", body) + _blend_block(b"ENDB", b"")
+    evidence = extract_blend(_blend_input(data))
+
+    assert evidence.preview is None
+    assert any("could not be decoded" in warning for warning in evidence.warnings)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [b"not a blend file at all", gzip.compress(b"decompresses but is not a blend")],
+    ids=["garbage", "compressed-non-blend"],
+)
+def test_extract_blend_rejects_unreadable_bytes(data: bytes) -> None:
+    with pytest.raises(ExtractionError):
+        extract_blend(_blend_input(data))
+
+
+def test_blend_confidence_is_capped_only_when_evidence_is_degraded() -> None:
+    """The cap has to mean "partial evidence", not "this format"."""
+
+    complete = prepare_blend_annotation(
+        None, _blend_input(_make_blend_bytes(color=(10, 20, 30), version="-v403"))
+    )
+    degraded = prepare_blend_annotation(
+        None,
+        _blend_input(_make_blend_bytes(color=(10, 20, 30), version="-v403", thumbnail=False)),
+    )
+
+    assert complete.confidence_limit is None
+    assert len(complete.images) == 1
+    assert degraded.confidence_limit == 0.65
+    assert degraded.images == ()
+    # The coverage boundary is still stated, cap or no cap.
+    assert "scene itself is never opened" in complete.context

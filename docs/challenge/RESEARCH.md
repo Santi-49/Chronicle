@@ -252,6 +252,51 @@ header-and-resources stub for thumbnail extraction and is *not* a document `psd-
 so PSD/PSB evidence requires a real `PSDImage`-generated document. A successful live annotation
 still needs a valid BYOK credential.
 
+#### BLEND annotation correction (2026-07-27)
+
+Wiring exposed a defect the format's own tests had not: the adapter required the literal `BLENDER`
+magic and rejected everything else as corrupt. Blender's **Compress** option stores the whole file
+as a single gzip (older) or Zstandard (3.0+) stream, so a saved `.blend` frequently does not start
+with that magic at all — Chronicle's own committed demo files are gzip, and every one of them failed
+with "The BLEND file is corrupt or unsupported." The desktop app had handled this correctly since
+POST-01 (`apps/desktop/src/main/formats/blend.ts` decompresses bounded leading bytes), so the two
+halves of the same product disagreed about whether a normal Blender save was readable.
+
+The adapter now mirrors the desktop: bounded decompression of the leading bytes, then the RGBA
+thumbnail Blender writes into a `TEST` file-block, validated against the block length before
+allocation and flipped (Blender stores the bottom row first). Verified on the real demo files — a
+256×256 thumbnail per version, and a before/after sheet that visibly shows the gray bottle becoming
+green with a NEW badge.
+
+Two smaller findings came with it:
+
+- **A scavenging heuristic is not a substitute for a layout.** The previous implementation searched
+  the whole file for the first PNG or JPEG signature. Besides missing Blender's raw-RGBA thumbnail
+  entirely, that could have surfaced a *packed texture* as "the thumbnail" — a confidently wrong
+  visual for a product whose value is factual diffs. Reading the documented-enough block structure
+  is both correct and safer.
+- **A permanent limitation must not be encoded as degraded coverage.** Adding "the scene is never
+  opened" to the adapter's warnings capped confidence on every `.blend`, which destroys the cap's
+  meaning. Permanent scope belongs in the prompt; `confidence_limit` is reserved for evidence that
+  is actually incomplete.
+
+`zstandard` is now a declared dependency (it was already present transitively via `langsmith`).
+
+#### Local extraction failures are not provider failures (2026-07-27)
+
+Only `PsdExtractionError` was mapped to the typed `extraction_error`; the four newer adapters raised
+sibling types that fell through to the generic handler. A local, pre-provider failure was therefore
+reported to the user as *"The AI provider returned an error … The AI provider rejected the request"*
+with the advice to test their AI connection, and — because the generic handler answers HTTP 502,
+which the desktop classifies as retryable — it consumed all three retries and a provider round trip
+each time on a failure that could never succeed.
+
+All adapter errors now derive from one `ExtractionError` base that the route maps to HTTP 400, which
+the desktop already treats as non-retryable. The renderer gained matching copy for `extraction_error`
+and `unsupported_format` that neither blames the provider nor points at Settings, and says the
+version is still stored, previewable, restorable, and keyword-searchable. Error taxonomy is part of
+the user interface: a misfiled error class became wrong on-screen advice plus wasted spend.
+
 #### POST-02 adapter implementation note (2026-07-26)
 
 - The local AI service now ships safe, format-aware adapters for PSD/PSB, SVG, BLEND, OBJ, and
@@ -1170,6 +1215,18 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-27 — BLEND COMPRESSION AND ERROR TAXONOMY: a real `.blend` failed with "corrupt or
+  unsupported" because the adapter demanded the literal `BLENDER` magic, while Blender's Compress
+  option stores the file as one gzip/Zstandard stream — Chronicle's own demo files are gzip, and the
+  desktop half had handled this since POST-01. The adapter now decompresses bounded leading bytes and
+  reads the RGBA `TEST` thumbnail block (validated before allocation, flipped bottom-up), replacing a
+  PNG/JPEG scavenging heuristic that could have presented a packed texture as the scene. Separately,
+  only PSD's extraction error was typed, so the other adapters' local failures were reported as
+  provider rejections at HTTP 502 and burned all three retries; all adapter errors now derive from
+  one `ExtractionError` mapped to a non-retryable 400 with copy that stops blaming the provider. Also
+  found `generated.ts` had never been regenerated after POST-02 widened the C3 enum — verified on the
+  real demo files, whose before/after sheet correctly shows the gray bottle turning green with a NEW
+  badge — live diagnosis plus Blender container-layout research
 - 2026-07-27 — POST-02 DESKTOP WIRING: the AI adapters were complete but unreachable — the desktop
   registry still declared SVG, PSB, OBJ, STEP, and BLEND unannotatable, so their versions sat
   permanently `deferred` while both halves passed their own tests. Wiring them up exposed that a

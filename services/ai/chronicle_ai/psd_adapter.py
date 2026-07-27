@@ -16,6 +16,7 @@ from typing import Any
 from PIL import Image, ImageChops, ImageDraw
 from psd_tools import PSDImage
 
+from .formats import ExtractionError
 from .schemas import ImageInput
 
 
@@ -29,7 +30,7 @@ MAX_EVIDENCE_CHARS = 7_000
 CONTACT_SHEET_SIZE = (1024, 512)
 
 
-class PsdExtractionError(ValueError):
+class PsdExtractionError(ExtractionError):
     """The supplied PSD cannot be safely extracted."""
 
 

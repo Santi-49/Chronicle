@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import zlib
 from collections import Counter
 from dataclasses import dataclass
 from io import BytesIO
@@ -18,6 +19,7 @@ from xml.etree import ElementTree as ET
 
 from PIL import Image, ImageChops, ImageDraw
 
+from .formats import ExtractionError
 from .schemas import ImageInput
 
 
@@ -29,24 +31,28 @@ MAX_TEXT_LENGTH = 240
 MAX_EVIDENCE_CHARS = 7_000
 OBJ_CANVAS = (1024, 1024)
 BLEND_HEADER_PREFIX = b"BLENDER"
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-JPEG_SOI = b"\xff\xd8"
-JPEG_EOI = b"\xff\xd9"
+GZIP_MAGIC = b"\x1f\x8b"
+ZSTANDARD_MAGIC = b"\x28\xb5\x2f\xfd"
+#: A .blend header and its thumbnail block sit at the start of the file, so a
+#: compressed save only needs its leading bytes decompressed.
+BLEND_SCAN_BYTES = 12 * 1024 * 1024
+BLEND_MAX_BLOCKS = 64
+BLEND_MAX_THUMBNAIL_EDGE = 2_048
 
 
-class SvgExtractionError(ValueError):
+class SvgExtractionError(ExtractionError):
     """The supplied SVG cannot be safely extracted."""
 
 
-class ObjExtractionError(ValueError):
+class ObjExtractionError(ExtractionError):
     """The supplied OBJ cannot be safely extracted."""
 
 
-class StepExtractionError(ValueError):
+class StepExtractionError(ExtractionError):
     """The supplied STEP file cannot be safely extracted."""
 
 
-class BlendExtractionError(ValueError):
+class BlendExtractionError(ExtractionError):
     """The supplied BLEND file cannot be safely extracted."""
 
 
@@ -72,13 +78,13 @@ def _short(value: object, limit: int = MAX_TEXT_LENGTH) -> str:
 
 def _decode_payload(source: ImageInput) -> bytes:
     if len(source.base64) > ((MAX_INPUT_BYTES + 2) // 3) * 4:
-        raise ValueError("The file exceeds Chronicle's 50 MB safety limit.")
+        raise ExtractionError("The file exceeds Chronicle's 50 MB safety limit.")
     try:
         raw = base64.b64decode(source.base64, validate=True)
     except Exception as error:
-        raise ValueError("The file is corrupt or unsupported.") from error
+        raise ExtractionError("The file is corrupt or unsupported.") from error
     if len(raw) > MAX_INPUT_BYTES:
-        raise ValueError("The file exceeds Chronicle's 50 MB safety limit.")
+        raise ExtractionError("The file exceeds Chronicle's 50 MB safety limit.")
     return raw
 
 
@@ -498,105 +504,158 @@ def prepare_step_annotation(previous_input: ImageInput | None, current_input: Im
     )
 
 
-def _extract_png_blob(raw: bytes) -> bytes | None:
-    start = raw.find(PNG_SIGNATURE)
-    if start < 0:
-        return None
-    cursor = start + len(PNG_SIGNATURE)
-    while cursor + 8 <= len(raw):
-        length = int.from_bytes(raw[cursor : cursor + 4], "big")
-        if length > MAX_INPUT_BYTES:
-            return None
-        chunk_type = raw[cursor + 4 : cursor + 8]
-        cursor += 8
-        if cursor + length + 4 > len(raw):
-            return None
-        cursor += length
-        cursor += 4
-        if chunk_type == b"IEND":
-            return raw[start:cursor]
-    return None
+def _inflate_blend(raw: bytes) -> tuple[bytes, str]:
+    """Uncompressed bytes of a .blend plus how it was stored.
+
+    Blender's *Compress* option writes the whole file as one gzip (older) or
+    Zstandard (3.0+) stream, so a saved file often does not start with the
+    ``BLENDER`` magic at all. Only the leading bytes are needed — the header and
+    the thumbnail block sit at the start — so decompression is bounded and a
+    truncated tail is expected rather than an error.
+    """
+
+    if raw.startswith(BLEND_HEADER_PREFIX):
+        return raw, "none"
+
+    if raw[:2] == GZIP_MAGIC:
+        decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        try:
+            head = decompressor.decompress(raw, BLEND_SCAN_BYTES)
+        except zlib.error as error:
+            raise BlendExtractionError("The BLEND file is corrupt or unsupported.") from error
+        return head, "gzip"
+
+    if raw[:4] == ZSTANDARD_MAGIC:
+        try:
+            import zstandard
+        except ImportError as error:  # pragma: no cover - dependency is declared
+            raise BlendExtractionError(
+                "This .blend is Zstandard-compressed and this build cannot read that format."
+            ) from error
+        try:
+            reader = zstandard.ZstdDecompressor().stream_reader(BytesIO(raw))
+            head = reader.read(BLEND_SCAN_BYTES)
+        except Exception as error:
+            raise BlendExtractionError("The BLEND file is corrupt or unsupported.") from error
+        return head, "zstandard"
+
+    raise BlendExtractionError("The BLEND file is corrupt or unsupported.")
 
 
-def _extract_jpeg_blob(raw: bytes) -> bytes | None:
-    start = raw.find(JPEG_SOI)
-    if start < 0:
-        return None
-    end = raw.find(JPEG_EOI, start + 2)
-    if end < 0:
-        return None
-    return raw[start : end + 2]
+@dataclass(frozen=True)
+class BlendHeader:
+    version: str
+    pointer_size: int
+    little_endian: bool
 
 
-def _preview_from_blob(blob: bytes, media_type: str, format_name: str) -> ImageInput | None:
-    try:
-        image = Image.open(BytesIO(blob))
-        image.load()
-    except Exception:
-        return None
-    return ImageInput.model_validate(
-        {
-            "base64": base64.b64encode(blob).decode("ascii"),
-            "mediaType": media_type,
-            "format": format_name,
-        }
+def _blend_header(raw: bytes) -> BlendHeader:
+    if len(raw) < 12 or not raw.startswith(BLEND_HEADER_PREFIX):
+        raise BlendExtractionError("The BLEND file is corrupt or unsupported.")
+    pointer_flag = chr(raw[7])
+    endian_flag = chr(raw[8])
+    if pointer_flag not in {"_", "-"} or endian_flag not in {"v", "V"}:
+        raise BlendExtractionError("The BLEND file is corrupt or unsupported.")
+    return BlendHeader(
+        version=raw[9:12].decode("latin-1", errors="replace"),
+        pointer_size=8 if pointer_flag == "-" else 4,
+        little_endian=endian_flag == "v",
     )
+
+
+def _blend_thumbnail(raw: bytes, header: BlendHeader) -> tuple[Image.Image | None, str | None]:
+    """The screenshot Blender embeds for the OS file browser, or None.
+
+    Blender writes it into a ``TEST`` file-block as raw RGBA with the bottom row
+    first. That body layout is not covered by public Blender documentation, so
+    the declared width and height are validated against the block length before
+    anything is allocated: an unrecognised layout yields no thumbnail rather than
+    a corrupt image. Blender is never invoked and no embedded Python is read.
+    """
+
+    order = "little" if header.little_endian else "big"
+    cursor = 12
+    for _ in range(BLEND_MAX_BLOCKS):
+        body_start = cursor + 16 + header.pointer_size
+        if body_start > len(raw):
+            return None, None
+        code = raw[cursor : cursor + 4]
+        body_length = int.from_bytes(raw[cursor + 4 : cursor + 8], order)
+        if code == b"ENDB":
+            return None, None
+        if code == b"TEST":
+            body = raw[body_start : body_start + body_length]
+            if len(body) < 8:
+                return None, "The embedded thumbnail block is truncated."
+            width = int.from_bytes(body[0:4], order)
+            height = int.from_bytes(body[4:8], order)
+            pixels = width * height * 4
+            if (
+                width <= 0
+                or height <= 0
+                or width > BLEND_MAX_THUMBNAIL_EDGE
+                or height > BLEND_MAX_THUMBNAIL_EDGE
+                or len(body) < 8 + pixels
+            ):
+                return None, "The embedded thumbnail could not be decoded safely."
+            image = Image.frombuffer(
+                "RGBA", (width, height), body[8 : 8 + pixels], "raw", "RGBA", 0, 1
+            )
+            return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM), None
+        cursor = body_start + body_length
+    return None, None
 
 
 def extract_blend(source: ImageInput) -> StructuredEvidence:
     raw = _decode_payload(source)
-    if not raw.startswith(BLEND_HEADER_PREFIX):
-        raise BlendExtractionError("The BLEND file is corrupt or unsupported.")
-
-    header = raw[:12].decode("latin-1", errors="replace")
-    preview_kind = None
-    preview_input = None
-    png_blob = _extract_png_blob(raw)
-    if png_blob is not None:
-        preview_kind = "png"
-        preview_input = _preview_from_blob(png_blob, "image/png", "png")
-    else:
-        jpeg_blob = _extract_jpeg_blob(raw)
-        if jpeg_blob is not None:
-            preview_kind = "jpeg"
-            preview_input = _preview_from_blob(jpeg_blob, "image/jpeg", "jpeg")
+    inflated, compression = _inflate_blend(raw)
+    header = _blend_header(inflated)
 
     warnings: set[str] = set()
-    if preview_kind is None:
-        warnings.add("No embedded thumbnail could be isolated safely.")
-    elif preview_input is None:
-        warnings.add("The embedded thumbnail could not be decoded safely.")
+    preview, thumbnail_warning = _blend_thumbnail(inflated, header)
+    if thumbnail_warning is not None:
+        warnings.add(thumbnail_warning)
+    elif preview is None:
+        warnings.add("The file carries no embedded thumbnail, so no visual evidence is available.")
+    if compression != "none" and len(inflated) >= BLEND_SCAN_BYTES:
+        warnings.add("Only the leading portion of this compressed file was inspected.")
+    # Not reading the scene is a permanent property of this adapter rather than
+    # degraded evidence, so it belongs in the prompt note (see
+    # prepare_blend_annotation) and must not cap confidence on every file.
 
-    records = [
+    records: list[dict[str, Any]] = [
         {
             "key": "header",
-            "signature": header[:7],
-            "flags": header[7:9],
-            "version": header[9:12],
-            "fileSize": len(raw),
+            "blenderVersion": header.version,
+            "pointerSize": header.pointer_size,
+            "littleEndian": header.little_endian,
+        },
+        {
+            "key": "thumbnail",
+            "present": preview is not None,
+            **({"width": preview.width, "height": preview.height} if preview else {}),
         },
     ]
-    if preview_kind is not None:
-        records.append({"key": "thumbnail", "kind": preview_kind, "present": True})
 
     metadata = {
-        "header": header,
+        "blenderVersion": header.version,
+        "compression": compression,
         "fileSize": len(raw),
-        "previewKind": preview_kind,
+        "hasThumbnail": preview is not None,
     }
-    preview = None
-    if preview_input is not None:
-        preview = Image.open(BytesIO(base64.b64decode(preview_input.base64)))
-        preview.load()
     return StructuredEvidence(metadata, tuple(records), preview, tuple(sorted(warnings)))
 
 
 def prepare_blend_annotation(previous_input: ImageInput | None, current_input: ImageInput) -> PreparedStructuredAnnotation:
+    scope = (
+        "Evidence is the file header and the thumbnail Blender embeds when saving; the scene "
+        "itself is never opened, so describe only what those show."
+    )
     return _prepare_annotation(
         previous_input,
         current_input,
         extract_blend,
-        "Use the extracted BLEND header and any embedded thumbnail.",
-        "Explain the BLEND change using the extracted header and any embedded thumbnail.",
+        f"Use the extracted BLEND header and any embedded thumbnail. {scope}",
+        f"Explain the BLEND change using the extracted header and any embedded thumbnail. {scope}",
         0.65,
     )

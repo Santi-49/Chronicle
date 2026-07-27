@@ -38,11 +38,15 @@ The supported paths are intentionally different:
   preview to stay factual.
 - OBJ uses bounded text parsing plus a flat-shaded derived preview when faces are available.
 - STEP uses bounded text parsing and a structural inventory of entities and bounds.
-- BLEND never invokes Blender; it only scans for a safe embedded thumbnail and falls back to header
-  and structure evidence when no preview can be isolated.
+- BLEND never invokes Blender. It reads the file-block header and the RGBA thumbnail Blender writes
+  into a `TEST` block for the OS file browser, transparently decompressing gzip and Zstandard saves
+  (Blender's *Compress* option stores the whole file as one stream, so a saved `.blend` often does
+  not begin with the `BLENDER` magic). No preview is produced when no thumbnail is present.
 
-A format with no adapter is rejected with a typed `unsupported_format` error, and a format whose
-local extraction is partial carries a lower confidence cap instead of failing capture.
+A format with no adapter is rejected with a typed `unsupported_format` error. Any adapter's local
+read failure is a typed `extraction_error` (HTTP 400) — the provider was never contacted, so it must
+not be reported as a provider rejection or retried. Partial extraction carries a lower confidence
+cap instead of failing.
 
 **Adding a format:** add one `FormatAdapter` to the registry, add its prompt sections to
 `packages/prompts/version-annotation.md`, and widen the `SupportedFormat` literal in
@@ -74,8 +78,12 @@ oversized PSD/PSB inputs return a typed `extraction_error` without calling a pro
 
 SVG uses the same bounded evidence pattern, but the extracted structure is the XML/vector tree.
 OBJ and STEP use text parsing with caps on records and evidence size; OBJ can derive a flat preview
-when faces are present, while STEP stays structural. BLEND only inspects the container header and a
-safe embedded thumbnail if one can be isolated.
+when faces are present, while STEP stays structural. BLEND decompresses at most 12 MB of a
+compressed save's leading bytes — the header and thumbnail sit at the start — and validates the
+thumbnail's declared width and height against the block length before allocating anything, so an
+unrecognised layout yields no preview rather than a corrupt image. Its confidence cap applies only
+when evidence is actually degraded (no thumbnail, an undecodable one, or a truncated scan); that the
+scene is never opened is stated in the prompt instead, because it is true of every `.blend`.
 
 Provider, model and the BYOK key arrive per request (or fall back to the env defaults
 below). Annotation output is the C3 shape — `summary`, `changes`, `tags`,

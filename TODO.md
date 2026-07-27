@@ -863,13 +863,35 @@ order: PSD/PSB and SVG first, then BLEND, then OBJ and STEP/STP).
 >    nothing.
 >
 > A new desktop test compares every registry `aiFormat`/`mediaType` against the C3 enum in
-> `packages/contracts/ai/openapi.json`, which is the drift that caused this.
+> `packages/contracts/ai/openapi.json`, which is the drift that caused this. `generated.ts` had also
+> never been regenerated after POST-02 widened that enum, so the client types still listed only the
+> four MVP formats.
 >
-> **Verified:** 90 Python tests · 307 desktop tests · typecheck · and, against the real running
-> sidecar, all 8 formats × (first-version, diff) driven with desktop-shaped requests built from the
-> desktop's own fixtures — 16/16 validated, extracted locally, and reached the provider (rejected at
-> the credential, as expected with a deliberately invalid key). An undeclared format is still
-> refused with HTTP 422.
+> **Two more defects found by running it (2026-07-27).** A real `.blend` failed with "The BLEND file
+> is corrupt or unsupported":
+>
+> 3. **The BLEND adapter rejected every compressed save.** It required the literal `BLENDER` magic,
+>    but Blender's *Compress* option stores the whole file as one gzip or Zstandard stream — the
+>    committed demo `.blend` files are gzip. The desktop half had handled this since POST-01, so the
+>    two halves disagreed about whether a normal Blender save was readable. The adapter now
+>    decompresses bounded leading bytes and reads the RGBA `TEST` thumbnail block (validated before
+>    allocation, flipped bottom-up) instead of scavenging for any embedded PNG/JPEG — a heuristic that
+>    could have presented a packed texture as the scene thumbnail. Verified on the real demo files:
+>    a 256×256 thumbnail per version and a before/after sheet that visibly shows the gray bottle
+>    turning green with a NEW badge.
+> 4. **Local read failures were reported as provider failures.** Only PSD's error type was mapped to
+>    the typed `extraction_error`; the newer adapters fell through to the generic 502 handler. Users
+>    were told the *provider* rejected their file and advised to test their AI connection, and the job
+>    burned all three retries with a provider round trip each time. All adapter errors now derive from
+>    one `ExtractionError` mapped to a non-retryable HTTP 400, with renderer copy that neither blames
+>    the provider nor points at Settings.
+>
+> **Verified:** 99 Python tests · 309 desktop tests · typecheck · production build · ruff · and,
+> against the real running sidecar, all 8 formats × (first-version, diff) driven with desktop-shaped
+> requests built from the desktop's own fixtures — 16/16 validated, extracted locally, and reached the
+> provider (rejected at the credential, as expected with a deliberately invalid key). An undeclared
+> format is still refused with HTTP 422, and the committed demo `.blend` files now extract their real
+> embedded thumbnails.
 >
 > **Rebuild the sidecar before packaging.** The frozen sidecar left in
 > `apps/desktop/build/sidecar/` reports only `png, jpg, jpeg, psd`, so an installer built from it

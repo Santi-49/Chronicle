@@ -19,6 +19,16 @@ from functools import lru_cache
 from typing import Callable, Protocol, Sequence
 
 
+class ExtractionError(ValueError):
+    """An adapter could not read the supplied bytes.
+
+    This is a *local* failure, before any provider is contacted, so the surface
+    reports it as a typed `extraction_error` (HTTP 400) rather than letting it
+    fall through and be described as a provider rejection. Every adapter's own
+    error type derives from this one.
+    """
+
+
 class PreparedAnnotation(Protocol):
     """Local evidence an adapter produces for the provider call."""
 

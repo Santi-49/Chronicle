@@ -29,6 +29,24 @@ export function aiFailureFeedback(failure: AiFailure | null): AiFailureFeedback 
       action: 'Use a smaller image or select a provider with a larger request limit.',
     }
   }
+  // Local failures, before any provider was contacted: never advise testing the
+  // AI connection, and never imply the provider is at fault.
+  if (failure?.code === 'extraction_error') {
+    return {
+      title: 'Chronicle could not read this file',
+      explanation: failure.message,
+      action:
+        'The version is stored and can still be previewed, restored, and found by file name. Retrying will not help unless the file itself changes.',
+    }
+  }
+  if (failure?.code === 'unsupported_format') {
+    return {
+      title: 'This file type has no AI change summary',
+      explanation: failure.message,
+      action:
+        'Capture, preview, restore, and keyword search still work. Update Chronicle to get summaries for this file type.',
+    }
+  }
   if (failure?.code === 'invalid_model_output') {
     return {
       title: 'The provider returned an invalid summary',
