@@ -177,6 +177,20 @@ the normal flow.
 For an exceptional forced version, use Release Please's documented `Release-As: X.Y.Z` commit
 footer and review the resulting release PR. Do not change the manifest and package version by hand.
 
+Because promotions are squash-merged, that footer only reaches Release Please when it sits in a
+commit the override generator actually selects — one matching `feat`/`fix`/`deps` **and** changing a
+desktop-release path. A footer typed into the promotion PR body is lost: the generated
+`BEGIN_COMMIT_OVERRIDE` block replaces the squash commit's message and is rebuilt on every push.
+When no such commit exists, set `release-as` on the `apps/desktop` package in
+`release-please-config.json` instead; it takes precedence over both the footer and conventional
+bumping.
+
+> **Open follow-up — remove `release-as` after `1.0.0` ships.** The config currently pins
+> `release-as: "1.0.0"` so the first stable version is a deliberate team choice rather than an
+> inferred bump. Delete that line in the first `dev` change after the `v1.0.0` release merges.
+> Left in place it re-proposes an already-published version and leaves a release PR that cannot
+> release. `bump-minor-pre-major` becomes inert at `1.0.0` and may be removed at the same time.
+
 ## Packaged AI providers
 
 Both native sidecars bundle **Google Gemini, OpenAI, and Anthropic Claude**. Their packaging smoke
