@@ -13,7 +13,12 @@ from psd_tools import PSDImage
 
 from chronicle_ai.engine import annotate_version
 from chronicle_ai.formats import ExtractionError
-from chronicle_ai.future_formats import extract_blend, prepare_blend_annotation
+from chronicle_ai.future_formats import (
+    extract_blend,
+    prepare_blend_annotation,
+    prepare_obj_annotation,
+)
+from chronicle_ai.prompts import load_annotation_prompt
 from chronicle_ai.schemas import AnnotateRequest, ImageInput, VersionAnnotation
 
 
@@ -135,6 +140,47 @@ def _make_obj_bytes(*, badge: bool = False) -> bytes:
                 "v 0.7 0.3 0.5",
                 "v 0.5 0.7 0.5",
                 "f 5 6 7",
+            ]
+        )
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def _make_obj_with_top_bar(*, top_bar: bool) -> bytes:
+    lines = [
+        "o MainBody",
+        "v 0 0 0",
+        "v 1 0 0",
+        "v 1 1 0",
+        "v 0 1 0",
+        "v 0 0 1",
+        "v 1 0 1",
+        "v 1 1 1",
+        "v 0 1 1",
+        "f 1 2 3 4",
+        "f 5 8 7 6",
+        "f 1 5 6 2",
+        "f 2 6 7 3",
+        "f 3 7 8 4",
+        "f 5 1 4 8",
+    ]
+    if top_bar:
+        lines.extend(
+            [
+                "g rail",
+                "v 0.15 1.05 0.35",
+                "v 0.85 1.05 0.35",
+                "v 0.85 1.2 0.35",
+                "v 0.15 1.2 0.35",
+                "v 0.15 1.05 0.65",
+                "v 0.85 1.05 0.65",
+                "v 0.85 1.2 0.65",
+                "v 0.15 1.2 0.65",
+                "f 9 10 11 12",
+                "f 13 16 15 14",
+                "f 9 13 14 10",
+                "f 10 14 15 11",
+                "f 11 15 16 12",
+                "f 13 9 12 16",
             ]
         )
     return ("\n".join(lines) + "\n").encode("utf-8")
@@ -311,6 +357,44 @@ async def test_future_formats_annotate_diffs(format_name: str) -> None:
     image_blocks = [block for block in content if block["type"] == "image_url"]
     assert len(image_blocks) == (1 if case["has_preview"] else 0)
     assert "Deterministic local" in content[0]["text"]
+
+
+def test_obj_diff_supplies_compact_artist_facing_spatial_hints() -> None:
+    previous = _request(
+        file_name="model.obj",
+        format_name="obj",
+        media_type="model/obj",
+        current_bytes=_make_obj_with_top_bar(top_bar=False),
+    ).current
+    current = _request(
+        file_name="model.obj",
+        format_name="obj",
+        media_type="model/obj",
+        current_bytes=_make_obj_with_top_bar(top_bar=True),
+    ).current
+
+    prepared = prepare_obj_annotation(previous, current)
+
+    assert len(prepared.images) == 1
+    assert len(prepared.context) < 3_000
+    assert '"document":' not in prepared.context
+    assert '"addedGeometry"' in prepared.context
+    assert '"shapeHint":"elongated rectangular form"' in prepared.context
+    assert '"relativePosition":"above the main form, near the center"' in prepared.context
+
+
+def test_obj_prompt_prioritises_artist_language_over_mesh_jargon() -> None:
+    system, user = load_annotation_prompt(
+        "model.obj",
+        is_first_version=False,
+        operation_prefix="OBJ ",
+    )
+
+    assert "Write for the artist" in system
+    assert "Do not expose" in system
+    assert "no more than three distinct changes" in system
+    assert "Prioritize visible shape, placement, proportion" in user
+    assert "omit them from artist-facing prose" in " ".join(user.split())
 
 
 # ---------------------------------------------------------------------------

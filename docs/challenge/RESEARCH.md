@@ -1153,6 +1153,12 @@ table because area and color are poor tools for precise comparison.
 - For format expansion, prefer an adapter pipeline of **safe extraction → normalized preview /
   structure diff → LangChain annotation**. Do not send opaque project bytes to a model and hope
   it understands a proprietary container.
+- For 3D annotations, make the provider narrate **artist-visible change**, not interchange-format
+  diagnostics. Derive approximate added/removed form, relative scale, and placement locally; send
+  one shared-camera before/after sheet plus compact spatial facts in one model call. Keep raw
+  vertex/face/entity counts, schemas, bounds, and group identifiers out of the primary prose and
+  available only as local technical detail. This improves salience while reducing duplicated text
+  evidence and avoiding a second paid inference call.
 - For future-format work, follow the selected order: SVG and PSD/PSB adjacency experiments,
   then a sandboxed Blender proof of concept, followed by OBJ and STEP/STP interchange support.
 - Keep control-plane operations purpose-separated in contracts and UI: installation registration,
@@ -1214,6 +1220,17 @@ table because area and color are poor tools for precise comparison.
 ---
 
 ## Research Log
+
+- 2026-07-27 — COST-BOUNDED 3D ANNOTATION QUALITY: the OBJ adapter's prompt explicitly prioritized
+  vertex/face counts, group names, and bounds, while its independently framed flat projections
+  gave the model weaker visual evidence than those diagnostics. The provider consequently produced
+  technically correct but artist-hostile prose such as count deltas and raw bounding boxes. The
+  cost-efficient correction is one inference call with one shared-camera isometric comparison
+  sheet, locally derived approximate shape/scale/placement hints, a halved structured-evidence
+  character budget, and an artist-first prompt that forbids exposing mesh jargon when honest visual
+  evidence exists. Quality tests now cover a rectangular top-bar addition, compact context, and
+  exactly one image; no second narration call or extra image request is needed — local pipeline,
+  fixture, prompt, and token-budget review
 
 - 2026-07-27 — BLEND COMPRESSION AND ERROR TAXONOMY: a real `.blend` failed with "corrupt or
   unsupported" because the adapter demanded the literal `BLENDER` magic, while Blender's Compress

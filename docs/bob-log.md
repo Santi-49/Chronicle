@@ -70,6 +70,8 @@ Format: `date · member · what Bob did · feature/PR`.
 | 2026-07-26 | Team | Bob identified that Chronicle's capture pipeline was already window-independent, so background capture was a lifecycle change, then implemented tray residency and start-at-login: a single-instance lock that was previously absent, a latched quitting flag so the tray's Quit and the updater's restart are never swallowed by close-to-hide, a refusal to hide without a tray icon, OS-authoritative packaged-only login items with separate start and open-window choices, NSIS Run-value cleanup, and live verification by driving the built app | POST-10 — background capture and start-at-login |
 
 
+| 2026-07-27 | Team | Bob traced artist-hostile OBJ summaries to a prompt that prioritized mesh counts/group names and independently framed flat previews, then replaced duplicated evidence with compact local shape/scale/placement hints, one shared-camera isometric before/after sheet, and artist-first wording while retaining one provider call and one image; the full 101-test AI suite passes | Cost-bounded 3D summary quality |
+
 ## Ideas for judge-visible Bob usage
 
 - BobShell recipes checked into the repo (self-documenting workflows: scaffold, test, release).

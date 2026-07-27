@@ -28,7 +28,10 @@ MAX_PREVIEW_EDGE = 1024
 MAX_RECORDS = 40
 MAX_DIFF_CHANGES = 24
 MAX_TEXT_LENGTH = 240
-MAX_EVIDENCE_CHARS = 7_000
+# Structured evidence is supporting context, not a dump of the file format.
+# Keeping it compact saves provider input tokens and makes the visible change
+# more salient than low-level inventory data.
+MAX_EVIDENCE_CHARS = 3_500
 OBJ_CANVAS = (1024, 1024)
 BLEND_HEADER_PREFIX = b"BLENDER"
 GZIP_MAGIC = b"\x1f\x8b"
@@ -191,7 +194,6 @@ def _structure_diff(previous: StructuredEvidence, current: StructuredEvidence) -
 
     truncated = len(changes) > MAX_DIFF_CHANGES
     return {
-        "document": {"before": previous.metadata, "after": current.metadata},
         "changes": changes[:MAX_DIFF_CHANGES],
         "truncated": truncated,
     }
@@ -421,9 +423,9 @@ def extract_obj(source: ImageInput) -> StructuredEvidence:
             "max": [round(max(vertex[i] for vertex in vertices), 6) for i in range(3)],
         }
 
-    records: list[dict[str, Any]] = [
-        {"key": "geometry", **metadata},
-    ]
+    # Metadata already carries the geometry totals. Repeating it as a record
+    # made diffs spend tokens saying the same thing twice.
+    records: list[dict[str, Any]] = []
     for index, name in enumerate(object_names[: MAX_RECORDS - len(records)]):
         records.append({"key": f"object:{index}", "name": name})
     for index, name in enumerate(group_names[: MAX_RECORDS - len(records)]):
@@ -434,14 +436,232 @@ def extract_obj(source: ImageInput) -> StructuredEvidence:
     return StructuredEvidence(metadata, tuple(records), preview, tuple(sorted(warnings)))
 
 
+def _point_key(point: tuple[float, float, float]) -> tuple[float, float, float]:
+    return tuple(round(value, 6) for value in point)
+
+
+def _spatial_bounds(
+    points: list[tuple[float, float, float]],
+) -> tuple[tuple[float, float, float], tuple[float, float, float]] | None:
+    if not points:
+        return None
+    return (
+        tuple(min(point[axis] for point in points) for axis in range(3)),
+        tuple(max(point[axis] for point in points) for axis in range(3)),
+    )
+
+
+def _shape_hint(points: list[tuple[float, float, float]]) -> str:
+    bounds = _spatial_bounds(points)
+    if bounds is None:
+        return "geometry"
+    spans = [bounds[1][axis] - bounds[0][axis] for axis in range(3)]
+    non_zero = sorted(span for span in spans if span > 1e-6)
+    if len(non_zero) <= 1:
+        return "linear element"
+    if len(non_zero) == 2:
+        return "flat rectangular form" if len(points) >= 4 else "flat form"
+    if non_zero[-1] >= non_zero[0] * 3:
+        return "elongated rectangular form"
+    if len(points) >= 8:
+        return "box-like form"
+    return "solid form"
+
+
+def _relative_position(
+    points: list[tuple[float, float, float]],
+    reference: list[tuple[float, float, float]],
+) -> str:
+    """Describe placement conservatively in the Y-up OBJ viewer convention."""
+
+    changed = _spatial_bounds(points)
+    original = _spatial_bounds(reference)
+    if changed is None or original is None:
+        return "unknown"
+    center = tuple((changed[0][axis] + changed[1][axis]) / 2 for axis in range(3))
+    spans = tuple(max(original[1][axis] - original[0][axis], 1e-6) for axis in range(3))
+    tolerance_y = spans[1] * 0.05
+    if changed[0][1] >= original[1][1] - tolerance_y:
+        vertical = "above the main form"
+    elif center[1] >= original[0][1] + spans[1] * 0.67:
+        vertical = "in the upper area"
+    elif center[1] <= original[0][1] + spans[1] * 0.33:
+        vertical = "in the lower area"
+    else:
+        vertical = "around the middle"
+
+    if center[0] <= original[0][0] + spans[0] * 0.25:
+        horizontal = "toward the left"
+    elif center[0] >= original[0][0] + spans[0] * 0.75:
+        horizontal = "toward the right"
+    else:
+        horizontal = "near the center"
+    return f"{vertical}, {horizontal}"
+
+
+def _relative_scale(
+    points: list[tuple[float, float, float]],
+    whole: list[tuple[float, float, float]],
+) -> str:
+    changed = _spatial_bounds(points)
+    current = _spatial_bounds(whole)
+    if changed is None or current is None:
+        return "unknown"
+    changed_span = max(changed[1][axis] - changed[0][axis] for axis in range(3))
+    whole_span = max(current[1][axis] - current[0][axis] for axis in range(3))
+    ratio = changed_span / max(whole_span, 1e-6)
+    if ratio < 0.25:
+        return "small"
+    if ratio < 0.65:
+        return "medium"
+    return "large"
+
+
+def _obj_artist_hints(previous: ImageInput, current: ImageInput) -> dict[str, Any]:
+    previous_vertices, _ = _obj_mesh(previous)
+    current_vertices, _ = _obj_mesh(current)
+    previous_keys = {_point_key(point) for point in previous_vertices}
+    current_keys = {_point_key(point) for point in current_vertices}
+    added = [point for point in current_vertices if _point_key(point) not in previous_keys]
+    removed = [point for point in previous_vertices if _point_key(point) not in current_keys]
+
+    hints: dict[str, Any] = {}
+    if added:
+        hints["addedGeometry"] = {
+            "shapeHint": _shape_hint(added),
+            "relativePosition": _relative_position(added, previous_vertices),
+            "relativeScale": _relative_scale(added, current_vertices),
+        }
+    if removed:
+        hints["removedGeometry"] = {
+            "shapeHint": _shape_hint(removed),
+            "previousPosition": _relative_position(removed, current_vertices),
+            "relativeScale": _relative_scale(removed, previous_vertices),
+        }
+    return hints
+
+
+def _obj_mesh(
+    source: ImageInput,
+) -> tuple[list[tuple[float, float, float]], list[list[int]]]:
+    vertices: list[tuple[float, float, float]] = []
+    faces: list[list[int]] = []
+    for line in _decode_payload(source).decode("utf-8", errors="replace").splitlines():
+        if line.startswith("v "):
+            parts = line.split()
+            if len(parts) >= 4:
+                try:
+                    vertices.append((float(parts[1]), float(parts[2]), float(parts[3])))
+                except ValueError:
+                    continue
+        elif line.startswith("f "):
+            face: list[int] = []
+            for token in line.split()[1:]:
+                match = re.match(r"(-?\d+)", token)
+                if not match:
+                    continue
+                index = int(match.group(1))
+                if index < 0:
+                    index = len(vertices) + index + 1
+                if 0 < index <= len(vertices):
+                    face.append(index)
+            if len(face) >= 3:
+                faces.append(face)
+    return vertices, faces
+
+
+def _render_obj_preview(
+    vertices: list[tuple[float, float, float]],
+    faces: list[list[int]],
+    framing_vertices: list[tuple[float, float, float]],
+    label: str,
+) -> Image.Image | None:
+    """Render one neutral isometric view using shared before/after framing."""
+
+    if not vertices or not faces or not framing_vertices:
+        return None
+
+    def projected(vertex: tuple[float, float, float]) -> tuple[float, float]:
+        x, y, z = vertex
+        return x - z * 0.65, y + (x + z) * 0.25
+
+    framing = [projected(vertex) for vertex in framing_vertices]
+    min_x = min(point[0] for point in framing)
+    max_x = max(point[0] for point in framing)
+    min_y = min(point[1] for point in framing)
+    max_y = max(point[1] for point in framing)
+    span_x = max(max_x - min_x, 1e-9)
+    span_y = max(max_y - min_y, 1e-9)
+    scale = min((OBJ_CANVAS[0] - 100) / span_x, (OBJ_CANVAS[1] - 100) / span_y)
+
+    def canvas_point(index: int) -> tuple[float, float]:
+        px, py = projected(vertices[index - 1])
+        return 50 + (px - min_x) * scale, OBJ_CANVAS[1] - 50 - (py - min_y) * scale
+
+    image = Image.new("RGB", OBJ_CANVAS, "white")
+    draw = ImageDraw.Draw(image)
+    shaded_faces: list[tuple[float, list[tuple[float, float]]]] = []
+    depths: list[float] = []
+    for face in faces:
+        points = [canvas_point(index) for index in face]
+        depth = sum(
+            vertices[index - 1][0] + vertices[index - 1][1] + vertices[index - 1][2]
+            for index in face
+        ) / len(face)
+        depths.append(depth)
+        shaded_faces.append((depth, points))
+    min_depth = min(depths)
+    depth_span = max(max(depths) - min_depth, 1e-9)
+    for depth, points in sorted(shaded_faces, key=lambda item: item[0]):
+        shade = int(90 + 120 * (depth - min_depth) / depth_span)
+        draw.polygon(points, fill=(shade, shade, shade), outline=(45, 45, 45))
+    draw.text((16, 14), label, fill="black")
+    return image
+
+
 def prepare_obj_annotation(previous_input: ImageInput | None, current_input: ImageInput) -> PreparedStructuredAnnotation:
-    return _prepare_annotation(
+    prepared = _prepare_annotation(
         previous_input,
         current_input,
         extract_obj,
         "Use the extracted OBJ inventory and any derived preview.",
         "Explain the OBJ change using the extracted mesh inventory and any derived preview.",
         0.8,
+    )
+    if previous_input is None:
+        return prepared
+    previous_vertices, previous_faces = _obj_mesh(previous_input)
+    current_vertices, current_faces = _obj_mesh(current_input)
+    shared_frame = previous_vertices + current_vertices
+    before = _render_obj_preview(
+        previous_vertices, previous_faces, shared_frame, "BEFORE · shared camera"
+    )
+    after = _render_obj_preview(
+        current_vertices, current_faces, shared_frame, "AFTER · shared camera"
+    )
+    images = prepared.images
+    if before is not None and after is not None:
+        comparison = _comparison_sheet(before, after)
+        images = (
+            (_image_input(comparison, "image/png", "png"),)
+            if comparison is not None
+            else ()
+        )
+    hints = _obj_artist_hints(previous_input, current_input)
+    if not hints:
+        return PreparedStructuredAnnotation(
+            context=prepared.context,
+            images=images,
+            confidence_limit=prepared.confidence_limit,
+        )
+    compact_hints = json.dumps(hints, ensure_ascii=False, separators=(",", ":"))
+    return PreparedStructuredAnnotation(
+        context=(
+            f"{prepared.context}\nArtist-facing spatial hints (local, approximate): "
+            f"{compact_hints}"
+        ),
+        images=images,
+        confidence_limit=prepared.confidence_limit,
     )
 
 
