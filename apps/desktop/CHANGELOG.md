@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.14.0](https://github.com/Santi-49/Chronicle/compare/v0.13.0...v0.14.0) (2026-07-27)
+
+
+### Features
+
+* **activity:** implement personal activity and cost dashboard with live pricing ([98e2ae0](https://github.com/Santi-49/Chronicle/commit/98e2ae09041aab03f1a893c07ada43aa4c0155f9))
+* **admin:** enhance installation statistics with latest session tracking ([98e2ae0](https://github.com/Santi-49/Chronicle/commit/98e2ae09041aab03f1a893c07ada43aa4c0155f9))
+* **ai:** enhance provider model validation with token usage tracking ([98e2ae0](https://github.com/Santi-49/Chronicle/commit/98e2ae09041aab03f1a893c07ada43aa4c0155f9))
+* **ai:** implement batch processing for text embeddings with usage tracking ([98e2ae0](https://github.com/Santi-49/Chronicle/commit/98e2ae09041aab03f1a893c07ada43aa4c0155f9))
+* **ai:** implement headless probe for testing AI provider configurations ([98e2ae0](https://github.com/Santi-49/Chronicle/commit/98e2ae09041aab03f1a893c07ada43aa4c0155f9))
+* **tray:** implement background capture with tray icon and start-at-login options ([98e2ae0](https://github.com/Santi-49/Chronicle/commit/98e2ae09041aab03f1a893c07ada43aa4c0155f9))
+
+
+### Bug Fixes
+
+* **desktop:** report the real start-at-login state on Windows ([98e2ae0](https://github.com/Santi-49/Chronicle/commit/98e2ae09041aab03f1a893c07ada43aa4c0155f9))
+
 ## [0.13.0](https://github.com/Santi-49/Chronicle/compare/v0.12.0...v0.13.0) (2026-07-26)
 
 
