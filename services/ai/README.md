@@ -22,14 +22,31 @@ to the configured provider.
 ### Format adapters
 
 Requests to `/annotate` carry an explicit file format enum (`format`: `"png"` | `"jpg"` |
-`"jpeg"` | `"psd"`) alongside base64 data and media types. The format selects an adapter from the
-registry in `chronicle_ai/formats.py`; nothing else in the service branches on a file type. An
-adapter declares its media type, which prompt sections to use, and — optionally — a local
-extraction step that converts opaque bytes into provider-safe evidence.
+`"jpeg"` | `"psd"` | `"psb"` | `"svg"` | `"blend"` | `"obj"` | `"step"`) alongside base64 data
+and media types. The format selects an adapter from the registry in `chronicle_ai/formats.py`;
+nothing else in the service branches on a file type. An adapter declares its media type, which
+prompt sections to use, and — optionally — a local extraction step that converts opaque bytes into
+provider-safe evidence.
 
-PNG/JPEG have no extraction step and go through the direct image path. PSD bytes use
-`image/vnd.adobe.photoshop` and are parsed locally; opaque PSD bytes are never sent to the
-provider. A format with no adapter is rejected with a typed `unsupported_format` error.
+The supported paths are intentionally different:
+
+- PNG/JPEG are direct image inputs with no local extraction step.
+- PSD/PSB use bounded `psd-tools` extraction, a compact document/layer inventory, and at most one
+  derived composite preview or comparison sheet. Opaque Photoshop bytes are never sent to the
+  provider.
+- SVG is parsed as text/XML and annotated from its vector structure; it does not need a raster
+  preview to stay factual.
+- OBJ uses bounded text parsing plus a flat-shaded derived preview when faces are available.
+- STEP uses bounded text parsing and a structural inventory of entities and bounds.
+- BLEND never invokes Blender. It reads the file-block header and the RGBA thumbnail Blender writes
+  into a `TEST` block for the OS file browser, transparently decompressing gzip and Zstandard saves
+  (Blender's *Compress* option stores the whole file as one stream, so a saved `.blend` often does
+  not begin with the `BLENDER` magic). No preview is produced when no thumbnail is present.
+
+A format with no adapter is rejected with a typed `unsupported_format` error. Any adapter's local
+read failure is a typed `extraction_error` (HTTP 400) — the provider was never contacted, so it must
+not be reported as a provider rejection or retried. Partial extraction carries a lower confidence
+cap instead of failing.
 
 **Adding a format:** add one `FormatAdapter` to the registry, add its prompt sections to
 `packages/prompts/version-annotation.md`, and widen the `SupportedFormat` literal in
@@ -41,9 +58,9 @@ reads `/capabilities` rather than assuming, and keeps a version's annotation job
 its format is missing from that list — so shipping an adapter here is all it takes to make those
 queued versions summarize themselves.
 
-### PSD annotation path (POST-02)
+### Selected future-format annotation paths (POST-02)
 
-`psd-tools` opens PSD documents under a 64 MB declared-geometry allocation cap and Chronicle's
+`psd-tools` opens PSD/PSB documents under a 64 MB declared-geometry allocation cap and Chronicle's
 existing 50 MB file cap. The service extracts a bounded document/layer inventory (IDs or paths,
 kind, visibility, opacity, bounds, and available type-layer text), then computes a deterministic
 structure diff. It derives at most one provider image:
@@ -53,12 +70,20 @@ structure diff. It derives at most one provider image:
   when the changed region occupies less than 40% of the canvas;
 - pixel-identical normalized composites: no image, only the compact structure diff.
 
-Parsing/compositing runs off the async event loop (as does any adapter's extraction step). Layer inventories stop at 40 records, diffs
-at 24 changes, and the final JSON evidence is capped at 7,000 characters. Font, Smart Object,
-adjustment-layer, truncation, and render limitations become
+Parsing/compositing runs off the async event loop (as does any adapter's extraction step). Layer
+inventories stop at 40 records, diffs at 24 changes, and the final JSON evidence is capped at 7,000
+characters. Font, Smart Object, adjustment-layer, truncation, and render limitations become
 explicit coverage warnings; warning-bearing results have confidence capped at 0.75. Corrupt or
-oversized PSD inputs return a typed `extraction_error` without calling a provider. PSB remains
-unsupported until its large-document isolation and resource policy are implemented.
+oversized PSD/PSB inputs return a typed `extraction_error` without calling a provider.
+
+SVG uses the same bounded evidence pattern, but the extracted structure is the XML/vector tree.
+OBJ and STEP use text parsing with caps on records and evidence size; OBJ can derive a flat preview
+when faces are present, while STEP stays structural. BLEND decompresses at most 12 MB of a
+compressed save's leading bytes — the header and thumbnail sit at the start — and validates the
+thumbnail's declared width and height against the block length before allocating anything, so an
+unrecognised layout yields no preview rather than a corrupt image. Its confidence cap applies only
+when evidence is actually degraded (no thumbnail, an undecodable one, or a truncated scan); that the
+scene is never opened is stated in the prompt instead, because it is true of every `.blend`.
 
 Provider, model and the BYOK key arrive per request (or fall back to the env defaults
 below). Annotation output is the C3 shape — `summary`, `changes`, `tags`,

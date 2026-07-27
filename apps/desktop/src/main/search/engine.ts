@@ -17,7 +17,7 @@
 import type { SearchResult, VersionSummary } from '../../shared/ipc'
 import type { ChronicleDb } from '../db/database'
 import { thumbnailUrlForHash } from '../ipc/media'
-import { formatForPath, supportsAnnotation } from '../../shared/formats'
+import { formatForPath, supportsAnnotation, type FormatDescriptor } from '../../shared/formats'
 import { searchFts, searchGetVersionsForResults, listEmbeddingsForModel } from './repositories'
 
 // ── Cosine similarity ───────────────────────────────────────────────────
@@ -52,6 +52,12 @@ export interface SearchDependencies {
   embedQuery: ((text: string) => Promise<number[]>) | null
   /** The active embeddings model (settings.ai.embeddings.model). */
   embeddingsModel: string
+  /**
+   * Whether a queued annotation for this format cannot run against the running
+   * AI service. Injected so search results label a version exactly as the
+   * timeline does; defaults to the registry's own answer.
+   */
+  isAnnotationDeferred?: (format: FormatDescriptor | null) => boolean
 }
 
 /**
@@ -65,6 +71,9 @@ export async function search(query: string, deps: SearchDependencies): Promise<S
   if (trimmed === '') return []
 
   const { db, embedQuery, embeddingsModel } = deps
+  const isDeferred =
+    deps.isAnnotationDeferred ??
+    ((format: FormatDescriptor | null) => format !== null && !supportsAnnotation(format))
 
   // ── Step 1: keyword search ──────────────────────────────────────────
 
@@ -122,10 +131,7 @@ export async function search(query: string, deps: SearchDependencies): Promise<S
       assetId: row.assetId,
       versionNumber: row.versionNumber,
       capturedAt: row.capturedAt,
-      aiStatus:
-        row.aiStatus === 'pending' && format && !supportsAnnotation(format)
-          ? 'deferred'
-          : row.aiStatus,
+      aiStatus: row.aiStatus === 'pending' && isDeferred(format) ? 'deferred' : row.aiStatus,
       aiFailure: null,
       summary: row.summary,
       thumbnailUrl: format ? thumbnailUrlForHash(row.contentHash, format.id) : null,

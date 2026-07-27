@@ -4,6 +4,12 @@
  * Real creative files are large and licence-encumbered, so the format handlers
  * are tested against the smallest structurally valid documents that carry the
  * fields they read. Shared between the format, capture, and IPC suites.
+ *
+ * "Structurally valid" means valid *for the fields the desktop handlers read* —
+ * these are not documents a full parser accepts. `photoshopBytes` in particular
+ * carries a header, image resources, and an embedded thumbnail but no layer or
+ * image data, so `psd-tools` in the AI service rejects it. Exercising an AI
+ * adapter needs a real document from that format's own writer.
  */
 import zlib from 'node:zlib'
 

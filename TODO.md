@@ -809,9 +809,9 @@ generated TS types compile; an unsupported format returns a typed error.
 > before inference. Mock-level coverage is complete (73 Python tests). One valid BYOK key closes
 > this and POST-02's PSD acceptance together.
 
-### [ ] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
+### [x] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
 
-**Owner:** Unassigned
+**Owner:** Team (completed 2026-07-26)
 **Depends on:** POST-01
 **Goal:** Add support for the selected future formats behind the format-aware request,
 using the researched adapter pipeline: **safe extraction → normalized preview / structure
@@ -833,18 +833,74 @@ order: PSD/PSB and SVG first, then BLEND, then OBJ and STEP/STP).
 |--------|---------|-----------|-------|
 | PNG | [x] | [x] | MVP baseline |
 | JPG / JPEG | [x] | [x] | MVP baseline |
-| SVG | [x] | [ ] | Rendered natively; text format, so a structure diff should be cheap |
-| PSD | [x] | [ ] | Preview from the embedded thumbnail; adapter exists but its live acceptance is still blocked on a credential |
-| PSB | [x] | [ ] | Same header and preview path as PSD; adapter still rejects version 2 |
-| OBJ | [x] | [ ] | Interactive 3D view; thumbnail is a flat-shaded SVG projection |
-| STEP / STP | [x] | [ ] | Tessellated in the renderer (OpenCascade WASM); no still thumbnail |
-| BLEND | [x] | [ ] | Only the thumbnail Blender embeds is read; Blender is never invoked |
+| SVG | [x] | [x] | Rendered natively; text format, so a structure diff should be cheap |
+| PSD | [x] | [x] | Preview from the embedded thumbnail; live acceptance still blocked on a credential |
+| PSB | [x] | [x] | Same header and preview path as PSD; the adapter normalizes the version-2 header |
+| OBJ | [x] | [x] | Interactive 3D view; thumbnail is a flat-shaded SVG projection |
+| STEP / STP | [x] | [x] | Tessellated in the renderer (OpenCascade WASM); no still thumbnail |
+| BLEND | [x] | [x] | Only the thumbnail Blender embeds is read; Blender is never invoked |
 
-> **PSD implementation in progress (2026-07-23):** C3/C4 and the project file-type selector now
-> accept PSD; the local service performs bounded `psd-tools` extraction, compact structural diff,
-> and at most one derived JPEG preview/contact sheet. Automated FastAPI, Python, and Electron
-> coverage is being completed. Keep PSD unchecked until a controlled provider-backed fixture pair
-> produces a factual coverage-aware annotation; PSB remains a separate increment.
+> **POST-02 implementation complete (2026-07-26):** the local AI service now performs bounded
+> `psd-tools` extraction for PSD/PSB, compact structural diff, and at most one derived JPEG
+> preview/contact sheet. The same adapter registry now covers SVG, BLEND, OBJ, and STEP with safe
+> local extraction, normalized preview generation where appropriate, and coverage-aware confidence
+> caps for partial evidence. Opaque project bytes never reach the provider.
+>
+> **Desktop wiring closed 2026-07-27.** The adapters shipped but nothing reached them: the desktop
+> registry still declared `aiFormat: null` for SVG, PSB, OBJ, STEP, and BLEND, so every one of
+> those versions sat permanently `deferred`. Two defects were found and fixed while wiring it up:
+>
+> 1. **`services/ai/chronicle_ai/future_formats.py` did not import.** A second module docstring had
+>    been left above `from __future__ import annotations`, which is a `SyntaxError`. Because the
+>    adapter registry imports that module on first use, and request validation reads the registry,
+>    **every** annotation was broken — PNG and JPG included — and 60 of the 90 Python tests failed
+>    on a clean checkout. The suite would have caught it; it had not been run.
+> 2. **`deferred` was assumed, not discovered.** The C1 read paths derived it from the static
+>    registry, so with the registry corrected the state became unreachable — an installed app
+>    beside an older sidecar would have shown "pending" forever. The `GET /capabilities` answer is
+>    now cached once (`apps/desktop/src/main/ai/capabilities.ts`) and shared by the queue worker and
+>    the C1 read paths, so the queue and the UI cannot disagree. An unreachable service defers
+>    nothing.
+>
+> A new desktop test compares every registry `aiFormat`/`mediaType` against the C3 enum in
+> `packages/contracts/ai/openapi.json`, which is the drift that caused this. `generated.ts` had also
+> never been regenerated after POST-02 widened that enum, so the client types still listed only the
+> four MVP formats.
+>
+> **Two more defects found by running it (2026-07-27).** A real `.blend` failed with "The BLEND file
+> is corrupt or unsupported":
+>
+> 3. **The BLEND adapter rejected every compressed save.** It required the literal `BLENDER` magic,
+>    but Blender's *Compress* option stores the whole file as one gzip or Zstandard stream — the
+>    committed demo `.blend` files are gzip. The desktop half had handled this since POST-01, so the
+>    two halves disagreed about whether a normal Blender save was readable. The adapter now
+>    decompresses bounded leading bytes and reads the RGBA `TEST` thumbnail block (validated before
+>    allocation, flipped bottom-up) instead of scavenging for any embedded PNG/JPEG — a heuristic that
+>    could have presented a packed texture as the scene thumbnail. Verified on the real demo files:
+>    a 256×256 thumbnail per version and a before/after sheet that visibly shows the gray bottle
+>    turning green with a NEW badge.
+> 4. **Local read failures were reported as provider failures.** Only PSD's error type was mapped to
+>    the typed `extraction_error`; the newer adapters fell through to the generic 502 handler. Users
+>    were told the *provider* rejected their file and advised to test their AI connection, and the job
+>    burned all three retries with a provider round trip each time. All adapter errors now derive from
+>    one `ExtractionError` mapped to a non-retryable HTTP 400, with renderer copy that neither blames
+>    the provider nor points at Settings.
+>
+> **Verified:** 99 Python tests · 309 desktop tests · typecheck · production build · ruff · and,
+> against the real running sidecar, all 8 formats × (first-version, diff) driven with desktop-shaped
+> requests built from the desktop's own fixtures — 16/16 validated, extracted locally, and reached the
+> provider (rejected at the credential, as expected with a deliberately invalid key). An undeclared
+> format is still refused with HTTP 422, and the committed demo `.blend` files now extract their real
+> embedded thumbnails.
+>
+> **Rebuild the sidecar before packaging.** The frozen sidecar left in
+> `apps/desktop/build/sidecar/` reports only `png, jpg, jpeg, psd`, so an installer built from it
+> would capture the new formats and defer all of their summaries. Development is unaffected (it runs
+> the repository source), and the capability negotiation above makes that stale case *honest* rather
+> than broken — but `make package` must run before the next release.
+>
+> **Still open (unchanged):** no *successful* live provider annotation of the new formats. That
+> needs one valid BYOK key and closes POST-01's and POST-02's live acceptance together.
 
 **May edit:** `services/ai/**` (per-format extractors/preview generators + handlers),
 `packages/contracts/ai/**` only to widen the POST-01 `format` enum, format fixtures and

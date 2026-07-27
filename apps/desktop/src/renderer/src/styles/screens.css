@@ -1156,7 +1156,6 @@ button.file-type-chip:not(.file-type-active) { color: var(--text-muted); }
 button.file-type-chip:hover { border-color: var(--border-strong); }
 .file-type-active { color: var(--text-primary); border-color: var(--accent); }
 .file-type-soon { color: var(--text-muted); }
-.file-type-note { opacity: .75; }
 
 /* New project — folder scan + file selection tree */
 .scan-panel { margin-top: 6px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }

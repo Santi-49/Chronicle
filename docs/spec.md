@@ -69,11 +69,14 @@ Per-format behavior (header parsing, preview generation) lives in
 safety rules every handler follows.
 
 Capturing and displaying a format is independent from summarizing it. The AI
-service publishes the formats it can annotate through `GET /capabilities`; a
-captured version whose format has no adapter yet keeps its annotation job
-**queued** and is shown as such, rather than failing. So a format can ship to
-users — versioned, previewed, restorable, keyword-searchable — before its AI
-adapter exists, and the queued work drains automatically when that lands.
+service publishes the formats it can annotate through `GET /capabilities`, and
+the app asks rather than assumes: a captured version the running service cannot
+annotate keeps its annotation job **queued** and is shown as such, rather than
+failing. So a format can ship to users — versioned, previewed, restorable,
+keyword-searchable — before its AI adapter exists, and the queued work drains
+automatically when that lands. As of POST-02 every declared format has an
+adapter, so this state now only appears when an older sidecar is running beside
+a newer app.
 
 Derived previews (PSD/PSB, OBJ, BLEND) are generated lazily on first request
 and cached beside the library under their content hash. Capture stays a
@@ -177,9 +180,8 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
   (`apps/desktop/src/shared/formats.ts`), matched case-insensitively: `.png`,
   `.jpg`/`.jpeg`, `.svg`, `.psd`, `.psb`, `.obj`, `.step`/`.stp`, `.blend`
   (POST-02). Anything else is ignored. Each type is a toggle in the project
-  form; types whose AI change summaries are not implemented yet are labelled as
-  such on the toggle, because capture, versioning, preview, restore, and keyword
-  search work for them while their summaries stay queued.
+  form, and every one of them is captured, versioned, previewed, restorable,
+  keyword-searchable, and AI-summarized.
 - Hidden files/folders and temp files (e.g. `~$…`, `.tmp`, editor autosave/swap files) are ignored.
 - **Startup & background** settings decide when watching happens: keep capturing after the window
   closes (default on, tray-resident), start Chronicle at sign-in, and whether that sign-in launch
@@ -302,10 +304,13 @@ Only after everything above works. Landing page = marketing only, no product fun
 
 ### Explicitly out of scope (MVP)
 
-**AI change summaries** for `.svg`, `.psb`, `.obj`, `.step`/`.stp`, and `.blend` (their capture,
-preview, restore, and keyword search shipped in POST-02; their annotation jobs stay queued) ·
 Word/PDF remain out · rename/move tracking · side-by-side visual diff · branching · cloud
 sync/collaboration · delta storage/compression · auto-updates · code signing · mobile/web clients.
+
+*(No longer out of scope: AI change summaries for `.svg`, `.psb`, `.obj`, `.step`/`.stp`, and
+`.blend`. POST-02 shipped their adapters and the desktop app now sends every captured format for
+annotation. A version is only left queued — status `deferred` — when the AI service actually
+running reports it cannot annotate that format.)*
 
 Deliberately not attempted for the new formats: rendering a `.blend` scene (that needs Blender
 itself; only the thumbnail Blender embeds is read), faithful PSD layer compositing (the embedded

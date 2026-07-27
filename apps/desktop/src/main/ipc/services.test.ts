@@ -605,7 +605,16 @@ describe('timeline and version details', () => {
     for (const v of timeline) expect(parseChronicleUrl(v.thumbnailUrl!)).not.toBeNull()
   })
 
-  it('reports a format the AI cannot annotate yet as deferred, not pending', async () => {
+  it('reports a format the running AI service cannot annotate as deferred, not pending', async () => {
+    // Every format has an adapter since POST-02, so the only honest source for
+    // this state is what the running service reports — here, an older sidecar.
+    await services.dispose()
+    services = buildServices({
+      annotationCapabilities: {
+        formats: async () => ['png', 'jpg'],
+        isDeferred: (format) => format !== null && !['png', 'jpg'].includes(format.id),
+      },
+    })
     const { versionId } = await seedCapture('model.obj', Buffer.from(objCube()))
 
     const details = await services.api.getVersionDetails(versionId)

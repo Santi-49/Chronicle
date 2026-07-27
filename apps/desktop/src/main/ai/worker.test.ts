@@ -145,7 +145,9 @@ function workerWith(overrides: Record<string, unknown> = {}) {
     capabilities: vi.fn().mockResolvedValue({
       service: 'chronicle-ai',
       version: '0.1.0',
-      annotate: { formats: ['png', 'jpg', 'jpeg', 'psd'] },
+      annotate: {
+        formats: ['png', 'jpg', 'jpeg', 'psd', 'psb', 'svg', 'blend', 'obj', 'step'],
+      },
     }),
     validateProviderModel: vi.fn().mockResolvedValue({
       valid: true,
@@ -172,14 +174,30 @@ function workerWith(overrides: Record<string, unknown> = {}) {
 }
 
 describe('AI queue worker', () => {
-  it('resolves the C3 format of an annotatable file and defers the rest', () => {
+  it('resolves the C3 format and media type of every captured format', () => {
     expect(annotationFormatFor('C:/design/campaign.psd')).toMatchObject({
       format: 'psd',
       mediaType: 'image/vnd.adobe.photoshop',
     })
     expect(annotationFormatFor('C:/design/logo.PNG')).toMatchObject({ format: 'png' })
-    // Captured and displayed by the app, but the AI service has no adapter yet.
-    expect(annotationFormatFor('C:/design/model.obj')).toBeNull()
+    // POST-02 formats: each carries the media type its adapter requires.
+    expect(annotationFormatFor('C:/design/model.obj')).toMatchObject({
+      format: 'obj',
+      mediaType: 'model/obj',
+    })
+    expect(annotationFormatFor('C:/design/part.stp')).toMatchObject({
+      format: 'step',
+      mediaType: 'model/step',
+    })
+    expect(annotationFormatFor('C:/design/scene.blend')).toMatchObject({
+      format: 'blend',
+      mediaType: 'application/x-blender',
+    })
+    expect(annotationFormatFor('C:/design/mark.svg')).toMatchObject({
+      format: 'svg',
+      mediaType: 'image/svg+xml',
+    })
+    expect(annotationFormatFor('C:/design/poster.psb')).toMatchObject({ format: 'psb' })
     // Never captured at all.
     expect(annotationFormatFor('C:/design/logo.gif')).toBeNull()
     expect(annotationFormatFor('C:/design/logo')).toBeNull()
@@ -207,9 +225,30 @@ describe('AI queue worker', () => {
     )
   })
 
-  it('leaves an annotation job queued when the format has no AI adapter', async () => {
+  it('sends an OBJ version to the adapter that the service reports', async () => {
+    state.assetPath = 'C:/design/model.obj'
+    const { worker, client } = workerWith()
+
+    await worker.runOnce()
+
+    expect(client.annotate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileName: 'model.obj',
+        format: 'obj',
+        current: expect.objectContaining({ mediaType: 'model/obj', format: 'obj' }),
+      }),
+    )
+  })
+
+  it('leaves an annotation job queued when the service cannot annotate its format', async () => {
     state.assetPath = 'C:/design/model.obj'
     const { worker, client, emit } = workerWith()
+    // A sidecar predating POST-02: it captures OBJ but cannot summarize it.
+    client.capabilities.mockResolvedValue({
+      service: 'chronicle-ai',
+      version: '0.0.1',
+      annotate: { formats: ['png', 'jpg'] },
+    })
 
     await worker.runOnce()
     await worker.runOnce()
@@ -241,6 +280,11 @@ describe('AI queue worker', () => {
   it('does not let a deferred job block the jobs behind it', async () => {
     state.assetPath = 'C:/design/model.obj'
     const { worker, client } = workerWith()
+    client.capabilities.mockResolvedValue({
+      service: 'chronicle-ai',
+      version: '0.0.1',
+      annotate: { formats: ['png', 'jpg'] },
+    })
     // An embedding job queued behind the deferred annotation must still run.
     state.annotations.set(2, {
       versionId: 2,

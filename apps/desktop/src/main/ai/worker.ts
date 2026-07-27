@@ -28,6 +28,7 @@ import {
   type AnnotateRequest,
   type ProviderRequest,
 } from './client'
+import { createAnnotationCapabilities, type AnnotationCapabilities } from './capabilities'
 import type { TelemetryCollector } from '../telemetry/emitter'
 import type { ApplicationDiagnosticSink } from '../diagnostics'
 import { diagnosticError } from '../diagnostics'
@@ -60,15 +61,21 @@ export interface AiWorkerDependencies {
     recordActivity: (kind: 'ai-summary', values: { assetId: number }) => void
   }
   diagnostic?: ApplicationDiagnosticSink
+  /**
+   * What the running service reports it can annotate. Shared with the C1 read
+   * paths so the queue and the UI agree on what is deferred. Omitted in tests
+   * that do not exercise capability negotiation.
+   */
+  capabilities?: AnnotationCapabilities
   pollMs?: number
 }
 
 type AnnotationInput = AnnotateRequest['current']
 
 /**
- * The C3 request values for a captured file, or null when the AI service has no
- * adapter for its format yet. Null is not an error: the annotation job stays
- * queued and drains once support ships (POST-02).
+ * The C3 request values for a captured file, or null when the registry never
+ * annotates that format. Null is not an error: the annotation job stays queued
+ * and drains by itself if support is added later (spec F4).
  */
 export function annotationFormatFor(filePath: string): AnnotationInput | null {
   const format = formatForPath(filePath)
@@ -90,8 +97,7 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
   let timer: NodeJS.Timeout | undefined
   let running = false
   let stopped = false
-  /** undefined = not asked yet, null = the service reported nothing. */
-  let capabilities: string[] | null | undefined
+  const capabilities = deps.capabilities ?? createAnnotationCapabilities(deps.client)
   const diagnostic: ApplicationDiagnosticSink = deps.diagnostic ?? (() => {})
 
   async function providerConfig(kind: 'chat' | 'embeddings'): Promise<ProviderRequest | null> {
@@ -317,10 +323,10 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
 
   /**
    * True when this job can be attempted now. An annotation job for a format the
-   * AI service has no adapter for is skipped — not failed and not retried — so
-   * it drains automatically once POST-02 adds support. Skipping (rather than
-   * returning) matters: otherwise one deferred job would block the whole FIFO
-   * queue behind it.
+   * running service cannot annotate is skipped — not failed and not retried —
+   * so it drains automatically once a service that supports it is running.
+   * Skipping (rather than returning) matters: otherwise one deferred job would
+   * block the whole FIFO queue behind it.
    */
   async function isProcessable(job: QueueItem): Promise<boolean> {
     if (job.jobType !== 'ai_annotation') return true
@@ -331,19 +337,10 @@ export function createAiWorker(deps: AiWorkerDependencies): AiWorker {
     if (!asset) return true
     const shape = annotationFormatFor(asset.path)
     if (!shape) return false
-    // Defence in depth: an older sidecar may not accept a format the registry
-    // already declares. Skipping keeps the job queued instead of failing it.
-    const supported = await annotationFormats()
+    // An older sidecar may not accept a format this build's registry declares.
+    // Skipping keeps the job queued instead of failing it.
+    const supported = await capabilities.formats()
     return supported === null || supported.includes(shape.format)
-  }
-
-  /** Formats the running service accepts; null when it did not report any. */
-  async function annotationFormats(): Promise<string[] | null> {
-    if (capabilities === undefined) {
-      const reported = await deps.client.capabilities()
-      capabilities = reported?.annotate?.formats ?? null
-    }
-    return capabilities
   }
 
   async function drainOne(): Promise<void> {

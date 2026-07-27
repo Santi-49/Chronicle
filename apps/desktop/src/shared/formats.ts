@@ -57,9 +57,12 @@ export interface FormatDescriptor {
    */
   fit: 'cover' | 'contain'
   /**
-   * The C3 `format` value to send with an annotation request, or null while the
-   * AI service has no adapter for this format. Null keeps captured versions'
-   * annotation jobs queued instead of failing them (spec F4, POST-02).
+   * The C3 `format` value to send with an annotation request, or null for a
+   * format Chronicle captures but never asks the AI service to annotate. Null
+   * keeps captured versions' annotation jobs queued instead of failing them
+   * (spec F4). Every format declared here has an adapter as of POST-02; whether
+   * the *running* service actually accepts it is answered by `GET /capabilities`
+   * (see `src/main/ai/capabilities.ts`), never assumed from this field.
    */
   aiFormat: string | null
   /** Per-format capture ceiling; falls back to the global cap when absent. */
@@ -68,8 +71,9 @@ export interface FormatDescriptor {
 
 /**
  * Declared in the roadmap order from docs/challenge/RESEARCH.md. PNG and JPG
- * are the MVP baseline; the rest are captured and displayed by the desktop app
- * while their AI annotation is still pending implementation.
+ * are the MVP baseline; POST-02 added the rest, each annotated through its own
+ * safe local-extraction adapter in the AI service rather than by sending
+ * opaque project bytes to a provider.
  */
 export const FORMATS: readonly FormatDescriptor[] = [
   {
@@ -103,7 +107,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     viewer: 'svg',
     icon: 'shapes',
     fit: 'contain',
-    aiFormat: null,
+    aiFormat: 'svg',
   },
   {
     id: 'psd',
@@ -125,7 +129,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     viewer: 'raster',
     icon: 'layers',
     fit: 'cover',
-    aiFormat: null,
+    aiFormat: 'psb',
   },
   {
     id: 'obj',
@@ -136,7 +140,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     viewer: 'mesh3d',
     icon: 'cube',
     fit: 'contain',
-    aiFormat: null,
+    aiFormat: 'obj',
   },
   {
     // STEP needs a CAD kernel to tessellate, which runs in the renderer's
@@ -149,7 +153,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     viewer: 'mesh3d',
     icon: 'architecture',
     fit: 'contain',
-    aiFormat: null,
+    aiFormat: 'step',
   },
   {
     id: 'blend',
@@ -160,7 +164,7 @@ export const FORMATS: readonly FormatDescriptor[] = [
     viewer: 'raster',
     icon: 'cube',
     fit: 'cover',
-    aiFormat: null,
+    aiFormat: 'blend',
   },
 ]
 
