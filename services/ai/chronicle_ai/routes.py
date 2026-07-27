@@ -11,7 +11,7 @@ from .engine import (
     embed_texts,
     validate_provider_model,
 )
-from .psd_adapter import PsdExtractionError
+from .formats import ExtractionError
 from .schemas import (
     AnnotateRequest,
     AnnotateResponse,
@@ -142,7 +142,9 @@ async def annotate(request: AnnotateRequest) -> AnnotateResponse:
             status_code=400,
             detail={"code": "unsupported_format", "message": str(error)},
         ) from error
-    except PsdExtractionError as error:
+    # Any adapter's local read failure — the provider was never contacted, so
+    # this must not be reported as a provider rejection or retried.
+    except ExtractionError as error:
         raise HTTPException(
             status_code=400,
             detail={"code": "extraction_error", "message": str(error)},

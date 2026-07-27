@@ -92,6 +92,7 @@ import { portableSettings } from '../gateway-client/client'
 import { decryptProviderKeys, encryptProviderKeys } from '../gateway-client/secret-envelope'
 import { embeddingModelIdentity, search } from '../search'
 import type { AiClient } from '../ai/client'
+import type { AnnotationCapabilities } from '../ai/capabilities'
 import type { ApplicationDiagnosticSink } from '../diagnostics'
 import { diagnosticError } from '../diagnostics'
 import {
@@ -184,6 +185,12 @@ export interface ChronicleServicesDeps {
    * Optional: when absent (e.g. in tests), search degrades to keyword-only.
    */
   aiClient?: AiClient
+  /**
+   * What the running AI service reports it can annotate, shared with the queue
+   * worker. Optional: when absent, a queued annotation is reported as deferred
+   * only when the registry itself never sends that format.
+   */
+  annotationCapabilities?: AnnotationCapabilities
   /** Decrypts the stored API key for the given provider. Injected by register.ts. */
   readApiKey?: (provider: string) => string | null
   /** Callback fired when the user turns telemetry off — worker clears queue + server inventory. */
@@ -797,13 +804,19 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
   }
 
   /**
-   * A queued annotation for a format the AI service cannot handle yet is
-   * reported as 'deferred', not 'pending': the job stays in the queue and the
-   * UI says so instead of implying a summary is seconds away (POST-02).
+   * True when a queued annotation for this format cannot run against the AI
+   * service that is actually running, so the UI should say 'deferred' instead
+   * of implying a summary is seconds away (POST-02).
    */
+  function isAnnotationDeferred(format: FormatDescriptor | null): boolean {
+    return deps.annotationCapabilities
+      ? deps.annotationCapabilities.isDeferred(format)
+      : format !== null && !supportsAnnotation(format)
+  }
+
   function aiStatusOf(version: VersionRecord, format: FormatDescriptor | null): AiStatus {
     if (version.aiStatus !== 'pending') return version.aiStatus
-    return format && !supportsAnnotation(format) ? 'deferred' : 'pending'
+    return isAnnotationDeferred(format) ? 'deferred' : 'pending'
   }
 
   function toVersionSummary(version: VersionRecord): VersionSummary {
@@ -1202,6 +1215,7 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
         db,
         embedQuery,
         embeddingsModel: embeddingModelIdentity(provider, embeddingsModel),
+        isAnnotationDeferred,
       })
       deps.telemetry?.recordSearch(embedQuery !== undefined)
       recordPersonalActivity(db, 'search')
@@ -1645,10 +1659,9 @@ export function createChronicleServices(deps: ChronicleServicesDeps): ChronicleS
           thumbnailUrl:
             version && format ? thumbnailUrlForHash(version.contentHash, format.id) : null,
           format: format?.id ?? null,
-          // An annotation job for a format the AI service cannot handle yet
+          // An annotation job for a format the running AI service cannot handle
           // waits here instead of failing (POST-02).
-          deferred:
-            job.jobType === 'ai_annotation' && format !== null && !supportsAnnotation(format),
+          deferred: job.jobType === 'ai_annotation' && isAnnotationDeferred(format),
         })
       }
       return pending

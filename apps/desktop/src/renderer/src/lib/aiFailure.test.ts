@@ -28,6 +28,29 @@ describe('aiFailureFeedback', () => {
     })
   })
 
+  it('does not blame the provider for a file Chronicle could not read', () => {
+    const feedback = aiFailureFeedback({
+      message: 'The BLEND file is corrupt or unsupported.',
+      code: 'extraction_error',
+      status: 400,
+    })
+    expect(feedback.title).toBe('Chronicle could not read this file')
+    expect(feedback.explanation).toBe('The BLEND file is corrupt or unsupported.')
+    // The provider was never contacted, so testing the AI connection is not the fix.
+    expect(feedback.action).not.toContain('Test summary connection')
+    expect(feedback.action).toContain('restored')
+  })
+
+  it('explains a format the running service cannot summarize', () => {
+    const feedback = aiFailureFeedback({
+      message: "The AI service cannot annotate 'blend' files yet.",
+      code: 'unsupported_format',
+      status: 400,
+    })
+    expect(feedback.title).toBe('This file type has no AI change summary')
+    expect(feedback.action).toContain('Update Chronicle')
+  })
+
   it('surfaces the raw provider error for a generic 502', () => {
     const feedback = aiFailureFeedback({
       message: 'The AI provider rejected the request. Provider error: 401 UNAUTHENTICATED.',

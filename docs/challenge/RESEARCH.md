@@ -200,19 +200,111 @@ The ranking is a product hypothesis to validate with users, not a market-share c
   declared geometry, so Chronicle will use it rather than trusting document dimensions.
   ([PSDImage API](https://psd-tools.readthedocs.io/en/stable/reference/psd_tools.html),
   [layer API](https://psd-tools.readthedocs.io/en/latest/reference/psd_tools.api.layers.html))
-- The first adapter increment supports **PSD only**. It extracts locally and sends no opaque PSD
-  bytes to the provider. The provider receives a capped deterministic structure diff plus at most
-  one JPEG: a first-version preview or a before/after comparison sheet. If the normalized
-  composites are pixel-identical, the diff is text-only. Derived images are capped at 1024 px;
-  parser/render limitations become coverage warnings and cap the returned confidence.
+- The Photoshop adapter now supports **PSD and PSB** with the same bounded local extraction
+  pipeline. It extracts locally and sends no opaque Photoshop bytes to the provider. The provider
+  receives a capped deterministic structure diff plus at most one JPEG: a first-version preview or
+  a before/after comparison sheet. If the normalized composites are pixel-identical, the diff is
+  text-only. Derived images are capped at 1024 px; parser/render limitations become coverage
+  warnings and cap the returned confidence.
 - Token policy: send only changed fields, cap structural changes, truncate layer text/names and
   combine the two visual states into one media item. Gemini's current media-resolution controls
   budget roughly 280 image tokens at low and 560 at medium for Gemini 3; exact usage remains
   model-dependent and must be recorded from provider usage metadata.
   ([Gemini media resolution](https://ai.google.dev/gemini-api/docs/media-resolution))
-- PSB remains unchecked until the same adapter is proven under process isolation and stricter
-  large-document time/memory tests. A 50 MB Chronicle capture cap also means PSB needs an explicit
-  product/storage decision rather than being enabled accidentally.
+- PSB now ships behind the same bounded extractor with a normalized-header compatibility warning.
+  Larger real-world PSB files still deserve separate process-isolation and time/memory hardening,
+  but the adapter itself is no longer absent.
+
+#### POST-02 desktop wiring findings (2026-07-27)
+
+Finishing POST-02 meant connecting adapters that already existed to an app that was still
+declaring their formats unannotatable. Three findings are worth keeping:
+
+- **A capability can be "shipped" and reach nobody.** The AI service annotated eight formats and
+  published them through `/capabilities`, while the desktop registry still carried
+  `aiFormat: null` for SVG, PSB, OBJ, STEP, and BLEND — so every such version sat permanently
+  `deferred`. Both halves passed their own tests. What was missing was an assertion *across* the
+  boundary; there is now a desktop test comparing every registry `aiFormat`/`mediaType` against the
+  C3 enum in `packages/contracts/ai/openapi.json`, which is the artifact both sides already share.
+- **A lazily imported registry converts a syntax error into a silent, total outage.** A second
+  module docstring had been left above `from __future__ import annotations` in `future_formats.py`,
+  which Python rejects. Because the adapter registry imports that module on first use, and request
+  *validation* reads the registry, no annotation could succeed at all — PNG and JPG included — and
+  60 of 90 Python tests failed on a clean checkout. Deferring an import to break a cycle also
+  defers the error that proves the module is loadable, so the import cycle deserves a cheap guard
+  (running the suite is one).
+- **"Discovered, not assumed" has to hold on both sides of the process.** The queue worker asked
+  `/capabilities`, but the C1 read paths inferred `deferred` from the static registry. That was
+  invisible while the two agreed and would have become wrong the moment they did not — an installed
+  app beside an older sidecar would show "pending" forever. One cached answer is now shared by the
+  worker and the read paths. It fails open: an unreachable service defers nothing, because claiming
+  a format is unsupported when the service simply is not running would be a guess presented as a
+  fact.
+
+**Verification approach.** Mock-level tests cannot show that two independently versioned processes
+agree, so the eight formats were driven through the *running* sidecar with requests built by the
+desktop's own format registry and test fixtures, using a deliberately invalid API key: local
+extraction is ahead of credential resolution in the pipeline, so `provider_auth_error` is positive
+evidence that the request validated and the adapter produced provider-safe evidence. All 16
+requests (8 formats × first-version and diff) reached the provider; an undeclared format was still
+refused with HTTP 422. One caveat this exposed: the desktop's `photoshopBytes` fixture is a
+header-and-resources stub for thumbnail extraction and is *not* a document `psd-tools` can parse,
+so PSD/PSB evidence requires a real `PSDImage`-generated document. A successful live annotation
+still needs a valid BYOK credential.
+
+#### BLEND annotation correction (2026-07-27)
+
+Wiring exposed a defect the format's own tests had not: the adapter required the literal `BLENDER`
+magic and rejected everything else as corrupt. Blender's **Compress** option stores the whole file
+as a single gzip (older) or Zstandard (3.0+) stream, so a saved `.blend` frequently does not start
+with that magic at all — Chronicle's own committed demo files are gzip, and every one of them failed
+with "The BLEND file is corrupt or unsupported." The desktop app had handled this correctly since
+POST-01 (`apps/desktop/src/main/formats/blend.ts` decompresses bounded leading bytes), so the two
+halves of the same product disagreed about whether a normal Blender save was readable.
+
+The adapter now mirrors the desktop: bounded decompression of the leading bytes, then the RGBA
+thumbnail Blender writes into a `TEST` file-block, validated against the block length before
+allocation and flipped (Blender stores the bottom row first). Verified on the real demo files — a
+256×256 thumbnail per version, and a before/after sheet that visibly shows the gray bottle becoming
+green with a NEW badge.
+
+Two smaller findings came with it:
+
+- **A scavenging heuristic is not a substitute for a layout.** The previous implementation searched
+  the whole file for the first PNG or JPEG signature. Besides missing Blender's raw-RGBA thumbnail
+  entirely, that could have surfaced a *packed texture* as "the thumbnail" — a confidently wrong
+  visual for a product whose value is factual diffs. Reading the documented-enough block structure
+  is both correct and safer.
+- **A permanent limitation must not be encoded as degraded coverage.** Adding "the scene is never
+  opened" to the adapter's warnings capped confidence on every `.blend`, which destroys the cap's
+  meaning. Permanent scope belongs in the prompt; `confidence_limit` is reserved for evidence that
+  is actually incomplete.
+
+`zstandard` is now a declared dependency (it was already present transitively via `langsmith`).
+
+#### Local extraction failures are not provider failures (2026-07-27)
+
+Only `PsdExtractionError` was mapped to the typed `extraction_error`; the four newer adapters raised
+sibling types that fell through to the generic handler. A local, pre-provider failure was therefore
+reported to the user as *"The AI provider returned an error … The AI provider rejected the request"*
+with the advice to test their AI connection, and — because the generic handler answers HTTP 502,
+which the desktop classifies as retryable — it consumed all three retries and a provider round trip
+each time on a failure that could never succeed.
+
+All adapter errors now derive from one `ExtractionError` base that the route maps to HTTP 400, which
+the desktop already treats as non-retryable. The renderer gained matching copy for `extraction_error`
+and `unsupported_format` that neither blames the provider nor points at Settings, and says the
+version is still stored, previewable, restorable, and keyword-searchable. Error taxonomy is part of
+the user interface: a misfiled error class became wrong on-screen advice plus wasted spend.
+
+#### POST-02 adapter implementation note (2026-07-26)
+
+- The local AI service now ships safe, format-aware adapters for PSD/PSB, SVG, BLEND, OBJ, and
+  STEP, with direct image handling still reserved for PNG/JPG/JPEG.
+- SVG and STEP stay text/structure-first; OBJ adds a bounded flat preview when faces are present;
+  BLEND only reads a safe embedded thumbnail if one can be isolated.
+- Unsupported or partially extracted inputs now degrade through bounded evidence and a capped
+  confidence value instead of sending opaque project bytes to the provider.
 
 #### Validation still required
 
@@ -1097,6 +1189,17 @@ table because area and color are poor tools for precise comparison.
 - For format expansion, prefer an adapter pipeline of **safe extraction → normalized preview /
   structure diff → LangChain annotation**. Do not send opaque project bytes to a model and hope
   it understands a proprietary container.
+- For 3D annotations, make the provider narrate **artist-visible change**, not interchange-format
+  diagnostics. Derive approximate added/removed form, relative scale, and placement locally; send
+  one shared-camera before/after sheet plus compact spatial facts in one model call. Keep raw
+  vertex/face/entity counts, schemas, bounds, and group identifiers out of the primary prose and
+  available only as local technical detail. This improves salience while reducing duplicated text
+  evidence and avoiding a second paid inference call.
+- Apply the same cost boundary to SVG: retain the exact XML attribute/text diff, but pair it with
+  one locally rasterized before/after sheet so path and layout changes can be narrated visually.
+  The safe renderer may handle bounded primitives and common Bézier paths, but must never fetch
+  external images, execute scripts, resolve entities, or pretend unsupported filters/masks/arcs
+  were rendered exactly. One compact structural payload plus one sheet remains one provider call.
 - For future-format work, follow the selected order: SVG and PSD/PSB adjacency experiments,
   then a sandboxed Blender proof of concept, followed by OBJ and STEP/STP interchange support.
 - Keep control-plane operations purpose-separated in contracts and UI: installation registration,
@@ -1203,6 +1306,51 @@ table because area and color are poor tools for precise comparison.
   now share one `deleteAssetsPermanently` implementation so orphan-blob cleanup cannot diverge.
   Derived previews are deliberately not swept: they are content-hash keyed, unreferenced, and
   documented as disposable — team decision + implementation review
+- 2026-07-27 — COST-BOUNDED SVG ANNOTATION QUALITY: SVG annotations previously sent only XML
+  inventory and therefore encouraged ids, coordinates, fills, and raw path changes instead of what
+  the artist would notice. Chronicle now safely rasterizes common local primitives, text,
+  translate/scale/matrix transforms, and line/cubic/quadratic Bézier paths; never loads external
+  resources or executes content; discloses approximated arcs and unsupported visual features; and
+  sends one before/after sheet alongside the already compact structural diff. The prompt leads with
+  visible additions/removals/movement/size/color and hides XML jargon. Tests cover text/color
+  changes, path-only artwork, external-resource isolation, one-image input, and the context budget;
+  the full 105-test AI suite passes — local extractor, prompt, safety, and token-budget review
+
+- 2026-07-27 — COST-BOUNDED 3D ANNOTATION QUALITY: the OBJ adapter's prompt explicitly prioritized
+  vertex/face counts, group names, and bounds, while its independently framed flat projections
+  gave the model weaker visual evidence than those diagnostics. The provider consequently produced
+  technically correct but artist-hostile prose such as count deltas and raw bounding boxes. The
+  cost-efficient correction is one inference call with one shared-camera isometric comparison
+  sheet, locally derived approximate shape/scale/placement hints, a halved structured-evidence
+  character budget, and an artist-first prompt that forbids exposing mesh jargon when honest visual
+  evidence exists. Quality tests now cover a rectangular top-bar addition, compact context, and
+  exactly one image; no second narration call or extra image request is needed — local pipeline,
+  fixture, prompt, and token-budget review
+
+- 2026-07-27 — BLEND COMPRESSION AND ERROR TAXONOMY: a real `.blend` failed with "corrupt or
+  unsupported" because the adapter demanded the literal `BLENDER` magic, while Blender's Compress
+  option stores the file as one gzip/Zstandard stream — Chronicle's own demo files are gzip, and the
+  desktop half had handled this since POST-01. The adapter now decompresses bounded leading bytes and
+  reads the RGBA `TEST` thumbnail block (validated before allocation, flipped bottom-up), replacing a
+  PNG/JPEG scavenging heuristic that could have presented a packed texture as the scene. Separately,
+  only PSD's extraction error was typed, so the other adapters' local failures were reported as
+  provider rejections at HTTP 502 and burned all three retries; all adapter errors now derive from
+  one `ExtractionError` mapped to a non-retryable 400 with copy that stops blaming the provider. Also
+  found `generated.ts` had never been regenerated after POST-02 widened the C3 enum — verified on the
+  real demo files, whose before/after sheet correctly shows the gray bottle turning green with a NEW
+  badge — live diagnosis plus Blender container-layout research
+- 2026-07-27 — POST-02 DESKTOP WIRING: the AI adapters were complete but unreachable — the desktop
+  registry still declared SVG, PSB, OBJ, STEP, and BLEND unannotatable, so their versions sat
+  permanently `deferred` while both halves passed their own tests. Wiring them up exposed that a
+  stray second module docstring above `from __future__ import annotations` made the lazily imported
+  adapter registry unimportable, which broke *every* annotation including the PNG/JPG demo path (60
+  of 90 Python tests failing on a clean checkout, unrun), and that `deferred` was inferred from the
+  static registry rather than `GET /capabilities` — so correcting the registry would have made an
+  older sidecar show "pending" forever. One cached capability answer is now shared by the queue
+  worker and the C1 read paths, failing open when the service is unreachable. Added a test asserting
+  every registry `aiFormat`/`mediaType` against the C3 enum, and verified by driving all 8 formats
+  × 2 modes through the real sidecar with the desktop's own fixtures — repository audit plus live
+  loopback verification
 - 2026-07-26 — POST-10 BACKGROUND CAPTURE AND START-AT-LOGIN: capture already ran window-independently
   in the main process, so tray residency was a lifecycle change rather than a capture change. Added a
   single-instance lock (previously absent and previously harmless), a latched quitting flag so the

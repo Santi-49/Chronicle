@@ -188,6 +188,44 @@ def test_annotate_rejects_corrupt_psd_with_typed_extraction_error() -> None:
     }
 
 
+def test_annotate_reports_every_adapters_local_read_failure_as_extraction_error() -> None:
+    """A file Chronicle cannot read locally is not a provider rejection.
+
+    These used to fall through to the generic handler, so the user was told the
+    *provider* rejected the request and advised to test their AI connection,
+    while the job burned all three retries on a failure that can never succeed.
+    """
+
+    # OBJ is deliberately absent: arbitrary text is a *readable* OBJ with no
+    # geometry, which degrades through warnings and a capped confidence rather
+    # than failing. Only genuinely unreadable bytes belong here.
+    cases = {
+        "blend": ("application/x-blender", "The BLEND file is corrupt or unsupported."),
+        "svg": ("image/svg+xml", None),
+        "step": ("model/step", None),
+    }
+    for format_name, (media_type, expected_message) in cases.items():
+        response = client.post(
+            "/annotate",
+            json={
+                **ANNOTATE_PAYLOAD,
+                "fileName": f"broken.{format_name}",
+                "format": format_name,
+                "current": {
+                    "base64": "bm90IGEgcmVhbCBmaWxl",
+                    "mediaType": media_type,
+                    "format": format_name,
+                },
+            },
+        )
+
+        assert response.status_code == 400, (format_name, response.json())
+        detail = response.json()["detail"]
+        assert detail["code"] == "extraction_error", format_name
+        if expected_message is not None:
+            assert detail["message"] == expected_message
+
+
 def test_provider_errors_are_sanitized(monkeypatch) -> None:
     async def fail(_request):
         raise RuntimeError("provider leaked secret-key")
