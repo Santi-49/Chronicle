@@ -27,9 +27,9 @@ export const helpArticles: HelpArticle[] = [
     title: "Set up Chronicle and save your first version",
     description: "A calm, step-by-step path from download to a searchable, restorable creative-file history.",
     category: "Start here",
-    updated: "July 26, 2026",
+    updated: "July 27, 2026",
     minutes: 8,
-    keywords: ["first run", "continue local", "project", "watched folder", "PNG", "JPG", "setup", "timeline"],
+    keywords: ["first run", "continue local", "project", "watched folder", "PNG", "JPG", "setup", "timeline", "gallery", "list view", "subfolder"],
     related: ["install/windows", "install/mac", "ai/costs", "troubleshooting/capture-files"],
     sections: [
       {
@@ -59,12 +59,13 @@ export const helpArticles: HelpArticle[] = [
         id: "first-version",
         title: "4. Capture the first version",
         html: `<ol><li>Open a PNG or JPG from the watched folder in your usual creative app.</li><li>Make a visible change and save normally.</li><li>Return to Chronicle. A new version should appear after the file finishes saving.</li><li>Open the asset to see its Timeline.</li></ol>
+        <p>The project screen shows your four most recently changed files first, then the project's own folders. Open a folder to go deeper, use the breadcrumb at the top to come back, and switch between gallery and list layout with the toggle beside the file list. Chronicle remembers the layout you prefer.</p>
         <figure class="help-figure"><img src="/chronicle-home.png" width="1440" height="900" alt="Chronicle desktop interface showing a creative project and its version history" loading="lazy"><figcaption>Your exact layout may differ slightly by release.</figcaption></figure>`,
       },
       {
         id: "ai",
         title: "5. Add AI only if you want it",
-        html: `<p>AI change summaries and meaning-based search require an internet connection and your selected provider. Open <strong>Settings → AI providers</strong>, save a provider key, then choose and validate an annotation model and an embedding model.</p>
+        html: `<p>AI change summaries and meaning-based search require an internet connection and your selected provider. Open <strong>Settings → AI summaries</strong>, save a key under <strong>Provider API keys</strong>, then choose a provider and model for <strong>Change summaries (vision)</strong> and for <strong>Semantic search (embeddings)</strong>.</p>
         <p>Provider validation makes a small real request and may incur a small charge. If you skip AI, Chronicle continues capturing versions and keyword search remains available.</p>`,
       },
       {
@@ -148,12 +149,12 @@ export const helpArticles: HelpArticle[] = [
     title: "Connect a Google Gemini API key",
     description: "Create, test, monitor, and revoke a Gemini key without sharing it with Chronicle support.",
     category: "AI & costs",
-    updated: "July 26, 2026",
+    updated: "July 27, 2026",
     minutes: 5,
     keywords: ["Google", "Gemini", "AI Studio", "API key", "billing", "quota", "429"],
     related: ["ai/costs", "troubleshooting/api-billing", "privacy-data"],
     sections: [
-      { id: "create", title: "Create and save the key", html: `<ol><li>Sign in to <a href="https://aistudio.google.com/app/apikey">Google AI Studio API keys</a>.</li><li>Create a key for the project you want Chronicle usage associated with.</li><li>In Chronicle, open <strong>Settings → AI providers → Google Gemini</strong>.</li><li>Paste the key there and save it. Never paste it into this website, a screenshot, a public issue, or a support message.</li></ol><p>Chronicle encrypts provider keys on this device. Optional encrypted key sync is separate and off until you enable it.</p>` },
+      { id: "create", title: "Create and save the key", html: `<ol><li>Sign in to <a href="https://aistudio.google.com/app/apikey">Google AI Studio API keys</a>.</li><li>Create a key for the project you want Chronicle usage associated with.</li><li>In Chronicle, open <strong>Settings → AI summaries → Provider API keys → Google Gemini</strong>.</li><li>Paste the key there and save it. Never paste it into this website, a screenshot, a public issue, or a support message.</li></ol><p>Chronicle encrypts provider keys on this device. Optional encrypted key sync is separate and off until you enable it.</p>` },
       { id: "billing", title: "Billing and limits", html: `<p>Availability, free access, billing rules, and rate limits can change. Review Google's live <a href="https://ai.google.dev/gemini-api/docs/billing">billing guide</a>, <a href="https://ai.google.dev/gemini-api/docs/pricing">pricing page</a>, and <a href="https://ai.google.dev/gemini-api/docs/rate-limits">rate limits</a>. Your Google invoice and AI Studio usage view are authoritative.</p>` },
       { id: "revoke", title: "Revoke or replace the key", html: `<p>Delete or replace the key in Google AI Studio, then clear the saved Google key in Chronicle. A revoked key makes new AI work fail or remain pending; local version capture continues.</p>` },
     ],
@@ -163,12 +164,12 @@ export const helpArticles: HelpArticle[] = [
     title: "Connect an Anthropic Claude API key",
     description: "Create a Claude API key, understand prepaid usage credits, and monitor or revoke access.",
     category: "AI & costs",
-    updated: "July 26, 2026",
+    updated: "July 27, 2026",
     minutes: 5,
     keywords: ["Anthropic", "Claude", "API key", "prepaid credits", "billing", "rate limit"],
     related: ["ai/costs", "troubleshooting/api-billing", "privacy-data"],
     sections: [
-      { id: "create", title: "Create and save the key", html: `<ol><li>Sign in to the <a href="https://console.anthropic.com/settings/keys">Anthropic Console key page</a>.</li><li>Create a key in the workspace you want to use.</li><li>In Chronicle, open <strong>Settings → AI providers → Anthropic Claude</strong>.</li><li>Paste and save it only inside Chronicle.</li></ol><p>Anthropic does not currently provide an embeddings API, so Claude can annotate visual changes while another provider supplies semantic-search embeddings.</p>` },
+      { id: "create", title: "Create and save the key", html: `<ol><li>Sign in to the <a href="https://console.anthropic.com/settings/keys">Anthropic Console key page</a>.</li><li>Create a key in the workspace you want to use.</li><li>In Chronicle, open <strong>Settings → AI summaries → Provider API keys → Anthropic Claude</strong>.</li><li>Paste and save it only inside Chronicle.</li></ol><p>Anthropic does not currently provide an embeddings API, so Claude can annotate visual changes while another provider supplies semantic-search embeddings.</p>` },
       { id: "billing", title: "Credits, usage, and limits", html: `<p>Anthropic API access commonly uses prepaid usage credits. Check the current <a href="https://support.anthropic.com/en/articles/8977456-how-do-i-pay-for-my-api-usage">billing guidance</a>, <a href="https://docs.anthropic.com/en/docs/about-claude/pricing">pricing</a>, and the Usage and Cost pages in Console. Chronicle does not control those charges.</p>` },
       { id: "revoke", title: "Revoke or replace the key", html: `<p>Delete the key in Anthropic Console, then clear it in Chronicle. Review Console usage immediately if the key may have been exposed.</p>` },
     ],
@@ -178,12 +179,12 @@ export const helpArticles: HelpArticle[] = [
     title: "Connect an OpenAI API key",
     description: "Create a project key, check API billing and usage, and rotate a key safely.",
     category: "AI & costs",
-    updated: "July 26, 2026",
+    updated: "July 27, 2026",
     minutes: 5,
     keywords: ["OpenAI", "API key", "project key", "billing", "usage dashboard", "rate limit"],
     related: ["ai/costs", "troubleshooting/api-billing", "privacy-data"],
     sections: [
-      { id: "create", title: "Create and save the key", html: `<ol><li>Sign in to the <a href="https://platform.openai.com/api-keys">OpenAI API key page</a>.</li><li>Create a key for the project you want Chronicle to use.</li><li>In Chronicle, open <strong>Settings → AI providers → OpenAI</strong>.</li><li>Paste and save it only inside Chronicle.</li></ol><div class="help-callout"><strong>ChatGPT and API billing are separate</strong><p>A ChatGPT subscription does not automatically provide API credits. Check the Platform billing page before testing.</p></div>` },
+      { id: "create", title: "Create and save the key", html: `<ol><li>Sign in to the <a href="https://platform.openai.com/api-keys">OpenAI API key page</a>.</li><li>Create a key for the project you want Chronicle to use.</li><li>In Chronicle, open <strong>Settings → AI summaries → Provider API keys → OpenAI</strong>.</li><li>Paste and save it only inside Chronicle.</li></ol><div class="help-callout"><strong>ChatGPT and API billing are separate</strong><p>A ChatGPT subscription does not automatically provide API credits. Check the Platform billing page before testing.</p></div>` },
       { id: "billing", title: "Billing and usage", html: `<p>Use the official <a href="https://platform.openai.com/usage">API Usage Dashboard</a> and <a href="https://platform.openai.com/settings/organization/billing/overview">billing settings</a>. Prices and account limits change, so rely on the live provider pages and invoice rather than an estimate in Chronicle.</p>` },
       { id: "revoke", title: "Rotate a key safely", html: `<p>If a key may be exposed, delete it from the <a href="https://platform.openai.com/api-keys">API key dashboard</a>, create a replacement, and update Chronicle. OpenAI's <a href="https://help.openai.com/en/articles/8304786-preventing-unauthorized-usage">account security guidance</a> recommends deleting exposed keys and reviewing unfamiliar usage.</p>` },
     ],
@@ -209,16 +210,17 @@ export const helpArticles: HelpArticle[] = [
     title: "What stays local and what leaves your device",
     description: "A plain-language map of Chronicle files, AI inputs, keys, accounts, reporting, logs, and offline behavior.",
     category: "Privacy",
-    updated: "July 26, 2026",
+    updated: "July 27, 2026",
     minutes: 6,
-    keywords: ["privacy", "local", "upload", "files", "keys", "telemetry", "sync", "delete", "offline", "logs"],
+    keywords: ["privacy", "local", "upload", "files", "keys", "telemetry", "sync", "delete", "offline", "logs", "retention", "removed files", "30 days"],
     related: ["ai/costs", "getting-started", "faq"],
     sections: [
       { id: "local", title: "Your version library stays on this device", html: `<p>Original watched files, captured version bytes, previews, the local database, AI summaries, tags, embeddings, settings, and queued work are stored on your device. Chronicle does not provide cloud storage for the creative version library.</p>` },
       { id: "ai", title: "AI sends task inputs to your provider", html: `<p>When you enable AI, Chronicle's local AI service sends only the inputs required for that task, such as the current and previous image, filename, or annotation text, to the provider you selected. The provider's terms, privacy policy, and retention rules apply.</p>` },
       { id: "keys", title: "Provider keys", html: `<p>Provider keys are encrypted locally with Electron safe storage and are not readable back through the normal interface. Optional passphrase-encrypted key sync is separate, requires sign-in, and remains off until you enable it.</p>` },
       { id: "account", title: "Optional account, sync, and reporting", html: `<p>Continue local requires no account. If you sign in, Chronicle can sync portable preferences but not local paths, projects, files, or version history. Content-free usage reporting can include app version, operating-system family, coarse counts, timings, provider/model identifiers, and sanitized failures. It excludes filenames, paths, project names, file contents, summaries, tags, embeddings, search queries, and credentials.</p>` },
-      { id: "offline", title: "Offline behavior and deletion", html: `<p>Capture, cached history, restore, and keyword search work offline. AI annotations, semantic indexing, account sync, and reporting wait for a connection. Removing a Chronicle project does not delete your original working files; local Chronicle history and cloud account data have separate deletion controls.</p><p>Read the full <a href="/privacy/">Chronicle Privacy Policy</a> for the authoritative detail.</p>` },
+      { id: "offline", title: "Offline behavior and deletion", html: `<p>Capture, cached history, restore, and keyword search work offline. AI annotations, semantic indexing, account sync, and reporting wait for a connection. Removing a Chronicle project does not delete your original working files; local Chronicle history and cloud account data have separate deletion controls.</p>
+      <p>One local deletion happens on its own: when a watched file leaves your disk, Chronicle keeps its stored history under <strong>Removed files</strong> for 30 days and then deletes it permanently. You can delete that history sooner from the same place. See <a href="/help/troubleshooting/capture-files/#removed">files you deleted, renamed, or moved</a>.</p><p>Read the full <a href="/privacy/">Chronicle Privacy Policy</a> for the authoritative detail.</p>` },
     ],
   },
   {
@@ -226,15 +228,15 @@ export const helpArticles: HelpArticle[] = [
     title: "Fix an update that will not download or install",
     description: "Retry safely, use the official GitHub release, and reinstall Chronicle without deleting creative originals.",
     category: "Troubleshooting",
-    updated: "July 26, 2026",
+    updated: "July 27, 2026",
     minutes: 5,
-    keywords: ["update", "updater", "download update", "restart to update", "latest version", "GitHub release", "uninstall", "reinstall"],
+    keywords: ["update", "updater", "download update", "restart to update", "update available", "mac update", "latest version", "GitHub release", "uninstall", "reinstall"],
     related: ["install/windows", "install/mac", "getting-started"],
     sections: [
       { id: "retry", title: "Try the in-app update once more", html: `<ol><li>Keep Chronicle open long enough for the download to finish.</li><li>Check that the computer is online and no VPN or firewall is blocking GitHub.</li><li>If Chronicle says the update is ready, select <strong>Restart to update</strong>.</li><li>After restart, open Settings or About and confirm the version changed.</li></ol><p>Your current projects remain usable while an optional update downloads.</p>` },
-      { id: "manual", title: "If the in-app update still fails", html: `<ol><li>Quit Chronicle completely. Closing the window is not enough if Chronicle is set to keep capturing in the background — select its icon near the clock and choose <strong>Quit Chronicle</strong>.</li><li>Open the <a href="${officialDownload}">official Chronicle GitHub Releases page</a>.</li><li>Download the newest installer for your platform.</li><li>Run it over the existing installation.</li><li>Open Chronicle and confirm the new version.</li></ol><div class="help-callout help-callout--tip"><strong>Use only the official release page</strong><p>Do not download “update tools” or repackaged Chronicle installers from another site.</p></div>` },
+      { id: "manual", title: "If the in-app update still fails", html: `<ol><li>Quit Chronicle completely. Closing the window is not enough if Chronicle is set to keep capturing in the background. Select its icon near the clock and choose <strong>Quit Chronicle</strong>.</li><li>Open the <a href="${officialDownload}">official Chronicle GitHub Releases page</a>.</li><li>Download the newest installer for your platform.</li><li>Run it over the existing installation.</li><li>Open Chronicle and confirm the new version.</li></ol><div class="help-callout help-callout--tip"><strong>Use only the official release page</strong><p>Do not download “update tools” or repackaged Chronicle installers from another site.</p></div>` },
       { id: "reinstall", title: "Uninstall and reinstall as a last step", html: `<p>If running the newest installer does not work, uninstall Chronicle, restart the computer, then install the latest release from GitHub.</p><ol><li>Before uninstalling, note your watched folders and close creative applications.</li><li>Do not delete your original creative folders.</li><li>Use the operating system's normal uninstall process.</li><li>Restart, download the latest official installer, and install again.</li><li>Open Chronicle and check your projects and history before making new changes.</li></ol><p>Uninstalling should not delete original working files. Local Chronicle history lives separately, but back it up before troubleshooting if the history is important.</p>` },
-      { id: "mac", title: "Mac updates", html: `<p>Automatic updates are currently Windows-only. On a Mac, download each new DMG from the official GitHub release page and replace the existing app. Because the current Mac build is unsigned and unnotarized, you may need to follow the <a href="/help/install/mac/">Open Anyway steps</a> again.</p>` },
+      { id: "mac", title: "Mac updates", html: `<p>On a Mac, Chronicle tells you when a new version exists but does not install it for you. When one is published, a small <strong>Update available</strong> card appears above Settings; selecting it opens the new installer in your browser. Save the DMG, open it, and drag Chronicle over the existing app. The same download button is in <strong>Settings → About &amp; updates</strong>, and you can always download it yourself from the <a href="${officialDownload}">official release page</a>.</p><p>Because the current Mac build is unsigned and unnotarized, you may need to follow the <a href="/help/install/mac/">Open Anyway steps</a> again after installing.</p><p>Automatic in-place installation is Windows-only for now.</p>` },
       { id: "support", title: "Still not updating?", html: `<p><a href="${issues}">Open a Chronicle issue</a> with the old version, new version, operating system, and the exact visible message. Do not attach API keys, tokens, private filenames, folder paths, or creative files.</p>` },
     ],
   },
@@ -270,16 +272,21 @@ export const helpArticles: HelpArticle[] = [
   {
     slug: "troubleshooting/capture-files",
     title: "Fix missing versions, folders, or ignored files",
-    description: "Check folder access, supported formats, save timing, and duplicate-save behavior.",
+    description: "Check folder access, supported formats, save timing, duplicate saves, and files you deleted or renamed.",
     category: "Troubleshooting",
-    updated: "July 26, 2026",
-    minutes: 5,
-    keywords: ["missing version", "folder missing", "ignored file", "unsupported", "capture delay", "duplicate", "watch folder"],
+    updated: "July 27, 2026",
+    minutes: 6,
+    keywords: ["missing version", "folder missing", "ignored file", "unsupported", "capture delay", "duplicate", "watch folder", "deleted file", "renamed", "moved", "removed files", "30 days", "history gone"],
     related: ["getting-started", "troubleshooting/search-restore"],
     sections: [
       { id: "folder", title: "Check the watched folder", html: `<ol><li>Confirm the folder still exists in the same location.</li><li>Reconnect external or network storage.</li><li>Open the project settings and rescan the folder.</li><li>Confirm the file or its extension was not excluded.</li></ol>` },
       { id: "formats", title: "Check the format", html: `<p>PNG, JPG, SVG, PSD, PSB, OBJ, STEP/STP, and BLEND can be captured in the current desktop architecture. AI annotation support is narrower and depends on local service capabilities. A file can have version history even when its AI explanation remains pending.</p>` },
       { id: "timing", title: "Allow the save to finish", html: `<p>Chronicle waits for files to settle so it does not capture half-written temporary files. Large files and cloud-synced folders can take longer. Wait a few seconds, then check the Timeline. Re-saving identical bytes does not create a duplicate version.</p>` },
+      { id: "removed", title: "A file you deleted, renamed, or moved", html: `<p>Chronicle identifies a file by its location, so deleting it, renaming it, or moving it elsewhere all look the same from the outside: the original path is gone. Its history is not thrown away. The file leaves the main project view and moves into a <strong>Removed files</strong> section at the bottom of the project, which appears only when something is missing. Open it to see when each file disappeared and how long its history will be kept.</p>
+        <div class="help-callout help-callout--warning"><strong>Removed history is kept for 30 days</strong><p>Each removed file shows how many days are left. After that, Chronicle permanently deletes that file's versions, summaries, and stored bytes. Put the file back at the same path before the countdown ends and Chronicle picks it up again with its history intact.</p></div>
+        <p>A renamed or moved file starts a fresh history at its new path. The old path keeps the earlier versions under Removed files until you restore the file or the retention window ends. Matching a file across renames is not supported yet.</p>
+        <p>To recover work from a removed file, open it under <strong>Removed files</strong>, choose a version, and use <strong>Save a copy</strong> or restore it. Restoring writes the file back to its original folder; if that folder no longer exists, save a copy somewhere else instead.</p>
+        <p>To clear it sooner, select <strong>Delete now</strong> on a single removed file, or <strong>Delete all removed files</strong> for the whole list. Both ask for confirmation and cannot be undone. Chronicle refuses to delete history for a file that is still on disk; to erase an entire project's history, use <strong>Delete project and history</strong> when you remove the project.</p>` },
       { id: "running", title: "Check that Chronicle was running", html: `<p>Chronicle records saves while it is running. It does not need to be the window you are looking at: by default, closing the window leaves Chronicle in the notification area (the small icons near the clock) and it keeps versioning your folders. Only <strong>Quit Chronicle</strong> from that icon stops it.</p><p>If Chronicle was fully closed while you worked, the next launch still notices the file's current contents and records them as a new version. Saves you made in between are not recorded separately, so a long editing session with Chronicle closed becomes one version instead of several.</p><ol><li>Look for the Chronicle icon near the clock. If it is hidden, select the arrow to show more icons.</li><li>Open <strong>Settings → Startup &amp; background</strong>.</li><li>Keep <strong>Keep capturing after I close the window</strong> switched on.</li><li>Turn on <strong>Start Chronicle when I sign in</strong> so it is running after every restart. Leave the window option off if you prefer it to start quietly.</li></ol>` },
     ],
   },
@@ -302,9 +309,9 @@ export const helpArticles: HelpArticle[] = [
     title: "Chronicle FAQ",
     description: "Short, direct answers about accounts, AI, files, platforms, privacy, storage, restore, deletion, and support.",
     category: "FAQ",
-    updated: "July 26, 2026",
+    updated: "July 27, 2026",
     minutes: 7,
-    keywords: ["FAQ", "frequently asked questions", "account", "offline", "supported", "storage", "delete"],
+    keywords: ["FAQ", "frequently asked questions", "account", "offline", "supported", "storage", "delete", "deleted file", "renamed", "removed files"],
     related: ["getting-started", "privacy-data", "ai/costs"],
     sections: [
       {
@@ -322,6 +329,8 @@ export const helpArticles: HelpArticle[] = [
         <details id="cost"><summary>How much will AI cost?</summary><p>There is no fixed Chronicle price. Your provider charges according to its current models, inputs, outputs, and account. Review its usage dashboard and invoice.</p></details>
         <details id="storage"><summary>Will version history use more disk space?</summary><p>Yes. Chronicle keeps version bytes locally and de-duplicates identical content. Large files and frequent meaningful saves use more storage.</p></details>
         <details id="restore"><summary>Can restore destroy my current work?</summary><p>Chronicle preserves timeline history, but Save a copy is the safest option when you only want to inspect or reuse an old version.</p></details>
+        <details id="deleted-file"><summary>I deleted or renamed a file. Where did its history go?</summary><p>It moved to the <strong>Removed files</strong> section at the bottom of that project. Chronicle keeps a removed file's versions for 30 days, shows the days remaining, and then deletes them permanently. Put the file back at the same path before then and Chronicle continues its history. A renamed or moved file starts a new history at its new path. See <a href="/help/troubleshooting/capture-files/#removed">the full guide</a>.</p></details>
+        <details id="delete-history"><summary>Can I permanently delete a file's version history?</summary><p>Yes, once the file itself is gone from disk. Open <strong>Removed files</strong> in the project and select <strong>Delete now</strong> for one file or <strong>Delete all removed files</strong> for every removed file. Chronicle will not delete history for a file that is still on disk. To erase an entire project's history at once, choose <strong>Delete project and history</strong> when you remove the project. These actions cannot be undone.</p></details>
         <details id="delete"><summary>What happens when I remove a project or uninstall?</summary><p>Your original creative files are not Chronicle's library and should not be deleted. Local history and optional cloud account data have separate controls. Back up important history before uninstall troubleshooting.</p></details>
         <details id="support"><summary>How do I get more help?</summary><p>Search this help center or <a href="${issues}">open a GitHub issue</a>. Share the app version, operating system, exact message, and steps. Never share keys, tokens, private paths, or creative files.</p></details>
         </div>`,

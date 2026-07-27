@@ -84,7 +84,7 @@ export function createTrayController(options: TrayControllerOptions): TrayContro
       if (tray) return
       try {
         tray = new Tray(nativeImage.createFromPath(iconPath()))
-        tray.setToolTip('Chronicle — watching your folders')
+        tray.setToolTip('Chronicle is watching your folders')
         tray.setContextMenu(buildMenu())
         // Windows/Linux: a plain click is the expected "restore" gesture.
         // macOS leaves click to the menu, which is that platform's convention.

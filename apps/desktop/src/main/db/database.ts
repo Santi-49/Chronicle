@@ -117,7 +117,17 @@ export function openChronicleDb(filePath: string): ChronicleDb {
     input_usd_per_million: 'REAL',
     output_usd_per_million: 'REAL',
   })
-  db.pragma('user_version = 8')
+  // v9: removed files are retained for a bounded window instead of forever.
+  ensureColumns(db, 'assets', { missing_since: 'TEXT' })
+  if (previousVersion < 9) {
+    // Releases before v9 recorded that a file was gone but not when. Start the
+    // retention window at the upgrade rather than guessing a past date — an
+    // invented timestamp could delete history the user still expects to see.
+    db.prepare('UPDATE assets SET missing_since = ? WHERE on_disk = 0 AND missing_since IS NULL').run(
+      new Date().toISOString(),
+    )
+  }
+  db.pragma('user_version = 9')
   return db
 }
 

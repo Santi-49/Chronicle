@@ -14,8 +14,12 @@ import closeIcon from '@material-symbols/svg-400/outlined/close.svg'
 import clockIcon from '@material-symbols/svg-400/outlined/history.svg'
 import editIcon from '@material-symbols/svg-400/outlined/edit.svg'
 import deleteIcon from '@material-symbols/svg-400/outlined/delete.svg'
+import downloadIcon from '@material-symbols/svg-400/outlined/download.svg'
 import folderPlusIcon from '@material-symbols/svg-400/outlined/create_new_folder.svg'
 import folderIcon from '@material-symbols/svg-400/outlined/folder.svg'
+import folderOpenIcon from '@material-symbols/svg-400/outlined/folder_open.svg'
+import gridViewIcon from '@material-symbols/svg-400/outlined/grid_view.svg'
+import listViewIcon from '@material-symbols/svg-400/outlined/view_list.svg'
 import helpIcon from '@material-symbols/svg-400/outlined/help.svg'
 import homeIcon from '@material-symbols/svg-400/outlined/home.svg'
 import imageIcon from '@material-symbols/svg-400/outlined/image.svg'
@@ -56,8 +60,12 @@ export type IconName =
   | 'cube'
   | 'edit'
   | 'delete'
+  | 'download'
   | 'folder-plus'
   | 'folder'
+  | 'folder-open'
+  | 'grid-view'
+  | 'list-view'
   | 'help'
   | 'home'
   | 'hourglass'
@@ -96,8 +104,12 @@ const icons: Record<IconName, string> = {
   cube: cubeIcon,
   edit: editIcon,
   delete: deleteIcon,
+  download: downloadIcon,
   'folder-plus': folderPlusIcon,
   folder: folderIcon,
+  'folder-open': folderOpenIcon,
+  'grid-view': gridViewIcon,
+  'list-view': listViewIcon,
   help: helpIcon,
   home: homeIcon,
   hourglass: hourglassIcon,

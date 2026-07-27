@@ -35,7 +35,10 @@ CREATE TABLE IF NOT EXISTS assets (
   display_name  TEXT NOT NULL,               -- file name without directory
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   last_seen_at  TEXT,
-  on_disk       INTEGER NOT NULL DEFAULT 1   -- 0 = deleted from disk, history kept (F3.7)
+  on_disk       INTEGER NOT NULL DEFAULT 1,  -- 0 = deleted from disk, history kept (F3.7)
+  -- When the file was first seen to be gone; NULL while it is on disk. Starts
+  -- the retention window after which the history is deleted permanently.
+  missing_since TEXT
 );
 
 -- F3 — one captured save

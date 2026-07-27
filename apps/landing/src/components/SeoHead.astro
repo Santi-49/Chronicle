@@ -13,19 +13,34 @@ const canonicalUrl = new URL(pathname, Astro.site ?? Astro.url);
 const socialImageUrl = new URL("/chronicle-home.png", Astro.site ?? Astro.url);
 const pageName = pageType === "home" ? landingContent.productName : title;
 
-const structuredData = pageType === "home" || pageType === "about"
-  ? {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      name: landingContent.productName,
-      applicationCategory: "DesignApplication",
-      operatingSystem: "Windows, macOS",
-      description,
-      url: canonicalUrl.href,
-      downloadUrl: landingContent.appUrl,
-      codeRepository: landingContent.githubUrl,
-      softwareHelp: new URL("/help/", Astro.site ?? Astro.url).href,
-    }
+const siteUrl = new URL("/", Astro.site ?? Astro.url).href;
+
+// Google reads the site name from WebSite markup on the host's home page. Without
+// it, results are labelled with the bare hostname instead of "Chronicle".
+const websiteData = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: landingContent.productName,
+  url: siteUrl,
+};
+
+const applicationData = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: landingContent.productName,
+  applicationCategory: "DesignApplication",
+  operatingSystem: "Windows, macOS",
+  description,
+  url: canonicalUrl.href,
+  downloadUrl: landingContent.appUrl,
+  codeRepository: landingContent.githubUrl,
+  softwareHelp: new URL("/help/", Astro.site ?? Astro.url).href,
+};
+
+const structuredData = pageType === "home"
+  ? [websiteData, applicationData]
+  : pageType === "about"
+  ? applicationData
   : {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -48,7 +63,10 @@ const structuredData = pageType === "home" || pageType === "about"
 <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
 
 <link rel="canonical" href={canonicalUrl} />
+<link rel="icon" href="/favicon.ico" sizes="48x48" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/favicon-192.png" type="image/png" sizes="192x192" />
+<link rel="apple-touch-icon" href="/favicon-180.png" />
 <link rel="manifest" href="/site.webmanifest" />
 <link rel="sitemap" href="/sitemap.xml" />
 

@@ -10,6 +10,10 @@ dependencies = [
     "pydantic==2.12.4",
     "python-dotenv>=1.0",
     "uvicorn>=0.30",
+    # Blender's Compress option writes Zstandard streams (gzip on older files,
+    # which the standard library covers). Already present transitively, declared
+    # because the BLEND adapter imports it directly.
+    "zstandard>=0.23",
 ]
 
 [project.optional-dependencies]

@@ -97,12 +97,45 @@ describe('format registry', () => {
     expect(() => formatById('gif' as FormatId)).toThrow(/Unknown format/)
   })
 
-  it('marks the MVP image formats as annotatable and the new ones as pending', () => {
-    expect(supportsAnnotation(formatById('png'))).toBe(true)
-    expect(supportsAnnotation(formatById('jpg'))).toBe(true)
-    expect(supportsAnnotation(formatById('psd'))).toBe(true)
-    for (const id of ['svg', 'psb', 'obj', 'step', 'blend'] as FormatId[]) {
-      expect(supportsAnnotation(formatById(id)), id).toBe(false)
+  it('sends every declared format for annotation, with its C3 format id', () => {
+    // POST-02 completed the adapter set, so no captured format is left out.
+    // Whether the *running* service accepts one is answered by /capabilities
+    // (see ai/capabilities.test.ts), never by this registry.
+    for (const format of FORMATS) {
+      expect(supportsAnnotation(format), format.id).toBe(true)
+    }
+    expect(FORMATS.map((format) => format.aiFormat)).toEqual([
+      'png',
+      'jpg',
+      'svg',
+      'psd',
+      'psb',
+      'obj',
+      'step',
+      'blend',
+    ])
+  })
+
+  /**
+   * The gap this guards against is silent: a format whose `aiFormat` or
+   * `mediaType` the AI service does not accept produces a rejected request per
+   * captured version, and the registry alone looks perfectly reasonable. C3 is
+   * the shared truth, so compare against it rather than against a second list.
+   */
+  it('only names C3 formats and media types the AI service accepts', () => {
+    const contract = JSON.parse(
+      fs.readFileSync(
+        path.resolve(__dirname, '../../../../../packages/contracts/ai/openapi.json'),
+        'utf8',
+      ),
+    ) as { components: { schemas: Record<string, { properties: Record<string, { enum: string[] }> }> } }
+    const imageInput = contract.components.schemas['ImageInput']!.properties
+    const c3Formats = imageInput['format']!.enum
+    const c3MediaTypes = imageInput['mediaType']!.enum
+
+    for (const format of FORMATS) {
+      expect(c3Formats, `${format.id} format`).toContain(format.aiFormat)
+      expect(c3MediaTypes, `${format.id} mediaType`).toContain(format.mediaType)
     }
   })
 })

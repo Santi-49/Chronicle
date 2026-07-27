@@ -16,14 +16,16 @@ export interface AiServiceLocation {
 }
 
 /**
- * Keep each workspace run isolated from both the installed app and orphaned
- * sidecars left by an abruptly stopped development shell.
+ * Keep every app process isolated from orphaned sidecars left by an abruptly
+ * stopped session. This matters for packaged builds too: an older executable
+ * can otherwise keep 8765 open, make the current sidecar fail to bind, and
+ * silently serve an obsolete C3 request schema to the new desktop app.
  */
 export function desktopAiServicePort(
-  packaged: boolean,
+  _packaged: boolean,
   processId = process.pid,
 ): number {
-  return packaged ? 8765 : 20_000 + Math.abs(processId) % 20_000
+  return 20_000 + Math.abs(processId) % 20_000
 }
 
 export function resolveDevelopmentPython(

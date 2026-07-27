@@ -5,7 +5,7 @@ import { PageHeader } from '../components/PageHeader'
 import { chronicle } from '../lib/bridge'
 import { formatBytes } from '../lib/useChronicle'
 import type { FolderScanEntry, TrackedFolder } from '../../../shared/ipc'
-import { FORMATS, supportsAnnotation, type FormatId } from '../../../shared/formats'
+import { FORMATS, type FormatId } from '../../../shared/formats'
 
 interface NewProjectScreenProps {
   onCancel: () => void
@@ -462,31 +462,24 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
             <div className="file-type-chips">
               {FILE_TYPES.map((type) => {
                 const on = enabledTypes.has(type.id)
-                const aiPending = !supportsAnnotation(type)
                 return (
                   <button
                     aria-pressed={on}
                     className={on ? 'file-type-chip file-type-active' : 'file-type-chip'}
                     key={type.id}
                     onClick={() => toggleType(type.id)}
-                    title={
-                      aiPending
-                        ? `${type.label} versions are captured and displayed; AI change summaries for this format are not implemented yet.`
-                        : `${type.label} versions are captured, displayed, and summarized by AI.`
-                    }
+                    title={`${type.label} versions are captured, displayed, and summarized by AI.`}
                     type="button"
                   >
                     <Icon name={on ? 'check' : 'close'} />
                     {type.label}
-                    {aiPending && <em className="file-type-note">no AI summary yet</em>}
                   </button>
                 )
               })}
             </div>
             <p className="field-hint">
-              Every type here is captured, versioned, restorable, and searchable by file name.
-              Types marked <em>no AI summary yet</em> keep their change-summary jobs queued until
-              AI support for that format ships.
+              Every type here is captured, versioned, restorable, searchable by file name, and
+              given an AI change summary once your AI provider is configured.
             </p>
           </div>
 
@@ -511,7 +504,7 @@ export function NewProjectScreen({ onCancel, onCreated, project, footer }: NewPr
               </div>
 
               {scan && !scanning && scan.length === 0 && (
-                <p className="scan-empty">No supported creative files here yet — versions will appear as you save them.</p>
+                <p className="scan-empty">No supported creative files here yet. Versions will appear as you save them.</p>
               )}
 
               {tree && scan && scan.length > 0 && (

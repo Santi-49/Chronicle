@@ -2,9 +2,10 @@
  * User-facing copy for a version's AI status, shared by the timeline, details,
  * and queue screens so they never disagree.
  *
- * 'deferred' is the POST-02 state: the file was captured and its annotation job
- * is queued, but the AI service has no adapter for that format yet. The copy has
- * to say that honestly — "pending" would imply a summary is seconds away.
+ * 'deferred' means the file was captured and its annotation job is queued, but
+ * the AI service that is running cannot annotate that format — an older sidecar
+ * beside a newer app. The copy has to say that honestly: "pending" would imply
+ * a summary is seconds away.
  */
 import { formatById, supportsAnnotation, type FormatId } from '../../../shared/formats'
 import type { AiStatus } from '../../../shared/ipc'
@@ -43,8 +44,8 @@ export function aiStatusExplanation(status: AiStatus, format: FormatId | null): 
   if (status === 'deferred') {
     return (
       `Chronicle captures, versions, restores, and searches ${formatLabel(format)} files. ` +
-      'AI change summaries for this format are not implemented yet, so this version ' +
-      'stays queued and will be summarized automatically once support ships.'
+      'The AI service running on this device cannot summarize this format, so the version ' +
+      'stays queued and is summarized automatically once a service that supports it runs.'
     )
   }
   if (status === 'none') return 'Restored version.'
@@ -58,6 +59,9 @@ function formatLabel(format: FormatId | null): string {
 /**
  * Asset-card text when the newest version has no summary yet. An asset carries
  * no AI status of its own, so the format decides whether a summary is coming.
+ * Since POST-02 the registry sends every captured format, so this reads
+ * 'pending' in practice; a service that cannot annotate one shows 'deferred' on
+ * the version itself, where the C1 status is available.
  */
 export function assetSummaryFallback(asset: {
   format: FormatId | null

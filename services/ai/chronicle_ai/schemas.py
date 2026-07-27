@@ -23,7 +23,7 @@ class StrictModel(BaseModel):
 
 # Kept explicit so it appears as an enum in the exported OpenAPI schema. A test
 # asserts it stays in step with the adapter registry in chronicle_ai.formats.
-SupportedFormat = Literal["png", "jpg", "jpeg", "psd"]
+SupportedFormat = Literal["png", "jpg", "jpeg", "psd", "psb", "svg", "blend", "obj", "step"]
 
 
 class ImageInput(StrictModel):
@@ -31,7 +31,13 @@ class ImageInput(StrictModel):
 
     base64: NonEmptyText
     media_type: Literal[
-        "image/png", "image/jpeg", "image/vnd.adobe.photoshop"
+        "image/png",
+        "image/jpeg",
+        "image/vnd.adobe.photoshop",
+        "image/svg+xml",
+        "application/x-blender",
+        "model/obj",
+        "model/step",
     ] = Field(alias="mediaType")
     format: SupportedFormat
 

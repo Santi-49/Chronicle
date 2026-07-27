@@ -8,7 +8,7 @@ describe('friendlyError', () => {
     )
 
     expect(friendlyError(error)).toBe(
-      'Google sign-in timed out. Nothing changed—try again when you are ready.',
+      'Google sign-in timed out. Nothing changed. Try again when you are ready.',
     )
   })
 

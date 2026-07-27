@@ -32,9 +32,17 @@ It does not add a new server.
 1. **Use the existing public GitHub repository as the feed.** Configure electron-builder's GitHub
    publisher explicitly for `Santi-49/Chronicle`; do not rely on the redirected local Git remote or
    a token on the installed machine.
-2. **Windows x64, stable channel, NSIS only.** Run the updater only when
-   `process.platform === "win32"` and `app.isPackaged`. Development, unpacked builds, macOS, and
+2. **Windows x64, stable channel, NSIS only, for in-place updating.** Run `electron-updater` only
+   when `process.platform === "win32"` and `app.isPackaged`. Development, unpacked builds, and
    Linux return an `unsupported` state and make no update request.
+2a. **macOS detects only (added 2026-07-27).** An unsigned, unnotarized bundle has no Squirrel.Mac
+   install path, so packaged macOS must not pretend to auto-update. It instead reads the public
+   `releases/latest` metadata on the same schedule and, when the published tag is a higher version,
+   reports `phase: "available"` with `delivery: "manual"` — a terminal state that never reports
+   download progress and never reaches `ready`. Its single action opens that release's
+   `Chronicle-<version>-mac-<arch>.dmg` in the default browser (falling back to any published DMG,
+   then the release page); the URL stays in the main process and only `openUpdateDownload()`
+   crosses C1. No `latest-mac.yml` is published, because nothing consumes it.
 3. **Download automatically; install explicitly.** A discovered release may download in the
    background, but set `autoInstallOnAppQuit = false`. Apply it only from a visible
    **Restart to update** action using `quitAndInstall`. This avoids surprising installation during
@@ -316,8 +324,10 @@ Update:
   through **Restart to update**.
 - Local data, install choices, and core workflows survive the update.
 - Launch and core use remain normal with no network.
+- An installed macOS build detects a higher published release, opens its DMG in the browser, and
+  never claims to install one itself.
 - Bootstrap limitations, ordinary GitHub connection metadata, SmartScreen, unsigned-update trust,
   hotfix rollback, Windows signing migration, mandatory-enforcement activation gates, restricted
-  mode/local-data guarantees, and disabled macOS auto-update are documented.
+  mode/local-data guarantees, and macOS detect-only delivery are documented.
 - Tests, package/resource checks, and the clean-profile matrix are attached to the PR or release
   evidence.

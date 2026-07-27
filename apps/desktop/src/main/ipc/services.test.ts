@@ -13,6 +13,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ChronicleEventName, ChronicleEvents } from '../../shared/ipc'
+import { REMOVED_ASSET_RETENTION_DAYS } from '../../shared/ipc'
 import { DATABASE_FILE_NAME, openChronicleDb, type ChronicleDb } from '../db/database'
 import {
   appendVersion,
@@ -33,7 +34,7 @@ import {
 import { MAX_FILE_BYTES } from '../watcher/rules'
 import { SUPPORTED_EXTENSIONS } from '../../shared/formats'
 import { objCube, pngBytes } from '../formats/fixtures'
-import { captureVersion, libraryFilePathFor } from '../versioning'
+import { captureVersion, libraryFilePathFor, markFileMissing } from '../versioning'
 import { API_METHOD_NAMES } from './channels'
 import { imageUrlForHash, parseChronicleUrl, previewUrlForHash, thumbnailUrlForHash } from './media'
 import {
@@ -411,6 +412,91 @@ describe('tracked folders and capture events', () => {
     ).rejects.toThrow(/mode must be/)
   })
 
+  it(
+    'a deleted file is announced, dated, and kept out of the on-disk set',
+    async () => {
+      const capture = await seedCapture('gone.png', pngBytes(16, 16))
+      await services.api.addFolder(workDir)
+      await waitFor(
+        async () => (await services.api.listAssets()).length === 1,
+        'the initial scan',
+      )
+
+      fs.rmSync(path.join(workDir, 'gone.png'))
+
+      await waitFor(
+        () => eventsOf('assetMissing').some((e) => e.assetId === capture.assetId),
+        'the assetMissing event',
+      )
+      const asset = (await services.api.listAssets()).find((item) => item.id === capture.assetId)
+      expect(asset?.onDisk).toBe(false)
+      // The stamp starts the retention window the renderer counts down from.
+      expect(asset?.missingSince).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+      expect(asset?.versionCount).toBe(1)
+    },
+    20_000,
+  )
+
+  it('deleteAssetHistory erases a removed file, its blob, and announces it', async () => {
+    const capture = await seedCapture('dropped.png', pngBytes(18, 18))
+    const version = getVersion(db, capture.versionId)!
+    const blobPath = libraryFilePathFor(libraryRoot, version.contentHash)
+    fs.rmSync(path.join(workDir, 'dropped.png'))
+    markFileMissing(db, path.join(workDir, 'dropped.png'))
+
+    const result = await services.api.deleteAssetHistory([capture.assetId])
+
+    expect(result).toEqual({ deletedAssets: 1, deletedVersions: 1 })
+    expect(await services.api.listAssets()).toHaveLength(0)
+    expect(getVersion(db, capture.versionId)).toBeUndefined()
+    expect(fs.existsSync(blobPath)).toBe(false)
+    expect(eventsOf('assetsDeleted')).toContainEqual({ assetIds: [capture.assetId] })
+  })
+
+  it('deleteAssetHistory refuses a file that is still on disk', async () => {
+    const capture = await seedCapture('live.png', pngBytes(19, 19))
+
+    await expect(services.api.deleteAssetHistory([capture.assetId])).rejects.toThrow(
+      /still on disk/,
+    )
+
+    expect(getVersion(db, capture.versionId)).toBeDefined()
+    await expect(services.api.deleteAssetHistory([9_999])).rejects.toThrow(/Unknown asset/)
+    await expect(services.api.deleteAssetHistory(1.5 as never)).rejects.toThrow(TypeError)
+    await expect(services.api.deleteAssetHistory([0])).rejects.toThrow(TypeError)
+    await expect(services.api.deleteAssetHistory([])).resolves.toEqual({
+      deletedAssets: 0,
+      deletedVersions: 0,
+    })
+  })
+
+  it('startup deletes removed files whose retention window ended, and keeps the rest', async () => {
+    const expired = await seedCapture('expired.png', pngBytes(21, 21))
+    const recent = await seedCapture('recent.png', pngBytes(22, 22))
+    const present = await seedCapture('present.png', pngBytes(23, 23))
+    for (const name of ['expired.png', 'recent.png']) {
+      const filePath = path.join(workDir, name)
+      fs.rmSync(filePath)
+      markFileMissing(db, filePath)
+    }
+    // Age one removal past the contractual window.
+    db.prepare('UPDATE assets SET missing_since = ? WHERE id = ?').run(
+      new Date(Date.now() - (REMOVED_ASSET_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000).toISOString(),
+      expired.assetId,
+    )
+
+    const instance = buildServices()
+    extraServices.push(instance)
+    instance.start()
+
+    await waitFor(
+      async () => (await services.api.listAssets()).every((a) => a.id !== expired.assetId),
+      'the expired removal to be swept',
+    )
+    const remaining = (await services.api.listAssets()).map((asset) => asset.id).sort()
+    expect(remaining).toEqual([recent.assetId, present.assetId].sort())
+  })
+
   it('scanFolder lists supported files with sizes, skipping temp/hidden/unsupported', async () => {
     fs.mkdirSync(path.join(workDir, 'sub'), { recursive: true })
     writeFile('logo.png', pngBytes(10, 10))
@@ -519,7 +605,16 @@ describe('timeline and version details', () => {
     for (const v of timeline) expect(parseChronicleUrl(v.thumbnailUrl!)).not.toBeNull()
   })
 
-  it('reports a format the AI cannot annotate yet as deferred, not pending', async () => {
+  it('reports a format the running AI service cannot annotate as deferred, not pending', async () => {
+    // Every format has an adapter since POST-02, so the only honest source for
+    // this state is what the running service reports — here, an older sidecar.
+    await services.dispose()
+    services = buildServices({
+      annotationCapabilities: {
+        formats: async () => ['png', 'jpg'],
+        isDeferred: (format) => format !== null && !['png', 'jpg'].includes(format.id),
+      },
+    })
     const { versionId } = await seedCapture('model.obj', Buffer.from(objCube()))
 
     const details = await services.api.getVersionDetails(versionId)

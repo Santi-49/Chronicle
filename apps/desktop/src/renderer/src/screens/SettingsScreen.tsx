@@ -105,22 +105,27 @@ export function SettingsScreen({
 }
 
 function AboutSection() {
-  const { state, check, restart } = useUpdates()
+  const { state, check, restart, openDownload } = useUpdates()
   const [checking, setChecking] = useState(false)
   const [actionError, setActionError] = useState('')
   const checkedLabel = state?.checkedAt
     ? new Date(state.checkedAt).toLocaleString()
     : 'Not checked yet'
+  // macOS is unsigned, so it detects a release and hands off the installer;
+  // Windows downloads and installs it in place.
+  const manual = state?.delivery === 'manual'
   const statusLabel =
     state?.phase === 'unsupported'
-      ? 'Automatic updates are available in the installed Windows app.'
+      ? 'Update checks run in the installed app.'
       : state?.phase === 'checking'
         ? 'Checking for updates…'
-        : state?.phase === 'available' || state?.phase === 'downloading'
-          ? `Chronicle ${state.availableVersion} is downloading.`
-          : state?.phase === 'ready'
-            ? `Chronicle ${state.availableVersion} is ready to install.`
-            : state?.error ?? 'Chronicle is up to date.'
+        : state?.phase === 'available' && manual
+          ? `Chronicle ${state.availableVersion} is available to download.`
+          : state?.phase === 'available' || state?.phase === 'downloading'
+            ? `Chronicle ${state.availableVersion} is downloading.`
+            : state?.phase === 'ready'
+              ? `Chronicle ${state.availableVersion} is ready to install.`
+              : state?.error ?? 'Chronicle is up to date.'
 
   const runCheck = async () => {
     setChecking(true)
@@ -134,13 +139,27 @@ function AboutSection() {
     }
   }
 
+  const runDownload = async () => {
+    setActionError('')
+    try {
+      await openDownload()
+    } catch {
+      setActionError('Chronicle could not open the download. Try the update help page below.')
+    }
+  }
+
   return (
     <section className="settings-section" id="about-settings">
       <div className="settings-section-heading">
         <Icon name="info" />
         <div>
           <h2>About & updates</h2>
-          <p>Chronicle {state?.currentVersion ?? __APP_VERSION__} · Windows updates use public GitHub Releases.</p>
+          <p>
+            Chronicle {state?.currentVersion ?? __APP_VERSION__} ·{' '}
+            {manual
+              ? 'macOS checks public GitHub Releases and you install the download yourself.'
+              : 'Windows updates use public GitHub Releases.'}
+          </p>
         </div>
       </div>
       <div className="about-update-status" aria-live="polite">
@@ -150,7 +169,13 @@ function AboutSection() {
           <small>Update checks never include project files, paths, credentials, or account data.</small>
         </div>
         <div className="about-update-actions">
-          {state?.phase === 'ready' && (
+          {state?.phase === 'available' && manual && (
+            <button className="primary-button" onClick={() => void runDownload()} type="button">
+              <Icon name="download" />
+              Download Chronicle {state.availableVersion}
+            </button>
+          )}
+          {state?.phase === 'ready' && !manual && (
             <button className="primary-button" onClick={() => void restart()} type="button">
               Restart to update
             </button>
@@ -398,7 +423,7 @@ function StartupSection() {
               {!system?.openAtLoginSupported
                 ? (system?.unsupportedReason ?? 'Starting at login is available in the installed app.')
                 : windowForced
-                  ? 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete. The window opens because background capture is off — without a tray icon there would be no way to reach Chronicle.'
+                  ? 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete. The window opens because background capture is off, and without a tray icon there would be no way to reach Chronicle.'
                   : 'Saves made while Chronicle is closed are not recorded individually, so starting automatically keeps the history complete.'}
             </small>
           </span>
@@ -437,7 +462,7 @@ function TrackedFoldersSection({ onAddProject }: { onAddProject: () => void }) {
     <section className="settings-section">
       <div className="settings-section-heading">
         <Icon name="folder-plus" />
-        <div><h2>Tracked folders</h2><p>PNG and JPG files in these folders are versioned automatically.</p></div>
+        <div><h2>Tracked folders</h2><p>Supported creative files in these folders are versioned automatically. Each project chooses which file types it captures.</p></div>
       </div>
       {folders.length === 0 ? (
         <p className="settings-empty">No folders tracked yet.</p>
@@ -1052,7 +1077,7 @@ function AccountSection({
               onChange={(event) => void updateControlPlane({ telemetryOptIn: event.target.checked })}
               type="checkbox"
             />
-            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends app activity, provider/model usage, sanitized failures, count snapshots, and coarse location derived by Cloudflare—never creative files, names, paths, summaries, tags, search text, credentials, or raw IP.</small></span>
+            <span><strong>Help improve Chronicle</strong><small>Enabled by default. Sends app activity, provider/model usage, sanitized failures, count snapshots, and coarse location derived by Cloudflare. It never includes creative files, names, paths, summaries, tags, search text, credentials, or raw IP.</small></span>
           </label>
           <label className="toggle-field">
             <input

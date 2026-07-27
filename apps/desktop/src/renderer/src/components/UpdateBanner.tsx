@@ -9,18 +9,18 @@ import {
 } from './updateBannerCopy'
 
 export function UpdateBanner() {
-  const { state, restart } = useUpdates()
+  const { state, restart, openDownload } = useUpdates()
   const [laterVersion, setLaterVersion] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const actionRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [ignoredVersion, setIgnoredVersion] = useState(() => readIgnoredUpdateVersion())
-  const [restartError, setRestartError] = useState('')
+  const [actionError, setActionError] = useState('')
   const version = state?.availableVersion ?? null
-  const copy = state ? updateBannerCopy(state) : null
+  const presentation = state ? updateBannerCopy(state) : null
 
   useEffect(() => {
-    setRestartError('')
+    setActionError('')
   }, [version])
 
   useEffect(() => {
@@ -51,11 +51,18 @@ export function UpdateBanner() {
     }
   }, [menuOpen])
 
-  const restartUpdate = () => {
+  const manual = presentation?.action === 'download'
+
+  // One primary action per delivery mode: Windows relaunches into the installed
+  // update, macOS opens the published installer in the browser.
+  const runPrimaryAction = () => {
     setMenuOpen(false)
-    setRestartError('')
-    void restart().catch(() => {
-      setRestartError('Chronicle could not restart. Try again or reopen the app.')
+    setActionError('')
+    const attempt = manual ? openDownload() : restart()
+    void attempt.catch(() => {
+      setActionError(manual
+        ? 'Chronicle could not open the download. Try again, or use Update help in Settings.'
+        : 'Chronicle could not restart. Try again or reopen the app.')
     })
   }
 
@@ -68,7 +75,7 @@ export function UpdateBanner() {
 
   if (
     !state
-    || !copy
+    || !presentation
     || !version
     || laterVersion === version
     || ignoredVersion === version
@@ -76,7 +83,7 @@ export function UpdateBanner() {
     return null
   }
 
-  if (state.phase === 'available' || state.phase === 'downloading') {
+  if (presentation.action === 'progress') {
     return (
       <aside
         className="update-banner update-banner-downloading"
@@ -84,7 +91,7 @@ export function UpdateBanner() {
         aria-live="polite"
       >
         <span aria-hidden="true" className="update-spinner" />
-        <span>{copy}</span>
+        <span>{presentation.copy}</span>
       </aside>
     )
   }
@@ -92,15 +99,17 @@ export function UpdateBanner() {
   return (
     <aside
       className="update-banner update-banner-ready"
-      aria-label="Application update ready"
+      aria-label={manual ? 'Application update available' : 'Application update ready'}
       aria-live="polite"
     >
       <button
         aria-expanded={menuOpen}
         aria-haspopup="menu"
-        aria-label={`${copy}, Chronicle ${version}. Click to restart. Right-click for more options.`}
+        aria-label={`${presentation.copy}, Chronicle ${version}. Click to ${
+          manual ? 'download' : 'restart'
+        }. Right-click for more options.`}
         className="update-ready-action"
-        onClick={restartUpdate}
+        onClick={runPrimaryAction}
         onContextMenu={(event) => {
           event.preventDefault()
           setMenuOpen(true)
@@ -112,12 +121,16 @@ export function UpdateBanner() {
           }
         }}
         ref={actionRef}
-        title="Click to restart · Right-click for more options"
+        title={
+          manual
+            ? 'Click to download · Right-click for more options'
+            : 'Click to restart · Right-click for more options'
+        }
         type="button"
       >
         <span className="update-ready-icon"><ChronicleMark size={24} /></span>
         <span className="update-ready-copy">
-          <strong>{copy}</strong>
+          <strong>{presentation.copy}</strong>
           <small>v{version}</small>
         </span>
         <Icon className="update-ready-chevron" name="chevron-right" />
@@ -130,11 +143,11 @@ export function UpdateBanner() {
           role="menu"
         >
           <span className="update-context-menu-title">Update options</span>
-          <button onClick={restartUpdate} role="menuitem" type="button">
-            <Icon name="refresh" />
+          <button onClick={runPrimaryAction} role="menuitem" type="button">
+            <Icon name={manual ? 'download' : 'refresh'} />
             <span>
-              <strong>Restart now</strong>
-              <small>Install v{version}</small>
+              <strong>{manual ? 'Download installer' : 'Restart now'}</strong>
+              <small>{manual ? `Opens v${version} in your browser` : `Install v${version}`}</small>
             </span>
           </button>
           <button
@@ -160,7 +173,7 @@ export function UpdateBanner() {
           </button>
         </div>
       )}
-      {restartError && <span className="update-banner-error" role="alert">{restartError}</span>}
+      {actionError && <span className="update-banner-error" role="alert">{actionError}</span>}
     </aside>
   )
 }

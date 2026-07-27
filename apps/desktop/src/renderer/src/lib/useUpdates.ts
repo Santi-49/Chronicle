@@ -5,7 +5,10 @@ import { chronicle } from './bridge'
 export interface UpdatesApi {
   state: UpdateState | undefined
   check: () => Promise<void>
+  /** Automatic delivery (packaged Windows). */
   restart: () => Promise<void>
+  /** Manual delivery (packaged macOS) — opens the published installer in the browser. */
+  openDownload: () => Promise<void>
 }
 
 export function useUpdates(): UpdatesApi {
@@ -24,5 +27,9 @@ export function useUpdates(): UpdatesApi {
     await chronicle.restartToUpdate()
   }, [])
 
-  return { state, check, restart }
+  const openDownload = useCallback(async () => {
+    await chronicle.openUpdateDownload()
+  }, [])
+
+  return { state, check, restart, openDownload }
 }

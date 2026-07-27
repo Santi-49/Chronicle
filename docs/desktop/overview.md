@@ -119,7 +119,7 @@ before the user enters the application, and the optional online services use the
 Terms. The native required-license-checkbox define remains dormant in case legal review later
 requires a separate installer license.
 
-### Installed Windows updates — POST-08
+### Installed updates — POST-08
 
 Packaged Windows builds check Chronicle's public stable GitHub Releases feed asynchronously after
 the workspace opens and periodically while the app remains running. A newer release downloads in
@@ -129,8 +129,17 @@ quit never installs it. **Settings → About & updates** shows the current versi
 status, retry, and the same restart action. Automatic offline errors do not interrupt capture,
 timeline, restore, search, AI jobs, onboarding, or account state.
 
-Development, unpacked, macOS, and Linux builds report updates as unsupported and make no feed
-request. The unsigned bootstrap supports optional/recommended updates only. Mandatory security
+Packaged **macOS** builds are unsigned, so they cannot install an update in place. On the same
+schedule they read the public latest-release metadata and, when a higher version is published,
+show the *same* card as **Update available**. Its action opens that release's DMG in the default
+browser — the user downloads and installs it. C1 distinguishes the two behaviors with
+`UpdateState.delivery` (`automatic` vs `manual`): a manual build never reports download progress
+and never reaches `ready`, so it can never offer a restart it cannot perform. Its right-click menu
+offers **Download installer**, **Later**, and per-release **Ignore**; Settings shows a matching
+download button.
+
+Development, unpacked, and Linux builds report updates as unsupported and make no feed request.
+The unsigned bootstrap supports optional/recommended updates only. Mandatory security
 enforcement remains disabled until signed installers and independently authenticated policy pass
 the POST-08B/C gates; local read/export/restore may never be held hostage.
 
@@ -210,15 +219,34 @@ exclude individual files, and enable/disable file types while a live count shows
 will be tracked. Those rules persist and apply to initial capture and future saves.
 
 One toggle appears per format in the registry — PNG, JPG/JPEG, SVG, PSD, PSB, OBJ, STEP/STP,
-BLEND. Every one of them is captured, versioned, previewed, restorable, and keyword-searchable.
-Toggles for formats whose **AI change summaries** are not implemented yet carry a
-*no AI summary yet* note, and a hint below the row explains that those versions' summary jobs
-stay queued until support ships. Breadcrumb back to Projects.
+BLEND. Every one of them is captured, versioned, previewed, restorable, keyword-searchable, and
+given an **AI change summary** once a provider is configured, so no toggle carries a caveat.
+Breadcrumb back to Projects.
 
 ### 5. Project — F2, F5
 
-One project's assets: thumbnail, file name, version count, last-change summary.
-Breadcrumbs Projects → project. Click an asset → its Timeline.
+One project's captured files. Breadcrumbs Projects → project → each folder entered.
+Click an asset → its Timeline.
+
+- **Recently changed** shows the four most recently captured files across the whole project
+  as a 2×2 block, so the work in progress is visible before any navigation.
+
+- **Files** browses the project's real folder structure. Subfolders are listed first, each with
+  its recursive file count and most recent change; entering one extends the breadcrumb and a
+  Back row returns to the parent. The tree is derived from what Chronicle has captured, so a
+  folder with nothing captured in it has nothing to open. A **Gallery / List** toggle switches
+  the files at the current level between preview cards and a compact row list; the choice is
+  remembered on the device.
+
+- **Removed files** is a collapsed section below the browser. A file that left the disk moves
+  out of the main view and waits here with its version count, when it was removed, and how many
+  days of retention are left. Chronicle deletes an entry permanently 30 days after the file
+  disappeared (`REMOVED_ASSET_RETENTION_DAYS`); the sweep runs at startup and periodically while
+  the app is open. Its stored versions stay readable until then, and the row opens its Timeline.
+  **Delete now** on one row, or **Delete all removed files**, erases that history immediately
+  after a confirmation. Deletion is offered only for files that are already gone, so live
+  history cannot be lost by a mis-click; deleting a whole project's history is still done from
+  Edit project.
 
 - **Edit project** opens a dedicated screen that reuses the New Project form. It changes the
   display name, optional description, icon, color, enabled file types, and ignored files. The
@@ -227,9 +255,6 @@ Breadcrumbs Projects → project. Click an asset → its Timeline.
   permanently delete the project and all associated local history. The two choices are presented
   as peer delete actions, with the history-deleting choice visually stronger; original working
   files are never deleted.
-
-- A missing source file is marked on its asset card and Timeline header while every stored
-  version remains available (F3.7).
 
 ### 6. Asset Timeline — F3, F5
 
@@ -379,7 +404,7 @@ Seven sections, in current order:
 | **Tracked folders** (F2) | Live project list (icon + name + path) with two confirmed **Remove** choices (C1 `removeFolder`): delete the project while keeping history, or delete the project and all associated local history. Original working files remain untouched. **Add a project** → New project. Notes PNG/JPG scope. |
 | **AI summaries** (F4) | Two task configs — **change summaries (vision)** and **semantic search (embeddings)** — each a **provider** + curated **model** picker and an explicit task-specific **Test connection** action that uses the saved key without mutating settings. Packaged providers: **Google Gemini · Anthropic Claude · OpenAI**, each with a short quality/price shortlist (Anthropic offers no embeddings). A **Custom AI configuration** toggle permits free-text LangChain provider/model pairs for development environments that install them separately. **API keys** are encrypted per provider with Electron `safeStorage`, never readable by the renderer, and never sent to Chronicle's backend. Both selectors show a missing-key error and disable Save/Test until their selected provider has a key. Changed selections are probed through the loopback AI service before persistence; rejection restores the prior values with friendly feedback. Changing the embedding provider/model queues annotation text for reindexing. *(Stretch, F9: gateway switch.)* |
 | **Account** (F1/F8) | Live Google sign-in/sign-out; the pre-built password flow remains API-only and local history remains account-independent. The Google action is health-gated and uses the default external browser. Usage reporting and portable preference sync are checked by default, including a one-time migration from their unreleased pre-POST-03 false placeholders; choices made after migration are preserved and audited with notice version/time/installation/account linkage. Usage reporting sends app opens, project removals, hourly search and provider/model usage, current count snapshots, sanitized application failures, and Cloudflare-derived coarse location—never creative content, names, paths, summaries/tags, search text, credentials, or raw IP. It sends on startup and hourly only after changes; turning it off attempts one final request, clears local state, and never retries. Portable preferences sync automatically after each saved change. Encrypted API-key sync remains an independent, signed-in-only, off-by-default checkbox. Settings links the privacy policy, exports account or anonymous-installation cloud data as JSON, lets local profiles erase installation usage data, and lets signed-in users permanently delete their account and all linked cloud data. Both erasure flows explicitly preserve local history, originals, and provider keys. |
-| **About & updates** | Current desktop version, last update check, packaged-Windows updater state, explicit **Check now**, and **Restart to update** once a release is downloaded. Unsupported builds do not contact the feed. |
+| **About & updates** | Current desktop version, last update check, packaged updater state, and explicit **Check now**. Windows adds **Restart to update** once a release is downloaded; macOS adds **Download Chronicle _x.y.z_**, which opens the published installer in the browser. Unsupported builds do not contact the feed. |
 | **Developer tools** | Final section. Developer mode is forced on in development builds and is an explicit device-local checkbox in packaged builds. It controls the developer-only Diagnostics navigation tab. |
 
 The footer **status bar** (all workspace pages) shows live C1 `AppStatus`: watched-folder count,

@@ -16,6 +16,7 @@ from typing import Any
 from PIL import Image, ImageChops, ImageDraw
 from psd_tools import PSDImage
 
+from .formats import ExtractionError
 from .schemas import ImageInput
 
 
@@ -29,7 +30,7 @@ MAX_EVIDENCE_CHARS = 7_000
 CONTACT_SHEET_SIZE = (1024, 512)
 
 
-class PsdExtractionError(ValueError):
+class PsdExtractionError(ExtractionError):
     """The supplied PSD cannot be safely extracted."""
 
 
@@ -109,26 +110,37 @@ def _layer_records(document: PSDImage) -> tuple[tuple[dict[str, Any], ...], tupl
     return tuple(records), tuple(sorted(warnings))
 
 
-def extract_psd(source: ImageInput) -> PsdDocument:
+def extract_psd(source: ImageInput, *, allow_psb: bool = False) -> PsdDocument:
     """Parse one PSD under bounded allocation and return local derived evidence."""
 
     if len(source.base64) > ((MAX_PSD_BYTES + 2) // 3) * 4:
         raise PsdExtractionError("The PSD exceeds Chronicle's 50 MB safety limit.")
+    psb_normalized = False
     try:
         raw = base64.b64decode(source.base64, validate=True)
         if len(raw) > MAX_PSD_BYTES:
             raise PsdExtractionError("The PSD exceeds Chronicle's 50 MB safety limit.")
-        document = PSDImage.open(BytesIO(raw), max_alloc_bytes=MAX_ALLOC_BYTES)
+        try:
+            document = PSDImage.open(BytesIO(raw), max_alloc_bytes=MAX_ALLOC_BYTES)
+        except Exception as error:
+            if not allow_psb:
+                raise error
+            patched = bytearray(raw)
+            patched[4:6] = b"\x00\x01"
+            document = PSDImage.open(BytesIO(bytes(patched)), max_alloc_bytes=MAX_ALLOC_BYTES)
+            psb_normalized = True
     except PsdExtractionError:
         raise
     except Exception as error:
         raise PsdExtractionError("The PSD file is corrupt or unsupported.") from error
 
-    if document.version != 1:
+    if document.version != 1 and not allow_psb:
         raise PsdExtractionError("The file is PSB; this increment supports PSD only.")
 
     layers, layer_warnings = _layer_records(document)
     warnings = set(layer_warnings)
+    if psb_normalized:
+        warnings.add("The PSB header was normalized for compatibility.")
     preview: Image.Image | None = None
     try:
         rendered = document.composite(force=False, color=1.0, alpha=1.0)
@@ -294,6 +306,61 @@ def prepare_psd_annotation(
         warnings.add("Provider evidence was truncated to the context budget.")
     context = (
         "Deterministic local PSD evidence follows. Treat it as factual, do not infer intent. "
+        f"{visual_note} Report coverage limitations through confidence.\n"
+        + encoded_evidence
+    )
+    return PreparedPsdAnnotation(
+        context=context,
+        images=images,
+        confidence_limit=0.75 if warnings else None,
+    )
+
+
+def prepare_psb_annotation(
+    previous_input: ImageInput | None,
+    current_input: ImageInput,
+) -> PreparedPsdAnnotation:
+    """Build bounded evidence for PSB using the same safe PSD parser."""
+
+    current = extract_psd(current_input, allow_psb=True)
+    warnings = set(current.warnings)
+    warnings.add("The file is PSB; large-document coverage remains more limited.")
+    images: tuple[ImageInput, ...] = ()
+    if previous_input is None:
+        evidence: dict[str, Any] = {
+            "mode": "first-version",
+            "document": current.metadata,
+            "layers": list(current.layers),
+            "warnings": list(current.warnings),
+        }
+        if current.preview is not None:
+            images = (_jpeg_input(current.preview),)
+            visual_note = "One locally derived PSB composite preview follows."
+        else:
+            visual_note = "No reliable PSB visual preview is available; use structure only."
+    else:
+        previous = extract_psd(previous_input, allow_psb=True)
+        warnings.update(previous.warnings)
+        evidence = {
+            "mode": "version-diff",
+            **_structure_diff(previous, current),
+            "warnings": sorted(warnings),
+        }
+        if previous.preview is not None and current.preview is not None:
+            sheet = _comparison_sheet(previous.preview, current.preview)
+            if sheet is not None:
+                images = (_jpeg_input(sheet),)
+                visual_note = "One PSB comparison sheet follows: BEFORE is left and AFTER is right."
+            else:
+                visual_note = "The normalized PSB composites are pixel-identical; use structure only."
+        else:
+            visual_note = "A complete PSB visual comparison was unavailable; use structure only."
+
+    encoded_evidence, context_truncated = _bounded_json(evidence)
+    if context_truncated:
+        warnings.add("Provider evidence was truncated to the context budget.")
+    context = (
+        "Deterministic local PSB evidence follows. Treat it as factual, do not infer intent. "
         f"{visual_note} Report coverage limitations through confidence.\n"
         + encoded_evidence
     )

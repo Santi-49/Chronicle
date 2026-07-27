@@ -17,7 +17,7 @@
  * from `GET /capabilities` and keeps a version's annotation job queued while its
  * format is absent, so a new format never fails a capture.
  */
-export type SupportedFormat = 'png' | 'jpg' | 'jpeg' | 'psd'
+export type SupportedFormat = 'png' | 'jpg' | 'jpeg' | 'psd' | 'psb' | 'svg' | 'blend' | 'obj' | 'step'
 
 /** What the running service implements — reported by `GET /capabilities`. */
 export interface ServiceCapabilities {
@@ -29,7 +29,14 @@ export interface ServiceCapabilities {
 /** Original creative-file bytes or a derived image preview supplied to annotation. */
 export interface ImageInput {
   base64: string
-  mediaType: 'image/png' | 'image/jpeg' | 'image/vnd.adobe.photoshop'
+  mediaType:
+    | 'image/png'
+    | 'image/jpeg'
+    | 'image/vnd.adobe.photoshop'
+    | 'image/svg+xml'
+    | 'application/x-blender'
+    | 'model/obj'
+    | 'model/step'
   format: SupportedFormat
 }
 

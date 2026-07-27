@@ -145,7 +145,7 @@ export interface components {
              * Format
              * @enum {string}
              */
-            format: "png" | "jpg" | "jpeg" | "psd";
+            format: "png" | "jpg" | "jpeg" | "psd" | "psb" | "svg" | "blend" | "obj" | "step";
             previous?: components["schemas"]["ImageInput"] | null;
             current: components["schemas"]["ImageInput"];
         };
@@ -286,12 +286,12 @@ export interface components {
              * Mediatype
              * @enum {string}
              */
-            mediaType: "image/png" | "image/jpeg" | "image/vnd.adobe.photoshop";
+            mediaType: "image/png" | "image/jpeg" | "image/vnd.adobe.photoshop" | "image/svg+xml" | "application/x-blender" | "model/obj" | "model/step";
             /**
              * Format
              * @enum {string}
              */
-            format: "png" | "jpg" | "jpeg" | "psd";
+            format: "png" | "jpg" | "jpeg" | "psd" | "psb" | "svg" | "blend" | "obj" | "step";
         };
         /** ServiceErrorDetail */
         ServiceErrorDetail: {

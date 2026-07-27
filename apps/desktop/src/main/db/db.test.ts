@@ -13,6 +13,7 @@ import {
   appendVersion,
   bumpJobRetry,
   createAsset,
+  deleteAssetsPermanently,
   deleteJob,
   deleteProjectHistory,
   enqueueEmbeddingReindexJobs,
@@ -27,6 +28,7 @@ import {
   getVersion,
   listAssets,
   listEmbeddings,
+  listExpiredMissingAssetIds,
   listJobs,
   listTrackedFolders,
   listVersions,
@@ -92,7 +94,7 @@ describe('startup', () => {
     }
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
-    expect(db.pragma('user_version', { simple: true })).toBe(8)
+    expect(db.pragma('user_version', { simple: true })).toBe(9)
   })
 
   it('repeat startup is idempotent and keeps existing data', () => {
@@ -104,6 +106,23 @@ describe('startup', () => {
     expect(listTrackedFolders(db)).toHaveLength(1)
     expect(listAssets(db)).toHaveLength(1)
     expect(db.pragma('foreign_keys', { simple: true })).toBe(1) // per-connection, must be re-set
+  })
+
+  it('starts the retention window at upgrade for files already missing', () => {
+    const { asset } = seedAssetWithVersion()
+    setAssetOnDisk(db, asset.id, false)
+    // Simulate a pre-v9 database, which recorded that a file was gone but not when.
+    db.prepare('UPDATE assets SET missing_since = NULL WHERE id = ?').run(asset.id)
+    db.pragma('user_version = 8')
+    db.close()
+
+    db = openChronicleDb(dbPath)
+
+    const upgraded = getAsset(db, asset.id)!
+    expect(upgraded.onDisk).toBe(false)
+    expect(upgraded.missingSince).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    // Nothing is deleted by the upgrade itself — the window starts now.
+    expect(listVersions(db, asset.id)).toHaveLength(1)
   })
 
   it('reconstructs deleted failed AI jobs when upgrading a v5 database', () => {
@@ -202,6 +221,74 @@ describe('assets', () => {
     setAssetOnDisk(db, asset.id, false)
     expect(getAsset(db, asset.id)?.onDisk).toBe(false)
     expect(listVersions(db, asset.id)).toHaveLength(1)
+  })
+
+  it('stamps missingSince once and clears it when the file returns', () => {
+    const { asset } = seedAssetWithVersion()
+    setAssetOnDisk(db, asset.id, false)
+    const stamped = getAsset(db, asset.id)!.missingSince
+    expect(stamped).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+
+    // Re-marking must not extend the retention window.
+    setAssetOnDisk(db, asset.id, false)
+    expect(getAsset(db, asset.id)?.missingSince).toBe(stamped)
+
+    setAssetOnDisk(db, asset.id, true)
+    expect(getAsset(db, asset.id)?.missingSince).toBeNull()
+  })
+
+  it('lists only removed assets whose retention window has expired', () => {
+    const { asset: expired } = seedAssetWithVersion('C:\\Designs\\old.png')
+    const { asset: recent } = seedAssetWithVersion('C:\\Designs\\new.png')
+    const { asset: present } = seedAssetWithVersion('C:\\Designs\\here.png')
+    setAssetOnDisk(db, expired.id, false)
+    setAssetOnDisk(db, recent.id, false)
+    db.prepare('UPDATE assets SET missing_since = ? WHERE id = ?').run(
+      '2020-01-01T00:00:00.000Z',
+      expired.id,
+    )
+
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const ids = listExpiredMissingAssetIds(db, cutoff)
+    expect(ids).toEqual([expired.id])
+    expect(ids).not.toContain(recent.id)
+    expect(ids).not.toContain(present.id)
+  })
+
+  it('permanently deletes assets with everything derived from them', () => {
+    const { asset, version } = seedAssetWithVersion()
+    const keptAsset = createAsset(db, 'C:\\Designs\\keep.png')
+    const sharedHash = 'd'.repeat(64)
+    appendVersion(db, { assetId: asset.id, contentHash: sharedHash, sizeBytes: 5 })
+    appendVersion(db, { assetId: keptAsset.id, contentHash: sharedHash, sizeBytes: 5 })
+    saveAnnotation(db, {
+      versionId: version.id,
+      summary: 'Initial logo',
+      changes: ['created'],
+      tags: ['logo'],
+      provider: 'google_genai',
+      model: 'gemini-flash-latest',
+    })
+    saveEmbedding(db, {
+      versionId: version.id,
+      vector: Float32Array.from([0.5, 0.25]),
+      sourceText: 'Initial logo',
+      model: 'gemini-embedding-001',
+    })
+    enqueueJob(db, 'ai_annotation', { versionId: version.id })
+    enqueueJob(db, 'telemetry', { kind: 'unrelated' })
+
+    const result = deleteAssetsPermanently(db, [asset.id])
+
+    expect(result.deletedAssets).toBe(1)
+    expect(result.deletedVersions).toBe(2)
+    // The shared hash is still referenced by the kept asset, so it is not orphaned.
+    expect(result.orphanedContentHashes).toEqual(['a'.repeat(64)])
+    expect(getAsset(db, asset.id)).toBeUndefined()
+    expect(getAsset(db, keptAsset.id)).toBeDefined()
+    expect(getAnnotation(db, version.id)).toBeUndefined()
+    expect(getEmbedding(db, version.id)).toBeUndefined()
+    expect(listJobs(db).map((job) => job.jobType)).toEqual(['telemetry'])
   })
 })
 

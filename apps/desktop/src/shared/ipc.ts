@@ -159,6 +159,13 @@ export interface AssetSummary {
   displayName: string
   path: string
   onDisk: boolean
+  /**
+   * When the file was first observed to be gone from disk; null while it is
+   * present. Chronicle keeps a removed file's history for
+   * `REMOVED_ASSET_RETENTION_DAYS` after this moment, then deletes it
+   * permanently (F3.7).
+   */
+  missingSince: string | null
   versionCount: number
   lastCapturedAt: string
   lastSummary: string | null
@@ -306,6 +313,19 @@ export interface ResetHistoryResult {
 /** Whether removing a project retains or permanently erases its local history. */
 export type ProjectRemovalMode = 'keep-history' | 'delete-history'
 
+/**
+ * How long a removed file's history is retained after its file disappears
+ * from disk (F3.7). The app deletes expired entries on its own; the renderer
+ * uses the same window to tell the user how long is left.
+ */
+export const REMOVED_ASSET_RETENTION_DAYS = 30
+
+/** Result of permanently deleting removed assets' stored history. */
+export interface DeleteAssetHistoryResult {
+  deletedAssets: number
+  deletedVersions: number
+}
+
 export interface AccountState {
   mode: 'local' | 'signed-in'
   email: string | null
@@ -321,7 +341,7 @@ export interface AppStatus {
   aiConfigured: boolean // false → UI shows "configure AI in Settings"
 }
 
-/** Packaged Windows application-update lifecycle. No feed URL or local path crosses IPC. */
+/** Packaged application-update lifecycle. No feed URL or local path crosses IPC. */
 export type UpdatePhase =
   | 'unsupported'
   | 'idle'
@@ -330,11 +350,20 @@ export type UpdatePhase =
   | 'downloading'
   | 'ready'
 
+/**
+ * How this build applies an update.
+ * - `automatic` — packaged Windows: downloaded in the background, installed on restart.
+ * - `manual` — packaged macOS: only detected. The unsigned app cannot replace itself,
+ *   so `available` is terminal and the user downloads the published installer.
+ */
+export type UpdateDelivery = 'automatic' | 'manual'
+
 export interface UpdateState {
   phase: UpdatePhase
+  delivery: UpdateDelivery
   currentVersion: string
   availableVersion: string | null
-  /** Rounded 0–100 download progress; null before a download begins. */
+  /** Rounded 0–100 download progress; null before a download begins, always null when manual. */
   percent: number | null
   /** Last completed check, including a failed manual/automatic check. */
   checkedAt: string | null
@@ -587,6 +616,13 @@ export interface ChronicleApi {
   getVersionDetails(versionId: number): Promise<VersionDetails>
   /** Destructive: replaces an asset's timeline with its latest snapshot as a fresh v1. */
   resetAssetHistory(assetId: number): Promise<ResetHistoryResult>
+  /**
+   * Destructive: permanently erases the stored history of removed files, ahead
+   * of the automatic `REMOVED_ASSET_RETENTION_DAYS` expiry. Only assets whose
+   * file is gone from disk may be deleted this way — a still-present file is
+   * rejected, so live history can never be lost by accident.
+   */
+  deleteAssetHistory(assetIds: number[]): Promise<DeleteAssetHistoryResult>
 
   // F6 — restore
   restoreVersion(versionId: number): Promise<RestoreResult>
@@ -677,12 +713,17 @@ export interface ChronicleApi {
    */
   setOpenAtLogin(enabled: boolean, opensWindow: boolean): Promise<SystemIntegrationState>
 
-  // Application update (packaged Windows only)
+  // Application update (packaged builds only)
   getUpdateState(): Promise<UpdateState>
   /** User-initiated check; single-flighted with the automatic check. */
   checkForUpdates(): Promise<UpdateState>
-  /** Valid only after updateStateChanged reports `ready`. */
+  /** Automatic delivery only; valid after updateStateChanged reports `ready`. */
   restartToUpdate(): Promise<void>
+  /**
+   * Manual delivery only: opens the published installer for the detected release in
+   * the operating system's browser. The URL stays in the main process.
+   */
+  openUpdateDownload(): Promise<void>
 }
 
 // ── Main → renderer (push events) ──────────────────────────────────────
@@ -692,6 +733,10 @@ export interface ChronicleEvents {
   versionCaptured: { assetId: number; versionId: number }
   /** An asset now has one fresh v1; all asset/timeline/detail views must refresh. */
   assetHistoryReset: { assetId: number; versionId: number }
+  /** A tracked file left the disk (F3.7) — it moves to the removed section. */
+  assetMissing: { assetId: number }
+  /** Stored history was permanently erased, by the user or by retention expiry. */
+  assetsDeleted: { assetIds: number[] }
   /** AI job finished or failed (F4) — update status chips. */
   annotationUpdated: { versionId: number; aiStatus: AiStatus }
   /** Anything in AppStatus changed — update the status bar. */
@@ -702,7 +747,7 @@ export interface ChronicleEvents {
   controlPlaneDiagnostic: ControlPlaneDiagnostic
   /** One structured application lifecycle/error event — update developer diagnostics. */
   applicationDiagnostic: ApplicationDiagnostic
-  /** Packaged Windows updater changed phase or download progress. */
+  /** The packaged updater changed phase or download progress. */
   updateStateChanged: UpdateState
 }
 

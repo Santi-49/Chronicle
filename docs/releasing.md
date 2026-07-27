@@ -177,6 +177,20 @@ the normal flow.
 For an exceptional forced version, use Release Please's documented `Release-As: X.Y.Z` commit
 footer and review the resulting release PR. Do not change the manifest and package version by hand.
 
+Because promotions are squash-merged, that footer only reaches Release Please when it sits in a
+commit the override generator actually selects — one matching `feat`/`fix`/`deps` **and** changing a
+desktop-release path. A footer typed into the promotion PR body is lost: the generated
+`BEGIN_COMMIT_OVERRIDE` block replaces the squash commit's message and is rebuilt on every push.
+When no such commit exists, set `release-as` on the `apps/desktop` package in
+`release-please-config.json` instead; it takes precedence over both the footer and conventional
+bumping.
+
+> **Open follow-up — remove `release-as` after `1.0.0` ships.** The config currently pins
+> `release-as: "1.0.0"` so the first stable version is a deliberate team choice rather than an
+> inferred bump. Delete that line in the first `dev` change after the `v1.0.0` release merges.
+> Left in place it re-proposes an already-published version and leaves a release PR that cannot
+> release. `bump-minor-pre-major` becomes inert at `1.0.0` and may be removed at the same time.
+
 ## Packaged AI providers
 
 Both native sidecars bundle **Google Gemini, OpenAI, and Anthropic Claude**. Their packaging smoke
@@ -226,3 +240,20 @@ release is a manual bootstrap.
 
 A bad release is recovered with a higher patch version, never by replacing assets or forcing a
 downgrade. Record both release URLs and the clean-profile evidence before closing POST-08.
+
+## macOS update-notice acceptance
+
+The macOS DMG is unsigned and unnotarized, so it cannot install an update in place. The installed
+app only *detects* one: it reads `https://api.github.com/repos/Santi-49/Chronicle/releases/latest`
+and, when the published tag is a higher version, shows the same card as **Update available**. The
+action opens that release's `Chronicle-<version>-mac-<arch>.dmg` in the default browser — falling
+back to any published DMG, then to the release page — and the user installs it. macOS therefore
+needs no `latest-mac.yml`, and the existing `gh release upload` of the DMG is enough.
+
+1. Install `vA` manually on a Mac and publish a higher stable `vB`.
+2. Confirm `vA` shows **Update available** with `vB`'s number, that the browser opens the correct
+   architecture's DMG, and that nothing is installed automatically.
+3. Confirm **Later** and **Skip this version** suppress the card, and that
+   **Settings → About & updates** shows the same status plus a working **Check now**.
+4. Repeat with the network blocked: the check fails silently, an already-detected release stays
+   actionable, and capture/timeline/restore remain fully usable.

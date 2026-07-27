@@ -69,11 +69,14 @@ Per-format behavior (header parsing, preview generation) lives in
 safety rules every handler follows.
 
 Capturing and displaying a format is independent from summarizing it. The AI
-service publishes the formats it can annotate through `GET /capabilities`; a
-captured version whose format has no adapter yet keeps its annotation job
-**queued** and is shown as such, rather than failing. So a format can ship to
-users — versioned, previewed, restorable, keyword-searchable — before its AI
-adapter exists, and the queued work drains automatically when that lands.
+service publishes the formats it can annotate through `GET /capabilities`, and
+the app asks rather than assumes: a captured version the running service cannot
+annotate keeps its annotation job **queued** and is shown as such, rather than
+failing. So a format can ship to users — versioned, previewed, restorable,
+keyword-searchable — before its AI adapter exists, and the queued work drains
+automatically when that lands. As of POST-02 every declared format has an
+adapter, so this state now only appears when an older sidecar is running beside
+a newer app.
 
 Derived previews (PSD/PSB, OBJ, BLEND) are generated lazily on first request
 and cached beside the library under their content hash. Capture stays a
@@ -177,9 +180,8 @@ Each feature states its rules and a "done when" test. **Scope labels:** `MVP` mu
   (`apps/desktop/src/shared/formats.ts`), matched case-insensitively: `.png`,
   `.jpg`/`.jpeg`, `.svg`, `.psd`, `.psb`, `.obj`, `.step`/`.stp`, `.blend`
   (POST-02). Anything else is ignored. Each type is a toggle in the project
-  form; types whose AI change summaries are not implemented yet are labelled as
-  such on the toggle, because capture, versioning, preview, restore, and keyword
-  search work for them while their summaries stay queued.
+  form, and every one of them is captured, versioned, previewed, restorable,
+  keyword-searchable, and AI-summarized.
 - Hidden files/folders and temp files (e.g. `~$…`, `.tmp`, editor autosave/swap files) are ignored.
 - **Startup & background** settings decide when watching happens: keep capturing after the window
   closes (default on, tray-resident), start Chronicle at sign-in, and whether that sign-in launch
@@ -201,7 +203,8 @@ The heart of the product. Exact rules:
 4. If the file path is new → create an **Asset** with **version 1**. Otherwise → append **version N+1** to the existing asset.
 5. The file bytes are copied into the library under their hash; the version record stores: version number, hash, timestamp, file size, image dimensions.
 6. Files over **50 MB** are skipped with a visible notice.
-7. **Identity = file path** (MVP): renaming or moving a file starts a new asset. Deleting a file keeps its history visible, marked "file no longer on disk". *(Known limitation — say it in the README; content-hash identity across renames is future work.)*
+7. **Identity = file path** (MVP): renaming or moving a file starts a new asset. Deleting a file keeps its history, moved out of the project's main view into a **Removed files** section and stamped with the moment it went missing. *(Known limitation — say it in the README; content-hash identity across renames is future work.)*
+7b. **Removed-file retention:** a removed file's history is kept for **30 days** after it disappeared, then deleted permanently (assets, versions, annotations, embeddings, keyword rows, queued AI work, and any library blob no other version references). The sweep runs at startup and periodically while the app is open, so a rarely opened app still catches up. The user may delete a removed file's history sooner, individually or all at once, from the Removed files section. Deletion is refused for a file that is still on disk; the whole of a project's history is deleted through project removal instead. A file that comes back clears its stamp and resumes normal capture.
 8. Hashing and copying never block the UI.
 9. Capture requires Chronicle to be **running**, not **open**. By default, closing the window
    leaves it resident in the notification area still watching, hashing, annotating, and indexing;
@@ -216,7 +219,7 @@ The heart of the product. Exact rules:
   it keeps the latest stored snapshot as a fresh v1, removes that asset's prior timeline and
   derived AI/search records, and queues a new initial-version annotation. Content-addressed
   library blobs may remain until safe orphan cleanup because bytes can be shared across assets.
-- **Done when:** edit + save an image 3 times → exactly 3 versions with correct numbering; save with no visual change but identical bytes → no version; version appears < 5 s after the save settles.
+- **Done when:** edit + save an image 3 times → exactly 3 versions with correct numbering; save with no visual change but identical bytes → no version; version appears < 5 s after the save settles; delete a tracked file → it leaves the main view for Removed files with a retention countdown, and deleting it there erases its versions and unreferenced bytes.
 
 ### F4 — AI change summary (the "commit message") `MVP`
 
@@ -243,6 +246,9 @@ The heart of the product. Exact rules:
 ### F5 — Timeline & version details `MVP`
 
 - **Assets screen:** every tracked image with thumbnail, name, version count, last-change summary.
+- **Project screen:** the four most recently changed files, then the project's own folder
+  structure, navigable into subfolders, with a gallery/list toggle for the current level.
+  Removed files sit in their own section (F3.7b) rather than among the live ones.
 - **Timeline screen:** one asset's versions newest-first, each with thumbnail, version number, date, AI summary.
 - **Details screen:** full preview, complete AI output (summary, changes, tags), metadata, and the **Restore** button.
 - Keyboard-navigable; cached history and metadata work offline.
@@ -298,10 +304,13 @@ Only after everything above works. Landing page = marketing only, no product fun
 
 ### Explicitly out of scope (MVP)
 
-**AI change summaries** for `.svg`, `.psb`, `.obj`, `.step`/`.stp`, and `.blend` (their capture,
-preview, restore, and keyword search shipped in POST-02; their annotation jobs stay queued) ·
 Word/PDF remain out · rename/move tracking · side-by-side visual diff · branching · cloud
 sync/collaboration · delta storage/compression · auto-updates · code signing · mobile/web clients.
+
+*(No longer out of scope: AI change summaries for `.svg`, `.psb`, `.obj`, `.step`/`.stp`, and
+`.blend`. POST-02 shipped their adapters and the desktop app now sends every captured format for
+annotation. A version is only left queued — status `deferred` — when the AI service actually
+running reports it cannot annotate that format.)*
 
 Deliberately not attempted for the new formats: rendering a `.blend` scene (that needs Blender
 itself; only the thumbnail Blender embeds is read), faithful PSD layer compositing (the embedded

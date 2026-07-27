@@ -118,11 +118,15 @@ async function runCapture(
 }
 
 /**
- * F3.7 — a previously captured file disappeared from disk. History stays;
- * the asset is only flagged so the UI can say "file no longer on disk".
- * Unknown paths (e.g. a never-captured file deleted) are a no-op.
+ * F3.7 — a previously captured file disappeared from disk. History stays; the
+ * asset is flagged (and its retention window started) so the UI can move it to
+ * the removed section. Unknown paths (e.g. a never-captured file deleted) are
+ * a no-op. Returns the asset id when this call is what marked it, so callers
+ * can announce the change exactly once.
  */
-export function markFileMissing(db: ChronicleDb, filePath: string): void {
+export function markFileMissing(db: ChronicleDb, filePath: string): number | null {
   const asset = getAssetByPath(db, path.resolve(filePath))
-  if (asset?.onDisk) setAssetOnDisk(db, asset.id, false)
+  if (!asset?.onDisk) return null
+  setAssetOnDisk(db, asset.id, false)
+  return asset.id
 }

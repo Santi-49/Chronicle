@@ -115,6 +115,9 @@ function WorkspaceScreen({
     case 'project':
       return (
         <ProjectScreen
+          // Remount per project so folder browsing never carries a path from
+          // the previous project into this one.
+          key={route.projectId}
           projectId={route.projectId}
           onBack={() => navigate({ name: 'projects' })}
           onEdit={() => navigate({ name: 'edit-project', projectId: route.projectId })}
