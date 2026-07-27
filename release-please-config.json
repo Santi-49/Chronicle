@@ -6,6 +6,7 @@
     "apps/desktop": {
       "release-type": "node",
       "package-name": "chronicle-desktop",
+      "release-as": "1.0.0"
     }
   }
 }
