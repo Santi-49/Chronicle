@@ -1159,6 +1159,11 @@ table because area and color are poor tools for precise comparison.
   vertex/face/entity counts, schemas, bounds, and group identifiers out of the primary prose and
   available only as local technical detail. This improves salience while reducing duplicated text
   evidence and avoiding a second paid inference call.
+- Apply the same cost boundary to SVG: retain the exact XML attribute/text diff, but pair it with
+  one locally rasterized before/after sheet so path and layout changes can be narrated visually.
+  The safe renderer may handle bounded primitives and common Bézier paths, but must never fetch
+  external images, execute scripts, resolve entities, or pretend unsupported filters/masks/arcs
+  were rendered exactly. One compact structural payload plus one sheet remains one provider call.
 - For future-format work, follow the selected order: SVG and PSD/PSB adjacency experiments,
   then a sandboxed Blender proof of concept, followed by OBJ and STEP/STP interchange support.
 - Keep control-plane operations purpose-separated in contracts and UI: installation registration,
@@ -1220,6 +1225,16 @@ table because area and color are poor tools for precise comparison.
 ---
 
 ## Research Log
+
+- 2026-07-27 — COST-BOUNDED SVG ANNOTATION QUALITY: SVG annotations previously sent only XML
+  inventory and therefore encouraged ids, coordinates, fills, and raw path changes instead of what
+  the artist would notice. Chronicle now safely rasterizes common local primitives, text,
+  translate/scale/matrix transforms, and line/cubic/quadratic Bézier paths; never loads external
+  resources or executes content; discloses approximated arcs and unsupported visual features; and
+  sends one before/after sheet alongside the already compact structural diff. The prompt leads with
+  visible additions/removals/movement/size/color and hides XML jargon. Tests cover text/color
+  changes, path-only artwork, external-resource isolation, one-image input, and the context budget;
+  the full 105-test AI suite passes — local extractor, prompt, safety, and token-budget review
 
 - 2026-07-27 — COST-BOUNDED 3D ANNOTATION QUALITY: the OBJ adapter's prompt explicitly prioritized
   vertex/face counts, group names, and bounds, while its independently framed flat projections

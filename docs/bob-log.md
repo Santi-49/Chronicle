@@ -72,6 +72,8 @@ Format: `date · member · what Bob did · feature/PR`.
 
 | 2026-07-27 | Team | Bob traced artist-hostile OBJ summaries to a prompt that prioritized mesh counts/group names and independently framed flat previews, then replaced duplicated evidence with compact local shape/scale/placement hints, one shared-camera isometric before/after sheet, and artist-first wording while retaining one provider call and one image; the full 101-test AI suite passes | Cost-bounded 3D summary quality |
 
+| 2026-07-27 | Team | Bob extended the cost-bounded artist-summary pipeline to SVG: exact compact XML diffs now pair with one safe local before/after raster covering common shapes, text, transforms, and Bézier paths, while external resources/scripts are never loaded and unsupported features are disclosed; artist-first prompting and the full 105-test AI suite validate the change without extra provider calls or image count | Cost-bounded SVG summary quality |
+
 ## Ideas for judge-visible Bob usage
 
 - BobShell recipes checked into the repo (self-documenting workflows: scaffold, test, release).

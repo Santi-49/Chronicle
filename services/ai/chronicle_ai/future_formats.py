@@ -17,7 +17,7 @@ from io import BytesIO
 from typing import Any, Callable
 from xml.etree import ElementTree as ET
 
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from .formats import ExtractionError
 from .schemas import ImageInput
@@ -33,6 +33,7 @@ MAX_TEXT_LENGTH = 240
 # more salient than low-level inventory data.
 MAX_EVIDENCE_CHARS = 3_500
 OBJ_CANVAS = (1024, 1024)
+SVG_CANVAS = (1024, 1024)
 BLEND_HEADER_PREFIX = b"BLENDER"
 GZIP_MAGIC = b"\x1f\x8b"
 ZSTANDARD_MAGIC = b"\x28\xb5\x2f\xfd"
@@ -260,6 +261,398 @@ def _strip_namespace(tag: str) -> str:
     return tag.rsplit("}", 1)[-1] if "}" in tag else tag
 
 
+def _svg_number(value: str | None, default: float = 0.0) -> float:
+    if value is None:
+        return default
+    match = re.match(r"\s*([-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?)", value)
+    return float(match.group(1)) if match else default
+
+
+def _svg_style(node: ET.Element, inherited: dict[str, str]) -> dict[str, str]:
+    style = dict(inherited)
+    inline = node.attrib.get("style", "")
+    for declaration in inline.split(";"):
+        if ":" in declaration:
+            name, value = declaration.split(":", 1)
+            style[name.strip()] = value.strip()
+    for name in ("fill", "stroke", "stroke-width", "opacity", "fill-opacity", "stroke-opacity"):
+        if name in node.attrib:
+            style[name] = node.attrib[name]
+    return style
+
+
+def _svg_color(value: str | None, opacity: float) -> tuple[int, int, int, int] | None:
+    if value is None or value.strip().lower() in {"none", "transparent", "url"}:
+        return None
+    if value.strip().lower().startswith("url("):
+        return None
+    try:
+        red, green, blue = ImageColor.getrgb(value.strip())[:3]
+    except ValueError:
+        return None
+    return red, green, blue, max(0, min(255, round(opacity * 255)))
+
+
+SvgMatrix = tuple[float, float, float, float, float, float]
+IDENTITY_MATRIX: SvgMatrix = (1, 0, 0, 1, 0, 0)
+
+
+def _svg_matrix_multiply(left: SvgMatrix, right: SvgMatrix) -> SvgMatrix:
+    a1, b1, c1, d1, e1, f1 = left
+    a2, b2, c2, d2, e2, f2 = right
+    return (
+        a1 * a2 + c1 * b2,
+        b1 * a2 + d1 * b2,
+        a1 * c2 + c1 * d2,
+        b1 * c2 + d1 * d2,
+        a1 * e2 + c1 * f2 + e1,
+        b1 * e2 + d1 * f2 + f1,
+    )
+
+
+def _svg_transform(value: str | None) -> tuple[SvgMatrix, bool]:
+    matrix = IDENTITY_MATRIX
+    unsupported = False
+    for name, arguments in re.findall(r"([a-zA-Z]+)\s*\(([^)]*)\)", value or ""):
+        numbers = [
+            float(number)
+            for number in re.findall(r"[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?", arguments)
+        ]
+        if name == "translate" and numbers:
+            operation: SvgMatrix = (
+                1,
+                0,
+                0,
+                1,
+                numbers[0],
+                numbers[1] if len(numbers) > 1 else 0,
+            )
+        elif name == "scale" and numbers:
+            operation = (
+                numbers[0],
+                0,
+                0,
+                numbers[1] if len(numbers) > 1 else numbers[0],
+                0,
+                0,
+            )
+        elif name == "matrix" and len(numbers) == 6:
+            operation = tuple(numbers)  # type: ignore[assignment]
+        else:
+            unsupported = True
+            continue
+        matrix = _svg_matrix_multiply(matrix, operation)
+    return matrix, unsupported
+
+
+def _svg_apply(matrix: SvgMatrix, x: float, y: float) -> tuple[float, float]:
+    a, b, c, d, e, f = matrix
+    return a * x + c * y + e, b * x + d * y + f
+
+
+def _svg_path_subpaths(data: str) -> tuple[list[list[tuple[float, float]]], bool]:
+    """Flatten common SVG path commands into bounded polylines."""
+
+    tokens = re.findall(
+        r"[MmLlHhVvCcSsQqTtAaZz]|[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?",
+        data,
+    )
+    paths: list[list[tuple[float, float]]] = []
+    current_path: list[tuple[float, float]] = []
+    current = (0.0, 0.0)
+    start = current
+    command = ""
+    previous_control: tuple[float, float] | None = None
+    previous_curve = ""
+    index = 0
+    approximated = False
+
+    def numbers(count: int) -> list[float] | None:
+        nonlocal index
+        if index + count > len(tokens) or any(
+            re.fullmatch(r"[A-Za-z]", token) for token in tokens[index : index + count]
+        ):
+            return None
+        values = [float(token) for token in tokens[index : index + count]]
+        index += count
+        return values
+
+    def absolute(x: float, y: float, relative: bool) -> tuple[float, float]:
+        return (current[0] + x, current[1] + y) if relative else (x, y)
+
+    def append(point: tuple[float, float]) -> None:
+        nonlocal current
+        if len(current_path) < 512:
+            current_path.append(point)
+        current = point
+
+    while index < len(tokens):
+        if re.fullmatch(r"[A-Za-z]", tokens[index]):
+            command = tokens[index]
+            index += 1
+        if not command:
+            approximated = True
+            break
+        relative = command.islower()
+        operation = command.upper()
+
+        if operation == "Z":
+            if current_path:
+                append(start)
+                paths.append(current_path)
+                current_path = []
+            current = start
+            previous_control = None
+            previous_curve = ""
+            command = ""
+            continue
+
+        required = {
+            "M": 2, "L": 2, "H": 1, "V": 1, "C": 6,
+            "S": 4, "Q": 4, "T": 2, "A": 7,
+        }.get(operation)
+        if required is None:
+            approximated = True
+            command = ""
+            continue
+        values = numbers(required)
+        if values is None:
+            approximated = True
+            command = ""
+            continue
+
+        if operation == "M":
+            destination = absolute(values[0], values[1], relative)
+            if current_path:
+                paths.append(current_path)
+            current_path = [destination]
+            current = destination
+            start = destination
+            command = "l" if relative else "L"
+            previous_control = None
+            previous_curve = ""
+        elif operation == "L":
+            append(absolute(values[0], values[1], relative))
+            previous_control = None
+            previous_curve = ""
+        elif operation == "H":
+            append((current[0] + values[0], current[1]) if relative else (values[0], current[1]))
+            previous_control = None
+            previous_curve = ""
+        elif operation == "V":
+            append((current[0], current[1] + values[0]) if relative else (current[0], values[0]))
+            previous_control = None
+            previous_curve = ""
+        elif operation in {"C", "S"}:
+            origin = current
+            if operation == "C":
+                control1 = absolute(values[0], values[1], relative)
+                control2 = absolute(values[2], values[3], relative)
+                destination = absolute(values[4], values[5], relative)
+            else:
+                control1 = (
+                    (2 * origin[0] - previous_control[0], 2 * origin[1] - previous_control[1])
+                    if previous_curve in {"C", "S"} and previous_control is not None
+                    else origin
+                )
+                control2 = absolute(values[0], values[1], relative)
+                destination = absolute(values[2], values[3], relative)
+            for step in range(1, 13):
+                t = step / 12
+                inverse = 1 - t
+                append(
+                    (
+                        inverse**3 * origin[0]
+                        + 3 * inverse**2 * t * control1[0]
+                        + 3 * inverse * t**2 * control2[0]
+                        + t**3 * destination[0],
+                        inverse**3 * origin[1]
+                        + 3 * inverse**2 * t * control1[1]
+                        + 3 * inverse * t**2 * control2[1]
+                        + t**3 * destination[1],
+                    )
+                )
+            previous_control = control2
+            previous_curve = operation
+        elif operation in {"Q", "T"}:
+            origin = current
+            if operation == "Q":
+                control = absolute(values[0], values[1], relative)
+                destination = absolute(values[2], values[3], relative)
+            else:
+                control = (
+                    (2 * origin[0] - previous_control[0], 2 * origin[1] - previous_control[1])
+                    if previous_curve in {"Q", "T"} and previous_control is not None
+                    else origin
+                )
+                destination = absolute(values[0], values[1], relative)
+            for step in range(1, 13):
+                t = step / 12
+                inverse = 1 - t
+                append(
+                    (
+                        inverse**2 * origin[0] + 2 * inverse * t * control[0] + t**2 * destination[0],
+                        inverse**2 * origin[1] + 2 * inverse * t * control[1] + t**2 * destination[1],
+                    )
+                )
+            previous_control = control
+            previous_curve = operation
+        elif operation == "A":
+            # Elliptical arcs need substantially more machinery. Preserve the
+            # endpoint so the silhouette stays bounded and disclose the approximation.
+            append(absolute(values[5], values[6], relative))
+            approximated = True
+            previous_control = None
+            previous_curve = ""
+
+    if current_path:
+        paths.append(current_path)
+    return paths[:32], approximated
+
+
+def _svg_preview(root: ET.Element, warnings: set[str]) -> Image.Image | None:
+    view_box = [
+        float(value)
+        for value in re.findall(
+            r"[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?", root.attrib.get("viewBox", "")
+        )
+    ]
+    if len(view_box) == 4 and view_box[2] > 0 and view_box[3] > 0:
+        origin_x, origin_y, width, height = view_box
+    else:
+        origin_x = origin_y = 0.0
+        width = _svg_number(root.attrib.get("width"), 512)
+        height = _svg_number(root.attrib.get("height"), 512)
+    if width <= 0 or height <= 0:
+        warnings.add("SVG dimensions could not be resolved for a preview.")
+        return None
+
+    scale = min((SVG_CANVAS[0] - 64) / width, (SVG_CANVAS[1] - 64) / height)
+    offset_x = (SVG_CANVAS[0] - width * scale) / 2
+    offset_y = (SVG_CANVAS[1] - height * scale) / 2
+
+    def canvas(point: tuple[float, float]) -> tuple[float, float]:
+        return (
+            offset_x + (point[0] - origin_x) * scale,
+            offset_y + (point[1] - origin_y) * scale,
+        )
+
+    image = Image.new("RGBA", SVG_CANVAS, "white")
+    draw = ImageDraw.Draw(image, "RGBA")
+    rendered = 0
+
+    def visit(
+        node: ET.Element,
+        inherited_style: dict[str, str],
+        inherited_matrix: SvgMatrix,
+    ) -> None:
+        nonlocal rendered
+        tag = _strip_namespace(node.tag)
+        style = _svg_style(node, inherited_style)
+        if node.attrib.get("class"):
+            warnings.add("SVG class-based CSS was not applied to the derived preview.")
+        if any(style.get(name, "").strip().lower().startswith("url(") for name in ("fill", "stroke")):
+            warnings.add("SVG paint-server fills or strokes were not rendered in the safe preview.")
+        local_matrix, unsupported_transform = _svg_transform(node.attrib.get("transform"))
+        matrix = _svg_matrix_multiply(inherited_matrix, local_matrix)
+        if unsupported_transform:
+            warnings.add("Some SVG transforms were omitted from the derived preview.")
+        opacity = _svg_number(style.get("opacity"), 1)
+        fill = _svg_color(
+            style.get("fill", "black"),
+            opacity * _svg_number(style.get("fill-opacity"), 1),
+        )
+        stroke = _svg_color(
+            style.get("stroke"),
+            opacity * _svg_number(style.get("stroke-opacity"), 1),
+        )
+        stroke_width = max(1, round(_svg_number(style.get("stroke-width"), 1) * scale))
+
+        def point(x: float, y: float) -> tuple[float, float]:
+            return canvas(_svg_apply(matrix, x, y))
+
+        if tag == "rect":
+            x = _svg_number(node.attrib.get("x"))
+            y = _svg_number(node.attrib.get("y"))
+            opposite = point(
+                x + _svg_number(node.attrib.get("width")),
+                y + _svg_number(node.attrib.get("height")),
+            )
+            draw.rectangle([point(x, y), opposite], fill=fill, outline=stroke, width=stroke_width)
+            rendered += 1
+        elif tag in {"circle", "ellipse"}:
+            cx = _svg_number(node.attrib.get("cx"))
+            cy = _svg_number(node.attrib.get("cy"))
+            rx = _svg_number(node.attrib.get("r") or node.attrib.get("rx"))
+            ry = _svg_number(node.attrib.get("r") or node.attrib.get("ry"))
+            draw.ellipse(
+                [point(cx - rx, cy - ry), point(cx + rx, cy + ry)],
+                fill=fill,
+                outline=stroke,
+                width=stroke_width,
+            )
+            rendered += 1
+        elif tag == "line":
+            draw.line(
+                [
+                    point(_svg_number(node.attrib.get("x1")), _svg_number(node.attrib.get("y1"))),
+                    point(_svg_number(node.attrib.get("x2")), _svg_number(node.attrib.get("y2"))),
+                ],
+                fill=stroke or fill or (0, 0, 0, 255),
+                width=stroke_width,
+            )
+            rendered += 1
+        elif tag in {"polygon", "polyline"}:
+            numbers = [
+                float(value)
+                for value in re.findall(
+                    r"[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?", node.attrib.get("points", "")
+                )
+            ]
+            points = [point(numbers[index], numbers[index + 1]) for index in range(0, len(numbers) - 1, 2)]
+            if len(points) >= 2:
+                if tag == "polygon":
+                    draw.polygon(points, fill=fill, outline=stroke)
+                else:
+                    draw.line(points, fill=stroke or fill or (0, 0, 0, 255), width=stroke_width)
+                rendered += 1
+        elif tag in {"text", "tspan"}:
+            text = " ".join(part.strip() for part in node.itertext() if part.strip())
+            if text:
+                draw.text(
+                    point(_svg_number(node.attrib.get("x")), _svg_number(node.attrib.get("y"))),
+                    _short(text, 80),
+                    fill=fill or (0, 0, 0, 255),
+                )
+                rendered += 1
+        elif tag == "path":
+            subpaths, approximated = _svg_path_subpaths(node.attrib.get("d", ""))
+            for subpath in subpaths:
+                points = [canvas(_svg_apply(matrix, x, y)) for x, y in subpath]
+                if len(points) >= 3 and fill is not None:
+                    draw.polygon(points, fill=fill)
+                if len(points) >= 2 and stroke is not None:
+                    draw.line(points, fill=stroke, width=stroke_width, joint="curve")
+            if subpaths:
+                rendered += 1
+            if approximated:
+                warnings.add("Some SVG path geometry was approximated in the derived preview.")
+        elif tag in {
+            "image", "use", "filter", "mask", "style", "linearGradient",
+            "radialGradient", "clipPath",
+        }:
+            warnings.add(f"SVG {tag} content was not rendered in the safe local preview.")
+
+        for child in list(node):
+            visit(child, style, matrix)
+
+    visit(root, {}, IDENTITY_MATRIX)
+    if rendered == 0:
+        warnings.add("No safely renderable SVG elements were available for a preview.")
+        return None
+    return image.convert("RGB")
+
+
 def extract_svg(source: ImageInput) -> StructuredEvidence:
     raw = _decode_payload(source)
     text = raw.decode("utf-8", errors="replace")
@@ -292,11 +685,19 @@ def extract_svg(source: ImageInput) -> StructuredEvidence:
                 "tag": tag,
                 "id": child.attrib.get("id"),
             }
-            for attr in ("x", "y", "width", "height", "viewBox", "fill", "stroke", "d", "points"):
+            for attr in (
+                "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry",
+                "width", "height", "viewBox", "fill", "stroke", "stroke-width",
+                "opacity", "transform", "style", "class", "d", "points",
+            ):
                 value = child.attrib.get(attr)
                 if value is not None:
                     record[attr] = _short(value)
-            text_content = " ".join(part.strip() for part in child.itertext() if part.strip())
+            text_content = (
+                " ".join(part.strip() for part in child.itertext() if part.strip())
+                if tag in {"text", "tspan"}
+                else ""
+            )
             if text_content:
                 record["text"] = _short(text_content)
             records.append(record)
@@ -309,7 +710,8 @@ def extract_svg(source: ImageInput) -> StructuredEvidence:
         "viewBox": root.attrib.get("viewBox"),
         "elementCount": len(records),
     }
-    return StructuredEvidence(metadata, tuple(records), None, tuple(sorted(warnings)))
+    preview = _svg_preview(root, warnings)
+    return StructuredEvidence(metadata, tuple(records), preview, tuple(sorted(warnings)))
 
 
 def prepare_svg_annotation(previous_input: ImageInput | None, current_input: ImageInput) -> PreparedStructuredAnnotation:
@@ -317,8 +719,8 @@ def prepare_svg_annotation(previous_input: ImageInput | None, current_input: Ima
         previous_input,
         current_input,
         extract_svg,
-        "SVG is text-based, so use the extracted vector structure.",
-        "Explain the SVG change using the extracted vector structure.",
+        "Use the extracted vector structure and safe local preview.",
+        "Explain the SVG change using the compact vector diff and comparison preview.",
         0.85,
     )
 

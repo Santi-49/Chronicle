@@ -15,8 +15,10 @@ from chronicle_ai.engine import annotate_version
 from chronicle_ai.formats import ExtractionError
 from chronicle_ai.future_formats import (
     extract_blend,
+    extract_svg,
     prepare_blend_annotation,
     prepare_obj_annotation,
+    prepare_svg_annotation,
 )
 from chronicle_ai.prompts import load_annotation_prompt
 from chronicle_ai.schemas import AnnotateRequest, ImageInput, VersionAnnotation
@@ -285,7 +287,7 @@ CASE_DATA = {
         "media_type": "image/svg+xml",
         "previous": _make_svg_bytes(fill="#d33", label="Alpha"),
         "current": _make_svg_bytes(fill="#1177cc", label="Beta"),
-        "has_preview": False,
+        "has_preview": True,
     },
     "blend": {
         "media_type": "application/x-blender",
@@ -395,6 +397,87 @@ def test_obj_prompt_prioritises_artist_language_over_mesh_jargon() -> None:
     assert "no more than three distinct changes" in system
     assert "Prioritize visible shape, placement, proportion" in user
     assert "omit them from artist-facing prose" in " ".join(user.split())
+
+
+def test_svg_diff_combines_compact_structure_with_one_safe_preview() -> None:
+    previous = _request(
+        file_name="campaign.svg",
+        format_name="svg",
+        media_type="image/svg+xml",
+        current_bytes=_make_svg_bytes(fill="#d33", label="Alpha"),
+    ).current
+    current = _request(
+        file_name="campaign.svg",
+        format_name="svg",
+        media_type="image/svg+xml",
+        current_bytes=_make_svg_bytes(fill="#1177cc", label="Beta"),
+    ).current
+
+    prepared = prepare_svg_annotation(previous, current)
+    evidence = extract_svg(current)
+
+    assert evidence.preview is not None
+    assert evidence.preview.size == (1024, 1024)
+    assert len(prepared.images) == 1
+    assert len(prepared.context) < 3_000
+    assert '"document":' not in prepared.context
+    assert "#d33" in prepared.context
+    assert "#1177cc" in prepared.context
+    assert "Alpha" in prepared.context
+    assert "Beta" in prepared.context
+
+
+def test_svg_preview_ignores_external_and_executable_content() -> None:
+    source = _request(
+        file_name="safe.svg",
+        format_name="svg",
+        media_type="image/svg+xml",
+        current_bytes=(
+            b'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">'
+            b'<rect x="5" y="5" width="40" height="40" fill="blue"/>'
+            b'<image href="https://example.invalid/tracker.png" width="100" height="100"/>'
+            b'<script>throw new Error("must not run")</script>'
+            b"</svg>"
+        ),
+    ).current
+
+    evidence = extract_svg(source)
+
+    assert evidence.preview is not None
+    assert any("image content was not rendered" in warning for warning in evidence.warnings)
+
+
+def test_svg_preview_renders_common_path_curves_without_a_browser() -> None:
+    source = _request(
+        file_name="mark.svg",
+        format_name="svg",
+        media_type="image/svg+xml",
+        current_bytes=(
+            b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+            b'<path d="M10 70 C20 10 80 10 90 70 L50 90 Z" fill="#ff6b00"/>'
+            b"</svg>"
+        ),
+    ).current
+
+    evidence = extract_svg(source)
+
+    assert evidence.preview is not None
+    assert not any("path content was not rendered" in warning for warning in evidence.warnings)
+    assert evidence.preview.getbbox() is not None
+
+
+def test_svg_prompt_prioritises_visible_change_over_xml_jargon() -> None:
+    system, user = load_annotation_prompt(
+        "campaign.svg",
+        is_first_version=False,
+        operation_prefix="SVG ",
+    )
+
+    normalized = " ".join(user.split())
+    assert "Write for the artist" in system
+    assert "Lead with the visible result" in normalized
+    assert "do not expose raw path commands" in normalized
+    assert "Verify structural facts against the comparison preview" in normalized
 
 
 # ---------------------------------------------------------------------------

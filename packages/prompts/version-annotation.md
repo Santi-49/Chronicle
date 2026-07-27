@@ -1,6 +1,6 @@
 ---
 id: version-annotation
-version: 0.3.0
+version: 0.4.0
 status: experimental
 purpose: Describe a first creative-file version or explain changes from its previous version.
 framework: langchain
@@ -113,8 +113,11 @@ unsupported Photoshop effects were inspected. Reflect any coverage warning in `c
 File name: `{fileName}`.
 
 Explain the SVG version change using the extracted vector structure and any preview supplied below.
-Prefer element ids, text content, fills, strokes, dimensions, paths, and grouping changes. Do not
-speculate about intent. Reflect any coverage warning in `confidence`.
+Lead with the visible result: shapes or text added, removed, moved, resized, recolored, or restyled.
+Use element ids, path data, attributes, and grouping only as supporting evidence; do not expose raw
+path commands, coordinates, transform matrices, or internal ids in artist-facing prose. Verify
+structural facts against the comparison preview when available. Do not speculate about intent.
+Reflect any coverage warning in `confidence`.
 
 ## SVG first-version description
 
@@ -123,8 +126,9 @@ speculate about intent. Reflect any coverage warning in `confidence`.
 File name: `{fileName}`.
 
 Describe this first SVG version using the extracted vector structure and any preview supplied below.
-Prefer element ids, text content, fills, strokes, dimensions, paths, and grouping information. Do
-not speculate about intent. Reflect any coverage warning in `confidence`.
+Describe its visible composition, shapes, text, colors, and layout in plain language. Treat element
+ids, coordinates, path data, transforms, and grouping as supporting evidence only; omit them from
+artist-facing prose. Do not speculate about intent. Reflect any coverage warning in `confidence`.
 
 ## BLEND version diff
 
