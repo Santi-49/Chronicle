@@ -86,3 +86,8 @@ packages/contracts/api/openapi.yaml
 # Local test files
 test_gemini.py
 .env
+
+# ── Video production ──────────────────────────────────────────────────
+# Premiere projects, raw footage, renders, autosaves, and previews are large
+# binaries kept out of the repository.
+/video/
