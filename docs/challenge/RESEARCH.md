@@ -1262,6 +1262,17 @@ table because area and color are poor tools for precise comparison.
 
 ## Research Log
 
+- 2026-07-30 — SUBMITTED, AND LIVE AI ACCEPTANCE CLOSED: Chronicle 1.0.0 was released and the
+  challenge submission filed ahead of the 2026-07-31 deadline, with the public repository, README,
+  demo video, and the IBM SkillsBuild IBM Bob activity completed by all four members. A valid BYOK
+  credential produced successful live provider annotations, closing the acceptance gap that had
+  been open since the 2026-07-23 HTTP 401 run and superseding that entry. Known limitations carried
+  into the release and documented rather than hidden: unsigned Windows and macOS installers, so
+  SmartScreen and Gatekeeper warn on first run; asset identity is still the file path, so a rename
+  starts a new asset; macOS updates are detect-only pending Developer ID signing; and the F9
+  inference gateway was never built, so BYOK is the only AI path. The moving
+  `gemini-flash-latest` alias shipped unpinned, which stays a demo reproducibility risk because
+  Google hot-swaps it with two weeks' notice — release verification plus team confirmation
 - 2026-07-27 — MACOS DETECT-ONLY UPDATES: separated *detecting* a release from *applying* one, since
   only the second needs a signature. Packaged macOS now reads the public `releases/latest` endpoint
   on the existing schedule and shows the same compact card as **Update available**, whose action
@@ -1489,7 +1500,7 @@ table because area and color are poor tools for precise comparison.
   [EDPB lawful processing](https://www.edpb.europa.eu/sme/be-compliant/process-personal-data-lawfully_en),
   [GDPR Articles 5, 6, 15, 17, 20 and 21](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng),
   [ICO legitimate-interests assessment](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/legitimate-interests/how-do-we-apply-legitimate-interests-in-practice/)
-- 2026-07-23 — **PSD LIVE ACCEPTANCE BLOCKED (POST-02):** the controlled PSD
+- 2026-07-23 — **SUPERSEDED 2026-07-30 (live acceptance closed).** **PSD LIVE ACCEPTANCE BLOCKED (POST-02):** the controlled PSD
   first-version/diff run reached the packaged Google integration, but the locally configured
   credential was rejected with HTTP 401 before inference. No provider result or billable
   acceptance evidence was produced. Local extraction, single-contact-sheet generation, FastAPI

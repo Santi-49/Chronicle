@@ -354,13 +354,18 @@ Rules for everyone, regardless of experience level:
 
 ## 7. Open Decisions (need an owner)
 
+Resolved before the 2026-07-30 submission: the team roster (deliberately kept out of the
+repository and carried on the BeMyApp project page), the Gemini demo provider defaults, the
+dark-first design language, the demo asset pack, and every member's SkillsBuild activity. Current
+project state lives in [PROJECT_STATUS.md](../PROJECT_STATUS.md).
+
+Still open after 1.0.0:
+
 | Decision | Options / note | Needed by |
 |---|---|---|
-| Team roster & feature ownership | Fill the table in [CONSTRAINTS.md](challenge/CONSTRAINTS.md) | now |
-| Final demo AI provider/budget | Gemini is the validated/configured default; formally approve account access, retention/cost assumptions, model IDs, and budget. Keep watsonx/Granite as a model-agnostic alignment option only if live-tested. | before MVP-12 |
-| Design language | Resolved: dark-first neutral-gray pro tool, IBM blue actions/focus, paired light/system themes; validate against live demo data before release. | before MVP-12 |
-| Demo asset pack | Generated logo/banner/product v1–v3 histories and commands exist in `demo-assets/`; team approval and end-to-end acceptance remain. | before MVP-12 |
-| SkillsBuild activity | **Each member individually** — a missing certificate invalidates the whole submission | don't leave past Jul 25 |
+| Pin the annotation model ID | `gemini-flash-latest` shipped as a moving alias that Google hot-swaps with two weeks' notice, so a rehearsed demo can change underneath us. Pinning a dated Flash ID trades freshness for reproducibility. | Before the next demo |
+| Windows and macOS code signing | Unsigned installers trigger SmartScreen and Gatekeeper warnings, block in-place macOS updates, and prevent the POST-08B signed update policy. Needs a purchased certificate and an Apple Developer account. | Before wider distribution |
+| Repository license | A public repository without a license leaves default copyright in force, which does not match the Terms' reference to repository license files. | Before inviting outside contributions |
 
 ---
 

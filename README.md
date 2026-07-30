@@ -369,6 +369,50 @@ Stated plainly, because an honest boundary is more useful than an implied one:
   content-hash identity across renames is future work.
 - **The AI-inference gateway is not built.** Every AI path is currently bring-your-own-key.
 
+## What's next
+
+Chronicle 1.0.0 is a complete product, not a finished one. This is where it goes.
+
+- **Signed installers, and Apple notarization.** The single highest-value fix: it removes the
+  SmartScreen and Gatekeeper warnings on first run, unlocks in-place macOS updating, and gives
+  Chronicle a verifiable publisher identity instead of a hash. It is not an engineering problem,
+  it is a funding one. A Windows code-signing certificate and an Apple Developer membership are
+  recurring annual costs that the team currently pays personally as students. **If Chronicle is
+  useful to you, a
+  [star on the repository](https://github.com/Santi-49/Chronicle) genuinely helps**: it is free,
+  it is the clearest signal that the project is worth continuing, and it is what we would point
+  to when asking anyone to help cover the certificates. Sponsorship or a donated certificate
+  would move this to the next release.
+- **Chronicle-hosted AI, so no key is required.** Today every AI feature needs the user's own
+  provider key, which is a real wall for the non-technical creatives Chronicle is built for.
+  Asking a designer to create a Google Cloud project before they can see a summary is the wrong
+  first experience. Routing inference through Chronicle's own service (the F9 gateway, already
+  contracted at C7) would make install-to-first-summary a single step, with bring-your-own-key
+  staying available for anyone who prefers to hold their own credential and their own bill.
+- **More creative formats.** Eight ship today. The researched candidates with the strongest
+  evidence of version sprawl are After Effects projects, InDesign and IDML for editorial and
+  packaging, DWG and DXF for architecture, IFC for BIM, and eventually video timelines and DAW
+  sessions. Each needs its own safe extraction and preview strategy, which is exactly what the
+  adapter pipeline was built for.
+- **Multi-user collaboration and cloud sync.** Shared project history, so a team sees one
+  timeline instead of one per machine, with versions and their explanations synced between
+  devices. Local-first stays the default: syncing should be something a user opts into per
+  project, never a condition of using the app.
+- **Identity that survives a rename.** An asset is currently its file path, so moving or renaming
+  a file starts a new history. Content-hash identity would follow a file through both. The
+  companion feature is importing the version families people already have: detecting a
+  `logo_v001`, `logo_v002`, `logo_final` group, proposing the grouping, and only merging it once
+  the user confirms.
+- **Ask your history.** Chronicle already writes what changed and indexes it for meaning. The
+  next step is answering questions across the whole timeline: "when did we drop the tagline?",
+  "which versions did we send to the client?", "what changed between the January and March
+  cuts?".
+- **Visual similarity search.** Search is text-based today, over summaries and tags. Image
+  embeddings would add "find versions that look like this one", which is how designers actually
+  remember their work.
+- **Side-by-side visual diff.** The plain-English summary answers *what* changed. Putting two
+  versions next to each other, with the differences marked, answers *where*.
+
 ## Documentation
 
 | Document | Purpose |
