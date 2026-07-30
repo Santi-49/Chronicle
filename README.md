@@ -236,7 +236,9 @@ reviewing, testing, and refining every contribution:
 | **Document and share** | This README, the architecture and contract docs, the public help center, and the release runbook |
 
 Every pull request records concrete Bob usage in **[docs/bob-log.md](docs/bob-log.md)**, making
-the development process a visible, verifiable artifact rather than a generic tooling claim.
+the development process a visible, verifiable artifact rather than a generic tooling claim. Bob
+remained the primary tool throughout; other AI assistants worked alongside it in parallel, and log
+entries tagged *Bob + AI-assisted* record where they did.
 
 ## Architecture
 
