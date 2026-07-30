@@ -191,7 +191,7 @@ npm run generate-ai-types
 This runs `python -m chronicle_ai.export_openapi` (writing
 `packages/contracts/ai/openapi.json`) and then `openapi-typescript`.
 
-## Security
+## Security 
 
 Do not put provider keys in source files, fixtures, URLs, or logs. In production
 Electron decrypts the key from `safeStorage` only while building a single
