@@ -1,98 +1,105 @@
 # Chronicle Project Status
 
-> Team dashboard · Updated 2026-07-25 · Submission deadline: **2026-07-31, 11:59 PM ET**
+> Team dashboard · Updated 2026-07-30 · **Submitted** · Deadline was 2026-07-31, 11:59 PM ET
 
-Start here at the beginning of a work session. Use [TODO.md](TODO.md) to claim work and
-[Project Overview](docs/PROJECT_OVERVIEW.md) if you are new to Chronicle.
+Chronicle **1.0.0** is publicly released and the challenge submission is filed. This file is now
+a record of what shipped rather than a work board. [TODO.md](TODO.md) keeps the task history and
+the post-MVP roadmap; [Project Overview](docs/PROJECT_OVERVIEW.md) orients anyone new.
 
 ## Current stage
 
-**MVP build in progress: capture, IPC, AI, restore, hybrid search, and the live renderer are connected.
-Next: a repeatable end-to-end reliability and packaging pass.**
+**Submitted.** The public repository, README, demo video, and every member's IBM SkillsBuild
+activity are complete, and signed-off installers exist for Windows and macOS.
 
 ```text
 Research       Documentation       Contracts        MVP build         Demo/submission
-   ✓                 ✓                 ✓          ← WE ARE HERE            ○
+   ✓                 ✓                 ✓                 ✓                    ✓
 ```
 
-The repository has a compiling Electron/React app and a pre-built optional backend. On
-`dev`, the renderer consumes the secure `window.chronicle`
-bridge and live SQLite data/events. Users can create and edit projects (tracked folders),
-persist descriptions/icons/colors and file-selection rules, browse captured assets and
-versions, configure encrypted per-provider BYOK keys, and inspect pending AI jobs. The main
-process watches folders, stores deduplicated versions, drains annotation/embedding jobs through
-the local Python service, restores prior versions append-only, and runs hybrid history search.
+Chronicle runs as a released desktop product: it watches folders, captures every save as a
+deduplicated version, explains what changed in plain language through a local Python AI service,
+indexes that history for hybrid keyword and semantic search, and restores any version without
+rewriting history. It works with no Docker and no account. Eight creative formats are captured,
+previewed, restored, searched, and AI-summarized.
 
-## Status at a glance
+## What shipped
 
 | Area | Status | What this means |
 |---|---|---|
-| Challenge research and product vision | Ready | The problem, audience, judging criteria, scope, and demo story are documented. |
-| MVP specification | Ready | Required behavior and acceptance examples are in `docs/spec.md`. |
-| Boundary contracts | Ready for implementation | IPC, AI I/O, watcher decisions, settings, and planned API/module formats are baselined. |
-| Desktop scaffold | Merged (MVP-01) | Foundation dependencies installed and verified; native SQLite loads in Electron; tests run under Electron's Node. |
-| Folder watcher | Merged (MVP-03) | Chokidar watching with the 2 s settle and C4 ignore rules, 14 tests. Manual demo-editor test pending until capture is wired to the UI. |
-| Version storage | Merged (MVP-02 + MVP-04) | SQLite init + repositories, and content-addressed capture: stream hash, dedup by content, append-only versions, dimensions metadata, AI job enqueue. 38 tests. |
-| Secure IPC bridge | Merged (MVP-05); renderer now consumes it | C1 handlers, native folder picker, watcher→capture wiring, `chronicle://` image serving, encrypted BYOK storage, status/events, and input validation are implemented and tested. MVP-06 wired the renderer onto the bridge. |
-| File formats | SVG, PSD, PSB, OBJ, STEP/STP, BLEND capture and display (POST-02, 2026-07-25) | One registry (`apps/desktop/src/shared/formats.ts`) declares every format; the watcher, capture, media protocol, previews, AI worker, telemetry, and renderer all derive from it. Derived previews are generated lazily per content hash (Photoshop's embedded thumbnail, an SVG projection for meshes, Blender's `TEST` block); OBJ and STEP get an interactive 3D view via lazily loaded three.js and OpenCascade WASM. Verified by driving the built installerless app with PNG + SVG + OBJ fixtures. AI change summaries for every one of these formats are wired up as of 2026-07-27 (see the AI summaries row). |
-| AI summaries | Merged (MVP-09); packaged in MVP-12; POST-01 closed 2026-07-25; POST-02 complete and wired to the app 2026-07-27 | The Python AI service lives in `services/ai/` (package `chronicle_ai`, FastAPI + LangChain); Electron owns its queue/client/lifecycle. Windows x64 and macOS Apple Silicon packaging include a self-contained, health-smoked Gemini/OpenAI/Anthropic sidecar and prompt, so installed users need no Python. Annotation dispatches through an adapter registry, the service publishes `GET /capabilities`, and the desktop app now sends **all eight** captured formats for annotation — PNG, JPG, SVG, PSD, PSB, OBJ, STEP/STP, and BLEND. One cached capability answer is shared by the queue worker and the C1 read paths, so a version is only left queued (`deferred`) when the service actually running cannot annotate its format. 90 Python tests, 307 desktop tests, typecheck, and the production build pass, and all 8 formats × (first-version, diff) were driven through the real sidecar with desktop-shaped requests. **Live provider acceptance is still open** — no *successful* provider annotation has been recorded since the `format` field landed (the 2026-07-23 run died on an HTTP 401 credential). One valid BYOK key closes it for every format at once. |
-| Shell, onboarding, settings | Merged (MVP-06) | Renderer wired to live C1 via `src/renderer/src/lib/{bridge,useChronicle,aiCatalog}.ts`. Status/queue UI, folder selection, project create/edit, and curated AI settings are implemented. Both AI selectors require a saved per-provider key; changed models are live-validated before persistence, rejected changes roll back with friendly feedback, and Google provider aliases migrate to `google_genai`. Typecheck, 118 desktop tests, and build are green. |
-| Assets, Timeline, Version Details | Complete (MVP-08) | Live C1 queries/events and real thumbnails; keyboard timeline traversal; explicit pending/failed/restore states; retry feedback; missing-source badges; completed restore/save-copy controls; and a typed-safeguard reset that turns the latest snapshot into a freshly annotated v1. |
-| Restore engine | Complete (MVP-07) | Selected library bytes overwrite the original path and append a provenance-marked version with no AI job. A missing original folder switches the UI to a native Save a copy dialog. Acceptance covers v2→v6, missing-folder fallback, cancellation, and validation. |
-| Search UI and engine | Complete (MVP-10 and MVP-11) | FTS5 keyword and provider/model-scoped cosine semantic search return live version results and degrade to keyword-only when AI is unavailable. Embedding configuration changes queue deduplicated reindex jobs over existing annotation text, and Search explains live indexing, offline, and AI-setup states. |
-| Backend control plane | Auth/RBAC + usage statistics + GDPR controls ready | POST-04 v2 stores normalized content-free usage data. POST-06 adds notice-versioned preference audit, configured retention, portable account/installation export, anonymous installation erasure, and transactional self-service account/cloud deletion with full session revocation. It remains optional and never gates local use. |
-| Landing page | Existing optional page | Not part of the MVP; do not spend time here before the desktop app works. |
-| Demo and submission | Demo pack merged (DEMO-01) | Three approved, generated image histories and a git-ignored watched workspace are documented in `demo-assets/`; video, final README evidence, and SkillsBuild completion remain outstanding. |
+| Challenge research and product vision | Complete | Problem, audience, judging criteria, scope, competitive landscape, and demo story are documented in `docs/challenge/` and `docs/challenge-fit.md`. |
+| MVP specification | Complete | Required behavior and acceptance examples are in `docs/spec.md`; every F1 to F8 feature shipped. F9 (gateway) and part of F10 stayed stretch and were not built. |
+| Boundary contracts | Implemented | C1 to C6 are implemented and generated where generated types apply. C7 (gateway module) remains a stretch stub. |
+| Version capture | Complete (MVP-02 to MVP-04) | Chokidar watching with the 2 s settle and C4 ignore rules, streamed SHA-256 hashing off the UI path, content-addressed dedup, append-only versions, and a 50 MB skip. |
+| Secure IPC bridge | Complete (MVP-05) | Every C1 method, the native folder picker, the `chronicle://` media protocol, encrypted per-provider BYOK storage, typed events, and input validation. The renderer reaches no Node API, path, or secret. |
+| File formats | Complete (POST-01, POST-02) | One registry (`apps/desktop/src/shared/formats.ts`) declares PNG, JPG/JPEG, SVG, PSD, PSB, OBJ, STEP/STP, and BLEND; the watcher, capture, media protocol, previews, AI worker, telemetry, and renderer all derive from it. Derived previews are lazy and content-hash cached; OBJ and STEP get an interactive 3D view via lazily loaded three.js and OpenCascade WASM. |
+| AI summaries | Complete and live-verified | `services/ai/` (FastAPI + LangChain, loopback-only) annotates all eight formats through an adapter registry, publishing `GET /capabilities` so the app discovers rather than assumes. Electron owns the queue, client, and lifecycle. Live provider acceptance is closed: real BYOK annotation works end to end. |
+| Hybrid search | Complete (MVP-10, MVP-11) | FTS5 keyword plus provider/model-scoped cosine semantic search in one ranked version-level list, degrading to keyword-only when AI is unavailable. Changing an embedding selection queues deduplicated reindex jobs without repeating vision analysis. |
+| Restore | Complete (MVP-07) | Append-only: restoring v2 from v5 writes v2's bytes and appends a provenance-marked v6 with no AI call. A missing original folder switches to a native Save a copy dialog. |
+| Assets, Timeline, Version Details | Complete (MVP-08) | Live C1 queries and events, real thumbnails, keyboard traversal, explicit pending/failed/deferred states, retry, missing-source badges, and a typed-safeguard history reset. |
+| Project browsing and retention | Complete | Breadcrumb browsing over captured assets with a remembered gallery/list toggle, and a Removed files section with a 30-day retention sweep plus individual and bulk permanent deletion. |
+| Background capture and tray | Complete (POST-10) | Capture survives a closed window behind a single-instance lock, with a latched quitting flag so Quit and the updater's restart are never swallowed, and OS-authoritative packaged-only start-at-login. |
+| Packaging and releases | Complete (MVP-12) | Unsigned Windows NSIS and macOS Apple Silicon DMG installers with a self-contained, health-smoked Gemini/OpenAI/Anthropic PyInstaller sidecar, so installed users need no Python. Release Please drives versioning from Conventional Commits, with protected-branch CI and guarded auto-merge. |
+| Updates | Complete (POST-08A) | Windows performs in-place GitHub-fed updates with SHA-512 verification and an explicit user restart. macOS is detect-only: it reads the public release metadata and opens the matching DMG, because an unsigned bundle cannot be installed in place. |
+| Activity and cost | Complete (POST-09) | Live Models.dev price catalog with offline caching, immutable per-call rate and hash records, exact provider tokenizer counts for embeddings, and a local activity dashboard. Amounts are labelled estimates; provider invoices remain authoritative. |
+| Control plane | Complete and optional | Google sign-in over the system browser with PKCE, installation registration, portable settings, opaque encrypted-secret sync, content-free usage statistics, and admin analytics (POST-03 to POST-06). It never gates local use. |
+| Privacy and GDPR | Complete (POST-06, POST-06A) | Documented lawful bases, notice-versioned preference audit, configured retention, JSON export, installation erasure, and transactional self-service account deletion that leaves local history and provider keys untouched. |
+| Landing page and help center | Complete (LAND-01, LAND-02) | Astro site on Cloudflare Pages with the scroll-driven product story, plus a static searchable help center covering setup, per-provider key guides, costs, privacy, and troubleshooting. |
+| Demo and submission | Complete (DEMO-01, SUBMIT-01) | Three approved generated image histories in `demo-assets/`, the demo video, README evidence, and the IBM SkillsBuild activity for all four members. |
 
 ## Current contract baseline
 
-A contract says what an operation does and what data goes in and comes out. It does not
-decide the prompt, algorithm, provider, storage layout, tools, or internal classes.
+A contract says what an operation does and what data goes in and comes out. It does not decide
+the prompt, algorithm, provider, storage layout, tools, or internal classes.
 
 | Boundary | Source of truth | Change rule |
 |---|---|---|
-| React renderer ↔ Electron main process | `apps/desktop/src/shared/ipc.ts` | Treat as stable. Propose contract changes separately before changing handlers or UI assumptions. |
-| App ↔ AI functionality | Local AI service OpenAPI + `packages/contracts/ai/output.schema.json`, with generated TypeScript client types | Keep annotation, embedding, and provider/model validation behavior stable; prompts and orchestration remain implementation-owned. |
-| Filesystem candidate ↔ watcher | `apps/desktop/src/main/watcher/rules.ts` | Preserve supported formats, size cap, settle guarantee, inputs, outputs, and rejection reasons. |
+| React renderer ↔ Electron main process | `apps/desktop/src/shared/ipc.ts`, with the format vocabulary in `apps/desktop/src/shared/formats.ts` | Released. Propose contract changes separately before changing handlers or UI assumptions. |
+| App ↔ AI functionality | Local AI service OpenAPI + `packages/contracts/ai/output.schema.json`, with generated TypeScript client types | Keep annotation, embedding, capability discovery, and validation behavior stable; prompts and adapters remain implementation-owned. Regenerate `generated.ts` whenever the enum changes. |
+| Filesystem candidate ↔ watcher | `apps/desktop/src/main/watcher/rules.ts`, deriving its extension set from the format registry | Preserve supported formats, size cap, settle guarantee, inputs, outputs, and rejection reasons. |
 | Shared settings | `apps/desktop/src/shared/settings.ts` | Never expose API keys or auth tokens through renderer-readable settings. |
-| App ↔ control-plane API | `packages/contracts/api/PLANNED.md` | Low priority. Replace planned documentation with generated OpenAPI types when implemented. |
-| Backend ↔ optional gateway module | `packages/contracts/module/interface.py` | Stretch only. Do not expand it before gateway research starts. |
+| App ↔ control-plane API | `packages/contracts/api/openapi.json` → `packages/contracts/api/generated/index.ts` (guarantees in `PLANNED.md`) | Regenerate types with `make generate-types` after any schema change. |
+| Backend ↔ optional gateway module | `packages/contracts/module/interface.py` | Stretch only, and not built. Do not expand it before gateway research starts. |
 
-The SQLite DDL in `apps/desktop/src/main/db/schema.sql` is an implementation specification,
-not a public contract. Change it carefully through migrations once released.
+The SQLite DDL in `apps/desktop/src/main/db/schema.sql` is an implementation specification, not a
+public contract. It is now released, so change it only through migrations.
 
-## Immediate next actions
+## Known limitations carried into 1.0.0
 
-1. Complete `docs/mvp-12-acceptance.md` three times on the clean Windows demo machine using
-   the generated installer and `demo-assets/workspace/`, including offline queue, retry,
-   restart, deleted-source, 50 MB skip, and the actual demo editor.
-2. Decide and record the final demo provider/model/budget. VALIDATE-01 validated the Gemini
-   defaults live and flagged two team sign-off items (moving `gemini-flash-latest` alias vs. a
-   pinned Flash ID; provider/retention/cost/budget approval) — see Open decisions.
-3. Team lead fills in names/task ownership and confirms branch protection; every team member
-   completes the required IBM SkillsBuild activity before July 25.
+These are deliberate and documented in the README and help center rather than defects.
 
-## Open decisions and risks
+- **Installers are unsigned and unnotarized.** Windows SmartScreen and macOS Gatekeeper warn on
+  first run, and the help center documents the recovery path for each. Hash verification is not
+  publisher identity. Code signing is the real fix.
+- **Asset identity is the file path.** Renaming or moving a tracked file starts a new asset, and
+  content-hash identity across renames is future work.
+- **macOS updates are detect-only.** In-place macOS updating needs Developer ID signing and
+  notarization.
+- **The AI-inference gateway (F9) was not built.** BYOK is the only inference path, so AI features
+  require the user's own provider key and connectivity. Capture, history, restore, and keyword
+  search stay fully offline.
+- **The frozen sidecar is rebuilt at packaging time.** A stale sidecar reports fewer annotatable
+  formats than the app captures. Capability negotiation makes that honest rather than broken (the
+  affected versions report `deferred`), but `make package` must run before any release.
 
-| Decision or risk | Owner | Needed by | Current action |
-|---|---|---|---|
-| MVP-12 clean-machine acceptance | MVP-12 owner | Before marking MVP-12 complete | The automated MVP-12 gate passed three consecutive runs (desktop 138 passed/1 skipped, AI 48 passed, API 41 passed per run). The current 139.7 MB unsigned NSIS installer contains a 30.0 MB Python 3.12 sidecar; frozen imports for Gemini/OpenAI/Anthropic and `/health` version `0.1.0` pass. The three-pass manual journey/real-editor record is still required. |
-| Team roster and task ownership | Team lead | Now | Fill `docs/challenge/CONSTRAINTS.md` and TODO owners. |
-| `main` automation/protection | Team lead | Before merging MVP-12 | Configure `RELEASE_PLEASE_TOKEN`, allow Action-created PRs and auto-merge, require the three **Main PR CI** jobs only for PRs targeting `main`, and keep direct pushes disabled. Same-repo `dev → main` and labeled Release Please PRs auto-merge only after protected checks; the temporary release branch is deleted. Set required approvals to 0 for zero-touch solo releases, or retain approval as an intentional manual gate. `dev` has no required CI by team decision. |
-| Demo AI provider/model and budget | Unassigned | Before `MVP-12` | VALIDATE-01 (2026-07-21) re-probed the defaults live: `gemini-flash-latest` (annotation) and `gemini-embedding-001` (3,072-dim embeddings) both work end-to-end with graceful error paths. Removed the retired `text-embedding-004` catalog entry (live 404). **Team sign-off still needed on:** (a) keeping the moving `gemini-flash-latest` alias vs. pinning a dated Flash ID for the demo, and (b) provider/retention/approx-cost/budget assumptions. |
-| Watcher behavior in the real demo editor | Watcher owner | Before `MVP-12` | Test actual save, temp-file, and rename behavior on the Windows demo machine. |
-| Native `better-sqlite3` setup on Windows | Foundation/database owners | During `MVP-01` | Verify Electron rebuild and document any required tools. |
-| SkillsBuild completion for every member | Each member | By July 25 | Record completion outside the repository as agreed by the team. |
+## Open decisions
+
+| Decision | Owner | Current state |
+|---|---|---|
+| Team roster in the repository | Team lead | Deliberately left `TBD` in `docs/challenge/CONSTRAINTS.md`. Team details are carried on the BeMyApp submission page instead. |
+| Moving `gemini-flash-latest` alias vs. a pinned Flash ID | Unassigned | Still the moving alias. VALIDATE-01 flagged that Google hot-swaps it with two weeks' notice, so a rehearsed demo could change under us. Shipped as configuration, not code. |
+| Windows and macOS code signing | Unassigned | Not done. Blocks in-place macOS updates, POST-08B signed update policy, and removal of the first-run trust warnings. |
+| Mandatory security updates (POST-08B, POST-08C) | Unassigned | Researched and scoped only. Depends on signing plus independently authenticated policy metadata. |
 
 ## Milestones
 
 | Date | Target | Status |
 |---|---|---|
-| July 18 | Documentation, boundary contracts, implementation plan | On track / substantially complete |
-| July 20 | Team ownership, demo assets, provider/design decisions | Partially complete: assets and design resolved; ownership and final provider approval still missing |
-| July 27 | MVP feature complete | In progress |
-| July 30 | Video, README evidence, SkillsBuild, rehearsal | Not started |
-| July 31 | Public repository and final submission | Not started |
+| July 18 | Documentation, boundary contracts, implementation plan | Complete |
+| July 20 | Demo assets, provider and design decisions | Complete, except the roster, which was intentionally left out of the repository |
+| July 27 | MVP feature complete | Complete |
+| July 30 | Video, README evidence, SkillsBuild, rehearsal | Complete |
+| July 31 | Public repository and final submission | Complete, submitted 2026-07-30 |
+| September 16 | Virtual Conference (winners showcase) | Upcoming |
 
 ## How to update this file
 

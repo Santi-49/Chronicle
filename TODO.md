@@ -70,7 +70,7 @@ via `CLAUDE.md`; other tools such as IBM Bob must be pointed at them explicitly.
 
 ## Phase 0 — Team setup
 
-### [ ] TEAM-01 — Establish the shared Git workflow
+### [x] TEAM-01 — Establish the shared Git workflow
 
 **Owner:** Unassigned  
 **Depends on:** Nothing  
@@ -92,7 +92,13 @@ correct `docs/spec.md` §6.2 if the workflow deviates from it.
 **Done when:** Every member can branch from `dev`, push a feature branch, and target a PR
 back to `dev`. `main` remains the stable submission branch.
 
-### [ ] TEAM-02 — Assign people and compliance work
+> Done: `dev` is the integration branch and `main` the released one, both protected against
+> direct pushes. `feat/`, `fix/`, and `docs/` naming held throughout. Three **Main PR CI** jobs
+> are required for PRs targeting `main`; `dev` has no required CI by team decision. Release
+> Please promotes `dev` through a reviewed version PR, and released `main` is auto-merged back
+> into `dev`.
+
+### [~] TEAM-02 — Assign people and compliance work
 
 **Owner:** Unassigned  
 **Depends on:** Nothing
@@ -110,6 +116,11 @@ back to `dev`. `main` remains the stable submission branch.
 file; stage/blockers in `PROJECT_STATUS.md`.
 
 **Done when:** No critical task or compliance requirement is unowned.
+
+> Compliance is complete: every member finished their IBM SkillsBuild IBM Bob activity before
+> submission. The roster table in `docs/challenge/CONSTRAINTS.md` was deliberately left `TBD`;
+> team details are carried on the BeMyApp submission page instead, so this task stays open by
+> choice rather than by omission.
 
 ## Phase 1 — Desktop foundation
 
@@ -546,7 +557,7 @@ flow three times against the demo fixtures; failures remain asynchronous and rec
 configured IDs match current provider documentation; cost/retention/availability caveats are
 written down; and the team has explicitly approved or replaced both defaults.
 
-### [ ] MVP-12 — End-to-end integration and reliability pass
+### [x] MVP-12 — End-to-end integration and reliability pass
 
 **Owner:** Unassigned  
 **Depends on:** MVP-01 through MVP-11, VALIDATE-01
@@ -570,8 +581,12 @@ tests pass, critical console errors are absent, and known limitations are docume
 > version sources are checked, PR CI is required only for `main`, and guarded auto-merge promotes
 > `dev` plus the generated Release Please metadata PR before creating a tagged GitHub Release with
 > one attached installer build. The automated gate passed three consecutive runs
-> (desktop 138 passed/1 skipped, AI 48 passed, API 41 passed per run). The task remains open until the manual journey record in
-> `docs/mvp-12-acceptance.md` passes three consecutive times on the clean demo machine.
+> (desktop 138 passed/1 skipped, AI 48 passed, API 41 passed per run).
+>
+> **Closed 2026-07-30 with the 1.0.0 release.** The packaged journey was exercised on Windows and
+> macOS through the shipped installers, and the release now carries in-place Windows updating
+> (POST-08A) and macOS update detection. Later work raised the suites well past the figures above;
+> see the current counts in CI rather than this note.
 
 ### [x] DEMO-01 — Create and freeze the demo asset pack
 
@@ -593,9 +608,9 @@ have expected annotation/search outcomes, and are approved by the team for publi
 > and [demo-assets/README.md](demo-assets/README.md) with expected diffs. Full search/restore
 > journey acceptance remains in MVP-12 rather than in the asset-pack task.
 
-### [ ] SUBMIT-01 — Prepare the judged submission
+### [x] SUBMIT-01 — Prepare the judged submission
 
-**Owner:** Unassigned  
+**Owner:** Team (submitted 2026-07-30)  
 **Depends on:** MVP-12, DEMO-01, every member's SkillsBuild activity
 
 **May edit:** `README.md`, `docs/bob-log.md`, demo script/docs, public screenshots/video references.  
@@ -611,6 +626,11 @@ pass over `docs/desktop/overview.md` and `PROJECT_STATUS.md`.
 
 **Done when:** A teammate follows the README on a clean machine, the video is under three minutes,
 all links work publicly, secrets/private files are absent, and submission is completed before the deadline.
+
+> Submitted 2026-07-30, ahead of the 2026-07-31 11:59 PM ET deadline: public repository at
+> `Santi-49/Chronicle` with the 1.0.0 release and both installers, a README covering problem,
+> solution, AI approach, theme, and IBM Bob usage, the demo video, and the IBM SkillsBuild IBM Bob
+> activity completed by all four members.
 
 ### [X] LAND-01 — Build the Chronicle landing page `Stretch`
 
@@ -804,10 +824,9 @@ generated TS types compile; an unsupported format returns a typed error.
 > with the failing field instead of a bare `HTTP 422`; and the service publishes
 > `GET /capabilities` so the app stops assuming what it can annotate.
 >
-> **Still unverified:** no successful *live provider* call has been made since the `format` field
-> landed — the last one predates it, and the 2026-07-23 attempt died on an HTTP 401 credential
-> before inference. Mock-level coverage is complete (73 Python tests). One valid BYOK key closes
-> this and POST-02's PSD acceptance together.
+> **Live acceptance closed.** A valid BYOK credential produced successful provider annotations
+> through the format-aware request, closing this together with POST-02's acceptance. The
+> 2026-07-23 HTTP 401 attempt is superseded.
 
 ### [x] POST-02 — Extend AI annotation to the future creative formats `Post-MVP`
 
@@ -834,7 +853,7 @@ order: PSD/PSB and SVG first, then BLEND, then OBJ and STEP/STP).
 | PNG | [x] | [x] | MVP baseline |
 | JPG / JPEG | [x] | [x] | MVP baseline |
 | SVG | [x] | [x] | Rendered natively; text format, so a structure diff should be cheap |
-| PSD | [x] | [x] | Preview from the embedded thumbnail; live acceptance still blocked on a credential |
+| PSD | [x] | [x] | Preview from the embedded thumbnail; live acceptance closed with a valid credential |
 | PSB | [x] | [x] | Same header and preview path as PSD; the adapter normalizes the version-2 header |
 | OBJ | [x] | [x] | Interactive 3D view; thumbnail is a flat-shaded SVG projection |
 | STEP / STP | [x] | [x] | Tessellated in the renderer (OpenCascade WASM); no still thumbnail |
@@ -899,8 +918,10 @@ order: PSD/PSB and SVG first, then BLEND, then OBJ and STEP/STP).
 > the repository source), and the capability negotiation above makes that stale case *honest* rather
 > than broken — but `make package` must run before the next release.
 >
-> **Still open (unchanged):** no *successful* live provider annotation of the new formats. That
-> needs one valid BYOK key and closes POST-01's and POST-02's live acceptance together.
+> **Closed 2026-07-30.** A valid BYOK credential produced successful live provider annotations,
+> closing POST-01's and POST-02's live acceptance together. The sidecar was rebuilt for the 1.0.0
+> packaging, so the shipped installers report the full eight-format capability rather than the
+> four the stale frozen build advertised.
 
 **May edit:** `services/ai/**` (per-format extractors/preview generators + handlers),
 `packages/contracts/ai/**` only to widen the POST-01 `format` enum, format fixtures and
