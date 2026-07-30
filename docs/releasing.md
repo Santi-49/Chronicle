@@ -23,21 +23,25 @@ desktop test suites before merging.
 
 ## Desktop SemVer policy
 
-Before `1.0.0`:
+The desktop product reached its first stable version, `1.0.0`, on 2026-07-27. From that release
+onward:
 
-- `fix:` increments patch (`0.1.0` → `0.1.1`).
-- `feat:` increments minor (`0.1.1` → `0.2.0`).
-- `feat!`, `fix!`, or a `BREAKING CHANGE:` footer increments minor while the product remains
-  pre-1.0 (`0.2.0` → `0.3.0`).
+- `fix:` increments patch (`1.0.0` → `1.0.1`).
+- `feat:` increments minor (`1.0.1` → `1.1.0`).
+- `feat!`, `fix!`, or a `BREAKING CHANGE:` footer increments major (`1.1.0` → `2.0.0`).
 - `docs:`, `test:`, `ci:`, `chore:`, and `refactor:` do not release unless they contain an
   explicit breaking footer or are manually included in the release PR.
 
-After `1.0.0`, a breaking change increments major. The team deliberately chooses the first
-stable `1.0.0`; automation must not infer product maturity.
+Before `1.0.0`, a breaking change increments minor instead of major, which the
+`bump-minor-pre-major` config option implemented. That option was removed once `1.0.0` shipped
+because it has no effect at or above `1.0.0`; the pre-1.0 history in `apps/desktop/CHANGELOG.md`
+was produced under it.
 
-Release Please reads Conventional Commit history and maintains the version/changelog PR. Its
-`bump-minor-pre-major` setting implements the pre-1.0 breaking policy. The release PR is reviewed
-like any other `main` PR; no workflow writes a version directly onto `main`.
+`1.0.0` itself was pinned deliberately rather than inferred — the team decides when the product is
+stable; automation must not infer product maturity from commit types.
+
+Release Please reads Conventional Commit history and maintains the version/changelog PR. The
+release PR is reviewed like any other `main` PR; no workflow writes a version directly onto `main`.
 
 ## GitHub Actions flow
 
@@ -185,11 +189,29 @@ When no such commit exists, set `release-as` on the `apps/desktop` package in
 `release-please-config.json` instead; it takes precedence over both the footer and conventional
 bumping.
 
-> **Open follow-up — remove `release-as` after `1.0.0` ships.** The config currently pins
-> `release-as: "1.0.0"` so the first stable version is a deliberate team choice rather than an
-> inferred bump. Delete that line in the first `dev` change after the `v1.0.0` release merges.
-> Left in place it re-proposes an already-published version and leaves a release PR that cannot
-> release. `bump-minor-pre-major` becomes inert at `1.0.0` and may be removed at the same time.
+A config `release-as` pin is temporary and belongs to exactly one release cycle. Remove it in the
+first `dev` change **after** its release tag exists — not before the release PR merges, and not
+later. Removing it early returns the next release to ordinary bumping; leaving it in place
+re-proposes an already-published version and produces a release PR that cannot release.
+
+`1.0.0` was cut this way, and its two mistakes are worth avoiding. The pin was deleted while the
+promotion PR was still open, so the release would have been `0.15.0`; and the deletion left a
+trailing comma, which made `release-please-config.json` invalid JSON. Release Please reads that file
+from `main` before it reads any commit, so the run failed with
+`Failed to parse manifest config JSON` and produced no release PR at all. Nothing was lost — the
+merged promotion commit and its `BEGIN_COMMIT_OVERRIDE` body stay authoritative, so restoring valid
+config on `main` let the next run rebuild the correct changelog. Delete whole lines, and validate
+before pushing:
+
+```powershell
+node -e "JSON.parse(require('fs').readFileSync('release-please-config.json'))"
+```
+
+Because `main` is protected, a config-only repair needs its own PR. Branch it from `main` rather
+than `dev`: `auto-merge-main.yml` only acts on heads named `dev` or `release-please--*`, so such a
+PR gets no title gate and no override injection, and a `chore:` title keeps it out of the changelog.
+Do not repair it by re-promoting `dev` — until a release back-sync exists, the override generator
+still starts from the previous back-sync and would submit the same commits a second time.
 
 ## Packaged AI providers
 

@@ -1,0 +1,482 @@
+<!doctype html>
+<!--
+  Chronicle challenge/social banner source, rendered to
+  ../assets/chronicle-banner-1920x600.png at exactly 1920x600.
+
+  Render:  node packages/brand/scripts/render-banner.mjs
+
+  The featured artwork is original poster art drawn here as SVG: one design in
+  three versions (amber, recoloured to teal, then tagline removed and a badge
+  added). It is illustrative banner art rather than a screenshot, but every
+  summary beside it describes a change the picture actually makes, so the banner
+  never claims a change a viewer cannot see.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chronicle banner 1920x600</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* Chronicle / IBM Design Language tokens */
+    --blue-60: #0f62fe;
+    --blue-50: #4589ff;
+    --blue-40: #78a9ff;
+    --blue-30: #a6c8ff;
+    --text-primary: #f4f4f4;
+    --text-secondary: #a8a8a8;
+    --text-tertiary: #6f6f6f;
+    --border: rgba(244, 244, 244, 0.1);
+  }
+
+  html, body { width: 1920px; height: 600px; overflow: hidden; }
+
+  body {
+    position: relative;
+    background: #0c0e11;
+    font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Layer 1: a fine grid, faded so it reads as texture rather than pattern. */
+  .grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(244, 244, 244, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(244, 244, 244, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    -webkit-mask-image: radial-gradient(120% 130% at 78% 30%, #000 0%, rgba(0, 0, 0, 0.35) 45%, transparent 78%);
+            mask-image: radial-gradient(120% 130% at 78% 30%, #000 0%, rgba(0, 0, 0, 0.35) 45%, transparent 78%);
+  }
+
+  /* Layer 2: brand glow behind the timeline card. */
+  .glow {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(760px 540px at 72% 16%, rgba(15, 98, 254, 0.32), transparent 70%),
+      radial-gradient(560px 420px at 97% 94%, rgba(120, 169, 255, 0.13), transparent 72%),
+      radial-gradient(760px 600px at 2% 6%, rgba(0, 67, 206, 0.16), transparent 70%);
+  }
+
+  .stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 800px;
+    align-items: center;
+    gap: 64px;
+    height: 100%;
+    /* Wider side margins keep the composition off the edges when the banner is
+       cropped or letterboxed by the host page. */
+    padding: 0 112px;
+  }
+
+  /* ---------- left: identity and promise ---------- */
+
+  .lockup { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
+  .lockup svg { width: 44px; height: 44px; }
+  .wordmark { font-size: 33px; font-weight: 600; letter-spacing: -0.015em; }
+  .rule { width: 1px; height: 26px; background: var(--border); }
+  .kicker {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--blue-40);
+  }
+
+  h1 {
+    font-size: 70px;
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.028em;
+  }
+  h1 .muted { color: #8d8d8d; }
+
+  .sub {
+    margin-top: 24px;
+    font-size: 24px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+  .sub strong { color: var(--blue-30); font-weight: 500; }
+
+  .formats { display: flex; gap: 9px; margin-top: 34px; }
+  .chip {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(244, 244, 244, 0.035);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: #c6c6c6;
+  }
+
+  .footline {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin-top: 34px;
+    font-size: 15px;
+    color: #8d8d8d;
+  }
+  .footline .site { color: var(--blue-40); font-weight: 500; }
+  .footline .dot { width: 4px; height: 4px; border-radius: 50%; background: #393939; }
+
+  /* ---------- right: the featured design and its history ---------- */
+
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: linear-gradient(160deg, #1c2026 0%, #14171b 58%, #111418 100%);
+    box-shadow: 0 48px 90px -28px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(15, 98, 254, 0.07);
+    padding: 20px;
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 2px 4px 16px;
+    border-bottom: 1px solid rgba(244, 244, 244, 0.07);
+  }
+  .card-head > svg { width: 18px; height: 18px; flex: none; color: #8d8d8d; }
+  .path { font-size: 16px; color: #c6c6c6; }
+  .path b { color: var(--text-primary); font-weight: 600; }
+  .count { margin-left: auto; font-size: 13px; letter-spacing: 0.04em; color: var(--text-tertiary); }
+
+  .body { display: grid; grid-template-columns: 238px 1fr; gap: 20px; padding-top: 16px; }
+
+  /* The featured design: the newest version, shown large enough to be seen. */
+  .feature { position: relative; }
+  .feature .art {
+    display: block;
+    width: 238px;
+    height: 317px;
+    border-radius: 12px;
+    box-shadow: 0 18px 34px -14px rgba(0, 0, 0, 0.85);
+    outline: 1px solid rgba(244, 244, 244, 0.14);
+    outline-offset: -1px;
+  }
+  .feature .live {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    border-radius: 6px;
+    background: rgba(8, 10, 12, 0.7);
+    -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(6px);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #fff;
+  }
+  .feature .live i { width: 6px; height: 6px; border-radius: 50%; background: #42be65; }
+
+  .track { display: flex; flex-direction: column; justify-content: space-between; height: 317px; }
+  .rows { display: flex; flex-direction: column; gap: 6px; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 12px 9px 10px;
+    border-radius: 11px;
+    border-left: 2px solid transparent;
+  }
+  .row.latest { background: rgba(15, 98, 254, 0.14); border-left-color: var(--blue-50); }
+
+  .row .thumb {
+    display: block;
+    width: 46px;
+    height: 61px;
+    flex: none;
+    border-radius: 6px;
+    outline: 1px solid rgba(244, 244, 244, 0.16);
+    outline-offset: -1px;
+  }
+
+  .ver {
+    flex: none;
+    width: 34px;
+    padding: 3px 0;
+    border-radius: 6px;
+    background: rgba(244, 244, 244, 0.08);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    color: #c6c6c6;
+    font-variant-numeric: tabular-nums;
+  }
+  .row.latest .ver { background: var(--blue-60); color: #fff; }
+
+  .copy { min-width: 0; }
+  .summary { font-size: 17px; line-height: 1.35; color: #e8e8e8; }
+  .row.latest .summary { color: #fff; font-weight: 500; }
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+    font-size: 12.5px;
+    color: var(--text-tertiary);
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(120, 169, 255, 0.16);
+    color: var(--blue-30);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  .tag svg { width: 11px; height: 11px; }
+
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 15px;
+    border: 1px solid rgba(244, 244, 244, 0.12);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.28);
+    font-size: 16px;
+    color: #c6c6c6;
+  }
+  .search > svg { width: 17px; height: 17px; color: var(--blue-40); flex: none; }
+  .search .caret { width: 2px; height: 18px; margin-left: 2px; background: var(--blue-50); }
+  .search .hit { margin-left: auto; font-size: 12.5px; color: var(--text-tertiary); }
+
+  .sprite { position: absolute; width: 0; height: 0; }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="glow"></div>
+
+  <!--
+    Featured artwork, one composition in three versions:
+      v1  amber palette, tagline present
+      v2  recoloured to teal, tagline still present
+      v3  tagline removed, NEW SEASON badge added
+    Drawn as symbols so the large feature and its thumbnail share one
+    definition instead of duplicating the art.
+  -->
+  <svg class="sprite" aria-hidden="true">
+    <defs>
+      <symbol id="art-v1" viewBox="0 0 300 400">
+        <linearGradient id="sky1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1c0d05" />
+          <stop offset="0.4" stop-color="#7c2d12" />
+          <stop offset="0.72" stop-color="#f97316" />
+          <stop offset="1" stop-color="#fcd34d" />
+        </linearGradient>
+        <radialGradient id="sun1" cx="0.5" cy="0.4" r="0.62">
+          <stop offset="0" stop-color="#fffbeb" />
+          <stop offset="0.55" stop-color="#fcd34d" />
+          <stop offset="1" stop-color="#fb7185" />
+        </radialGradient>
+        <rect width="300" height="400" fill="url(#sky1)" />
+        <circle cx="150" cy="176" r="86" fill="url(#sun1)" opacity="0.22" />
+        <circle cx="150" cy="176" r="66" fill="url(#sun1)" />
+        <g fill="#1c0d05" opacity="0.72">
+          <rect x="70" y="200" width="160" height="6" />
+          <rect x="70" y="215" width="160" height="8" />
+          <rect x="70" y="233" width="160" height="11" />
+        </g>
+        <path d="M0 268 96 194l76 74z" fill="#43200e" />
+        <path d="M110 268 198 208l102 60z" fill="#2a1208" />
+        <rect y="266" width="300" height="134" fill="#170903" />
+        <g fill="#fff7ed" font-family="'Segoe UI',system-ui,sans-serif">
+          <text x="26" y="322" font-size="37" font-weight="700" letter-spacing="1.2">NOCTURNE</text>
+          <text x="27" y="345" font-size="12.5" font-weight="600" letter-spacing="3.6" opacity="0.7">VOL. 03 · LIVE SET</text>
+          <text x="27" y="374" font-size="14" font-weight="500" letter-spacing="0.4" opacity="0.9">Sounds after dark</text>
+        </g>
+      </symbol>
+
+      <symbol id="art-v2" viewBox="0 0 300 400">
+        <linearGradient id="sky2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#03121a" />
+          <stop offset="0.4" stop-color="#0b4f5c" />
+          <stop offset="0.72" stop-color="#14b8a6" />
+          <stop offset="1" stop-color="#67e8f9" />
+        </linearGradient>
+        <radialGradient id="sun2" cx="0.5" cy="0.4" r="0.62">
+          <stop offset="0" stop-color="#f0fdfa" />
+          <stop offset="0.55" stop-color="#5eead4" />
+          <stop offset="1" stop-color="#2563eb" />
+        </radialGradient>
+        <rect width="300" height="400" fill="url(#sky2)" />
+        <circle cx="150" cy="176" r="86" fill="url(#sun2)" opacity="0.22" />
+        <circle cx="150" cy="176" r="66" fill="url(#sun2)" />
+        <g fill="#03121a" opacity="0.72">
+          <rect x="70" y="200" width="160" height="6" />
+          <rect x="70" y="215" width="160" height="8" />
+          <rect x="70" y="233" width="160" height="11" />
+        </g>
+        <path d="M0 268 96 194l76 74z" fill="#0a4250" />
+        <path d="M110 268 198 208l102 60z" fill="#052a33" />
+        <rect y="266" width="300" height="134" fill="#02161d" />
+        <g fill="#ecfeff" font-family="'Segoe UI',system-ui,sans-serif">
+          <text x="26" y="322" font-size="37" font-weight="700" letter-spacing="1.2">NOCTURNE</text>
+          <text x="27" y="345" font-size="12.5" font-weight="600" letter-spacing="3.6" opacity="0.7">VOL. 03 · LIVE SET</text>
+          <text x="27" y="374" font-size="14" font-weight="500" letter-spacing="0.4" opacity="0.9">Sounds after dark</text>
+        </g>
+      </symbol>
+
+      <symbol id="art-v3" viewBox="0 0 300 400">
+        <linearGradient id="sky3" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#03121a" />
+          <stop offset="0.4" stop-color="#0b4f5c" />
+          <stop offset="0.72" stop-color="#14b8a6" />
+          <stop offset="1" stop-color="#67e8f9" />
+        </linearGradient>
+        <radialGradient id="sun3" cx="0.5" cy="0.4" r="0.62">
+          <stop offset="0" stop-color="#f0fdfa" />
+          <stop offset="0.55" stop-color="#5eead4" />
+          <stop offset="1" stop-color="#2563eb" />
+        </radialGradient>
+        <rect width="300" height="400" fill="url(#sky3)" />
+        <circle cx="150" cy="176" r="86" fill="url(#sun3)" opacity="0.22" />
+        <circle cx="150" cy="176" r="66" fill="url(#sun3)" />
+        <g fill="#03121a" opacity="0.72">
+          <rect x="70" y="200" width="160" height="6" />
+          <rect x="70" y="215" width="160" height="8" />
+          <rect x="70" y="233" width="160" height="11" />
+        </g>
+        <path d="M0 268 96 194l76 74z" fill="#0a4250" />
+        <path d="M110 268 198 208l102 60z" fill="#052a33" />
+        <rect y="266" width="300" height="134" fill="#02161d" />
+        <!-- v3 addition: the season badge -->
+        <g transform="rotate(-9 238 64)">
+          <circle cx="238" cy="64" r="36" fill="#fb7185" />
+          <circle cx="238" cy="64" r="36" fill="none" stroke="#fff1f2" stroke-opacity="0.6" stroke-width="1.5" stroke-dasharray="3 4" />
+          <text x="238" y="61" text-anchor="middle" fill="#fff" font-family="'Segoe UI',system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="0.4">NEW</text>
+          <text x="238" y="78" text-anchor="middle" fill="#fff" font-family="'Segoe UI',system-ui,sans-serif" font-size="10" font-weight="600" letter-spacing="1.3">SEASON</text>
+        </g>
+        <!-- v3 removal: the "Sounds after dark" line is gone, so the block sits lower -->
+        <g fill="#ecfeff" font-family="'Segoe UI',system-ui,sans-serif">
+          <text x="26" y="336" font-size="37" font-weight="700" letter-spacing="1.2">NOCTURNE</text>
+          <text x="27" y="359" font-size="12.5" font-weight="600" letter-spacing="3.6" opacity="0.7">VOL. 03 · LIVE SET</text>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <main class="stage">
+    <section>
+      <div class="lockup">
+        <!-- packages/brand/assets/chronicle-mark-dark.svg -->
+        <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/>
+          <path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/>
+          <circle cx="38" cy="12" r="6" fill="#a6c8ff"/>
+          <circle cx="39" cy="39" r="5" fill="#78a9ff"/>
+        </svg>
+        <span class="wordmark">Chronicle</span>
+        <span class="rule"></span>
+        <span class="kicker">Version control for creative work</span>
+      </div>
+
+      <h1>Know what changed.<br /><span class="muted">Find any version.</span></h1>
+
+      <p class="sub">
+        Every save becomes a version, automatically.<br />
+        <strong>AI writes the commit message</strong> your design files never had.
+      </p>
+
+      <div class="formats">
+        <span class="chip">PNG</span>
+        <span class="chip">JPG</span>
+        <span class="chip">SVG</span>
+        <span class="chip">PSD</span>
+        <span class="chip">PSB</span>
+        <span class="chip">OBJ</span>
+        <span class="chip">STEP</span>
+        <span class="chip">BLEND</span>
+      </div>
+
+      <div class="footline">
+        <span>Local-first desktop app</span><span class="dot"></span>
+        <span>Model-agnostic via LangChain</span><span class="dot"></span>
+        <span>Built with IBM Bob</span><span class="dot"></span>
+        <span class="site">chronicle.quick2query.com</span>
+      </div>
+    </section>
+
+    <aside class="card">
+      <div class="card-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
+        </svg>
+        <span class="path">Nocturne&nbsp;/&nbsp;<b>poster.psd</b></span>
+        <span class="count">3 versions · 1200 × 1600</span>
+      </div>
+
+      <div class="body">
+        <div class="feature">
+          <svg class="art" viewBox="0 0 300 400" role="img" aria-label="Teal gig poster reading NOCTURNE with a NEW SEASON badge">
+            <use href="#art-v3" />
+          </svg>
+          <span class="live"><i></i>v3 · latest</span>
+        </div>
+
+        <div class="track">
+          <div class="rows">
+            <div class="row latest">
+              <svg class="thumb" viewBox="0 0 300 400" aria-hidden="true"><use href="#art-v3" /></svg>
+              <span class="ver">v3</span>
+              <div class="copy">
+                <div class="summary">Tagline “Sounds after dark” removed; NEW SEASON badge added.</div>
+                <div class="meta">
+                  <span class="tag">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5 13.9 11.4 12 17l-1.9-5.6L4.5 9.5l5.6-1.9L12 2Z"/></svg>
+                    AI summary
+                  </span>
+                  <span>just now</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <svg class="thumb" viewBox="0 0 300 400" aria-hidden="true"><use href="#art-v2" /></svg>
+              <span class="ver">v2</span>
+              <div class="copy">
+                <div class="summary">Palette recolored from amber to deep teal.</div>
+                <div class="meta"><span>yesterday, 16:04</span></div>
+              </div>
+            </div>
+
+            <div class="row">
+              <svg class="thumb" viewBox="0 0 300 400" aria-hidden="true"><use href="#art-v1" /></svg>
+              <span class="ver">v1</span>
+              <div class="copy">
+                <div class="summary">First version: amber gig poster with the tagline.</div>
+                <div class="meta"><span>Monday, 09:12</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/><path d="m20 20-4.3-4.3"/>
+            </svg>
+            <span>the poster before the badge</span><span class="caret"></span>
+            <span class="hit">→ v2</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</body>
+</html>

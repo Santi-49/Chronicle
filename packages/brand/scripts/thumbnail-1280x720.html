@@ -1,0 +1,364 @@
+<!doctype html>
+<!--
+  Chronicle YouTube thumbnail source, rendered to
+  ../assets/chronicle-youtube-thumbnail-1280x720.png at exactly 1280x720.
+
+  Render:  node packages/brand/scripts/render-thumbnail.mjs
+
+  Design constraints this composition is built around:
+
+  1. The primary read has to survive ~210px wide (the YouTube sidebar), which is
+     roughly one sixth scale. So exactly one element is huge: the struck-out
+     filename. Everything else is deliberately secondary and only pays off at
+     full size on the watch page and the submission page.
+  2. The bottom-right corner stays empty because YouTube overlays the duration
+     badge there.
+  3. No radial glow washes. The banner uses them behind its card; at thumbnail
+     scale they turn into grey haze and read as generic AI-landing-page filler.
+     The depth here comes from hard shadows, real rotation and overlap instead.
+
+  The featured artwork reuses the banner's poster art: one design in three
+  versions (amber, recoloured to teal, then tagline removed and a badge added).
+  It is illustrative art rather than a screenshot, and the summary beside it
+  describes only changes the two visible posters actually make.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chronicle YouTube thumbnail 1280x720</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* Chronicle / IBM Design Language tokens, same set as the banner. */
+    --blue-60: #0f62fe;
+    --blue-50: #4589ff;
+    --blue-40: #78a9ff;
+    --blue-30: #a6c8ff;
+    --text-primary: #f4f4f4;
+    --text-secondary: #a8a8a8;
+    --text-tertiary: #6f6f6f;
+    --border: rgba(244, 244, 244, 0.1);
+    --mono: "Cascadia Mono", Consolas, "Courier New", ui-monospace, monospace;
+  }
+
+  html, body { width: 1280px; height: 720px; overflow: hidden; }
+
+  body {
+    position: relative;
+    background: #0b0d10;
+    font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Fine grid, faded to texture. Fades out to the right so it never competes
+     with the poster stack. */
+  .grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(244, 244, 244, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(244, 244, 244, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    -webkit-mask-image: linear-gradient(105deg, #000 0%, rgba(0, 0, 0, 0.5) 46%, transparent 72%);
+            mask-image: linear-gradient(105deg, #000 0%, rgba(0, 0, 0, 0.5) 46%, transparent 72%);
+  }
+
+  .stage {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100%;
+    padding: 52px 56px 46px 62px;
+  }
+
+  /* ---------- header: identity ---------- */
+
+  .lockup { display: flex; align-items: center; gap: 15px; }
+  .lockup > svg { width: 38px; height: 38px; flex: none; }
+  .wordmark { font-size: 31px; font-weight: 600; letter-spacing: -0.015em; }
+  .rule { width: 1px; height: 24px; background: var(--border); }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--blue-40);
+  }
+
+  /* ---------- middle: the claim, and the proof ---------- */
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr 470px;
+    align-items: center;
+    gap: 36px;
+  }
+
+  /* The one element that must read at sidebar size. */
+  .headline {
+    display: block;
+    font-family: var(--mono);
+    font-size: 110px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.045em;
+    white-space: nowrap;
+  }
+  .headline .stem { position: relative; }
+  .headline i { font-style: normal; font-size: 55px; color: var(--text-tertiary); letter-spacing: -0.02em; }
+  /* Drawn as a bar rather than text-decoration: a deliberate marker stroke,
+     overhanging both ends, is an editorial gesture instead of a default. It is
+     scoped to the name and stops at the extension, so the struck-out thing is
+     the fake version number rather than the file itself. */
+  .headline .strike {
+    position: absolute;
+    top: 46%;
+    left: -16px;
+    right: -8px;
+    height: 11px;
+    background: var(--blue-60);
+    transform: rotate(-1.6deg);
+  }
+
+  /* The chaos that surrounds it, as texture: dimmer, struck, and real-looking. */
+  .clutter { margin-top: 22px; display: flex; flex-direction: column; gap: 9px; }
+  .clutter span {
+    position: relative;
+    align-self: flex-start;
+    font-family: var(--mono);
+    font-size: 25px;
+    letter-spacing: -0.02em;
+    color: #4d5358;
+  }
+  .clutter span::after {
+    content: "";
+    position: absolute;
+    top: 52%;
+    left: -4px;
+    right: -4px;
+    height: 2px;
+    background: #3a3f44;
+  }
+
+  .divider { margin: 32px 0 26px; width: 178px; height: 1px; background: var(--border); }
+
+  /* The payoff: what the app writes for you. Everything in this column shares
+     one left margin, so the label sits above the sentence rather than beside it;
+     a badge indented the sentence and broke the alignment with the headline. */
+  .summary .text { font-size: 35px; font-weight: 500; line-height: 1.26; letter-spacing: -0.015em; }
+  .summary .label {
+    display: block;
+    margin-bottom: 10px;
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    color: var(--blue-40);
+  }
+
+  /* ---------- right: two versions of one design, as physical prints ---------- */
+
+  .stack { position: relative; height: 476px; }
+
+  .print { position: absolute; border-radius: 4px; }
+  .print .art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    outline: 1px solid rgba(244, 244, 244, 0.16);
+    outline-offset: -1px;
+  }
+  /* Top-left, so the badge never lands on the artwork's own type or on the
+     print in front of it. */
+  .print .tag {
+    position: absolute;
+    top: 11px;
+    left: 11px;
+    padding: 4px 9px;
+    border-radius: 5px;
+    background: rgba(8, 10, 12, 0.78);
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #fff;
+  }
+
+  /* Behind: the older version, rotated away and dimmed so the eye lands on the
+     newer one first. */
+  .print.before {
+    top: 6px;
+    left: 0;
+    width: 264px;
+    height: 352px;
+    transform: rotate(-6.5deg);
+    filter: brightness(0.66);
+    box-shadow: 0 26px 44px -20px rgba(0, 0, 0, 0.95);
+  }
+  .print.after {
+    top: 96px;
+    left: 168px;
+    width: 300px;
+    height: 400px;
+    transform: rotate(3deg);
+    box-shadow: 0 42px 70px -26px rgba(0, 0, 0, 0.95);
+  }
+  .print.after .tag { background: var(--blue-60); }
+
+  /* ---------- footer ---------- */
+
+  .foot {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: var(--mono);
+    font-size: 17px;
+    color: #6f6f6f;
+  }
+  .foot .site { color: var(--blue-40); }
+  .foot .dot { width: 4px; height: 4px; border-radius: 50%; background: #393939; }
+
+  .sprite { position: absolute; width: 0; height: 0; }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="edge"></div>
+
+  <!--
+    Poster artwork shared with banner-1920x600.html:
+      v1  amber palette, tagline present
+      v3  recoloured to teal, tagline removed, NEW SEASON badge added
+    Only the two versions this composition shows are defined here.
+  -->
+  <svg class="sprite" aria-hidden="true">
+    <defs>
+      <symbol id="art-v1" viewBox="0 0 300 400">
+        <linearGradient id="sky1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1c0d05" />
+          <stop offset="0.4" stop-color="#7c2d12" />
+          <stop offset="0.72" stop-color="#f97316" />
+          <stop offset="1" stop-color="#fcd34d" />
+        </linearGradient>
+        <radialGradient id="sun1" cx="0.5" cy="0.4" r="0.62">
+          <stop offset="0" stop-color="#fffbeb" />
+          <stop offset="0.55" stop-color="#fcd34d" />
+          <stop offset="1" stop-color="#fb7185" />
+        </radialGradient>
+        <rect width="300" height="400" fill="url(#sky1)" />
+        <circle cx="150" cy="176" r="86" fill="url(#sun1)" opacity="0.22" />
+        <circle cx="150" cy="176" r="66" fill="url(#sun1)" />
+        <g fill="#1c0d05" opacity="0.72">
+          <rect x="70" y="200" width="160" height="6" />
+          <rect x="70" y="215" width="160" height="8" />
+          <rect x="70" y="233" width="160" height="11" />
+        </g>
+        <path d="M0 268 96 194l76 74z" fill="#43200e" />
+        <path d="M110 268 198 208l102 60z" fill="#2a1208" />
+        <rect y="266" width="300" height="134" fill="#170903" />
+        <g fill="#fff7ed" font-family="'Segoe UI',system-ui,sans-serif">
+          <text x="26" y="322" font-size="37" font-weight="700" letter-spacing="1.2">NOCTURNE</text>
+          <text x="27" y="345" font-size="12.5" font-weight="600" letter-spacing="3.6" opacity="0.7">VOL. 03 · LIVE SET</text>
+          <text x="27" y="374" font-size="14" font-weight="500" letter-spacing="0.4" opacity="0.9">Sounds after dark</text>
+        </g>
+      </symbol>
+
+      <symbol id="art-v3" viewBox="0 0 300 400">
+        <linearGradient id="sky3" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#03121a" />
+          <stop offset="0.4" stop-color="#0b4f5c" />
+          <stop offset="0.72" stop-color="#14b8a6" />
+          <stop offset="1" stop-color="#67e8f9" />
+        </linearGradient>
+        <radialGradient id="sun3" cx="0.5" cy="0.4" r="0.62">
+          <stop offset="0" stop-color="#f0fdfa" />
+          <stop offset="0.55" stop-color="#5eead4" />
+          <stop offset="1" stop-color="#2563eb" />
+        </radialGradient>
+        <rect width="300" height="400" fill="url(#sky3)" />
+        <circle cx="150" cy="176" r="86" fill="url(#sun3)" opacity="0.22" />
+        <circle cx="150" cy="176" r="66" fill="url(#sun3)" />
+        <g fill="#03121a" opacity="0.72">
+          <rect x="70" y="200" width="160" height="6" />
+          <rect x="70" y="215" width="160" height="8" />
+          <rect x="70" y="233" width="160" height="11" />
+        </g>
+        <path d="M0 268 96 194l76 74z" fill="#0a4250" />
+        <path d="M110 268 198 208l102 60z" fill="#052a33" />
+        <rect y="266" width="300" height="134" fill="#02161d" />
+        <g transform="rotate(-9 238 64)">
+          <circle cx="238" cy="64" r="36" fill="#fb7185" />
+          <circle cx="238" cy="64" r="36" fill="none" stroke="#fff1f2" stroke-opacity="0.6" stroke-width="1.5" stroke-dasharray="3 4" />
+          <text x="238" y="61" text-anchor="middle" fill="#fff" font-family="'Segoe UI',system-ui,sans-serif" font-size="16" font-weight="700" letter-spacing="0.4">NEW</text>
+          <text x="238" y="78" text-anchor="middle" fill="#fff" font-family="'Segoe UI',system-ui,sans-serif" font-size="10" font-weight="600" letter-spacing="1.3">SEASON</text>
+        </g>
+        <g fill="#ecfeff" font-family="'Segoe UI',system-ui,sans-serif">
+          <text x="26" y="336" font-size="37" font-weight="700" letter-spacing="1.2">NOCTURNE</text>
+          <text x="27" y="359" font-size="12.5" font-weight="600" letter-spacing="3.6" opacity="0.7">VOL. 03 · LIVE SET</text>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <main class="stage">
+    <header class="lockup">
+      <!-- packages/brand/assets/chronicle-mark-dark.svg -->
+      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <path d="M38 12H19C11.8 12 8 16 8 22s3.8 10 11 10h12c5.5 0 8 2.7 8 7" stroke="#0f62fe" stroke-width="8" stroke-linecap="round"/>
+        <path d="M38 12H19c-4.4 0-7.5 1.5-9.2 4.2" stroke="#78a9ff" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="38" cy="12" r="6" fill="#a6c8ff"/>
+        <circle cx="39" cy="39" r="5" fill="#78a9ff"/>
+      </svg>
+      <span class="wordmark">Chronicle</span>
+      <span class="rule"></span>
+      <span class="kicker">Version control for creative work</span>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="headline">
+          <span class="stem">final_v8<span class="strike"></span></span><i>.png</i>
+        </div>
+
+        <div class="clutter">
+          <span>final_v8 FINAL.png</span>
+          <span>poster_final_approved_v2.png</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="summary">
+          <span class="text">
+            <span class="label">AI summary</span>
+            Recolored to teal,<br />tagline removed.
+          </span>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="print before">
+          <svg class="art" viewBox="0 0 300 400" aria-hidden="true"><use href="#art-v1" /></svg>
+          <span class="tag">v1</span>
+        </div>
+        <div class="print after">
+          <svg class="art" viewBox="0 0 300 400" role="img" aria-label="Teal gig poster reading NOCTURNE with a NEW SEASON badge"><use href="#art-v3" /></svg>
+          <span class="tag">v3</span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span class="site">chronicle.quick2query.com</span>
+      <span class="dot"></span>
+      <span>Local-first desktop app</span>
+      <span class="dot"></span>
+      <span>Built with IBM Bob</span>
+    </footer>
+  </main>
+</body>
+</html>
